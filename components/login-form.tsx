@@ -29,14 +29,19 @@ export function LoginForm() {
       localStorage.setItem("manv", res.manv)
       localStorage.setItem("hoten", res.hoten)
 
-      // 👉 Redirect sang trang LandingPage
-      router.push("/")
+      // 👉 Kiểm tra nếu là admin thì chuyển đến dashboard
+      if (res.chucvu === "admin") {
+        router.push("/admin")   // trang Dashboard Admin
+      } else {
+        router.push("/")        // trang LandingPage bình thường
+      }
     } catch (err: any) {
       setMessage(err.message || "Đăng nhập thất bại")
     } finally {
       setLoading(false)
     }
   }
+
 
   return (
     <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-2xl p-8 shadow-2xl">
