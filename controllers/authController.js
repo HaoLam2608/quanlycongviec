@@ -3,8 +3,16 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 // Secret key cho JWT
-const JWT_SECRET = 'secret123'; // 👉 Thực tế nên để trong .env
+const JWT_SECRET = process.env.SECRET_KEY;
+const REFRESH_SECRET = "refresh123"; // nên để trong .env
 
+// Tạo token
+function generateAccessToken(user) {
+    return jwt.sign({ id: user.id, manv: user.manv }, JWT_SECRET, { expiresIn: "15m" });
+}
+function generateRefreshToken(user) {
+    return jwt.sign({ id: user.id, manv: user.manv }, REFRESH_SECRET, { expiresIn: "7d" });
+}
 // Đăng ký
 exports.register = async (req, res) => {
     try {
@@ -35,31 +43,49 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
     try {
         const { manv, password } = req.body;
-
         const user = await User.findOne({ where: { manv } });
-        if (!user) return res.status(400).json({ message: 'Sai tài khoản hoặc mật khẩu' });
+        if (!user) return res.status(400).json({ message: "Sai tài khoản hoặc mật khẩu" });
 
+        const bcrypt = require("bcryptjs");
         const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(400).json({ message: 'Sai tài khoản hoặc mật khẩu' });
+        if (!isMatch) return res.status(400).json({ message: "Sai tài khoản hoặc mật khẩu" });
 
-        // Tạo token
-        const token = jwt.sign(
-            { id: user.id, manv: user.manv },
-            JWT_SECRET,
-            { expiresIn: '1h' }
-        );
+        const accessToken = generateAccessToken(user);
+        const refreshToken = generateRefreshToken(user);
 
-        // Lưu token vào DB
-        await user.update({ token });
+        // Lưu refresh token vào DB hoặc bộ nhớ (tùy bạn)
+        await user.update({ token: refreshToken });
 
         return res.json({
-            message: 'Đăng nhập thành công',
-            token,
+            message: "Đăng nhập thành công",
+            accessToken,
+            refreshToken,
             manv: user.manv,
             hoten: user.hoten
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
+    }
+};
+exports.refreshToken = async (req, res) => {
+    const { refreshToken } = req.body;
+    if (!refreshToken) return res.status(401).json({ message: "Thiếu refresh token" });
+
+    try {
+        // Xác minh refresh token
+        const decoded = jwt.verify(refreshToken, REFRESH_SECRET);
+
+        const user = await User.findByPk(decoded.id);
+        if (!user || user.token !== refreshToken) {
+            return res.status(403).json({ message: "Refresh token không hợp lệ" });
+        }
+
+        // Cấp access token mới
+        const newAccessToken = generateAccessToken(user);
+
+        res.json({ accessToken: newAccessToken });
+    } catch (err) {
+        res.status(403).json({ message: "Refresh token hết hạn hoặc sai" });
     }
 };
 
