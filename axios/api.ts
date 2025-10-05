@@ -80,7 +80,7 @@ export const createProject = async (data: {
 };
 export const fetchUsers = async () => {
   try {
-    const res = await api.get("/users/getAllUser"); // backend GET /users
+    const res = await api.get("/users"); // backend GET /users
     return res.data;
   } catch (err: any) {
     throw err.response?.data || { message: "Không thể lấy danh sách user" };

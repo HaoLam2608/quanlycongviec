@@ -172,7 +172,7 @@ export default function ProjectsPage() {
                             required
                         >
                             <option value="">-- Chọn người đảm nhận --</option>
-                            {users.map((u: any) => (
+                            {Array.isArray(users) && users.map((u: any) => (
                                 <option key={u.id} value={u.id}>
                                     {u.hoten} ({u.manv})
                                 </option>
