@@ -5,7 +5,7 @@ const router = express.Router();
 const userController = require('../controllers/userController');
 
 // Routes cho user management
-router.get("/", authenticateToken, checkPermission('users', 'read'), userController.getAllUsers);
+router.get("/", authenticateToken, userController.getAllUsers);
 router.get("/stats", authenticateToken, checkPermission('users', 'read'), userController.getDashboardStats);
 router.get("/:id", authenticateToken, checkPermission('users', 'read'), userController.getUserById);
 router.post("/", authenticateToken, checkPermission('users', 'create'), userController.createUser);
