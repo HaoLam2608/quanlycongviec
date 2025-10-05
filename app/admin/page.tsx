@@ -1,38 +1,42 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Users, Shield, FolderKanban, TrendingUp, Activity, Clock } from "lucide-react"
+import { getDashboardStats } from "@/axios/adminApi"
 
 export default function AdminDashboard() {
-    const stats = [
+    const [stats, setStats] = useState([
         {
             title: "Tổng người dùng",
-            value: "2,543",
-            change: "+12.5%",
+            value: "0",
+            change: "0%",
             icon: Users,
             color: "from-blue-500 to-indigo-600",
         },
         {
-            title: "Dự án đang chạy",
-            value: "48",
-            change: "+8.2%",
-            icon: FolderKanban,
+            title: "Admin",
+            value: "0",
+            change: "0%",
+            icon: Shield,
             color: "from-purple-500 to-pink-600",
         },
         {
-            title: "Vai trò",
-            value: "12",
-            change: "+2",
-            icon: Shield,
+            title: "Manager",
+            value: "0",
+            change: "0%",
+            icon: FolderKanban,
             color: "from-orange-500 to-red-600",
         },
         {
-            title: "Hoạt động",
-            value: "1,234",
-            change: "+23.1%",
+            title: "User",
+            value: "0",
+            change: "0%",
             icon: Activity,
             color: "from-green-500 to-emerald-600",
         },
-    ]
+    ])
+    
+    const [loading, setLoading] = useState(true)
 
     const recentActivities = [
         {
@@ -55,6 +59,52 @@ export default function AdminDashboard() {
         },
     ]
 
+    useEffect(() => {
+        loadStats()
+    }, [])
+
+    const loadStats = async () => {
+        setLoading(true)
+        try {
+            const data = await getDashboardStats()
+            
+            setStats([
+                {
+                    title: "Tổng người dùng",
+                    value: data.totalUsers.toString(),
+                    change: "+12.5%",
+                    icon: Users,
+                    color: "from-blue-500 to-indigo-600",
+                },
+                {
+                    title: "Admin",
+                    value: data.adminCount.toString(),
+                    change: "+8.2%",
+                    icon: Shield,
+                    color: "from-purple-500 to-pink-600",
+                },
+                {
+                    title: "Manager",
+                    value: data.managerCount.toString(),
+                    change: "+2",
+                    icon: FolderKanban,
+                    color: "from-orange-500 to-red-600",
+                },
+                {
+                    title: "User",
+                    value: data.userCount.toString(),
+                    change: "+23.1%",
+                    icon: Activity,
+                    color: "from-green-500 to-emerald-600",
+                },
+            ])
+        } catch (error: any) {
+            console.error('Load stats error:', error)
+        } finally {
+            setLoading(false)
+        }
+    }
+
     return (
         <div className="space-y-8">
             {/* Header */}
@@ -65,31 +115,49 @@ export default function AdminDashboard() {
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {stats.map((stat, index) => {
-                    const Icon = stat.icon
-                    return (
+                {loading ? (
+                    Array.from({ length: 4 }).map((_, index) => (
                         <div
                             key={index}
-                            className="relative group overflow-hidden bg-card border border-border rounded-2xl p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 shadow-sm"
+                            className="bg-card border border-border rounded-2xl p-6 shadow-sm animate-pulse"
                         >
                             <div className="flex items-start justify-between mb-4">
-                                <div
-                                    className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center shadow-md shadow-blue-500/20`}
-                                >
-                                    <Icon className="w-6 h-6 text-white" />
-                                </div>
-                                <div className="flex items-center gap-1 text-green-600 text-sm font-medium">
-                                    <TrendingUp size={16} />
-                                    {stat.change}
-                                </div>
+                                <div className="w-12 h-12 rounded-xl bg-secondary"></div>
+                                <div className="w-16 h-4 bg-secondary rounded"></div>
                             </div>
                             <div>
-                                <p className="text-muted-foreground text-sm mb-1">{stat.title}</p>
-                                <p className="text-3xl font-bold text-foreground">{stat.value}</p>
+                                <div className="w-24 h-3 bg-secondary rounded mb-2"></div>
+                                <div className="w-16 h-8 bg-secondary rounded"></div>
                             </div>
                         </div>
-                    )
-                })}
+                    ))
+                ) : (
+                    stats.map((stat, index) => {
+                        const Icon = stat.icon
+                        return (
+                            <div
+                                key={index}
+                                className="relative group overflow-hidden bg-card border border-border rounded-2xl p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 shadow-sm"
+                            >
+                                <div className="flex items-start justify-between mb-4">
+                                    <div
+                                        className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center shadow-md shadow-blue-500/20`}
+                                    >
+                                        <Icon className="w-6 h-6 text-white" />
+                                    </div>
+                                    <div className="flex items-center gap-1 text-green-600 text-sm font-medium">
+                                        <TrendingUp size={16} />
+                                        {stat.change}
+                                    </div>
+                                </div>
+                                <div>
+                                    <p className="text-muted-foreground text-sm mb-1">{stat.title}</p>
+                                    <p className="text-3xl font-bold text-foreground">{stat.value}</p>
+                                </div>
+                            </div>
+                        )
+                    })
+                )}
             </div>
 
             {/* Recent Activities */}

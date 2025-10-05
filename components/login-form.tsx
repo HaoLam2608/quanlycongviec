@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,14 +30,14 @@ export function LoginForm() {
       localStorage.setItem("hoten", res.hoten)
 
       // 👉 Kiểm tra nếu là admin thì chuyển đến dashboard
-      if (res.chucvu === "admin") {
+      if (res.role === "admin") {
         router.push("/admin")   // trang Dashboard Admin
       } else {
         router.push("/")        // trang LandingPage bình thường
       }
     } catch (err: any) {
       setMessage(err.message || "Đăng nhập thất bại")
-    } finally {
+    } finally { 
       setLoading(false)
     }
   }
