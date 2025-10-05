@@ -14,6 +14,7 @@ app.use(bodyParser.json());
 // routes...
 app.use('/auth', require('./routes/authRoutes'));
 app.use('/duan', duanRoutes);
+app.use('/users', require('./routes/userRoutes'));
 app.listen(PORT, () => {
     console.log(`🚀 Server running at http://localhost:${PORT}`);
 });

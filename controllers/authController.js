@@ -43,6 +43,16 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
     try {
         const { manv, password } = req.body;
+
+        const user = await User.findOne({ where: { manv } ,include : [{
+            model : Role,
+            as : 'role',
+            include : [{
+                model : Permission,
+                as : 'permissions'
+            }]
+        }] });
+        if (!user) return res.status(400).json({ message: 'Sai tài khoản hoặc mật khẩu' });
         const user = await User.findOne({ where: { manv } });
         if (!user) return res.status(400).json({ message: "Sai tài khoản hoặc mật khẩu" });
 
@@ -60,8 +70,14 @@ exports.login = async (req, res) => {
             message: "Đăng nhập thành công",
             accessToken,
             refreshToken,
-            manv: user.manv,
-            hoten: user.hoten
+            user: {
+                id: user.id,
+                manv: user.manv,
+                hoten: user.hoten,
+                chucvu: user.chucvu,
+                role: user.role,
+                permissions: user.role?.permissions || []
+            }
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -89,3 +105,38 @@ exports.refreshToken = async (req, res) => {
     }
 };
 
+exports.createUser = async (req, res) => {
+  try {
+    const { manv, password, hoten, chucvu, sdt, roleId } = req.body;
+
+    const hashedPassword = bcrypt.hashSync(password, 10);
+
+    const user = await User.create({
+      manv,
+      password: hashedPassword,
+      hoten,
+      chucvu,
+      sdt,
+      roleId
+    });
+
+    const userWithRole = await User.findByPk(user.id, {
+      include: [{ model: Role, as: 'role' }]
+    });
+
+    res.status(201).json({
+      message: 'User created successfully',
+      user: {
+        id: userWithRole.id,
+        manv: userWithRole.manv,
+        hoten: userWithRole.hoten,
+        chucvu: userWithRole.chucvu,
+        sdt: userWithRole.sdt,
+        role: userWithRole.role
+      }
+    });
+  } catch (error) {
+    console.error('Create user error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
