@@ -1,13 +1,233 @@
-const { User } = require('../models');
+const { User, Role, Permission } = require('../models');
+const { Op } = require('sequelize');
+const sequelize = require('../models').sequelize;
 
-// Lấy tất cả user
+// Lấy thông tin người dùng với phân trang và tìm kiếm
 exports.getAllUsers = async (req, res) => {
     try {
-        const users = await User.findAll({
-            attributes: ['id', 'manv', 'hoten', 'chucvu', 'sdt'] // không trả password
+        const { page = 1, limit = 10, search = '', role = '' } = req.query;
+        const offset = (page - 1) * limit;
+
+        const whereClause = {};
+        if (search) {
+            whereClause[Op.or] = [
+                { manv: { [Op.like]: `%${search}%` } },
+                { hoten: { [Op.like]: `%${search}%` } },
+                { sdt: { [Op.like]: `%${search}%` } }
+            ];
+        }
+
+        const includeClause = [{ model: Role, as: 'role' }];
+        if (role) {
+            includeClause[0].where = { name: role };
+        }
+
+        const { count, rows } = await User.findAndCountAll({
+            where: whereClause,
+            include: includeClause,
+            attributes: { exclude: ['password', 'token'] },
+            limit: parseInt(limit),
+            offset: parseInt(offset),
+            order: [['createdAt', 'DESC']]
         });
-        res.json(users);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+
+        res.json({
+            users: rows,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total: count,
+                pages: Math.ceil(count / limit)
+            }
+        });
+    } catch (error) {
+        console.error('Get users error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+// Tạo người dùng mới
+exports.createUser = async (req, res) => {
+    try {
+        const { manv, password, chucvu, hoten, sdt, roleId } = req.body;
+
+        // Kiểm tra mã nhân viên đã tồn tại
+        const existingUser = await User.findOne({ where: { manv } });
+        if (existingUser) {
+            return res.status(400).json({ message: 'Mã nhân viên đã tồn tại' });
+        }
+
+        // Hash password
+        const bcrypt = require('bcryptjs');
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const user = await User.create({
+            manv,
+            password: hashedPassword,
+            chucvu,
+            hoten,
+            sdt,
+            roleId
+        });
+
+        // Lấy user với role để trả về
+        const userWithRole = await User.findByPk(user.id, {
+            include: [{ model: Role, as: 'role' }],
+            attributes: { exclude: ['password', 'token'] }
+        });
+
+        res.status(201).json({
+            message: 'Tạo người dùng thành công',
+            user: userWithRole
+        });
+    } catch (error) {
+        console.error('Create user error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+// Cập nhật thông tin người dùng
+exports.updateUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { manv, chucvu, hoten, sdt, roleId, password } = req.body;
+
+        const user = await User.findByPk(id);
+        if (!user) {
+            return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+        }
+
+        // Kiểm tra mã nhân viên trùng (nếu thay đổi)
+        if (manv && manv !== user.manv) {
+            const existingUser = await User.findOne({ where: { manv } });
+            if (existingUser) {
+                return res.status(400).json({ message: 'Mã nhân viên đã tồn tại' });
+            }
+        }
+
+        // Chuẩn bị dữ liệu cập nhật
+        const updateData = {};
+        if (manv) updateData.manv = manv;
+        if (chucvu) updateData.chucvu = chucvu;
+        if (hoten) updateData.hoten = hoten;
+        if (sdt) updateData.sdt = sdt;
+        if (roleId) updateData.roleId = roleId;
+
+        // Hash password mới nếu có
+        if (password) {
+            const bcrypt = require('bcryptjs');
+            updateData.password = await bcrypt.hash(password, 10);
+        }
+
+        await user.update(updateData);
+
+        // Lấy user đã cập nhật với role
+        const updatedUser = await User.findByPk(id, {
+            include: [{ model: Role, as: 'role' }],
+            attributes: { exclude: ['password', 'token'] }
+        });
+
+        res.json({
+            message: 'Cập nhật người dùng thành công',
+            user: updatedUser
+        });
+    } catch (error) {
+        console.error('Update user error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+// Xóa người dùng
+exports.deleteUser = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const user = await User.findByPk(id);
+        if (!user) {
+            return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+        }
+
+        // Không cho xóa chính mình
+        if (user.id === req.user.id) {
+            return res.status(400).json({ message: 'Không thể xóa tài khoản của chính mình' });
+        }
+
+        await user.destroy();
+
+        res.json({ message: 'Xóa người dùng thành công' });
+    } catch (error) {
+        console.error('Delete user error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+// Lấy thông tin người dùng theo ID
+exports.getUserById = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const user = await User.findByPk(id, {
+            include: [{ model: Role, as: 'role' }],
+            attributes: { exclude: ['password', 'token'] }
+        });
+
+        if (!user) {
+            return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+        }
+
+        res.json({ user });
+    } catch (error) {
+        console.error('Get user by ID error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+// Thống kê dashboard
+exports.getDashboardStats = async (req, res) => {
+    try {
+        // Tổng số người dùng
+        const totalUsers = await User.count();
+
+        // Người dùng theo vai trò
+        const usersByRole = await User.findAll({
+            include: [{ model: Role, as: 'role' }],
+            attributes: ['roleId', [sequelize.fn('COUNT', sequelize.col('User.id')), 'count']],
+            group: ['roleId', 'role.id']
+        });
+
+        // Người dùng mới trong 30 ngày
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const newUsers = await User.count({
+            where: {
+                createdAt: {
+                    [Op.gte]: thirtyDaysAgo
+                }
+            }
+        });
+
+        // Hoạt động gần đây (có thể mở rộng)
+        const recentActivities = await User.findAll({
+            limit: 5,
+            order: [['updatedAt', 'DESC']],
+            include: [{ model: Role, as: 'role' }],
+            attributes: { exclude: ['password', 'token'] }
+        });
+
+        res.json({
+            stats: {
+                totalUsers,
+                newUsers,
+                usersByRole: usersByRole.map(item => ({
+                    role: item.role.name,
+                    count: item.dataValues.count
+                }))
+            },
+            recentActivities
+        });
+    } catch (error) {
+        console.error('Dashboard stats error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
 };

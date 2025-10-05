@@ -1,4 +1,4 @@
-const { User } = require('../models');
+const { User, Role, Permission } = require('../models');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
@@ -43,10 +43,20 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
     try {
         const { manv, password } = req.body;
-        const user = await User.findOne({ where: { manv } });
+
+        const user = await User.findOne({
+            where: { manv }, include: [{
+                model: Role,
+                as: 'role',
+                include: [{
+                    model: Permission,
+                    as: 'permissions'
+                }]
+            }]
+        });
+
         if (!user) return res.status(400).json({ message: "Sai tài khoản hoặc mật khẩu" });
 
-        const bcrypt = require("bcryptjs");
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(400).json({ message: "Sai tài khoản hoặc mật khẩu" });
 
@@ -58,11 +68,14 @@ exports.login = async (req, res) => {
 
         return res.json({
             message: "Đăng nhập thành công",
-            accessToken,
+            token: accessToken,
             refreshToken,
             manv: user.manv,
             hoten: user.hoten,
-            chucvu: user.chucvu
+
+            chucvu: user.chucvu,
+            role: user.role?.name || 'employee',
+            permissions: user.role?.permissions || []
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -107,3 +120,38 @@ exports.logout = async (req, res) => {
     }
 };
 
+exports.createUser = async (req, res) => {
+    try {
+        const { manv, password, hoten, chucvu, sdt, roleId } = req.body;
+
+        const hashedPassword = bcrypt.hashSync(password, 10);
+
+        const user = await User.create({
+            manv,
+            password: hashedPassword,
+            hoten,
+            chucvu,
+            sdt,
+            roleId
+        });
+
+        const userWithRole = await User.findByPk(user.id, {
+            include: [{ model: Role, as: 'role' }]
+        });
+
+        res.status(201).json({
+            message: 'User created successfully',
+            user: {
+                id: userWithRole.id,
+                manv: userWithRole.manv,
+                hoten: userWithRole.hoten,
+                chucvu: userWithRole.chucvu,
+                sdt: userWithRole.sdt,
+                role: userWithRole.role
+            }
+        });
+    } catch (error) {
+        console.error('Create user error:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+};

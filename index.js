@@ -4,7 +4,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 5000;
 const duanRoutes = require('./routes/duanRoutes');
 const userRoutes = require('./routes/userRoutes');
 
@@ -15,8 +15,8 @@ app.use(bodyParser.json());
 // routes...
 app.use('/auth', require('./routes/authRoutes'));
 app.use('/duan', duanRoutes);
-app.use('/users', userRoutes);
-
+app.use('/users', require('./routes/userRoutes'));
+app.use('/roles', require('./routes/roleRoutes'));
 app.listen(PORT, () => {
     console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
