@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const duanController = require('../controllers/duanController');
-const authMiddleware = require('../middlewares/authMiddleware');
+const authenticateToken = require('../middleware/auth');
 
-router.post('/create', authMiddleware, duanController.createDuAn);
-router.get('/getAll', authMiddleware, duanController.getAllDuAn);
+router.post('/create', authenticateToken, duanController.createDuAn);
+router.get('/getAll', authenticateToken, duanController.getAllDuAn);
 
 module.exports = router;

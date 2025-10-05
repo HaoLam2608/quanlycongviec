@@ -6,6 +6,7 @@ module.exports = (sequelize, DataTypes) => {
   class User extends Model {
     static associate(models) {
       // User thuộc về một Role
+      User.hasMany(models.DuAn, { foreignKey: 'userId', as: 'duans' });
       User.belongsTo(models.Role, { foreignKey: 'roleId', as: 'role' });
     }
 
@@ -30,11 +31,9 @@ module.exports = (sequelize, DataTypes) => {
       
       return this.role?.permissions || [];
     }
-  }
 
-      User.hasMany(models.DuAn, { foreignKey: 'userId', as: 'duans' });
     }
-  }
+  
   User.init({
     manv: {
       type: DataTypes.STRING,

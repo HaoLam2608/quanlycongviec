@@ -1,4 +1,4 @@
-const { User } = require('../models');
+const { User, Role, Permission } = require('../models');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
@@ -44,7 +44,7 @@ exports.login = async (req, res) => {
     try {
         const { manv, password } = req.body;
 
-        const user = await User.findOne({ where: { manv } ,include : [{
+        const user = await User.findOne({ where: { manv }, include : [{
             model : Role,
             as : 'role',
             include : [{
@@ -52,11 +52,9 @@ exports.login = async (req, res) => {
                 as : 'permissions'
             }]
         }] });
-        if (!user) return res.status(400).json({ message: 'Sai tài khoản hoặc mật khẩu' });
-        const user = await User.findOne({ where: { manv } });
+
         if (!user) return res.status(400).json({ message: "Sai tài khoản hoặc mật khẩu" });
 
-        const bcrypt = require("bcryptjs");
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) return res.status(400).json({ message: "Sai tài khoản hoặc mật khẩu" });
 
@@ -68,16 +66,13 @@ exports.login = async (req, res) => {
 
         return res.json({
             message: "Đăng nhập thành công",
-            accessToken,
+            token: accessToken,
             refreshToken,
-            user: {
-                id: user.id,
-                manv: user.manv,
-                hoten: user.hoten,
-                chucvu: user.chucvu,
-                role: user.role,
-                permissions: user.role?.permissions || []
-            }
+            manv: user.manv,
+            hoten: user.hoten,
+            chucvu: user.chucvu,
+            role: user.role?.name || 'employee',
+            permissions: user.role?.permissions || []
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
