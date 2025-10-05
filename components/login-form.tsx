@@ -25,19 +25,20 @@ export function LoginForm() {
       setMessage(res.message || "Đăng nhập thành công!")
 
       // Lưu token + thông tin user
-      localStorage.setItem("token", res.token)
+      localStorage.setItem("accessToken", res.accessToken);
+      localStorage.setItem("refreshToken", res.refreshToken);
       localStorage.setItem("manv", res.manv)
       localStorage.setItem("hoten", res.hoten)
 
       // 👉 Kiểm tra nếu là admin thì chuyển đến dashboard
-      if (res.role === "admin") {
+      if (res.chucvu === "admin") {
         router.push("/admin")   // trang Dashboard Admin
       } else {
         router.push("/")        // trang LandingPage bình thường
       }
     } catch (err: any) {
       setMessage(err.message || "Đăng nhập thất bại")
-    } finally { 
+    } finally {
       setLoading(false)
     }
   }

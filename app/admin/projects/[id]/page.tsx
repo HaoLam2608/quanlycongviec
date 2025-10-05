@@ -1,8 +1,7 @@
 "use client"
-import { useState } from "react"
 import type React from "react"
-
-import { useParams } from "next/navigation"
+import { useEffect, useState } from "react"
+import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import {
     ArrowLeft,
@@ -19,6 +18,8 @@ import {
 } from "lucide-react"
 import Modal from "@/components/admin/Modal"
 
+import { getProjectById, updateProject, deleteProject } from "@/axios/api"
+
 export default function ProjectDetailPage() {
     const { id } = useParams()
     const [activeTab, setActiveTab] = useState<"tasks" | "teams">("tasks")
@@ -26,6 +27,19 @@ export default function ProjectDetailPage() {
     const [isTaskDetailModalOpen, setIsTaskDetailModalOpen] = useState(false)
     const [isAddSubtaskModalOpen, setIsAddSubtaskModalOpen] = useState(false)
     const [selectedTask, setSelectedTask] = useState<any>(null)
+    const [project, setProject] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const router = useRouter();
+
+    const [editForm, setEditForm] = useState({
+        tenduan: "",
+        mota: "",
+        ngaybatdau: "",
+        ngayketthuc: "",
+        status: "Chưa bắt đầu",
+        userId: ""
+    });
     const [taskFormData, setTaskFormData] = useState({
         name: "",
         description: "",
@@ -40,14 +54,6 @@ export default function ProjectDetailPage() {
         status: "Chưa bắt đầu",
     })
 
-    const project = {
-        id,
-        name: "Hệ thống CRM",
-        manager: "Nguyễn Văn A",
-        startDate: "01/01/2025",
-        endDate: "30/06/2025",
-        description: "Xây dựng hệ thống quản lý quan hệ khách hàng toàn diện",
-    }
 
     const teams = [
         {
@@ -196,8 +202,40 @@ export default function ProjectDetailPage() {
             ],
         },
     ]
+    useEffect(() => {
+        const fetchProject = async () => {
+            try {
+                console.log("cac ", id);
+
+                const data = await getProjectById(id as string);
+                console.log("data ", data);
+                setProject(data);
+                setEditForm({
+                    tenduan: data.tenduan,
+                    mota: data.mota,
+                    ngaybatdau: data.ngaybatdau?.slice(0, 10) || "",
+                    ngayketthuc: data.ngayketthuc?.slice(0, 10) || "",
+                    status: data.status,
+                    userId: data.userId || "",
+                });
+            } catch (err) {
+                console.error("Lỗi load dự án:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        if (id) fetchProject();
+    }, [id]);   // ✅ thêm dependency
+
 
     const allMembers = teams.flatMap((team) => team.members)
+    if (loading) {
+        return <p className="p-4">Đang tải dữ liệu...</p>
+    }
+
+    if (!project) {
+        return <p className="p-4 text-red-500">Không tìm thấy dự án</p>
+    }
 
     const getStatusBadge = (status: string) => {
         switch (status) {
@@ -283,22 +321,42 @@ export default function ProjectDetailPage() {
                     <div>
                         <div className="flex items-center gap-3 mb-3">
                             <span className="text-sm font-mono text-muted-foreground bg-secondary px-3 py-1 rounded-lg">
-                                {project.id}
+                                {id}
                             </span>
                         </div>
-                        <h1 className="text-4xl font-bold text-foreground mb-2">{project.name}</h1>
-                        <p className="text-muted-foreground mb-3">{project.description}</p>
+                        <h1 className="text-4xl font-bold text-foreground mb-2">{project?.tenduan}</h1>
+                        <p className="text-muted-foreground mb-3">{project?.mota}</p>
                         <p className="text-muted-foreground flex items-center gap-2">
                             <Users size={16} />
-                            Quản lý: <span className="font-semibold text-foreground">{project.manager}</span>
+                            Quản lý: <span className="font-semibold text-foreground">{project?.userId}</span>
                         </p>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Calendar size={16} />
                         <span>
-                            {project.startDate} - {project.endDate}
+                            {project?.ngaybatdau} - {project?.ngayketthuc}
                         </span>
                     </div>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setIsEditModalOpen(true)}
+                            className="px-4 py-2 bg-yellow-500 text-white rounded-lg"
+                        >
+                            Sửa dự án
+                        </button>
+                        <button
+                            onClick={async () => {
+                                if (confirm("Bạn có chắc muốn xoá dự án này?")) {
+                                    await deleteProject(Number(id));
+                                    router.push("/admin/projects");
+                                }
+                            }}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg"
+                        >
+                            Xoá dự án
+                        </button>
+                    </div>
+
                 </div>
             </div>
 
@@ -693,6 +751,108 @@ export default function ProjectDetailPage() {
                     </div>
                 </form>
             </Modal>
+            <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Sửa dự án">
+                <form
+                    onSubmit={async (e) => {
+                        e.preventDefault();
+                        await updateProject(Number(id), editForm);
+                        const updated = await getProjectById(id as string);
+                        setProject(updated);
+                        setIsEditModalOpen(false);
+                    }}
+                    className="space-y-6"
+                >
+                    {/* Tên dự án + Trạng thái */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground">Tên dự án *</label>
+                            <input
+                                type="text"
+                                value={editForm.tenduan}
+                                onChange={(e) => setEditForm({ ...editForm, tenduan: e.target.value })}
+                                placeholder="Nhập tên dự án"
+                                required
+                                className="h-12 w-full rounded-xl bg-white/90 border border-white/30 px-4 text-gray-900 placeholder:text-gray-500 shadow-sm
+                     focus:outline-none focus:ring-2 focus:ring-orange-400/60"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground">Trạng thái</label>
+                            <select
+                                value={editForm.status}
+                                onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
+                                className="h-12 w-full rounded-xl bg-white/90 border border-white/30 px-4 text-gray-900 shadow-sm
+                     focus:outline-none focus:ring-2 focus:ring-orange-400/60"
+                            >
+                                <option value="chua_bat_dat">Chưa bắt đầu</option>
+                                <option value="dang_chay">Đang chạy</option>
+                                <option value="da_dong">Đã đóng</option>
+                                <option value="hoan_thanh">Hoàn thành</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {/* Mô tả */}
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-foreground">Mô tả</label>
+                        <textarea
+                            value={editForm.mota}
+                            onChange={(e) => setEditForm({ ...editForm, mota: e.target.value })}
+                            placeholder="Mô tả ngắn gọn về dự án"
+                            className="min-h-28 w-full rounded-xl bg-white/90 border border-white/30 px-4 py-3 text-gray-900 placeholder:text-gray-500 shadow-sm
+                   focus:outline-none focus:ring-2 focus:ring-orange-400/60"
+                        />
+                    </div>
+
+                    {/* Ngày bắt đầu / kết thúc */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground">Ngày bắt đầu</label>
+                            <input
+                                type="date"
+                                value={editForm.ngaybatdau}
+                                onChange={(e) => setEditForm({ ...editForm, ngaybatdau: e.target.value })}
+                                className="h-12 w-full rounded-xl bg-white/90 border border-white/30 px-4 text-gray-900 shadow-sm
+                     focus:outline-none focus:ring-2 focus:ring-orange-400/60"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-foreground">Ngày kết thúc</label>
+                            <input
+                                type="date"
+                                value={editForm.ngayketthuc}
+                                onChange={(e) => setEditForm({ ...editForm, ngayketthuc: e.target.value })}
+                                className="h-12 w-full rounded-xl bg-white/90 border border-white/30 px-4 text-gray-900 shadow-sm
+                     focus:outline-none focus:ring-2 focus:ring-orange-400/60"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center justify-end gap-3 pt-2">
+                        <button
+                            type="button"
+                            onClick={() => setIsEditModalOpen(false)}
+                            className="h-12 px-5 rounded-xl border border-border bg-background text-foreground
+                   hover:bg-muted transition-all"
+                        >
+                            Hủy
+                        </button>
+                        <button
+                            type="submit"
+                            className="inline-flex items-center justify-center h-12 px-5 rounded-xl font-semibold text-white
+                   bg-gradient-to-r from-orange-500 to-red-600 shadow-lg shadow-orange-500/30
+                   hover:from-orange-600 hover:to-red-700 hover:shadow-orange-500/40
+                   transition-all duration-300"
+                        >
+                            Lưu thay đổi
+                        </button>
+                    </div>
+                </form>
+            </Modal>
+
         </div>
     )
 }
