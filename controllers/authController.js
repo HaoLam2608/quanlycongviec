@@ -61,7 +61,8 @@ exports.login = async (req, res) => {
             accessToken,
             refreshToken,
             manv: user.manv,
-            hoten: user.hoten
+            hoten: user.hoten,
+            chucvu: user.chucvu
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -86,6 +87,23 @@ exports.refreshToken = async (req, res) => {
         res.json({ accessToken: newAccessToken });
     } catch (err) {
         res.status(403).json({ message: "Refresh token hết hạn hoặc sai" });
+    }
+};
+exports.logout = async (req, res) => {
+    try {
+        // Lấy user từ middleware auth (hoặc từ token trong header)
+        const user = req.user;
+
+        if (!user) {
+            return res.status(401).json({ message: "Chưa đăng nhập" });
+        }
+
+        // Xoá refresh token trong DB
+        await user.update({ token: null });
+
+        return res.json({ message: "Đăng xuất thành công" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 };
 
