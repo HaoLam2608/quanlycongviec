@@ -20,24 +20,30 @@ api.interceptors.response.use(
   (res) => res,
   async (err) => {
     const originalRequest = err.config;
-    if (err.response?.status === 403 && !originalRequest._retry) {
-      originalRequest._retry = true;
+    const status = err.response?.status;
+    const message = err.response?.data?.message;
 
+    // Nếu lỗi do token hết hạn / không hợp lệ => status 401 => thử refresh
+    if (status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
       try {
         const refreshToken = localStorage.getItem("refreshToken");
+        if (!refreshToken) throw new Error('Missing refresh token');
         const response = await axios.post("http://localhost:5000/auth/refresh", { refreshToken });
-
         const newAccessToken = response.data.accessToken;
         localStorage.setItem("accessToken", newAccessToken);
-
-        // Gắn lại token mới vào request cũ
         originalRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
-        // Nếu refresh cũng fail thì logout
         localStorage.clear();
         window.location.href = "/login";
+        return Promise.reject(refreshError);
       }
+    }
+
+    // 403 lúc này là lỗi phân quyền thực sự (RBAC)
+    if (status === 403) {
+      console.warn('Permission denied:', message);
     }
     return Promise.reject(err);
   }

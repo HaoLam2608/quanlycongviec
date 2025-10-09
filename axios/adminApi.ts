@@ -5,10 +5,10 @@ export const userAPI = {
   // Lấy danh sách users với phân trang và tìm kiếm
   getUsers: (params: { page?: number; limit?: number; search?: string; role?: string }) =>
     api.get('/users', { params }),
-  
+
   // Lấy user theo ID
   getUserById: (id: number) => api.get(`/users/${id}`),
-  
+
   // Tạo user mới
   createUser: (data: {
     manv: string;
@@ -18,7 +18,7 @@ export const userAPI = {
     sdt: string;
     roleId: number;
   }) => api.post('/users', data),
-  
+
   // Cập nhật user
   updateUser: (id: number, data: {
     manv?: string;
@@ -28,10 +28,10 @@ export const userAPI = {
     sdt?: string;
     roleId?: number;
   }) => api.put(`/users/${id}`, data),
-  
+
   // Xóa user
   deleteUser: (id: number) => api.delete(`/users/${id}`),
-  
+
   // Lấy thống kê dashboard
   getDashboardStats: () => api.get('/users/stats')
 };
@@ -40,32 +40,32 @@ export const userAPI = {
 export const roleAPI = {
   // Lấy tất cả roles
   getRoles: () => api.get('/roles'),
-  
+
   // Tạo role mới
   createRole: (data: {
     name: string;
     description: string;
     permissions?: number[];
   }) => api.post('/roles', data),
-  
+
   // Cập nhật role
   updateRole: (id: number, data: {
     name?: string;
     description?: string;
     permissions?: number[];
   }) => api.put(`/roles/${id}`, data),
-  
+
   // Xóa role
   deleteRole: (id: number) => api.delete(`/roles/${id}`),
-  
+
   // Lấy tất cả permissions
   getPermissions: () => api.get('/roles/permissions'),
-  
+
   // Lấy permissions của role
   getRolePermissions: (roleId: number) => api.get(`/roles/${roleId}/permissions`),
-  
+
   // Cập nhật permissions cho role
-  updateRolePermissions: (roleId: number, permissions: number[]) => 
+  updateRolePermissions: (roleId: number, permissions: number[]) =>
     api.put(`/roles/${roleId}/permissions`, { permissions })
 };
 
@@ -141,5 +141,71 @@ export const getDashboardStats = async () => {
     return res.data;
   } catch (err: any) {
     throw err.response?.data || { message: "Lỗi không xác định" };
+  }
+};
+
+// Group APIs
+export const groupAPI = {
+  getGroups: (params?: { duanId?: number }) => api.get('/groups', { params }),
+  getGroup: (id: number) => api.get(`/groups/${id}`),
+  createGroup: (data: { name: string; description?: string; duanId: number; leaderId?: number; memberIds?: number[] }) => api.post('/groups', data),
+  updateGroup: (id: number, data: { name?: string; description?: string; leaderId?: number; duanId?: number }) => api.put(`/groups/${id}`, data),
+  deleteGroup: (id: number) => api.delete(`/groups/${id}`),
+  addMembers: (id: number, memberIds: number[]) => api.post(`/groups/${id}/members`, { memberIds }),
+  removeMember: (id: number, userId: number) => api.delete(`/groups/${id}/members/${userId}`)
+};
+
+// Wrapper for groups
+export const getGroups = async (params?: { duanId?: number }) => {
+  try {
+    const res = await groupAPI.getGroups(params);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Lỗi không xác định' };
+  }
+};
+
+export const createGroup = async (data: { name: string; description?: string; duanId: number; leaderId?: number; memberIds?: number[] }) => {
+  try {
+    const res = await groupAPI.createGroup(data);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Lỗi không xác định' };
+  }
+};
+
+export const updateGroup = async (id: number, data: { name?: string; description?: string; leaderId?: number; duanId?: number }) => {
+  try {
+    const res = await groupAPI.updateGroup(id, data);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Lỗi không xác định' };
+  }
+};
+
+export const deleteGroup = async (id: number) => {
+  try {
+    const res = await groupAPI.deleteGroup(id);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Lỗi không xác định' };
+  }
+};
+
+export const addGroupMembers = async (id: number, memberIds: number[]) => {
+  try {
+    const res = await groupAPI.addMembers(id, memberIds);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Lỗi không xác định' };
+  }
+};
+
+export const removeGroupMember = async (id: number, userId: number) => {
+  try {
+    const res = await groupAPI.removeMember(id, userId);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Lỗi không xác định' };
   }
 };

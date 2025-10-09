@@ -3,13 +3,14 @@ import Link from "next/link"
 import type React from "react"
 
 import { usePathname } from "next/navigation"
-import { Home, Users, Shield, FolderKanban, Sparkles } from "lucide-react"
+import { Home, Users, Shield, FolderKanban, Sparkles, Layers3 } from "lucide-react"
 
 const menuItems = [
     { name: "Dashboard", href: "/admin", icon: Home },
     { name: "Người dùng", href: "/admin/users", icon: Users },
     { name: "Phân quyền", href: "/admin/roles", icon: Shield },
     { name: "Dự án", href: "/admin/projects", icon: FolderKanban },
+    { name: "Nhóm", href: "/admin/groups", icon: Layers3 },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
