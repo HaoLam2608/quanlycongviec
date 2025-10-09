@@ -1,4 +1,4 @@
-const {User , Role , Permission } = require('../models');
+const { User, Role, Permission } = require('../models');
 
 // Middleware kiểm tra RBAC
 
@@ -12,13 +12,13 @@ const checkPermission = (resource, action) => {
             }
 
             const user = await User.findByPk(userId, {
-                include : [{
-                    model : Role,
-                    as : 'role',
-                    include : [
+                include: [{
+                    model: Role,
+                    as: 'role',
+                    include: [
                         {
-                            model : Permission,
-                            as : 'permissions'
+                            model: Permission,
+                            as: 'permissions'
                         }
                     ]
                 }]
@@ -29,8 +29,8 @@ const checkPermission = (resource, action) => {
             }
 
             // Kiểm tra permission
-            const permissionName = `${resource}:${action}`;
-            const hasPermission = user.role?.permissions?.some(permission => 
+            const permissionName = `${resource}-${action}`;
+            const hasPermission = user.role?.permissions?.some(permission =>
                 permission.name === permissionName
             );
 
@@ -41,7 +41,7 @@ const checkPermission = (resource, action) => {
             req.user = user;
             next();
         }
-        catch(error) {
+        catch (error) {
             console.error('RBAC Middleware Error:', error);
             return res.status(500).json({ message: 'Internal Server Error' });
         }
@@ -57,9 +57,9 @@ const checkRole = (roleName) => {
             }
 
             const user = await User.findByPk(userId, {
-                include : [{
-                    model : Role,
-                    as : 'role'
+                include: [{
+                    model: Role,
+                    as: 'role'
                 }]
             });
 

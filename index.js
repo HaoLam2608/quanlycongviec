@@ -17,6 +17,12 @@ app.use('/auth', require('./routes/authRoutes'));
 app.use('/duan', duanRoutes);
 app.use('/users', require('./routes/userRoutes'));
 app.use('/roles', require('./routes/roleRoutes'));
+app.use('/groups', require('./routes/groupRoutes'));
+
+// Health / root route
+app.get('/', (req, res) => {
+    res.json({ status: 'ok', time: new Date().toISOString() });
+});
 app.listen(PORT, () => {
     console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
