@@ -164,26 +164,26 @@ export default function UsersPage() {
                                         <td className="p-4 text-muted-foreground">{user.chucvu}</td>
                                         <td className="p-4">
                                             <span
-                                                className={`px-3 py-1 rounded-full text-xs font-medium ${user.role.name === "admin"
+                                                className={`px-3 py-1 rounded-full text-xs font-medium ${user.role?.name === "admin"
                                                         ? "bg-purple-100 text-purple-700 border border-purple-200"
-                                                        : user.role.name === "manager"
+                                                        : user.role?.name === "manager"
                                                             ? "bg-orange-100 text-orange-700 border border-orange-200"
                                                             : "bg-blue-100 text-blue-700 border border-blue-200"
                                                     }`}
                                             >
-                                                {user.role.name}
+                                                {user.role?.name || "Không xác định"}
                                             </span>
                                         </td>
                                         <td className="p-4 text-muted-foreground">{user.sdt || 'Chưa có'}</td>
                                         <td className="p-4">
                                             <div className="flex items-center justify-end gap-2">
-                                                <button 
+                                                <button
                                                     onClick={() => handleEdit(user)}
                                                     className="p-2 hover:bg-secondary rounded-lg transition-colors text-muted-foreground hover:text-foreground"
                                                 >
                                                     <Edit size={18} />
                                                 </button>
-                                                <button 
+                                                <button
                                                     onClick={() => handleDelete(user.id)}
                                                     className="p-2 hover:bg-destructive/10 rounded-lg transition-colors text-muted-foreground hover:text-destructive"
                                                 >
