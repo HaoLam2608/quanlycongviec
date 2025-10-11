@@ -1,10 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, use } from "react"
 import { Users, Shield, FolderKanban, TrendingUp, Activity, Clock } from "lucide-react"
 import { getDashboardStats } from "@/axios/adminApi"
+import { fetchUsers } from "@/axios/api";
 
 export default function AdminDashboard() {
+    const [users , setUsers] = useState<any[]>([]);
+   
     const [stats, setStats] = useState([
         {
             title: "Tổng người dùng",

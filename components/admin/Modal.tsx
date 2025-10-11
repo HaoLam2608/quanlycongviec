@@ -29,8 +29,8 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
             <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200">
-                <div className="flex items-center justify-between p-6 border-b border-border">
+            <div className="relative w-full max-w-4xl max-h-[90vh] bg-card border border-border rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col">
+                <div className="flex items-center justify-between p-6 border-b border-border flex-shrink-0">
                     <h2 className="text-xl font-bold text-foreground">{title}</h2>
                     <button
                         onClick={onClose}
@@ -39,7 +39,7 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
                         <X size={20} />
                     </button>
                 </div>
-                <div className="p-6">{children}</div>
+                <div className="p-6 overflow-y-auto flex-1">{children}</div>
             </div>
         </div>
     )

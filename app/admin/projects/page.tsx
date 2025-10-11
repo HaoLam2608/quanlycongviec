@@ -15,12 +15,13 @@ export default function ProjectsPage() {
         managerId: "",
         startDate: "",
         endDate: "",
-        status: "Chưa bắt đầu",
+        status: "chua_bat_dau",
     })
 
     const [users, setUsers] = useState<any[]>([])
     const [projects, setProjects] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
+    const [submitting, setSubmitting] = useState(false)
 
     useEffect(() => {
         const loadData = async () => {
@@ -144,50 +145,64 @@ export default function ProjectsPage() {
                         <label className="block text-sm font-semibold text-foreground mb-2">Tên dự án *</label>
                         <input
                             type="text"
-                            placeholder="Tên dự án"
+                            placeholder="Nhập tên dự án..."
                             value={formData.name}
                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            className="w-full border rounded p-2"
+                            className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                             required
                         />
                     </div>
 
                     <div>
-                        <label className="block text-sm font-semibold text-foreground mb-2">Mô tả</label>
+                        <label className="block text-sm font-semibold text-foreground mb-2">Mô tả dự án</label>
                         <textarea
-                            placeholder="Mô tả"
+                            placeholder="Mô tả chi tiết về dự án..."
                             value={formData.description}
                             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                            className="w-full border rounded p-2"
+                            className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all resize-none"
+                            rows={3}
                         />
                     </div>
 
                     <div>
                         <label className="block text-sm font-semibold text-foreground mb-2">Người quản lý dự án *</label>
-                        {/* Chọn người đảm nhận */}
                         <select
                             value={formData.managerId}
                             onChange={(e) => setFormData({ ...formData, managerId: e.target.value })}
-                            className="w-full border rounded p-2"
+                            className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                             required
                         >
-                            <option value="">-- Chọn người đảm nhận --</option>
-                            {Array.isArray(users) && users.map((u: any) => (
-                                <option key={u.id} value={u.id}>
-                                    {u.hoten} ({u.manv})
-                                </option>
-                            ))}
+                            <option value="">-- Chọn người quản lý --</option>
+                            {loading ? (
+                                <option disabled>Đang tải danh sách người dùng...</option>
+                            ) : Array.isArray(users) && users.length > 0 ? (
+                                users
+                                    .filter((u: any) => {
+                                        console.log('User:', u); // Debug log
+                                        return u.role?.name === 'admin' || u.role?.name === 'manager';
+                                    })
+                                    .map((u: any) => (
+                                        <option key={u.id} value={u.id}>
+                                            {u.hoten} ({u.manv}) - {u.chucvu}
+                                        </option>
+                                    ))
+                            ) : (
+                                <option disabled>Không có dữ liệu người dùng</option>
+                            )}
                         </select>
+                        
+                       
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-semibold text-foreground mb-2">Ngày bắt đầu *</label>
                             <input
                                 type="date"
                                 value={formData.startDate}
                                 onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                                className="w-full border rounded p-2"
+                                className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                                required
                             />
                         </div>
                         <div>
@@ -196,7 +211,9 @@ export default function ProjectsPage() {
                                 type="date"
                                 value={formData.endDate}
                                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                                className="w-full border rounded p-2"
+                                className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                                required
+                                min={formData.startDate} // Không cho chọn ngày kết thúc trước ngày bắt đầu
                             />
                         </div>
                     </div>

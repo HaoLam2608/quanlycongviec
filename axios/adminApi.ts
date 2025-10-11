@@ -135,6 +135,28 @@ export const createRole = async (data: {
   }
 };
 
+export const updateRole = async (id: number, data: {
+  name?: string;
+  description?: string;
+  permissions?: number[];
+}) => {
+  try {
+    const res = await roleAPI.updateRole(id, data);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Lỗi không xác định" };
+  }
+};
+
+export const deleteRole = async (id: number) => {
+  try {
+    const res = await roleAPI.deleteRole(id);
+    return res.data;
+  } catch (error : any) {
+    throw error.response?.data || { message: "Lỗi không xác định" };
+  }
+};
+
 export const getDashboardStats = async () => {
   try {
     const res = await userAPI.getDashboardStats();

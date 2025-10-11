@@ -80,9 +80,18 @@ export const createProject = async (data: {
 };
 export const fetchUsers = async () => {
   try {
-    const res = await api.get("/users"); // backend GET /users
-    return res.data;
+    const res = await api.get("/users"); 
+    
+    const usersData = res.data.users || res.data;
+    
+    if (!Array.isArray(usersData)) {
+      console.error('Thông tin users không hợp lệ:', res.data);
+      return [];
+    }
+    
+    return usersData;
   } catch (err: any) {
+    console.error('Error fetching users:', err);
     throw err.response?.data || { message: "Không thể lấy danh sách user" };
   }
 };
@@ -151,3 +160,115 @@ export const downloadDocument = async (id: number, asDownload = false) => {
     throw err.response?.data || { message: 'Không thể tải tài liệu' };
   }
 };
+
+// ============ TASK APIs ============
+
+export const getTasksByProject = async (projectId: string | number) => {
+  try {
+    const res = await api.get(`/tasks/project/${projectId}`);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy danh sách công việc" };
+  }
+};
+
+export const getTaskById = async (id: string | number) => {
+  try {
+    const res = await api.get(`/tasks/${id}`);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy thông tin công việc" };
+  }
+};
+
+export const createTask = async (data: {
+  tentask: string;
+  mota?: string;
+  duanId: number;
+  nguoiDuocGiaoId: number;
+  ngayBatDau?: string;
+  ngayKetThuc: string;
+  mucDoUuTien?: string;
+  ghiChu?: string;
+}) => {
+  try {
+    const res = await api.post("/tasks", data);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể tạo công việc" };
+  }
+};
+
+export const updateTask = async (id: number, data: any) => {
+  try {
+    const res = await api.put(`/tasks/${id}`, data);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể cập nhật công việc" };
+  }
+};
+
+export const deleteTask = async (id: number) => {
+  try {
+    const res = await api.delete(`/tasks/${id}`);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể xóa công việc" };
+  }
+};
+
+export const getMyTasks = async (params?: { page?: number; limit?: number; status?: string }) => {
+  try {
+    const res = await api.get("/tasks/my-tasks", { params });
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy danh sách công việc của tôi" };
+  }
+};
+
+// ============ SUBTASK APIs ============
+
+export const getSubtasksByTask = async (taskId: string | number) => {
+  try {
+    const res = await api.get(`/tasks/${taskId}/subtasks`);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy danh sách công việc nhỏ" };
+  }
+};
+
+export const createSubtask = async (taskId: string | number, data: {
+  tenSubtask: string;
+  mota?: string;
+  nguoiThucHienId: number;
+  ngayBatDau?: string;
+  ngayKetThuc?: string;
+  ghiChu?: string;
+}) => {
+  try {
+    const res = await api.post(`/tasks/${taskId}/subtasks`, data); // Không gửi taskId trong body
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể tạo công việc nhỏ" };
+  }
+};
+
+export const updateSubtask = async (taskId: string | number, subtaskId: number, data: any) => {
+  try {
+    const res = await api.put(`/tasks/${taskId}/subtasks/${subtaskId}`, data);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể cập nhật công việc nhỏ" };
+  }
+};
+
+export const deleteSubtask = async (taskId: string | number, subtaskId: number) => {
+  try {
+    const res = await api.delete(`/tasks/${taskId}/subtasks/${subtaskId}`);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể xóa công việc nhỏ" };
+  }
+};
+
+

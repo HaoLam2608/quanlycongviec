@@ -22,7 +22,19 @@ import { FolderKanban } from "lucide-react"
 import Modal from "@/components/admin/Modal"
 import { useToastContext } from "@/components/providers/toast-provider"
 
-import { getProjectById, updateProject, deleteProject, fetchDocuments, uploadDocument, deleteDocument, downloadDocument } from "@/axios/api"
+import { 
+    getProjectById, 
+    updateProject, 
+    deleteProject, fetchDocuments, uploadDocument, deleteDocument, downloadDocument,
+    getTasksByProject,
+    createTask,
+    createSubtask,
+    updateTask,
+    deleteTask,
+    updateSubtask,
+    deleteSubtask,
+    fetchUsers
+} from "@/axios/api"
 import { getGroups, groupAPI } from "@/axios/adminApi"
 import { useRef } from "react"
 
@@ -146,7 +158,10 @@ export default function ProjectDetailPage() {
     const [isAddGroupModalOpen, setIsAddGroupModalOpen] = useState(false)
     const [selectedTask, setSelectedTask] = useState<any>(null)
     const [project, setProject] = useState<any>(null);
+    const [tasks, setTasks] = useState<any[]>([]);
+    const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadingTasks, setLoadingTasks] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [projectGroups, setProjectGroups] = useState<any[]>([]);
     const [documents, setDocuments] = useState<any[]>([]);
@@ -243,164 +258,19 @@ export default function ProjectDetailPage() {
         name: "",
         description: "",
         assigneeId: "",
-        status: "Chưa bắt đầu",
     })
 
+   
+    
 
-    const teams = [
-        {
-            id: "TEAM001",
-            name: "Frontend Team",
-            color: "from-blue-500 to-indigo-600",
-            members: [
-                { id: "EMP001", name: "Nguyễn Văn B", role: "Frontend Lead", avatar: "B" },
-                { id: "EMP002", name: "Trần Thị C", role: "Frontend Dev", avatar: "C" },
-                { id: "EMP003", name: "Lê Văn D", role: "Frontend Dev", avatar: "D" },
-            ],
-        },
-        {
-            id: "TEAM002",
-            name: "Backend Team",
-            color: "from-green-500 to-emerald-600",
-            members: [
-                { id: "EMP004", name: "Phạm Văn E", role: "Backend Lead", avatar: "E" },
-                { id: "EMP005", name: "Hoàng Thị F", role: "Backend Dev", avatar: "F" },
-            ],
-        },
-        {
-            id: "TEAM003",
-            name: "Design Team",
-            color: "from-purple-500 to-pink-600",
-            members: [
-                { id: "EMP006", name: "Vũ Thị G", role: "UI/UX Lead", avatar: "G" },
-                { id: "EMP007", name: "Đỗ Văn H", role: "UI/UX Designer", avatar: "H" },
-            ],
-        },
-    ]
 
-    const tasks = [
-        {
-            id: "T001",
-            name: "Phân tích yêu cầu",
-            description: "Thu thập và phân tích yêu cầu từ khách hàng, xác định phạm vi dự án",
-            assignee: "Nguyễn Văn B",
-            assigneeId: "EMP001",
-            status: "Hoàn thành",
-            priority: "high",
-            dueDate: "15/01/2025",
-            subtasks: [
-                {
-                    id: "ST001",
-                    name: "Họp với khách hàng",
-                    assignee: "Nguyễn Văn B",
-                    assigneeId: "EMP001",
-                    status: "Hoàn thành",
-                },
-                {
-                    id: "ST002",
-                    name: "Viết tài liệu yêu cầu",
-                    assignee: "Trần Thị C",
-                    assigneeId: "EMP002",
-                    status: "Hoàn thành",
-                },
-                {
-                    id: "ST003",
-                    name: "Review và phê duyệt",
-                    assignee: "Nguyễn Văn B",
-                    assigneeId: "EMP001",
-                    status: "Hoàn thành",
-                },
-            ],
-        },
-        {
-            id: "T002",
-            name: "Thiết kế Database",
-            description: "Thiết kế cấu trúc cơ sở dữ liệu, quan hệ giữa các bảng",
-            assignee: "Phạm Văn E",
-            assigneeId: "EMP004",
-            status: "Đang chạy",
-            priority: "high",
-            dueDate: "20/01/2025",
-            subtasks: [
-                { id: "ST004", name: "Vẽ ERD diagram", assignee: "Phạm Văn E", assigneeId: "EMP004", status: "Hoàn thành" },
-                {
-                    id: "ST005",
-                    name: "Tạo migration scripts",
-                    assignee: "Hoàng Thị F",
-                    assigneeId: "EMP005",
-                    status: "Đang chạy",
-                },
-                {
-                    id: "ST006",
-                    name: "Seed dữ liệu mẫu",
-                    assignee: "Hoàng Thị F",
-                    assigneeId: "EMP005",
-                    status: "Chưa bắt đầu",
-                },
-            ],
-        },
-        {
-            id: "T003",
-            name: "Xây dựng API",
-            description: "Phát triển các API endpoints cho hệ thống",
-            assignee: "Hoàng Thị F",
-            assigneeId: "EMP005",
-            status: "Đang chạy",
-            priority: "medium",
-            dueDate: "30/01/2025",
-            subtasks: [
-                { id: "ST007", name: "API Authentication", assignee: "Hoàng Thị F", assigneeId: "EMP005", status: "Đang chạy" },
-                {
-                    id: "ST008",
-                    name: "API User Management",
-                    assignee: "Phạm Văn E",
-                    assigneeId: "EMP004",
-                    status: "Chưa bắt đầu",
-                },
-                {
-                    id: "ST009",
-                    name: "API Customer Management",
-                    assignee: "Hoàng Thị F",
-                    assigneeId: "EMP005",
-                    status: "Chưa bắt đầu",
-                },
-            ],
-        },
-        {
-            id: "T004",
-            name: "Thiết kế UI/UX",
-            description: "Thiết kế giao diện người dùng và trải nghiệm sử dụng",
-            assignee: "Vũ Thị G",
-            assigneeId: "EMP006",
-            status: "Chưa bắt đầu",
-            priority: "medium",
-            dueDate: "25/01/2025",
-            subtasks: [
-                {
-                    id: "ST010",
-                    name: "Wireframe các màn hình",
-                    assignee: "Vũ Thị G",
-                    assigneeId: "EMP006",
-                    status: "Chưa bắt đầu",
-                },
-                { id: "ST011", name: "Design system", assignee: "Đỗ Văn H", assigneeId: "EMP007", status: "Chưa bắt đầu" },
-                {
-                    id: "ST012",
-                    name: "Prototype tương tác",
-                    assignee: "Vũ Thị G",
-                    assigneeId: "EMP006",
-                    status: "Chưa bắt đầu",
-                },
-            ],
-        },
-    ]
     useEffect(() => {
         const fetchProject = async () => {
             try {
-                console.log("cac ", id);
+                console.log("Loading project ", id);
 
                 const data = await getProjectById(id as string);
-                console.log("data ", data);
+                console.log("Project data:", data);
                 setProject(data);
                 setEditForm({
                     tenduan: data.tenduan,
@@ -426,8 +296,39 @@ export default function ProjectDetailPage() {
                 setLoading(false);
             }
         };
-        if (id) fetchProject();
+
+        const fetchTasks = async () => {
+            try {
+                setLoadingTasks(true);
+                const tasksData = await getTasksByProject(id as string);
+                console.log("Tasks data:", tasksData);
+                setTasks(tasksData.tasks || []);
+            } catch (err) {
+                console.error("Lỗi load tasks:", err);
+                setTasks([]);
+            } finally {
+                setLoadingTasks(false);
+            }
+        };
+
+        const loadUsers = async () => {
+            try {
+                const usersData = await fetchUsers();
+                console.log("Users data:", usersData);
+                setUsers(usersData || []);
+            } catch (err) {
+                console.error("Lỗi load users:", err);
+                setUsers([]);
+            }
+        };
+
+        if (id) {
+            fetchProject();
+            fetchTasks();
+            loadUsers();
+        }
     }, [id]);
+    
 
     const loadProjectGroups = async () => {
         try {
@@ -462,7 +363,16 @@ export default function ProjectDetailPage() {
     };
 
 
-    const allMembers = teams.flatMap((team) => team.members)
+    // const allMembers = teams.flatMap((team) => team.members)
+
+    // Sử dụng users từ API thay vì mock data
+    const allMembers = users.map(user => ({
+        id: user.id,
+        name: user.hoten,
+        role: user.chucvu,
+        avatar: user.hoten?.charAt(0)?.toUpperCase() || "U"
+    }));
+
     if (loading) {
         return <p className="p-4">Đang tải dữ liệu...</p>
     }
@@ -516,11 +426,28 @@ export default function ProjectDetailPage() {
         }
     }
 
-    const handleAddTask = (e: React.FormEvent) => {
+    const handleAddTask = async (e: React.FormEvent) => {
         e.preventDefault()
-        console.log("[v0] Adding task:", taskFormData)
-        setIsAddTaskModalOpen(false)
-        setTaskFormData({ name: "", description: "", assigneeId: "", priority: "medium", dueDate: "" })
+        try {
+            await createTask({
+                tentask: taskFormData.name,
+                mota: taskFormData.description,
+                duanId: Number(id),
+                nguoiDuocGiaoId: Number(taskFormData.assigneeId),
+                ngayKetThuc: taskFormData.dueDate,
+                mucDoUuTien: taskFormData.priority
+            });
+            
+            // Refresh tasks list
+            const tasksData = await getTasksByProject(id as string);
+            setTasks(tasksData.tasks || []);
+            
+            setIsAddTaskModalOpen(false);
+            setTaskFormData({ name: "", description: "", assigneeId: "", priority: "medium", dueDate: "" });
+        } catch (error) {
+            console.error("Lỗi tạo task:", error);
+            alert("Không thể tạo công việc. Vui lòng thử lại!");
+        }
     }
 
     const handleViewTaskDetail = (task: any) => {
@@ -528,16 +455,40 @@ export default function ProjectDetailPage() {
         setIsTaskDetailModalOpen(true)
     }
 
-    const handleAddSubtask = (e: React.FormEvent) => {
+    const handleAddSubtask = async (e: React.FormEvent) => {
         e.preventDefault()
-        console.log("[v0] Adding subtask:", subtaskFormData, "to task:", selectedTask?.id)
-        setIsAddSubtaskModalOpen(false)
-        setSubtaskFormData({ name: "", description: "", assigneeId: "", status: "Chưa bắt đầu" })
+        try {
+            if (!selectedTask) return;
+            
+            await createSubtask(selectedTask.id, {
+                tenSubtask: subtaskFormData.name,
+                mota: subtaskFormData.description,
+                nguoiThucHienId: Number(subtaskFormData.assigneeId)
+            });
+            
+            // Refresh tasks to get updated subtasks
+            const tasksData = await getTasksByProject(id as string);
+            setTasks(tasksData.tasks || []);
+            
+            // Update selected task
+            const updatedTask = tasksData.tasks?.find((t: any) => t.id === selectedTask.id);
+            if (updatedTask) {
+                setSelectedTask(updatedTask);
+            }
+            
+            setIsAddSubtaskModalOpen(false);
+            setSubtaskFormData({ name: "", description: "", assigneeId: "" });
+        } catch (error) {
+            console.error("Lỗi tạo subtask:", error);
+            alert("Không thể tạo công việc nhỏ. Vui lòng thử lại!");
+        }
     }
 
     const getTaskAssignees = (task: any) => {
-        const assigneeIds = new Set(task.subtasks.map((st: any) => st.assigneeId))
-        return allMembers.filter((member) => assigneeIds.has(member.id))
+        if (!task.subtasks || !Array.isArray(task.subtasks)) return [];
+        
+        const assigneeIds = new Set(task.subtasks.map((st: any) => st.nguoiThucHienId || st.nguoiThucHien?.id));
+        return allMembers.filter((member) => assigneeIds.has(member.id));
     }
 
     return (
@@ -551,7 +502,7 @@ export default function ProjectDetailPage() {
             </Link>
 
             <div className="bg-card border border-border rounded-2xl p-8 shadow-sm">
-                <div className="flex items-start justify-between mb-6">
+                <div className="flex items-center justify-between mb-6">
                     <div>
                         <div className="flex items-center gap-3 mb-3">
                             <span className="text-sm font-mono text-muted-foreground bg-secondary px-3 py-1 rounded-lg">
@@ -562,7 +513,9 @@ export default function ProjectDetailPage() {
                         <p className="text-muted-foreground mb-3">{project?.mota}</p>
                         <p className="text-muted-foreground flex items-center gap-2">
                             <Users size={16} />
-                            Quản lý: <span className="font-semibold text-foreground">{project?.userId}</span>
+                            Quản lý: <span className="font-semibold text-foreground">
+                                {project?.nguoiDamNhan?.hoten || "Chưa phân công"}
+                            </span>
                         </p>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -570,37 +523,37 @@ export default function ProjectDetailPage() {
                         <span>
                             {project?.ngaybatdau} - {project?.ngayketthuc}
                         </span>
+                          <div className="flex flex-wrap gap-2">
+                    <button
+                        onClick={() => setIsEditModalOpen(true)}
+                        className="px-4 py-2 bg-yellow-500 text-white rounded-lg"
+                    >
+                        Sửa dự án
+                    </button>
+                    <button
+                        onClick={async () => {
+                        if (confirm("Bạn có chắc muốn xoá dự án này?")) {
+                            await deleteProject(Number(id));
+                            router.push("/admin/projects");
+                        }
+                        }}
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg"
+                    >
+                        Xoá dự án
+                    </button>
                     </div>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => setIsEditModalOpen(true)}
-                            className="px-4 py-2 bg-yellow-500 text-white rounded-lg"
-                        >
-                            Sửa dự án
-                        </button>
-                        <button
-                            onClick={async () => {
-                                if (confirm("Bạn có chắc muốn xoá dự án này?")) {
-                                    await deleteProject(Number(id));
-                                    router.push("/admin/projects");
-                                }
-                            }}
-                            className="px-4 py-2 bg-red-600 text-white rounded-lg"
-                        >
-                            Xoá dự án
-                        </button>
-                    </div>
+
 
                 </div>
+                    </div>
+                
             </div>
 
-            <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden">
-                <div className="flex border-b border-border">
-                    <button
-                        onClick={() => setActiveTab("tasks")}
-                        className={`flex-1 px-6 py-4 font-semibold transition-all flex items-center justify-center gap-2 ${activeTab === "tasks" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"
-                            }`}
-                    >
+            <div className="bg-card border border-border rounded-2xl shadow-lg overflow-hidden">
+                <div className="flex border-b-2 border-border">
+                    <button 
+                    onClick={() => setActiveTab("tasks")}
+                    className={`flex-1 px-6 py-5 font-semibold transition-all flex items-center justify-center gap-2 ${activeTab === "tasks" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"}`}>
                         <ListTodo size={20} />
                         Công việc
                     </button>
@@ -622,7 +575,7 @@ export default function ProjectDetailPage() {
                     </button>
                 </div>
 
-                <div className="p-6">
+                <div className="p-6 bg-gradient-to-br from-white to-gray-50">
                     {activeTab === "tasks" && (
                         <div className="space-y-4">
                             <div className="flex items-center justify-between mb-4">
@@ -637,45 +590,89 @@ export default function ProjectDetailPage() {
                             </div>
 
                             <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="border-b border-border">
-                                            <th className="text-left p-4 text-sm font-semibold text-foreground">Mã</th>
-                                            <th className="text-left p-4 text-sm font-semibold text-foreground">Tên công việc</th>
-                                            <th className="text-left p-4 text-sm font-semibold text-foreground">Người phụ trách</th>
-                                            <th className="text-left p-4 text-sm font-semibold text-foreground">Độ ưu tiên</th>
-                                            <th className="text-left p-4 text-sm font-semibold text-foreground">Hạn chót</th>
-                                            <th className="text-left p-4 text-sm font-semibold text-foreground">Trạng thái</th>
-                                            <th className="text-left p-4 text-sm font-semibold text-foreground">Thao tác</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {tasks.map((task) => (
-                                            <tr
-                                                key={task.id}
-                                                className="border-b border-border last:border-0 hover:bg-secondary/50 transition-colors"
-                                            >
-                                                <td className="p-4">
-                                                    <span className="font-mono text-sm text-muted-foreground">{task.id}</span>
-                                                </td>
-                                                <td className="p-4 font-medium text-foreground">{task.name}</td>
-                                                <td className="p-4 text-muted-foreground">{task.assignee}</td>
-                                                <td className="p-4">{getPriorityBadge(task.priority)}</td>
-                                                <td className="p-4 text-sm text-muted-foreground">{task.dueDate}</td>
-                                                <td className="p-4">{getStatusBadge(task.status)}</td>
-                                                <td className="p-4">
-                                                    <button
-                                                        onClick={() => handleViewTaskDetail(task)}
-                                                        className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors flex items-center gap-1"
-                                                    >
-                                                        Xem chi tiết
-                                                        <ChevronRight size={14} />
-                                                    </button>
-                                                </td>
+                                {loadingTasks ? (
+                                    <p className="text-center py-4">Đang tải danh sách công việc...</p>
+                                ) : tasks.length === 0 ? (
+                                    <p className="text-center py-4 text-muted-foreground">Chưa có công việc nào</p>
+                                ) : (
+                                    <table className="w-full table-fixed">
+                                        <thead>
+                                            <tr className="border-b-2 border-border bg-secondary/20">
+                                                <th className="text-left p-4 text-sm font-semibold text-foreground w-20">Mã</th>
+                                                <th className="text-left p-4 text-sm font-semibold text-foreground w-64">Tên công việc</th>
+                                                <th className="text-left p-4 text-sm font-semibold text-foreground w-40">Người phụ trách</th>
+                                                <th className="text-left p-4 text-sm font-semibold text-foreground w-28">Độ ưu tiên</th>
+                                                <th className="text-left p-4 text-sm font-semibold text-foreground w-32">Tiến độ</th>
+                                                <th className="text-left p-4 text-sm font-semibold text-foreground w-28">Hạn chót</th>
+                                                <th className="text-left p-4 text-sm font-semibold text-foreground w-28">Trạng thái</th>
+                                                <th className="text-left p-4 text-sm font-semibold text-foreground w-32">Thao tác</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody>
+                                            {tasks.map((task) => (
+                                                <tr
+                                                    key={task.id}
+                                                    className="border-b border-border last:border-0 hover:bg-secondary/50 transition-colors"
+                                                >
+                                                    <td className="p-3">
+                                                        <span className="inline-block px-2 py-1 bg-blue-100 text-blue-800 rounded-md font-mono text-xs font-semibold">
+                                                            T-{task.id}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-3">
+                                                        <div className="font-medium text-foreground truncate" title={task.tentask}>
+                                                            {task.tentask}
+                                                        </div>
+                                                        {task.mota && (
+                                                            <div className="text-xs text-muted-foreground mt-1 truncate" title={task.mota}>
+                                                                {task.mota}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-3">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                                                                {task.nguoiDuocGiao?.hoten?.charAt(0) || "?"}
+                                                            </div>
+                                                            <div className="text-sm text-foreground truncate">
+                                                                {task.nguoiDuocGiao?.hoten || "Chưa phân công"}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-3">{getPriorityBadge(task.mucDoUuTien)}</td>
+                                                    <td className="p-3">
+                                                        <div className="flex flex-col gap-1">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                                                    <div 
+                                                                        className="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full transition-all duration-300" 
+                                                                        style={{ width: `${task.progress || 0}%` }}
+                                                                    ></div>
+                                                                </div>
+                                                            </div>
+                                                            <span className="text-xs text-center font-medium text-muted-foreground">
+                                                                {task.progress || 0}%
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-3 text-xs text-muted-foreground">
+                                                        {task.ngayKetThuc ? new Date(task.ngayKetThuc).toLocaleDateString('vi-VN') : 'Chưa xác định'}
+                                                    </td>
+                                                    <td className="p-3">{getStatusBadge(task.trangThai)}</td>
+                                                    <td className="p-3">
+                                                        <button
+                                                            onClick={() => handleViewTaskDetail(task)}
+                                                            className="w-full px-3 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-xs font-medium hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 flex items-center justify-center gap-1 shadow-md hover:shadow-lg"
+                                                        >
+                                                            Xem chi tiết
+                                                            <ChevronRight size={14} />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                )}
                             </div>
                         </div>
                     )}
@@ -944,28 +941,43 @@ export default function ProjectDetailPage() {
                             <div className="flex items-start justify-between">
                                 <div>
                                     <span className="text-xs font-mono text-muted-foreground bg-secondary px-2 py-1 rounded">
-                                        {selectedTask.id}
+                                        T-{selectedTask.id}
                                     </span>
-                                    <h3 className="text-2xl font-bold text-foreground mt-2">{selectedTask.name}</h3>
-                                    <p className="text-muted-foreground mt-2">{selectedTask.description}</p>
+                                    <h3 className="text-2xl font-bold text-foreground mt-2">{selectedTask.tentask}</h3>
+                                    <p className="text-muted-foreground mt-2">{selectedTask.mota}</p>
                                 </div>
-                                {getPriorityBadge(selectedTask.priority)}
+                                {getPriorityBadge(selectedTask.mucDoUuTien)}
                             </div>
 
                             <div className="grid grid-cols-2 gap-4 pt-3 border-t border-border">
                                 <div>
                                     <p className="text-sm text-muted-foreground">Người phụ trách chính</p>
-                                    <p className="font-semibold text-foreground">{selectedTask.assignee}</p>
+                                    <p className="font-semibold text-foreground">{selectedTask.nguoiDuocGiao?.hoten || "Chưa phân công"}</p>
                                 </div>
                                 <div>
                                     <p className="text-sm text-muted-foreground">Hạn chót</p>
-                                    <p className="font-semibold text-foreground">{selectedTask.dueDate}</p>
+                                    <p className="font-semibold text-foreground">
+                                        {selectedTask.ngayKetThuc ? new Date(selectedTask.ngayKetThuc).toLocaleDateString('vi-VN') : 'Chưa xác định'}
+                                    </p>
                                 </div>
                             </div>
 
                             <div className="pt-3 border-t border-border">
                                 <p className="text-sm text-muted-foreground mb-2">Trạng thái</p>
-                                {getStatusBadge(selectedTask.status)}
+                                {getStatusBadge(selectedTask.trangThai)}
+                            </div>
+
+                            <div className="pt-3 border-t border-border">
+                                <p className="text-sm text-muted-foreground mb-2">Tiến độ</p>
+                                <div className="flex items-center gap-3">
+                                    <div className="flex-1 bg-gray-200 rounded-full h-3">
+                                        <div 
+                                            className="bg-blue-600 h-3 rounded-full transition-all duration-300" 
+                                            style={{ width: `${selectedTask.progress || 0}%` }}
+                                        ></div>
+                                    </div>
+                                    <span className="text-sm font-semibold text-foreground">{selectedTask.progress || 0}%</span>
+                                </div>
                             </div>
                         </div>
 
@@ -1000,39 +1012,125 @@ export default function ProjectDetailPage() {
 
                         {/* Subtasks */}
                         <div>
-                            <div className="flex items-center justify-between mb-3">
-                                <h4 className="text-lg font-bold text-foreground flex items-center gap-2">
-                                    <ListTodo size={18} />
-                                    Công việc nhỏ ({selectedTask.subtasks.length})
-                                </h4>
+                            <div className="flex items-center justify-between mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-200">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                                        <ListTodo size={20} className="text-white" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-xl font-bold text-gray-800">Công việc nhỏ</h4>
+                                        <p className="text-sm text-gray-600">{selectedTask.subtasks?.length || 0} nhiệm vụ</p>
+                                    </div>
+                                </div>
                                 <button
                                     onClick={() => setIsAddSubtaskModalOpen(true)}
-                                    className="px-3 py-1.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-sm font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all flex items-center gap-1"
+                                    className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:from-blue-600 hover:to-indigo-700 transition-all flex items-center gap-2 shadow-md"
                                 >
-                                    <Plus size={14} />
-                                    Thêm
+                                    <Plus size={16} />
+                                    Thêm mới
                                 </button>
                             </div>
 
-                            <div className="space-y-2">
-                                {selectedTask.subtasks.map((subtask: any) => (
-                                    <div
-                                        key={subtask.id}
-                                        className="flex items-center justify-between p-4 bg-card border border-border rounded-lg hover:shadow-sm transition-all"
-                                    >
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-xs font-mono text-muted-foreground">{subtask.id}</span>
-                                                <span className="font-medium text-foreground">{subtask.name}</span>
+                            <div className="space-y-4">
+                                {selectedTask.subtasks && selectedTask.subtasks.length > 0 ? (
+                                    selectedTask.subtasks.map((subtask: any) => (
+                                        <div
+                                            key={subtask.id}
+                                            className="bg-white border-2 border-gray-200 rounded-2xl p-5 hover:border-blue-300 hover:shadow-lg transition-all duration-300"
+                                        >
+                                            {/* Header với ID và tên subtask */}
+                                            <div className="flex items-start justify-between mb-4">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-3 mb-2">
+                                                        <span className="inline-block px-3 py-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full font-mono text-xs font-bold shadow-sm">
+                                                            ST-{subtask.id}
+                                                        </span>
+                                                        <h4 className="font-bold text-gray-800 text-base">{subtask.tenSubtask}</h4>
+                                                    </div>
+                                                    
+                                                    {/* Người thực hiện */}
+                                                    <div className="flex items-center gap-3 mt-3">
+                                                        <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-md">
+                                                            {subtask.nguoiThucHien?.hoten?.charAt(0) || "?"}
+                                                        </div>
+                                                        <span className="text-gray-600 font-medium">
+                                                            {subtask.nguoiThucHien?.hoten || "Chưa phân công"}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                
+                                                {/* Trạng thái badge */}
+                                                <div className="ml-4">
+                                                    {getStatusBadge(subtask.trangThai)}
+                                                </div>
                                             </div>
-                                            <p className="text-sm text-muted-foreground flex items-center gap-1">
-                                                <User size={12} />
-                                                {subtask.assignee}
-                                            </p>
+                                            
+                                            {/* Controls section tách riêng */}
+                                            <div className="flex items-center justify-between pt-4 mt-4 border-t border-gray-200">
+                                                <div className="flex items-center gap-3">
+                                                    <label className="text-sm font-medium text-gray-700">Trạng thái:</label>
+                                                    <select
+                                                        value={subtask.trangThai}
+                                                        onChange={async (e) => {
+                                                            try {
+                                                                await updateSubtask(selectedTask.id, subtask.id, { trangThai: e.target.value });
+                                                                // Refresh tasks
+                                                                const tasksData = await getTasksByProject(id as string);
+                                                                setTasks(tasksData.tasks || []);
+                                                                // Update selected task
+                                                                const updatedTask = tasksData.tasks?.find((t: any) => t.id === selectedTask.id);
+                                                                if (updatedTask) {
+                                                                    setSelectedTask(updatedTask);
+                                                                }
+                                                            } catch (error) {
+                                                                console.error("Lỗi cập nhật subtask:", error);
+                                                                alert("Không thể cập nhật trạng thái!");
+                                                            }
+                                                        }}
+                                                        className="px-4 py-2 border-2 border-gray-300 rounded-xl bg-white hover:border-blue-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all text-sm font-medium"
+                                                    >
+                                                        <option value="Chưa bắt đầu">Chưa bắt đầu</option>
+                                                        <option value="Đang chạy">Đang chạy</option>
+                                                        <option value="Hoàn thành">Hoàn thành</option>
+                                                    </select>
+                                                </div>
+                                                
+                                                <button
+                                                    onClick={async () => {
+                                                        if (confirm("Bạn có chắc muốn xóa công việc nhỏ này?")) {
+                                                            try {
+                                                                await deleteSubtask(selectedTask.id, subtask.id);
+                                                                // Refresh tasks
+                                                                const tasksData = await getTasksByProject(id as string);
+                                                                setTasks(tasksData.tasks || []);
+                                                                // Update selected task
+                                                                const updatedTask = tasksData.tasks?.find((t: any) => t.id === selectedTask.id);
+                                                                if (updatedTask) {
+                                                                    setSelectedTask(updatedTask);
+                                                                }
+                                                            } catch (error) {
+                                                                console.error("Lỗi xóa subtask:", error);
+                                                                alert("Không thể xóa công việc nhỏ!");
+                                                            }
+                                                        }
+                                                    }}
+                                                    className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-xl font-medium transition-colors shadow-sm hover:shadow-md flex items-center gap-2"
+                                                >
+                                                    <span>🗑️</span>
+                                                    Xóa
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div>{getStatusBadge(subtask.status)}</div>
+                                    ))
+                                ) : (
+                                    <div className="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-300">
+                                        <div className="w-16 h-16 mx-auto mb-4 bg-gray-200 rounded-full flex items-center justify-center">
+                                            <ListTodo size={32} className="text-gray-400" />
+                                        </div>
+                                        <p className="text-gray-500 text-lg font-medium mb-2">Chưa có công việc nhỏ nào</p>
+                                        <p className="text-gray-400 text-sm">Nhấn "Thêm" để tạo công việc nhỏ đầu tiên</p>
                                     </div>
-                                ))}
+                                )}
                             </div>
                         </div>
 
@@ -1087,20 +1185,6 @@ export default function ProjectDetailPage() {
                                     {member.name} - {member.role}
                                 </option>
                             ))}
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-semibold text-foreground mb-2">Trạng thái *</label>
-                        <select
-                            required
-                            value={subtaskFormData.status}
-                            onChange={(e) => setSubtaskFormData({ ...subtaskFormData, status: e.target.value })}
-                            className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                        >
-                            <option value="Chưa bắt đầu">Chưa bắt đầu</option>
-                            <option value="Đang chạy">Đang chạy</option>
-                            <option value="Hoàn thành">Hoàn thành</option>
                         </select>
                     </div>
 

@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react"
 import RoleForm from "@/components/admin/RoleForm"
 import { Shield, Plus, Edit, Trash2, Users } from "lucide-react"
-import { getRoles, roleAPI } from "@/axios/adminApi"
+import { deleteRole, getRoles, roleAPI } from "@/axios/adminApi"
 
 interface Role {
     id: number
@@ -44,9 +44,10 @@ export default function RolesPage() {
     }
 
     const handleDelete = async (roleId: number) => {
+
         if (confirm('Bạn có chắc chắn muốn xóa vai trò này?')) {
             try {
-                await roleAPI.deleteRole(roleId)
+                await deleteRole(roleId)
                 loadRoles()
             } catch (error: any) {
                 console.error('Delete role error:', error)

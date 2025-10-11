@@ -14,7 +14,7 @@ export function LoginForm() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState("")
-  const router = useRouter()   // 👈 khởi tạo router
+  const router = useRouter()   
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,13 +25,14 @@ export function LoginForm() {
       setMessage(res.message || "Đăng nhập thành công!")
 
       // Lưu token + thông tin user
-      localStorage.setItem("accessToken", res.accessToken);
-      localStorage.setItem("refreshToken", res.refreshToken);
+      localStorage.setItem("accesstoken", res.accessToken || res.token);
+      localStorage.setItem("refreshToken", res.refreshToken || "");
       localStorage.setItem("manv", res.manv)
       localStorage.setItem("hoten", res.hoten)
+      localStorage.setItem("role", res.role)
 
       // 👉 Kiểm tra nếu là admin thì chuyển đến dashboard
-      if (res.chucvu === "admin") {
+      if (res.role === "admin" || res.role === "manager") {
         router.push("/admin")   // trang Dashboard Admin
       } else {
         router.push("/")        // trang LandingPage bình thường

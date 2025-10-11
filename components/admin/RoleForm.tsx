@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { X, Save } from "lucide-react"
-import { createRole, roleAPI } from "@/axios/adminApi"
+import { createRole, roleAPI, updateRole } from "@/axios/adminApi"
 
 interface RoleFormProps {
   isOpen: boolean
@@ -79,7 +79,7 @@ export default function RoleForm({ isOpen, onClose, onSuccess, editRole }: RoleF
       }
 
       if (editRole) {
-        await roleAPI.updateRole(editRole.id, submitData)
+        await updateRole(editRole.id, submitData)
         setMessage("Cập nhật vai trò thành công")
       } else {
         await createRole(submitData)
@@ -91,6 +91,7 @@ export default function RoleForm({ isOpen, onClose, onSuccess, editRole }: RoleF
         onClose()
       }, 1000)
     } catch (error: any) {
+      console.log(error)
       setMessage(error.message || "Có lỗi xảy ra")
     } finally {
       setLoading(false)
