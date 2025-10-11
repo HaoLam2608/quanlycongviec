@@ -4,52 +4,52 @@ module.exports = {
   async up(queryInterface, Sequelize) {
     // Tạo Roles
     await queryInterface.bulkInsert('Roles', [
-      { name: 'admin', description: 'Quản trị viên hệ thống - Có toàn quyền quản lý', createdAt: new Date(), updatedAt: new Date() },
-      { name: 'manager', description: 'Quản lý dự án - Quản lý nhân sự và dự án', createdAt: new Date(), updatedAt: new Date() },
-      { name: 'user', description: 'Nhân viên - Quyền truy cập cơ bản', createdAt: new Date(), updatedAt: new Date() }
+      { id: 1, name: 'admin', description: 'Quản trị viên hệ thống - Có toàn quyền quản lý', createdAt: new Date(), updatedAt: new Date() },
+      { id: 2, name: 'manager', description: 'Quản lý dự án - Quản lý nhân sự và dự án', createdAt: new Date(), updatedAt: new Date() },
+      { id: 3, name: 'user', description: 'Nhân viên - Quyền truy cập cơ bản', createdAt: new Date(), updatedAt: new Date() }
     ]);
 
     // Tạo Permissions
     await queryInterface.bulkInsert('Permissions', [
       // Quyền quản lý người dùng
-      { name: 'users:read', resource: 'users', action: 'read', description: 'Xem danh sách người dùng', createdAt: new Date(), updatedAt: new Date() },
-      { name: 'users:create', resource: 'users', action: 'create', description: 'Tạo người dùng mới', createdAt: new Date(), updatedAt: new Date() },
-      { name: 'users:update', resource: 'users', action: 'update', description: 'Cập nhật thông tin người dùng', createdAt: new Date(), updatedAt: new Date() },
-      { name: 'users:delete', resource: 'users', action: 'delete', description: 'Xóa người dùng', createdAt: new Date(), updatedAt: new Date() },
+      { id: 1, name: 'users:read', resource: 'users', action: 'read', description: 'Xem danh sách người dùng', createdAt: new Date(), updatedAt: new Date() },
+      { id: 2, name: 'users:create', resource: 'users', action: 'create', description: 'Tạo người dùng mới', createdAt: new Date(), updatedAt: new Date() },
+      { id: 3, name: 'users:update', resource: 'users', action: 'update', description: 'Cập nhật thông tin người dùng', createdAt: new Date(), updatedAt: new Date() },
+      { id: 4, name: 'users:delete', resource: 'users', action: 'delete', description: 'Xóa người dùng', createdAt: new Date(), updatedAt: new Date() },
       
       // Quyền quản lý dự án
-      { name: 'projects:read', resource: 'projects', action: 'read', description: 'Xem danh sách dự án', createdAt: new Date(), updatedAt: new Date() },
-      { name: 'projects:create', resource: 'projects', action: 'create', description: 'Tạo dự án mới', createdAt: new Date(), updatedAt: new Date() },
-      { name: 'projects:update', resource: 'projects', action: 'update', description: 'Cập nhật thông tin dự án', createdAt: new Date(), updatedAt: new Date() },
-      { name: 'projects:delete', resource: 'projects', action: 'delete', description: 'Xóa dự án', createdAt: new Date(), updatedAt: new Date() },
+      { id: 5, name: 'projects:read', resource: 'projects', action: 'read', description: 'Xem danh sách dự án', createdAt: new Date(), updatedAt: new Date() },
+      { id: 6, name: 'projects:create', resource: 'projects', action: 'create', description: 'Tạo dự án mới', createdAt: new Date(), updatedAt: new Date() },
+      { id: 7, name: 'projects:update', resource: 'projects', action: 'update', description: 'Cập nhật thông tin dự án', createdAt: new Date(), updatedAt: new Date() },
+      { id: 8, name: 'projects:delete', resource: 'projects', action: 'delete', description: 'Xóa dự án', createdAt: new Date(), updatedAt: new Date() },
       
       // Quyền quản lý vai trò
-      { name: 'roles:read', resource: 'roles', action: 'read', description: 'Xem danh sách vai trò', createdAt: new Date(), updatedAt: new Date() },
-      { name: 'roles:create', resource: 'roles', action: 'create', description: 'Tạo vai trò mới', createdAt: new Date(), updatedAt: new Date() },
-      { name: 'roles:update', resource: 'roles', action: 'update', description: 'Cập nhật vai trò', createdAt: new Date(), updatedAt: new Date() },
-      { name: 'roles:delete', resource: 'roles', action: 'delete', description: 'Xóa vai trò', createdAt: new Date(), updatedAt: new Date() },
+      { id: 9, name: 'roles:read', resource: 'roles', action: 'read', description: 'Xem danh sách vai trò', createdAt: new Date(), updatedAt: new Date() },
+      { id: 10, name: 'roles:create', resource: 'roles', action: 'create', description: 'Tạo vai trò mới', createdAt: new Date(), updatedAt: new Date() },
+      { id: 11, name: 'roles:update', resource: 'roles', action: 'update', description: 'Cập nhật vai trò', createdAt: new Date(), updatedAt: new Date() },
+      { id: 12, name: 'roles:delete', resource: 'roles', action: 'delete', description: 'Xóa vai trò', createdAt: new Date(), updatedAt: new Date() },
       
       // Quyền quản lý công việc
-      { name: 'tasks:read', resource: 'tasks', action: 'read', description: 'Xem danh sách công việc', createdAt: new Date(), updatedAt: new Date() },
-      { name: 'tasks:create', resource: 'tasks', action: 'create', description: 'Tạo công việc mới', createdAt: new Date(), updatedAt: new Date() },
-      { name: 'tasks:update', resource: 'tasks', action: 'update', description: 'Cập nhật công việc', createdAt: new Date(), updatedAt: new Date() },
-      { name: 'tasks:delete', resource: 'tasks', action: 'delete', description: 'Xóa công việc', createdAt: new Date(), updatedAt: new Date() },
+      { id: 13, name: 'tasks:read', resource: 'tasks', action: 'read', description: 'Xem danh sách công việc', createdAt: new Date(), updatedAt: new Date() },
+      { id: 14, name: 'tasks:create', resource: 'tasks', action: 'create', description: 'Tạo công việc mới', createdAt: new Date(), updatedAt: new Date() },
+      { id: 15, name: 'tasks:update', resource: 'tasks', action: 'update', description: 'Cập nhật công việc', createdAt: new Date(), updatedAt: new Date() },
+      { id: 16, name: 'tasks:delete', resource: 'tasks', action: 'delete', description: 'Xóa công việc', createdAt: new Date(), updatedAt: new Date() },
       
       // Quyền quản lý nhóm
-      { name: 'groups:read', resource: 'groups', action: 'read', description: 'Xem danh sách nhóm', createdAt: new Date(), updatedAt: new Date() },
-      { name: 'groups:create', resource: 'groups', action: 'create', description: 'Tạo nhóm mới', createdAt: new Date(), updatedAt: new Date() },
-      { name: 'groups:update', resource: 'groups', action: 'update', description: 'Cập nhật nhóm', createdAt: new Date(), updatedAt: new Date() },
-      { name: 'groups:delete', resource: 'groups', action: 'delete', description: 'Xóa nhóm', createdAt: new Date(), updatedAt: new Date() },
+      { id: 17, name: 'groups:read', resource: 'groups', action: 'read', description: 'Xem danh sách nhóm', createdAt: new Date(), updatedAt: new Date() },
+      { id: 18, name: 'groups:create', resource: 'groups', action: 'create', description: 'Tạo nhóm mới', createdAt: new Date(), updatedAt: new Date() },
+      { id: 19, name: 'groups:update', resource: 'groups', action: 'update', description: 'Cập nhật nhóm', createdAt: new Date(), updatedAt: new Date() },
+      { id: 20, name: 'groups:delete', resource: 'groups', action: 'delete', description: 'Xóa nhóm', createdAt: new Date(), updatedAt: new Date() },
       
       // Quyền báo cáo và thống kê
-      { name: 'reports:read', resource: 'reports', action: 'read', description: 'Xem báo cáo và thống kê', createdAt: new Date(), updatedAt: new Date() },
-      { name: 'dashboard:access', resource: 'dashboard', action: 'access', description: 'Truy cập bảng điều khiển', createdAt: new Date(), updatedAt: new Date() }
+      { id: 21, name: 'reports:read', resource: 'reports', action: 'read', description: 'Xem báo cáo và thống kê', createdAt: new Date(), updatedAt: new Date() },
+      { id: 22, name: 'dashboard:access', resource: 'dashboard', action: 'access', description: 'Truy cập bảng điều khiển', createdAt: new Date(), updatedAt: new Date() }
     ]);
 
     // Gán permissions cho roles
     // Admin - Toàn quyền (all permissions)
     await queryInterface.bulkInsert('RolePermissions', [
-      // Admin có tất cả quyền (permission ID 1-18)
+      // Admin có tất cả quyền (permission ID 1-22)
       { roleId: 1, permissionId: 1, createdAt: new Date(), updatedAt: new Date() },   // users:read
       { roleId: 1, permissionId: 2, createdAt: new Date(), updatedAt: new Date() },   // users:create
       { roleId: 1, permissionId: 3, createdAt: new Date(), updatedAt: new Date() },   // users:update
@@ -101,8 +101,13 @@ module.exports = {
   },
 
   async down(queryInterface, Sequelize) {
+    // Xóa RolePermissions trước
     await queryInterface.bulkDelete('RolePermissions', null, {});
+    
+    // Xóa Permissions
     await queryInterface.bulkDelete('Permissions', null, {});
+    
+    // Xóa Roles
     await queryInterface.bulkDelete('Roles', null, {});
   }
 };

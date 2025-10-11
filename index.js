@@ -7,6 +7,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const duanRoutes = require('./routes/duanRoutes');
 const userRoutes = require('./routes/userRoutes');
+const taskRoutes = require('./routes/taskRoutes');
 const documentRoutes = require('./routes/documentRoutes');
 const multer = require('multer');
 const path = require('path');
@@ -32,6 +33,7 @@ app.use('/documents', (req, res, next) => { req.upload = upload; next(); }, docu
 app.get('/', (req, res) => {
     res.json({ status: 'ok', time: new Date().toISOString() });
 });
+app.use('/tasks', taskRoutes);
 app.listen(PORT, () => {
     console.log(`🚀 Server running at http://localhost:${PORT}`);
 });

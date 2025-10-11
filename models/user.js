@@ -8,6 +8,15 @@ module.exports = (sequelize, DataTypes) => {
       // User thuộc về một Role
       User.hasMany(models.DuAn, { foreignKey: 'userId', as: 'duans' });
       User.belongsTo(models.Role, { foreignKey: 'roleId', as: 'role' });
+      
+      // User có nhiều tasks được giao
+      User.hasMany(models.Task, { foreignKey: 'nguoiDuocGiaoId', as: 'tasksAssigned' });
+      
+      // User có nhiều tasks đã giao cho người khác
+      User.hasMany(models.Task, { foreignKey: 'nguoiGiaoId', as: 'tasksCreated' });
+      
+      // User có nhiều subtasks
+      User.hasMany(models.Subtask, { foreignKey: 'nguoiThucHienId', as: 'subtasks' });
     }
 
     // Method để kiểm tra quyền

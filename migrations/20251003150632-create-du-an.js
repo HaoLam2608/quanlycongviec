@@ -21,6 +21,11 @@ module.exports = {
       ngayketthuc: {
         type: Sequelize.DATE
       },
+      status :{
+        type: Sequelize.ENUM("chua_bat_dau", "dang_chay", "da_hoan_thanh", "da_dong"),
+        defaultValue: "chua_bat_dau",
+        comment: 'Trạng thái dự án: chưa bắt đầu, đang chạy, đã hoàn thành, đã đóng, tạm dừng'
+      },
       userId: {
         type: Sequelize.INTEGER,
         references: {
