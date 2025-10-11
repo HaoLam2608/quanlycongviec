@@ -9,10 +9,13 @@ router.get('/', authenticateToken, checkPermission('groups', 'read'), groupContr
 router.get('/:id', authenticateToken, checkPermission('groups', 'read'), groupController.getGroup);
 router.post('/', authenticateToken, checkPermission('groups', 'create'), groupController.createGroup);
 router.put('/:id', authenticateToken, checkPermission('groups', 'update'), groupController.updateGroup);
-router.delete('/:id', authenticateToken, checkPermission('groups', 'delete'), groupController.deleteGroup);
+// Xóa route delete - không cho phép xóa nhóm
 
 // Members
 router.post('/:id/members', authenticateToken, checkPermission('groups', 'update'), groupController.addMembers);
 router.delete('/:id/members/:userId', authenticateToken, checkPermission('groups', 'update'), groupController.removeMember);
+
+// Complete project
+router.post('/complete-project', authenticateToken, checkPermission('groups', 'update'), groupController.completeProject);
 
 module.exports = router;

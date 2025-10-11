@@ -12,13 +12,17 @@ module.exports = (sequelize, DataTypes) => {
                 otherKey: 'userId',
                 as: 'members'
             });
+            Group.hasMany(models.GroupProjectHistory, {
+                foreignKey: 'groupId',
+                as: 'projectHistories'
+            });
         }
     }
 
     Group.init({
         name: { type: DataTypes.STRING, allowNull: false },
         description: { type: DataTypes.TEXT },
-        duanId: { type: DataTypes.INTEGER, allowNull: false },
+        duanId: { type: DataTypes.INTEGER, allowNull: true },
         leaderId: { type: DataTypes.INTEGER }
     }, {
         sequelize,
