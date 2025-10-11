@@ -219,10 +219,14 @@ exports.getDashboardStats = async (req, res) => {
             stats: {
                 totalUsers,
                 newUsers,
-                usersByRole: usersByRole.map(item => ({
-                    role: item.role.name,
-                    count: item.dataValues.count
-                }))
+                usersByRole: usersByRole.map(item => {
+                    // item.role may be null if the role association is missing; handle defensively
+                    const roleName = item.role && item.role.name ? item.role.name : `role_${item.roleId}`;
+                    return {
+                        role: roleName,
+                        count: item.dataValues?.count || 0
+                    };
+                })
             },
             recentActivities
         });
