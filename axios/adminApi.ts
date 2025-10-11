@@ -148,9 +148,9 @@ export const getDashboardStats = async () => {
 export const groupAPI = {
   getGroups: (params?: { duanId?: number }) => api.get('/groups', { params }),
   getGroup: (id: number) => api.get(`/groups/${id}`),
-  createGroup: (data: { name: string; description?: string; duanId: number; leaderId?: number; memberIds?: number[] }) => api.post('/groups', data),
+  createGroup: (data: { name: string; description?: string; duanId?: number; leaderId?: number; memberIds?: number[] }) => api.post('/groups', data),
   updateGroup: (id: number, data: { name?: string; description?: string; leaderId?: number; duanId?: number }) => api.put(`/groups/${id}`, data),
-  deleteGroup: (id: number) => api.delete(`/groups/${id}`),
+  // Xóa deleteGroup - không cho phép xóa nhóm
   addMembers: (id: number, memberIds: number[]) => api.post(`/groups/${id}/members`, { memberIds }),
   removeMember: (id: number, userId: number) => api.delete(`/groups/${id}/members/${userId}`)
 };
@@ -165,7 +165,7 @@ export const getGroups = async (params?: { duanId?: number }) => {
   }
 };
 
-export const createGroup = async (data: { name: string; description?: string; duanId: number; leaderId?: number; memberIds?: number[] }) => {
+export const createGroup = async (data: { name: string; description?: string; duanId?: number; leaderId?: number; memberIds?: number[] }) => {
   try {
     const res = await groupAPI.createGroup(data);
     return res.data;
@@ -183,14 +183,7 @@ export const updateGroup = async (id: number, data: { name?: string; description
   }
 };
 
-export const deleteGroup = async (id: number) => {
-  try {
-    const res = await groupAPI.deleteGroup(id);
-    return res.data;
-  } catch (err: any) {
-    throw err.response?.data || { message: 'Lỗi không xác định' };
-  }
-};
+// Xóa deleteGroup function - không cho phép xóa nhóm
 
 export const addGroupMembers = async (id: number, memberIds: number[]) => {
   try {

@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState } from 'react';
-import { Plus, Users, FolderKanban, RefreshCw, Edit, Trash2 } from 'lucide-react';
+import { Plus, Users, FolderKanban, RefreshCw, Edit } from 'lucide-react';
 import GroupForm from '@/components/admin/GroupForm';
-import { getGroups, deleteGroup, updateGroup, groupAPI } from '@/axios/adminApi';
+import { getGroups, updateGroup, groupAPI } from '@/axios/adminApi';
+import { useToastContext } from '@/components/providers/toast-provider';
 import api from '@/axios/config';
 
 interface Group {
@@ -17,6 +18,7 @@ interface Group {
 }
 
 export default function GroupsPage() {
+    const { showSuccess, showError, showWarning } = useToastContext();
     const [groups, setGroups] = useState<Group[]>([]);
     const [loading, setLoading] = useState(false);
     const [openModal, setOpenModal] = useState(false);
@@ -31,7 +33,8 @@ export default function GroupsPage() {
             const res = await getGroups(duanFilter ? { duanId: Number(duanFilter) } : undefined);
             setGroups(res.groups || []);
         } catch (e: any) {
-            setMessage(e.message || 'Lỗi tải nhóm');
+            const errorMessage = e.response?.data?.message || e.message || 'Lỗi tải nhóm';
+            showError(errorMessage);
         } finally { setLoading(false); }
     };
 
@@ -42,10 +45,7 @@ export default function GroupsPage() {
     useEffect(() => { loadProjects(); }, []);
     useEffect(() => { loadGroups(); }, [duanFilter]);
 
-    const handleDelete = async (id: number) => {
-        if (!confirm('Xóa nhóm này?')) return;
-        try { await groupAPI.deleteGroup(id); loadGroups(); } catch (e: any) { alert(e.message || 'Lỗi xóa'); }
-    };
+    // Xóa handleDelete - không cho phép xóa nhóm
 
     const handleEdit = (g: Group) => { setEditGroup(g); setOpenModal(true); };
 
@@ -181,21 +181,15 @@ export default function GroupsPage() {
                                         </span>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <div className="flex items-center justify-end space-x-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                                        <div className="flex items-center justify-end space-x-2">
                                             <button
                                                 onClick={() => handleEdit(g)}
-                                                className="p-2.5 hover:bg-blue-100 rounded-lg text-gray-400 hover:text-blue-600 transition-all duration-150 hover:scale-110"
+                                                className="p-2.5 hover:bg-blue-100 rounded-lg text-blue-600 hover:text-blue-700 transition-all duration-150 hover:scale-110 border border-blue-200 hover:border-blue-300"
                                                 title="Chỉnh sửa nhóm"
                                             >
                                                 <Edit size={16} />
                                             </button>
-                                            <button
-                                                onClick={() => handleDelete(g.id)}
-                                                className="p-2.5 hover:bg-red-100 rounded-lg text-gray-400 hover:text-red-600 transition-all duration-150 hover:scale-110"
-                                                title="Xóa nhóm"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
+                                            {/* Xóa nút delete - không cho phép xóa nhóm */}
                                         </div>
                                     </td>
                                 </tr>
