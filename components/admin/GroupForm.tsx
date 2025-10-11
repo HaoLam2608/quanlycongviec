@@ -2,6 +2,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { X, Save, Users, Plus, Search, ChevronDown } from 'lucide-react';
 import { getUsers, createGroup, updateGroup, addGroupMembers, groupAPI } from '@/axios/adminApi';
+import { useToastContext } from '@/components/providers/toast-provider';
 import api from '@/axios/config';
 
 interface GroupFormProps {
@@ -118,6 +119,7 @@ function SearchableSelect({ options, value, onChange, placeholder, displayKey, v
 }
 
 export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: GroupFormProps) {
+    const { showSuccess, showError, showWarning } = useToastContext();
     const [formData, setFormData] = useState<{ name: string; description: string; duanId: string; leaderId: string }>({
         name: '', description: '', duanId: '', leaderId: ''
     });
@@ -176,8 +178,8 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formData.name || !formData.duanId) {
-            setMessage('Vui lòng nhập tên nhóm và chọn dự án');
+        if (!formData.name) {
+            showWarning('Vui lòng nhập tên nhóm');
             return;
         }
         setLoading(true); setMessage('');
@@ -191,20 +193,21 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
                 // Cập nhật lại members: đơn giản gửi thêm các member mới (backend ignore trùng)
                 const newMembers = memberIds.filter(id => !(editGroup.members || []).some((m: any) => m.id === id));
                 if (newMembers.length) await addGroupMembers(editGroup.id, newMembers);
-                setMessage('Cập nhật nhóm thành công');
+                showSuccess('Cập nhật nhóm thành công');
             } else {
                 await createGroup({
                     name: formData.name,
                     description: formData.description,
-                    duanId: Number(formData.duanId),
+                    duanId: formData.duanId ? Number(formData.duanId) : undefined,
                     leaderId: formData.leaderId ? Number(formData.leaderId) : undefined,
                     memberIds: memberIds
                 });
-                setMessage('Tạo nhóm thành công');
+                showSuccess('Tạo nhóm thành công');
             }
             setTimeout(() => { onSuccess(); onClose(); }, 800);
         } catch (e: any) {
-            setMessage(e.message || 'Có lỗi xảy ra');
+            const errorMessage = e.response?.data?.message || e.message || 'Có lỗi xảy ra';
+            showError(errorMessage);
         } finally {
             setLoading(false);
         }
@@ -230,18 +233,19 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
                             <input name="name" value={formData.name} onChange={handleChange} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Nhập tên nhóm" required />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-2">Dự án *</label>
+                            <label className="block text-sm font-medium mb-2">Dự án</label>
                             <SearchableSelect
                                 options={projects}
                                 value={formData.duanId}
                                 onChange={(value) => setFormData(prev => ({ ...prev, duanId: value }))}
-                                placeholder="-- Chọn dự án --"
+                                placeholder="-- Chọn dự án (không bắt buộc) --"
                                 displayKey="tenduan"
                                 valueKey="id"
                                 searchKey="tenduan"
                                 disabled={!!editGroup}
                                 className="w-full"
                             />
+                            <p className="text-xs text-gray-500 mt-1">Có thể tạo nhóm trước và gán dự án sau</p>
                         </div>
                         <div>
                             <label className="block text-sm font-medium mb-2">Leader</label>
@@ -255,6 +259,9 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
                                 searchKey="hoten"
                                 className="w-full"
                             />
+                            <p className="text-xs text-yellow-600 mt-1">
+                                ⚠️ Nhóm trưởng không thể tham gia nhóm khác
+                            </p>
                         </div>
                         <div className="md:col-span-2">
                             <label className="block text-sm font-medium mb-2">Mô tả</label>
@@ -263,6 +270,16 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
                     </div>
                     <div>
                         <label className="block text-sm font-medium mb-3">Thành viên</label>
+                        <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <p className="text-sm text-blue-800">
+                                📋 <strong>Quy tắc nhóm:</strong>
+                            </p>
+                            <ul className="text-xs text-blue-700 mt-1 space-y-1">
+                                <li>• Nhân viên tối đa tham gia 2 nhóm</li>
+                                <li>• Nhóm trưởng không thể là thành viên nhóm khác</li>
+                                <li>• Một người chỉ có thể làm nhóm trưởng 1 nhóm</li>
+                            </ul>
+                        </div>
                         <div className="border rounded-lg">
                             <div className="p-3 border-b bg-gray-50">
                                 <div className="relative">

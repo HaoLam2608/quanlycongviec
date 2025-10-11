@@ -19,6 +19,7 @@ import {
     ChevronDown,
 } from "lucide-react"
 import Modal from "@/components/admin/Modal"
+import { useToastContext } from "@/components/providers/toast-provider"
 
 import { getProjectById, updateProject, deleteProject } from "@/axios/api"
 import { getGroups, groupAPI } from "@/axios/adminApi"
@@ -136,6 +137,7 @@ function SearchableGroupSelect({ groups, value, onChange, placeholder, className
 
 export default function ProjectDetailPage() {
     const { id } = useParams()
+    const { showSuccess, showError, showWarning } = useToastContext()
     const [activeTab, setActiveTab] = useState<"tasks" | "teams">("tasks")
     const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false)
     const [isTaskDetailModalOpen, setIsTaskDetailModalOpen] = useState(false)
@@ -372,9 +374,11 @@ export default function ProjectDetailPage() {
             await loadProjectGroups();
             setIsAddGroupModalOpen(false);
             setSelectedGroupId('');
-        } catch (err) {
+            showSuccess("Thêm nhóm vào dự án thành công!");
+        } catch (err: any) {
             console.error("Lỗi thêm nhóm:", err);
-            alert("Có lỗi khi thêm nhóm vào dự án");
+            const errorMessage = err.response?.data?.message || "Có lỗi khi thêm nhóm vào dự án";
+            showError(errorMessage);
         }
     };
 
@@ -652,21 +656,29 @@ export default function ProjectDetailPage() {
                                                         </p>
                                                     </div>
                                                 </div>
-                                                <button
-                                                    onClick={async () => {
-                                                        if (confirm('Bạn có chắc muốn xóa nhóm này khỏi dự án?')) {
-                                                            try {
-                                                                await groupAPI.updateGroup(group.id, { duanId: undefined });
-                                                                await loadProjectGroups();
-                                                            } catch (err) {
-                                                                alert('Có lỗi khi xóa nhóm');
-                                                            }
-                                                        }
-                                                    }}
-                                                    className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-sm font-medium hover:bg-red-200 transition-all"
-                                                >
-                                                    Xóa khỏi dự án
-                                                </button>
+                                                <div className="flex gap-2">
+                                                    {project?.status === 'hoan_thanh' ? (
+                                                        <button
+                                                            onClick={async () => {
+                                                                if (confirm('Bạn có chắc muốn rời khỏi dự án đã hoàn thành này?')) {
+                                                                    try {
+                                                                        await groupAPI.updateGroup(group.id, { duanId: undefined });
+                                                                        await loadProjectGroups();
+                                                                    } catch (err: any) {
+                                                                        alert(err.message || 'Có lỗi khi rời dự án');
+                                                                    }
+                                                                }
+                                                            }}
+                                                            className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium hover:bg-green-200 transition-all"
+                                                        >
+                                                            Rời dự án (Đã hoàn thành)
+                                                        </button>
+                                                    ) : (
+                                                        <div className="px-3 py-1.5 bg-yellow-100 text-yellow-700 rounded-lg text-sm font-medium">
+                                                            Chỉ được rời khi dự án hoàn thành
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </div>
 
                                             {group.description && (
