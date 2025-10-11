@@ -180,6 +180,7 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
         e.preventDefault();
         if (!formData.name) {
             showWarning('Vui lòng nhập tên nhóm');
+
             return;
         }
         setLoading(true); setMessage('');

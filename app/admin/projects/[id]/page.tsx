@@ -18,10 +18,11 @@ import {
     Search,
     ChevronDown,
 } from "lucide-react"
+import { FolderKanban } from "lucide-react"
 import Modal from "@/components/admin/Modal"
 import { useToastContext } from "@/components/providers/toast-provider"
 
-import { getProjectById, updateProject, deleteProject } from "@/axios/api"
+import { getProjectById, updateProject, deleteProject, fetchDocuments, uploadDocument, deleteDocument, downloadDocument } from "@/axios/api"
 import { getGroups, groupAPI } from "@/axios/adminApi"
 import { useRef } from "react"
 
@@ -138,7 +139,7 @@ function SearchableGroupSelect({ groups, value, onChange, placeholder, className
 export default function ProjectDetailPage() {
     const { id } = useParams()
     const { showSuccess, showError, showWarning } = useToastContext()
-    const [activeTab, setActiveTab] = useState<"tasks" | "teams">("tasks")
+    const [activeTab, setActiveTab] = useState<"tasks" | "teams" | "documents">("tasks")
     const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false)
     const [isTaskDetailModalOpen, setIsTaskDetailModalOpen] = useState(false)
     const [isAddSubtaskModalOpen, setIsAddSubtaskModalOpen] = useState(false)
@@ -148,6 +149,77 @@ export default function ProjectDetailPage() {
     const [loading, setLoading] = useState(true);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [projectGroups, setProjectGroups] = useState<any[]>([]);
+    const [documents, setDocuments] = useState<any[]>([]);
+    const [isUploadOpen, setIsUploadOpen] = useState(false);
+    const [uploadFile, setUploadFile] = useState<File | null>(null);
+    const [uploadDesc, setUploadDesc] = useState('');
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const f = e.target.files?.[0] || null;
+        setUploadFile(f);
+    }
+
+    const handleUploadSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!uploadFile) {
+            alert('Vui lòng chọn file');
+            return;
+        }
+        try {
+            await uploadDocument(uploadFile, Number(id), uploadDesc);
+            const docs = await fetchDocuments(Number(id));
+            setDocuments(docs);
+            setIsUploadOpen(false);
+            setUploadFile(null);
+            setUploadDesc('');
+        } catch (err) {
+            console.error('Lỗi upload', err);
+            alert('Có lỗi khi upload tài liệu');
+        }
+    }
+
+    const handleOpenDocument = async (doc: any) => {
+        try {
+            const { blob, filename } = await downloadDocument(doc.id, false);
+            const mime = doc.mimetype || blob.type || '';
+            const url = URL.createObjectURL(blob);
+            // image or pdf -> open inline
+            if (mime.startsWith('image/') || mime === 'application/pdf') {
+                window.open(url, '_blank');
+                // revoke after a bit
+                setTimeout(() => URL.revokeObjectURL(url), 10000);
+            } else {
+                // trigger download
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename || doc.originalname;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                setTimeout(() => URL.revokeObjectURL(url), 10000);
+            }
+        } catch (err) {
+            console.error('Lỗi mở tài liệu', err);
+            alert('Không thể mở tài liệu');
+        }
+    }
+
+    const handleForceDownload = async (doc: any) => {
+        try {
+            const { blob, filename } = await downloadDocument(doc.id, true);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename || doc.originalname;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 10000);
+        } catch (err) {
+            console.error('Lỗi tải xuống', err);
+            alert('Không thể tải xuống tài liệu');
+        }
+    }
     const [availableGroups, setAvailableGroups] = useState<any[]>([]);
     const [selectedGroupId, setSelectedGroupId] = useState<string>('');
     const router = useRouter();
@@ -341,6 +413,13 @@ export default function ProjectDetailPage() {
 
                 // Load project groups
                 await loadProjectGroups();
+                // load documents for project
+                try {
+                    const docs = await fetchDocuments(Number(id));
+                    setDocuments(docs);
+                } catch (err) {
+                    console.error('Lỗi load tài liệu', err);
+                }
             } catch (err) {
                 console.error("Lỗi load dự án:", err);
             } finally {
@@ -533,6 +612,14 @@ export default function ProjectDetailPage() {
                         <UsersRound size={20} />
                         Nhóm làm việc
                     </button>
+                    <button
+                        onClick={() => setActiveTab("documents")}
+                        className={`flex-1 px-6 py-4 font-semibold transition-all flex items-center justify-center gap-2 ${activeTab === "documents" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"
+                            }`}
+                    >
+                        <FolderKanban size={20} />
+                        Tài liệu
+                    </button>
                 </div>
 
                 <div className="p-6">
@@ -703,6 +790,57 @@ export default function ProjectDetailPage() {
                                                     ))}
                                                 </div>
                                             )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === "documents" && (
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between mb-4">
+                                <h2 className="text-2xl font-bold text-foreground">Tài liệu dự án</h2>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => setIsUploadOpen(true)}
+                                        className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-green-500/30 transition-all flex items-center gap-2"
+                                    >
+                                        <Plus size={18} />
+                                        Tải lên
+                                    </button>
+                                </div>
+                            </div>
+
+                            {documents.length === 0 ? (
+                                <div className="text-center py-12 bg-secondary/30 rounded-xl border border-border">
+                                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <FolderKanban className="w-8 h-8 text-gray-400" />
+                                    </div>
+                                    <h3 className="text-lg font-semibold text-foreground mb-2">Chưa có tài liệu</h3>
+                                    <p className="text-muted-foreground mb-4">Tải lên tài liệu để lưu giữ tài liệu liên quan đến dự án</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {documents.map((doc) => (
+                                        <div key={doc.id} className="flex items-center justify-between p-4 bg-card border border-border rounded-lg">
+                                            <div>
+                                                <div className="font-semibold text-foreground">{doc.originalname}</div>
+                                                <div className="text-sm text-muted-foreground">Uploaded by: {doc.uploader?.hoten || '—'} • {new Date(doc.createdAt).toLocaleString()}</div>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button onClick={() => handleOpenDocument(doc)} className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-sm">Xem / Mở</button>
+                                                <button onClick={() => handleForceDownload(doc)} className="px-3 py-1.5 bg-slate-700 text-white rounded-lg text-sm">Tải xuống</button>
+                                                <button onClick={async () => {
+                                                    if (!confirm('Xóa tài liệu này?')) return;
+                                                    try {
+                                                        await deleteDocument(doc.id);
+                                                        setDocuments(docs => docs.filter(d => d.id !== doc.id));
+                                                    } catch (err) {
+                                                        alert('Có lỗi khi xóa tài liệu');
+                                                    }
+                                                }} className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-sm">Xóa</button>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -1022,6 +1160,24 @@ export default function ProjectDetailPage() {
                         </button>
                     </div>
                 </div>
+            </Modal>
+
+            {/* Upload Document Modal */}
+            <Modal isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} title="Tải lên tài liệu">
+                <form onSubmit={handleUploadSubmit} className="space-y-5">
+                    <div>
+                        <label className="block text-sm font-semibold text-foreground mb-2">File *</label>
+                        <input type="file" onChange={handleFileChange} className="w-full" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-semibold text-foreground mb-2">Mô tả</label>
+                        <textarea value={uploadDesc} onChange={(e) => setUploadDesc(e.target.value)} className="w-full border rounded p-2" />
+                    </div>
+                    <div className="flex gap-3 pt-4">
+                        <button type="button" onClick={() => setIsUploadOpen(false)} className="flex-1 px-6 py-3 bg-secondary text-foreground rounded-xl font-semibold hover:bg-secondary/80 transition-all">Hủy</button>
+                        <button type="submit" className="flex-1 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-semibold">Tải lên</button>
+                    </div>
+                </form>
             </Modal>
             <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Sửa dự án">
                 <form

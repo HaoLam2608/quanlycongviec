@@ -104,3 +104,50 @@ export const deleteProject = async (id: number) => {
     throw err.response?.data || { message: "Không thể xoá dự án" };
   }
 };
+
+// Documents APIs
+export const fetchDocuments = async (duanId?: number) => {
+  try {
+    const params = duanId ? `?duanId=${duanId}` : '';
+    const res = await api.get(`/documents/list${params}`);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy danh sách tài liệu" };
+  }
+};
+
+export const uploadDocument = async (file: File, duanId?: number, description?: string) => {
+  try {
+    const form = new FormData();
+    form.append('file', file);
+    if (duanId) form.append('duanId', String(duanId));
+    if (description) form.append('description', description);
+
+    const res = await api.post('/documents/upload', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Không thể upload tài liệu' };
+  }
+};
+
+export const deleteDocument = async (id: number) => {
+  try {
+    const res = await api.delete(`/documents/delete/${id}`);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Không thể xoá tài liệu' };
+  }
+};
+
+export const downloadDocument = async (id: number, asDownload = false) => {
+  try {
+    const res = await api.get(`/documents/download/${id}${asDownload ? '?download=1' : ''}`, { responseType: 'blob' });
+    // return blob and filename from headers
+    const disposition = res.headers['content-disposition'] || '';
+    const match = disposition.match(/filename="?([^";]+)"?/);
+    const filename = match ? match[1] : `document-${id}`;
+    return { blob: res.data, filename };
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Không thể tải tài liệu' };
+  }
+};

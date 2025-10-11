@@ -35,29 +35,10 @@ export default function AdminDashboard() {
             color: "from-green-500 to-emerald-600",
         },
     ])
-    
+
     const [loading, setLoading] = useState(true)
 
-    const recentActivities = [
-        {
-            user: "Nguyễn Văn A",
-            action: "đã tạo dự án mới",
-            project: "Hệ thống CRM",
-            time: "5 phút trước",
-        },
-        {
-            user: "Trần Thị B",
-            action: "đã cập nhật vai trò",
-            project: "Admin",
-            time: "15 phút trước",
-        },
-        {
-            user: "Lê Văn C",
-            action: "đã hoàn thành task",
-            project: "Website Bán hàng",
-            time: "1 giờ trước",
-        },
-    ]
+    const [recentActivities, setRecentActivities] = useState<any[]>([])
 
     useEffect(() => {
         loadStats()
@@ -66,43 +47,82 @@ export default function AdminDashboard() {
     const loadStats = async () => {
         setLoading(true)
         try {
-            const data = await getDashboardStats()
-            
+            const res = await getDashboardStats()
+            const data = res.stats || res
+
+            // data.stats shape from backend: { totalUsers, newUsers, usersByRole: [{role, count}, ...] }
+            const totalUsers = data.totalUsers || 0
+            const usersByRole = data.usersByRole || []
+            const adminCount = usersByRole.find((r: any) => r.role === 'admin')?.count || 0
+            const managerCount = usersByRole.find((r: any) => r.role === 'manager')?.count || 0
+            const userCount = usersByRole.find((r: any) => r.role === 'employee')?.count || 0
+
             setStats([
                 {
                     title: "Tổng người dùng",
-                    value: data.totalUsers.toString(),
-                    change: "+12.5%",
+                    value: String(totalUsers),
+                    change: "+0%",
                     icon: Users,
                     color: "from-blue-500 to-indigo-600",
                 },
                 {
                     title: "Admin",
-                    value: data.adminCount.toString(),
-                    change: "+8.2%",
+                    value: String(adminCount),
+                    change: "+0%",
                     icon: Shield,
                     color: "from-purple-500 to-pink-600",
                 },
                 {
                     title: "Manager",
-                    value: data.managerCount.toString(),
-                    change: "+2",
+                    value: String(managerCount),
+                    change: "+0%",
                     icon: FolderKanban,
                     color: "from-orange-500 to-red-600",
                 },
                 {
                     title: "User",
-                    value: data.userCount.toString(),
-                    change: "+23.1%",
+                    value: String(userCount),
+                    change: "+0%",
                     icon: Activity,
                     color: "from-green-500 to-emerald-600",
                 },
             ])
+
+            // Map backend recentActivities (User rows) into UI-friendly items.
+            const rawActs = res.recentActivities || [];
+            const mapped = rawActs.map((u: any) => {
+                const name = u.hoten || u.manv || u.name || u.username || '';
+                const action = u.action || 'cập nhật thông tin';
+                const project = u.duanName || u.project || '';
+                const time = u.updatedAt ? timeAgo(new Date(u.updatedAt)) : '';
+                return { user: name || '—', action, project, time };
+            });
+
+            setRecentActivities(mapped)
         } catch (error: any) {
             console.error('Load stats error:', error)
         } finally {
             setLoading(false)
         }
+    }
+
+    // small helper to format relative time
+    const timeAgo = (date: Date) => {
+        const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+        const intervals: [number, string][] = [
+            [31536000, 'năm'],
+            [2592000, 'tháng'],
+            [86400, 'ngày'],
+            [3600, 'giờ'],
+            [60, 'phút'],
+            [1, 'giây'],
+        ];
+
+        for (const [sec, label] of intervals) {
+            const count = Math.floor(seconds / sec);
+            if (count > 0) return `${count} ${label} trước`;
+        }
+        return 'vừa xong';
     }
 
     return (

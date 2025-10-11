@@ -227,7 +227,7 @@ export default function UsersPage() {
                 </div>
             )}
 
-            <UserForm 
+            <UserForm
                 isOpen={openModal}
                 onClose={handleModalClose}
                 onSuccess={loadUsers}
