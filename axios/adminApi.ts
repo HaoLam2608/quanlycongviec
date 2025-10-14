@@ -152,7 +152,7 @@ export const deleteRole = async (id: number) => {
   try {
     const res = await roleAPI.deleteRole(id);
     return res.data;
-  } catch (error : any) {
+  } catch (error: any) {
     throw error.response?.data || { message: "Lỗi không xác định" };
   }
 };
@@ -174,7 +174,9 @@ export const groupAPI = {
   updateGroup: (id: number, data: { name?: string; description?: string; leaderId?: number; duanId?: number }) => api.put(`/groups/${id}`, data),
   // Xóa deleteGroup - không cho phép xóa nhóm
   addMembers: (id: number, memberIds: number[]) => api.post(`/groups/${id}/members`, { memberIds }),
-  removeMember: (id: number, userId: number) => api.delete(`/groups/${id}/members/${userId}`)
+  removeMember: (id: number, userId: number) => api.delete(`/groups/${id}/members/${userId}`),
+  // Thêm nhóm vào dự án (qua group_projects)
+  addGroupToProject: (groupId: number, projectId: number) => api.post('/groups/add-to-project', { groupId, projectId })
 };
 
 // Wrapper for groups
@@ -187,7 +189,7 @@ export const getGroups = async (params?: { duanId?: number }) => {
   }
 };
 
-export const createGroup = async (data: { name: string; description?: string; duanId?: number; leaderId?: number; memberIds?: number[] }) => {
+export const createGroup = async (data: { name: string; description?: string; duanId?: number; leaderId?: number; memberIds?: number[]; projectIds?: number[] }) => {
   try {
     const res = await groupAPI.createGroup(data);
     return res.data;

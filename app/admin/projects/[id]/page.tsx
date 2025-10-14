@@ -22,9 +22,9 @@ import { FolderKanban } from "lucide-react"
 import Modal from "@/components/admin/Modal"
 import { useToastContext } from "@/components/providers/toast-provider"
 
-import { 
-    getProjectById, 
-    updateProject, 
+import {
+    getProjectById,
+    updateProject,
     deleteProject, fetchDocuments, uploadDocument, deleteDocument, downloadDocument,
     getTasksByProject,
     createTask,
@@ -149,6 +149,9 @@ function SearchableGroupSelect({ groups, value, onChange, placeholder, className
 }
 
 export default function ProjectDetailPage() {
+    const [searchTerm, setSearchTerm] = useState('');
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => { setMounted(true); }, []);
     const { id } = useParams()
     const { showSuccess, showError, showWarning } = useToastContext()
     const [activeTab, setActiveTab] = useState<"tasks" | "teams" | "documents">("tasks")
@@ -260,8 +263,8 @@ export default function ProjectDetailPage() {
         assigneeId: "",
     })
 
-   
-    
+
+
 
 
     useEffect(() => {
@@ -328,29 +331,43 @@ export default function ProjectDetailPage() {
             loadUsers();
         }
     }, [id]);
-    
 
+
+    // Lấy danh sách nhóm đã tham gia dự án này (theo group_projects)
     const loadProjectGroups = async () => {
         try {
-            const groupsRes = await getGroups({ duanId: Number(id) });
-            setProjectGroups(groupsRes.groups || []);
-
-            // Load all groups for selection
+            // Lấy tất cả nhóm
             const allGroupsRes = await getGroups();
-            const otherGroups = (allGroupsRes.groups || []).filter(
-                (g: any) => g.duanId !== Number(id)
+            const allGroups = allGroupsRes.groups || [];
+            console.log('DEBUG allGroups:', allGroups);
+            // Lọc nhóm đã tham gia dự án này (theo projects - association belongsToMany)
+            const projectGroups = allGroups.filter((g: any) =>
+                Array.isArray(g.projects) && g.projects.some((p: any) => p.id === Number(id))
             );
-            setAvailableGroups(otherGroups);
+            setProjectGroups(projectGroups);
+
+            // Lọc nhóm khả dụng để thêm vào dự án:
+            // - Chưa tham gia dự án này
+            // - Số lượng dự án đang active < 2 (dựa vào groupProjects status)
+            const availableGroups = allGroups.filter((g: any) => {
+                const groupProjects = Array.isArray(g.groupProjects) ? g.groupProjects : [];
+                const joinedActiveProjects = groupProjects.filter((gp: any) => gp.status === 'active').length;
+                const isInThisProject = groupProjects.some((gp: any) => gp.projectId === Number(id) && gp.status === 'active');
+                return !isInThisProject && joinedActiveProjects < 2;
+            });
+            console.log('DEBUG availableGroups:', availableGroups);
+            setAvailableGroups(availableGroups);
         } catch (err) {
             console.error("Lỗi load nhóm:", err);
         }
     };
 
+    // Gọi API thêm nhóm vào dự án (cần backend endpoint mới)
     const handleAddGroupToProject = async () => {
         if (!selectedGroupId) return;
         try {
-            // Update group to assign to this project
-            await groupAPI.updateGroup(Number(selectedGroupId), { duanId: Number(id) });
+            // Gọi API thêm bản ghi group_projects
+            await groupAPI.addGroupToProject(Number(selectedGroupId), Number(id));
             await loadProjectGroups();
             setIsAddGroupModalOpen(false);
             setSelectedGroupId('');
@@ -437,11 +454,11 @@ export default function ProjectDetailPage() {
                 ngayKetThuc: taskFormData.dueDate,
                 mucDoUuTien: taskFormData.priority
             });
-            
+
             // Refresh tasks list
             const tasksData = await getTasksByProject(id as string);
             setTasks(tasksData.tasks || []);
-            
+
             setIsAddTaskModalOpen(false);
             setTaskFormData({ name: "", description: "", assigneeId: "", priority: "medium", dueDate: "" });
         } catch (error) {
@@ -459,23 +476,23 @@ export default function ProjectDetailPage() {
         e.preventDefault()
         try {
             if (!selectedTask) return;
-            
+
             await createSubtask(selectedTask.id, {
                 tenSubtask: subtaskFormData.name,
                 mota: subtaskFormData.description,
                 nguoiThucHienId: Number(subtaskFormData.assigneeId)
             });
-            
+
             // Refresh tasks to get updated subtasks
             const tasksData = await getTasksByProject(id as string);
             setTasks(tasksData.tasks || []);
-            
+
             // Update selected task
             const updatedTask = tasksData.tasks?.find((t: any) => t.id === selectedTask.id);
             if (updatedTask) {
                 setSelectedTask(updatedTask);
             }
-            
+
             setIsAddSubtaskModalOpen(false);
             setSubtaskFormData({ name: "", description: "", assigneeId: "" });
         } catch (error) {
@@ -486,7 +503,7 @@ export default function ProjectDetailPage() {
 
     const getTaskAssignees = (task: any) => {
         if (!task.subtasks || !Array.isArray(task.subtasks)) return [];
-        
+
         const assigneeIds = new Set(task.subtasks.map((st: any) => st.nguoiThucHienId || st.nguoiThucHien?.id));
         return allMembers.filter((member) => assigneeIds.has(member.id));
     }
@@ -523,37 +540,37 @@ export default function ProjectDetailPage() {
                         <span>
                             {project?.ngaybatdau} - {project?.ngayketthuc}
                         </span>
-                          <div className="flex flex-wrap gap-2">
-                    <button
-                        onClick={() => setIsEditModalOpen(true)}
-                        className="px-4 py-2 bg-yellow-500 text-white rounded-lg"
-                    >
-                        Sửa dự án
-                    </button>
-                    <button
-                        onClick={async () => {
-                        if (confirm("Bạn có chắc muốn xoá dự án này?")) {
-                            await deleteProject(Number(id));
-                            router.push("/admin/projects");
-                        }
-                        }}
-                        className="px-4 py-2 bg-red-600 text-white rounded-lg"
-                    >
-                        Xoá dự án
-                    </button>
+                        <div className="flex flex-wrap gap-2">
+                            <button
+                                onClick={() => setIsEditModalOpen(true)}
+                                className="px-4 py-2 bg-yellow-500 text-white rounded-lg"
+                            >
+                                Sửa dự án
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    if (confirm("Bạn có chắc muốn xoá dự án này?")) {
+                                        await deleteProject(Number(id));
+                                        router.push("/admin/projects");
+                                    }
+                                }}
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg"
+                            >
+                                Xoá dự án
+                            </button>
+                        </div>
+
+
                     </div>
-
-
                 </div>
-                    </div>
-                
+
             </div>
 
             <div className="bg-card border border-border rounded-2xl shadow-lg overflow-hidden">
                 <div className="flex border-b-2 border-border">
-                    <button 
-                    onClick={() => setActiveTab("tasks")}
-                    className={`flex-1 px-6 py-5 font-semibold transition-all flex items-center justify-center gap-2 ${activeTab === "tasks" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"}`}>
+                    <button
+                        onClick={() => setActiveTab("tasks")}
+                        className={`flex-1 px-6 py-5 font-semibold transition-all flex items-center justify-center gap-2 ${activeTab === "tasks" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"}`}>
                         <ListTodo size={20} />
                         Công việc
                     </button>
@@ -644,8 +661,8 @@ export default function ProjectDetailPage() {
                                                         <div className="flex flex-col gap-1">
                                                             <div className="flex items-center gap-2">
                                                                 <div className="w-full bg-gray-200 rounded-full h-2">
-                                                                    <div 
-                                                                        className="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full transition-all duration-300" 
+                                                                    <div
+                                                                        className="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full transition-all duration-300"
                                                                         style={{ width: `${task.progress || 0}%` }}
                                                                     ></div>
                                                                 </div>
@@ -690,8 +707,12 @@ export default function ProjectDetailPage() {
                                         Quản lý nhóm
                                     </Link>
                                     <button
-                                        onClick={() => setIsAddGroupModalOpen(true)}
-                                        className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all flex items-center gap-2"
+                                        onClick={() => {
+                                            if (project?.status !== 'chua_bat_dau' && project?.status !== 'dang_chay') return;
+                                            setIsAddGroupModalOpen(true);
+                                        }}
+                                        className={`px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg font-semibold flex items-center gap-2 transition-all hover:shadow-lg hover:shadow-blue-500/30 ${(project?.status === 'chua_bat_dau' || project?.status === 'dang_chay') ? '' : 'opacity-50 cursor-not-allowed pointer-events-none'}`}
+                                        disabled={project?.status !== 'chua_bat_dau' && project?.status !== 'dang_chay'}
                                     >
                                         <Plus size={18} />
                                         Thêm nhóm có sẵn
@@ -757,9 +778,15 @@ export default function ProjectDetailPage() {
                                                         >
                                                             Rời dự án (Đã hoàn thành)
                                                         </button>
+                                                    ) : project?.status === 'dong' ? (
+                                                        <div className="px-3 py-1.5 bg-gray-200 text-gray-500 rounded-lg text-sm font-medium">
+                                                            Đã hoàn thành
+                                                        </div>
                                                     ) : (
                                                         <div className="px-3 py-1.5 bg-yellow-100 text-yellow-700 rounded-lg text-sm font-medium">
-                                                            Chỉ được rời khi dự án hoàn thành
+                                                            {Array.isArray(group.groupProjects) && group.groupProjects.some((gp: any) => gp.projectId === Number(id) && gp.status === 'completed')
+                                                                ? 'Đã hoàn thành'
+                                                                : 'Chỉ được rời khi dự án hoàn thành'}
                                                         </div>
                                                     )}
                                                 </div>
@@ -806,17 +833,14 @@ export default function ProjectDetailPage() {
                                         <Plus size={18} />
                                         Tải lên
                                     </button>
+                                    <FolderKanban className="w-8 h-8 text-gray-400" />
                                 </div>
                             </div>
-
                             {documents.length === 0 ? (
-                                <div className="text-center py-12 bg-secondary/30 rounded-xl border border-border">
-                                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                                        <FolderKanban className="w-8 h-8 text-gray-400" />
-                                    </div>
+                                <>
                                     <h3 className="text-lg font-semibold text-foreground mb-2">Chưa có tài liệu</h3>
                                     <p className="text-muted-foreground mb-4">Tải lên tài liệu để lưu giữ tài liệu liên quan đến dự án</p>
-                                </div>
+                                </>
                             ) : (
                                 <div className="space-y-3">
                                     {documents.map((doc) => (
@@ -922,12 +946,14 @@ export default function ProjectDetailPage() {
                             className="flex-1 px-6 py-3 bg-secondary text-foreground rounded-xl font-semibold hover:bg-secondary/80 transition-all"
                         >
                             Hủy
-                        </button>
-                        <button
-                            type="submit"
-                            className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all"
-                        >
-                            Thêm công việc
+                            {(project?.status !== 'hoan_thanh' && project?.status !== 'dong') && (
+                                <button
+                                    onClick={() => setIsAddGroupModalOpen(true)}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all"
+                                >
+                                    Thêm nhóm có sẵn
+                                </button>
+                            )}
                         </button>
                     </div>
                 </form>
@@ -971,8 +997,8 @@ export default function ProjectDetailPage() {
                                 <p className="text-sm text-muted-foreground mb-2">Tiến độ</p>
                                 <div className="flex items-center gap-3">
                                     <div className="flex-1 bg-gray-200 rounded-full h-3">
-                                        <div 
-                                            className="bg-blue-600 h-3 rounded-full transition-all duration-300" 
+                                        <div
+                                            className="bg-blue-600 h-3 rounded-full transition-all duration-300"
                                             style={{ width: `${selectedTask.progress || 0}%` }}
                                         ></div>
                                     </div>
@@ -989,16 +1015,15 @@ export default function ProjectDetailPage() {
                             </h4>
                             <div className="grid grid-cols-2 gap-3">
                                 {getTaskAssignees(selectedTask).map((member) => {
-                                    const team = teams.find((t) => t.members.some((m) => m.id === member.id))
                                     return (
                                         <div
                                             key={member.id}
                                             className="flex items-center gap-3 p-3 bg-secondary/30 rounded-lg border border-border"
                                         >
                                             <div
-                                                className={`w-10 h-10 rounded-full bg-gradient-to-br ${team?.color} flex items-center justify-center text-white font-bold flex-shrink-0 shadow-md`}
+                                                className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-indigo-700 font-bold flex-shrink-0 shadow-md"
                                             >
-                                                {member.avatar}
+                                                {mounted ? (member.avatar || (member.name?.charAt(0)?.toUpperCase() || '')) : ''}
                                             </div>
                                             <div>
                                                 <p className="font-semibold text-foreground text-sm">{member.name}</p>
@@ -1047,7 +1072,7 @@ export default function ProjectDetailPage() {
                                                         </span>
                                                         <h4 className="font-bold text-gray-800 text-base">{subtask.tenSubtask}</h4>
                                                     </div>
-                                                    
+
                                                     {/* Người thực hiện */}
                                                     <div className="flex items-center gap-3 mt-3">
                                                         <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-md">
@@ -1058,13 +1083,13 @@ export default function ProjectDetailPage() {
                                                         </span>
                                                     </div>
                                                 </div>
-                                                
+
                                                 {/* Trạng thái badge */}
                                                 <div className="ml-4">
                                                     {getStatusBadge(subtask.trangThai)}
                                                 </div>
                                             </div>
-                                            
+
                                             {/* Controls section tách riêng */}
                                             <div className="flex items-center justify-between pt-4 mt-4 border-t border-gray-200">
                                                 <div className="flex items-center gap-3">
@@ -1094,7 +1119,7 @@ export default function ProjectDetailPage() {
                                                         <option value="Hoàn thành">Hoàn thành</option>
                                                     </select>
                                                 </div>
-                                                
+
                                                 <button
                                                     onClick={async () => {
                                                         if (confirm("Bạn có chắc muốn xóa công việc nhỏ này?")) {
@@ -1209,36 +1234,72 @@ export default function ProjectDetailPage() {
             <Modal isOpen={isAddGroupModalOpen} onClose={() => setIsAddGroupModalOpen(false)} title="Thêm nhóm vào dự án">
                 <div className="space-y-5">
                     <div>
-                        <label className="block text-sm font-semibold text-foreground mb-2">Chọn nhóm *</label>
-                        <SearchableGroupSelect
-                            groups={availableGroups}
-                            value={selectedGroupId}
-                            onChange={setSelectedGroupId}
-                            placeholder="-- Chọn nhóm --"
-                            className="w-full"
-                        />
-                        {availableGroups.length === 0 && (
-                            <p className="text-sm text-muted-foreground mt-2">
-                                Không có nhóm nào khả dụng.
-                                <Link href="/admin/groups" className="text-blue-600 hover:underline ml-1">
-                                    Tạo nhóm mới
-                                </Link>
-                            </p>
+                        <label className="block text-base font-semibold text-foreground mb-3">Chọn nhóm làm việc *</label>
+                        <div className="mb-3 flex items-center gap-2">
+                            <Search className="w-5 h-5 text-muted-foreground absolute ml-3" />
+                            <input
+                                type="text"
+                                placeholder="Tìm kiếm nhóm theo tên hoặc dự án..."
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                className="w-full pl-10 pr-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 bg-background"
+                            />
+                        </div>
+                        {availableGroups.length === 0 ? (
+                            <div className="text-center py-8">
+                                <div className="mb-2 text-muted-foreground">Không có nhóm nào khả dụng.</div>
+                                <Link href="/admin/groups" className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all">Tạo nhóm mới</Link>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-72 overflow-y-auto">
+                                {availableGroups.filter(group =>
+                                    group.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                    (group.duan?.tenduan || '').toLowerCase().includes(searchTerm.toLowerCase())
+                                ).map(group => {
+                                    // Disable nếu group đã tham gia 2 dự án (có group.projectHistory >= 2)
+                                    const joinedProjects = group.projectHistory ? group.projectHistory.length : 0;
+                                    const overLimit = joinedProjects >= 2;
+                                    return (
+                                        <label key={group.id} className={`flex items-center gap-3 p-4 border rounded-xl cursor-pointer transition-all ${selectedGroupId == group.id ? 'border-blue-500 bg-blue-50' : 'border-border bg-background hover:bg-secondary/40'} ${overLimit ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                            title={overLimit ? 'Nhóm đã tham gia 2 dự án' : ''}>
+                                            <input
+                                                type="radio"
+                                                name="select-group"
+                                                value={group.id}
+                                                checked={String(selectedGroupId) === String(group.id)}
+                                                onChange={() => setSelectedGroupId(String(group.id))}
+                                                className="accent-blue-600 w-5 h-5"
+                                                disabled={overLimit}
+                                            />
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-semibold text-lg text-foreground">{group.name}</div>
+                                                <div className="text-xs text-muted-foreground">
+                                                    {group.duan?.tenduan ? `Dự án: ${group.duan.tenduan}` : 'Chưa gán dự án'}
+                                                    {' • '}{group.members?.length || 0} thành viên
+                                                </div>
+                                                {group.leader?.hoten && (
+                                                    <div className="text-xs text-blue-700 mt-1">Trưởng nhóm: {group.leader.hoten}</div>
+                                                )}
+                                                {overLimit && <div className="text-xs text-red-500 mt-1">Đã tham gia 2 dự án</div>}
+                                            </div>
+                                        </label>
+                                    );
+                                })}
+                            </div>
                         )}
                     </div>
-
-                    <div className="flex gap-3 pt-4">
+                    <div className="flex gap-3 pt-4 justify-center">
                         <button
                             type="button"
                             onClick={() => setIsAddGroupModalOpen(false)}
-                            className="flex-1 px-6 py-3 bg-secondary text-foreground rounded-xl font-semibold hover:bg-secondary/80 transition-all"
+                            className="px-6 py-3 bg-secondary text-foreground rounded-xl font-semibold hover:bg-secondary/80 transition-all"
                         >
                             Hủy
                         </button>
                         <button
                             onClick={handleAddGroupToProject}
                             disabled={!selectedGroupId}
-                            className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Thêm nhóm
                         </button>
@@ -1297,10 +1358,10 @@ export default function ProjectDetailPage() {
                                 className="h-12 w-full rounded-xl bg-white/90 border border-white/30 px-4 text-gray-900 shadow-sm
                      focus:outline-none focus:ring-2 focus:ring-orange-400/60"
                             >
-                                <option value="chua_bat_dat">Chưa bắt đầu</option>
+                                <option value="chua_bat_dau">Chưa bắt đầu</option>
                                 <option value="dang_chay">Đang chạy</option>
                                 <option value="da_dong">Đã đóng</option>
-                                <option value="hoan_thanh">Hoàn thành</option>
+                                <option value="da_hoan_thanh">Hoàn thành</option>
                             </select>
                         </div>
                     </div>
