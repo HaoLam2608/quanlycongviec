@@ -1,8 +1,13 @@
+
+
 const express = require('express');
 const router = express.Router();
 const authenticateToken = require('../middleware/auth');
 const { checkPermission } = require('../middleware/rbac');
 const groupController = require('../controllers/groupController');
+
+// Thêm nhóm vào dự án (group_projects)
+router.post('/add-to-project', authenticateToken, checkPermission('groups', 'update'), groupController.addGroupToProject);
 
 // CRUD groups
 router.get('/', authenticateToken, checkPermission('groups', 'read'), groupController.getGroups);

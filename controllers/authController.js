@@ -1,10 +1,11 @@
+require('dotenv').config();
 const { User, Role, Permission } = require('../models');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 // Secret key cho JWT
-const JWT_SECRET = process.env.SECRET_KEY;
-const REFRESH_SECRET = "refresh123"; // nên để trong .env
+const JWT_SECRET = 'secret123'; // Hardcoded tạm thời để fix lỗi
+const REFRESH_SECRET = 'refresh123';
 
 // Tạo token
 function generateAccessToken(user) {

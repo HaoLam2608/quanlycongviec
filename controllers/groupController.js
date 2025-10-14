@@ -1,9 +1,38 @@
+// Thêm nhóm vào dự án (group_projects)
+exports.addGroupToProject = async (req, res) => {
+    try {
+        const { groupId, projectId } = req.body;
+        if (!groupId || !projectId) return res.status(400).json({ message: 'Thiếu groupId hoặc projectId' });
+
+        // Lấy số lượng dự án active mà nhóm đang tham gia
+        const { GroupProject } = require('../models');
+        const activeCount = await GroupProject.count({
+            where: { groupId, status: 'active' }
+        });
+        if (activeCount >= 2) {
+            return res.status(400).json({ message: 'Nhóm đã tham gia tối đa 2 dự án đồng thời' });
+        }
+
+        // Kiểm tra đã tham gia dự án này chưa
+        const existed = await GroupProject.findOne({ where: { groupId, projectId, status: 'active' } });
+        if (existed) {
+            return res.status(400).json({ message: 'Nhóm đã tham gia dự án này' });
+        }
+
+        // Thêm bản ghi mới
+        await GroupProject.create({ groupId, projectId, status: 'active' });
+        res.json({ message: 'Thêm nhóm vào dự án thành công' });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ message: 'Lỗi server' });
+    }
+};
 const { Group, GroupMember, User, DuAn, GroupProjectHistory, sequelize } = require('../models');
 
 // Create group
 exports.createGroup = async (req, res) => {
     try {
-        const { name, description, duanId, leaderId, memberIds } = req.body;
+        const { name, description, leaderId, memberIds, projectIds } = req.body;
         if (!name) return res.status(400).json({ message: 'Thiếu name' });
 
         // Validation cho leader nếu có
@@ -49,15 +78,26 @@ exports.createGroup = async (req, res) => {
             }
         }
 
-        const group = await Group.create({ name, description, duanId, leaderId });
+        const group = await Group.create({ name, description, leaderId });
 
-        // Nếu có dự án được chọn, thêm vào lịch sử
-        if (duanId) {
-            await GroupProjectHistory.create({
-                groupId: group.id,
-                duanId: duanId,
-                status: 'dang_tham_gia'
+        // Xử lý gán dự án cho nhóm nếu có
+        if (Array.isArray(projectIds) && projectIds.length > 0) {
+            if (projectIds.length > 2) return res.status(400).json({ message: 'Chỉ được chọn tối đa 2 dự án đang chạy hoặc chuẩn bị!' });
+            // Lấy danh sách dự án hợp lệ
+            const validProjects = await DuAn.findAll({
+                where: {
+                    id: projectIds,
+                    status: ['chua_bat_dau', 'dang_chay']
+                }
             });
+            if (validProjects.length !== projectIds.length) {
+                return res.status(400).json({ message: 'Chỉ được chọn dự án ở trạng thái chuẩn bị hoặc đang chạy!' });
+            }
+            // Kiểm tra nhóm đã tham gia dự án này chưa (không cần vì nhóm mới tạo)
+            const { GroupProject } = require('../models');
+            for (const pid of projectIds) {
+                await GroupProject.create({ groupId: group.id, projectId: pid, status: 'active' });
+            }
         }
 
         if (Array.isArray(memberIds) && memberIds.length) {
@@ -65,7 +105,7 @@ exports.createGroup = async (req, res) => {
             await GroupMember.bulkCreate(bulk, { ignoreDuplicates: true });
         }
 
-        const full = await Group.findByPk(group.id, { include: ['leader', 'members', 'duan'] });
+        const full = await Group.findByPk(group.id, { include: ['leader', 'members', 'projects'] });
         res.status(201).json({ message: 'Tạo nhóm thành công', group: full });
     } catch (e) {
         console.error(e);
@@ -76,14 +116,13 @@ exports.createGroup = async (req, res) => {
 // List groups (optional filter by duanId)
 exports.getGroups = async (req, res) => {
     try {
-        const { duanId } = req.query;
-        const where = duanId ? { duanId } : {};
+        const { GroupProject } = require('../models');
         const groups = await Group.findAll({
-            where,
             include: [
                 { model: User, as: 'leader', attributes: ['id', 'manv', 'hoten'] },
                 { model: User, as: 'members', attributes: ['id', 'manv', 'hoten'], through: { attributes: [] } },
-                { model: DuAn, as: 'duan', attributes: ['id', 'tenduan'] }
+                { model: DuAn, as: 'projects', attributes: ['id', 'tenduan'], through: { attributes: [] } },
+                { model: GroupProject, as: 'groupProjects', attributes: ['id', 'projectId', 'status'] }
             ],
             order: [['id', 'ASC']]
         });
@@ -96,11 +135,13 @@ exports.getGroups = async (req, res) => {
 // Detail
 exports.getGroup = async (req, res) => {
     try {
+        const { GroupProject } = require('../models');
         const group = await Group.findByPk(req.params.id, {
             include: [
                 { model: User, as: 'leader', attributes: ['id', 'manv', 'hoten'] },
                 { model: User, as: 'members', attributes: ['id', 'manv', 'hoten'], through: { attributes: [] } },
-                { model: DuAn, as: 'duan', attributes: ['id', 'tenduan'] }
+                { model: DuAn, as: 'projects', attributes: ['id', 'tenduan'], through: { attributes: [] } },
+                { model: GroupProject, as: 'groupProjects', attributes: ['id', 'projectId', 'status'] }
             ]
         });
         if (!group) return res.status(404).json({ message: 'Không tìm thấy nhóm' });
@@ -111,68 +152,25 @@ exports.getGroup = async (req, res) => {
 // Update
 exports.updateGroup = async (req, res) => {
     try {
-        const { name, description, leaderId, duanId } = req.body;
+        const { name, description, leaderId } = req.body;
         const group = await Group.findByPk(req.params.id);
         if (!group) return res.status(404).json({ message: 'Không tìm thấy nhóm' });
-
-        // Validation khi gán dự án mới
-        if (duanId && duanId !== group.duanId) {
-            // Kiểm tra nhóm đã tham gia bao nhiêu dự án đang hoạt động
-            const activeProjectsCount = await GroupProjectHistory.count({
-                where: {
-                    groupId: group.id,
-                    status: 'dang_tham_gia'
-                }
-            });
-
-            if (activeProjectsCount >= 2) {
-                return res.status(400).json({
-                    message: 'Nhóm đã tham gia tối đa 2 dự án đồng thời. Vui lòng hoàn thành một dự án trước khi tham gia dự án mới.'
-                });
-            }
-
-            // Kiểm tra dự án mới có tồn tại không
-            const newProject = await DuAn.findByPk(duanId);
-            if (!newProject) {
-                return res.status(404).json({ message: 'Không tìm thấy dự án' });
-            }
-
-            // Kiểm tra nhóm đã từng tham gia dự án này chưa
-            const existingHistory = await GroupProjectHistory.findOne({
-                where: {
-                    groupId: group.id,
-                    duanId: duanId
-                }
-            });
-
-            if (existingHistory) {
-                if (existingHistory.status === 'dang_tham_gia') {
-                    return res.status(400).json({
-                        message: 'Nhóm đã đang tham gia dự án này'
-                    });
-                } else if (existingHistory.status === 'hoan_thanh') {
-                    return res.status(400).json({
-                        message: 'Nhóm đã hoàn thành dự án này trước đó'
-                    });
-                }
-            }
-
-            // Thêm dự án mới vào lịch sử
-            await GroupProjectHistory.create({
-                groupId: group.id,
-                duanId: duanId,
-                status: 'dang_tham_gia'
-            });
-        }
 
         await group.update({
             name: name ?? group.name,
             description: description ?? group.description,
-            leaderId: leaderId ?? group.leaderId,
-            duanId: duanId ?? group.duanId
+            leaderId: leaderId ?? group.leaderId
         });
 
-        const full = await Group.findByPk(group.id, { include: ['leader', 'members', 'duan'] });
+        const { GroupProject } = require('../models');
+        const full = await Group.findByPk(group.id, {
+            include: [
+                { model: User, as: 'leader', attributes: ['id', 'manv', 'hoten'] },
+                { model: User, as: 'members', attributes: ['id', 'manv', 'hoten'], through: { attributes: [] } },
+                { model: DuAn, as: 'projects', attributes: ['id', 'tenduan'], through: { attributes: [] } },
+                { model: GroupProject, as: 'groupProjects', attributes: ['id', 'projectId', 'status'] }
+            ]
+        });
         res.json({ message: 'Cập nhật thành công', group: full });
     } catch (e) {
         console.error(e);

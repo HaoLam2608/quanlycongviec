@@ -68,6 +68,28 @@ exports.updateDuAn = async (req, res) => {
         if (!duan) return res.status(404).json({ message: "Không tìm thấy dự án" });
 
         await duan.update({ tenduan, mota, ngaybatdau, ngayketthuc, status, userId });
+
+
+        // Nếu dự án chuyển sang trạng thái hoàn thành hoặc đã đóng, cập nhật group_projects
+        const { GroupProject } = require('../models');
+        if (status === 'da_hoan_thanh' || status === 'da_dong') {
+            await GroupProject.update(
+                { status: 'completed' },
+                { where: { projectId: duan.id, status: 'active' } }
+            );
+        } else {
+            // Nếu chuyển ngược lại trạng thái khác, cho phép nhóm lại active với dự án này nếu chưa vượt quá 2 dự án
+            // (Chỉ thực hiện nếu trước đó đã completed)
+            const groupProjects = await GroupProject.findAll({ where: { projectId: duan.id, status: 'completed' } });
+            for (const gp of groupProjects) {
+                // Đếm số dự án active hiện tại của nhóm này
+                const activeCount = await GroupProject.count({ where: { groupId: gp.groupId, status: 'active' } });
+                if (activeCount < 2) {
+                    await gp.update({ status: 'active' });
+                }
+            }
+        }
+
         res.json({ message: "Cập nhật dự án thành công", duan });
     } catch (err) {
         res.status(500).json({ error: err.message });
