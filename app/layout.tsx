@@ -6,8 +6,8 @@ import { ToastProvider } from '@/components/providers/toast-provider'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
+  title: 'Quản lý giao việc',
+  description: 'Quản lý giao việc',
   generator: 'v0.app',
 }
 

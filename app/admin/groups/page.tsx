@@ -6,6 +6,12 @@ import { getGroups, updateGroup, groupAPI } from '@/axios/adminApi';
 import { useToastContext } from '@/components/providers/toast-provider';
 import api from '@/axios/config';
 
+interface GroupProject {
+    id: number;
+    projectId: number;
+    status: string;
+    project?: { id: number; tenduan: string };
+}
 interface Group {
     id: number;
     name: string;
@@ -15,6 +21,7 @@ interface Group {
     leader?: { id: number; hoten: string; manv: string };
     leaderId?: number;
     members?: { id: number; hoten: string; manv: string }[];
+    groupProjects?: GroupProject[];
 }
 
 export default function GroupsPage() {
@@ -153,14 +160,23 @@ export default function GroupsPage() {
                                             </div>
                                             <div className="min-w-0">
                                                 <div className="font-semibold text-gray-900 text-sm truncate" title={g.description || g.name}>
-                                                    {g.name}
+                                                    <a href={`/admin/groups/${g.id}`} className="hover:underline text-blue-700">{g.name}</a>
                                                 </div>
                                             </div>
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <div className="text-sm font-medium text-gray-900">
-                                            {g.duan?.tenduan || <span className="text-gray-400 italic">Chưa gán dự án</span>}
+                                        <div className="text-sm font-medium text-gray-900 space-y-1">
+                                            {Array.isArray(g.groupProjects) && g.groupProjects.filter(gp => gp.status === 'active').length > 0 ? (
+                                                g.groupProjects.filter(gp => gp.status === 'active').map((gp) => (
+                                                    <div key={gp.id} className="flex items-center gap-2">
+                                                        <span className="truncate max-w-[160px]" title={projects.find(p => p.id === gp.projectId)?.tenduan || `Dự án #${gp.projectId}`}>{projects.find(p => p.id === gp.projectId)?.tenduan || `Dự án #${gp.projectId}`}</span>
+                                                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-700 border border-green-200">Đang tham gia</span>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <span className="text-gray-400 italic">Chưa gán dự án</span>
+                                            )}
                                         </div>
                                     </td>
                                     <td className="px-6 py-4">
