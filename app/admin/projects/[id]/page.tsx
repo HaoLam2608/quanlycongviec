@@ -363,10 +363,24 @@ export default function ProjectDetailPage() {
     };
 
 
-    // const allMembers = teams.flatMap((team) => team.members)
+    // const allMembers = projectGroups.flatMap((group) => group.members || [])
 
     // Sử dụng users từ API thay vì mock data
     const allMembers = users.map(user => ({
+        id: user.id,
+        name: user.hoten,
+        role: user.chucvu,
+        avatar: user.hoten?.charAt(0)?.toUpperCase() || "U"
+    }));
+
+    const employeeMembers = users.filter(member => member.role.name === 'user' ).map(user => ({
+        id: user.id,
+        name: user.hoten,
+        role: user.chucvu,
+        avatar: user.hoten?.charAt(0)?.toUpperCase() || "U"
+    }));
+
+    const leaderProjectFilter = users.filter(user => user.role.name === 'manager' || user.role.name === 'teamleader').map(user => ({
         id: user.id,
         name: user.hoten,
         role: user.chucvu,
@@ -881,7 +895,7 @@ export default function ProjectDetailPage() {
                             className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                         >
                             <option value="">Chọn người phụ trách</option>
-                            {allMembers.map((member) => (
+                            {leaderProjectFilter.map((member) => (
                                 <option key={member.id} value={member.id}>
                                     {member.name} - {member.role}
                                 </option>
@@ -989,14 +1003,14 @@ export default function ProjectDetailPage() {
                             </h4>
                             <div className="grid grid-cols-2 gap-3">
                                 {getTaskAssignees(selectedTask).map((member) => {
-                                    const team = teams.find((t) => t.members.some((m) => m.id === member.id))
+                                    const team = projectGroups.find((group) => group.members?.some((m: any) => m.id === member.id))
                                     return (
                                         <div
                                             key={member.id}
                                             className="flex items-center gap-3 p-3 bg-secondary/30 rounded-lg border border-border"
                                         >
                                             <div
-                                                className={`w-10 h-10 rounded-full bg-gradient-to-br ${team?.color} flex items-center justify-center text-white font-bold flex-shrink-0 shadow-md`}
+                                                className={`w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold flex-shrink-0 shadow-md`}
                                             >
                                                 {member.avatar}
                                             </div>
@@ -1180,7 +1194,7 @@ export default function ProjectDetailPage() {
                             className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                         >
                             <option value="">Chọn người thực hiện</option>
-                            {allMembers.map((member) => (
+                            {employeeMembers.map((member) => (
                                 <option key={member.id} value={member.id}>
                                     {member.name} - {member.role}
                                 </option>
