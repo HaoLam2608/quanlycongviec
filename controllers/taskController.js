@@ -122,7 +122,7 @@ exports.getTaskById = async (req, res) => {
 exports.createTask = async (req, res) => {
     try {
         const { tentask, mota, duanId, nguoiDuocGiaoId, ngayBatDau, ngayKetThuc, mucDoUuTien, ghiChu } = req.body;
-        
+
         // Kiểm tra dự án có tồn tại không
         const project = await DuAn.findByPk(duanId);
         if (!project) {
@@ -133,6 +133,15 @@ exports.createTask = async (req, res) => {
         const assignee = await User.findByPk(nguoiDuocGiaoId);
         if (!assignee) {
             return res.status(404).json({ error: 'Không tìm thấy người được giao' });
+        }
+
+        // Validate dates: if both provided, start must be <= end
+        if (ngayBatDau && ngayKetThuc) {
+            const start = new Date(ngayBatDau);
+            const end = new Date(ngayKetThuc);
+            if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
+                return res.status(400).json({ error: 'Ngày bắt đầu phải trước hoặc bằng ngày kết thúc' });
+            }
         }
 
         const newTask = await Task.create({
@@ -195,6 +204,15 @@ exports.updateTask = async (req, res) => {
         if (updateData.trangThai === 'Hoàn thành' && !updateData.ngayHoanThanh) {
             updateData.ngayHoanThanh = new Date();
             updateData.tienDo = 100;
+        }
+
+        // Validate dates on update
+        if (updateData.ngayBatDau && updateData.ngayKetThuc) {
+            const start = new Date(updateData.ngayBatDau);
+            const end = new Date(updateData.ngayKetThuc);
+            if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
+                return res.status(400).json({ error: 'Ngày bắt đầu phải trước hoặc bằng ngày kết thúc' });
+            }
         }
 
         await task.update(updateData);

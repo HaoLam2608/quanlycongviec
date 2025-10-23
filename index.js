@@ -22,6 +22,9 @@ app.use('/duan', duanRoutes);
 app.use('/users', require('./routes/userRoutes'));
 app.use('/roles', require('./routes/roleRoutes'));
 app.use('/groups', require('./routes/groupRoutes'));
+
+// mount document routes with upload middleware for /upload
+app.use('/documents', (req, res, next) => { req.upload = upload; next(); }, documentRoutes);
 // NOTE: switch to memory storage to keep file buffer in req.file.buffer
 const storage = multer.memoryStorage();
 const upload = multer({ storage });

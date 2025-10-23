@@ -130,8 +130,8 @@ exports.deleteRole = async (req, res) => {
         // Kiểm tra có user nào đang sử dụng role này không
         const usersWithRole = await User.count({ where: { roleId: id } });
         if (usersWithRole > 0) {
-            return res.status(400).json({ 
-                message: `Không thể xóa vai trò này vì có ${usersWithRole} người dùng đang sử dụng` 
+            return res.status(400).json({
+                message: `Không thể xóa vai trò này vì có ${usersWithRole} người dùng đang sử dụng`
             });
         }
 
@@ -165,7 +165,7 @@ exports.getAllPermissions = async (req, res) => {
             return acc;
         }, {});
 
-        res.json({ 
+        res.json({
             permissions,
             groupedPermissions
         });
@@ -188,9 +188,9 @@ exports.getRolePermissions = async (req, res) => {
             return res.status(404).json({ message: 'Không tìm thấy vai trò' });
         }
 
-        res.json({ 
+        res.json({
             role,
-            permissions: role.permissions 
+            permissions: role.permissions
         });
     } catch (error) {
         console.error('Get role permissions error:', error);
@@ -233,6 +233,30 @@ exports.updateRolePermissions = async (req, res) => {
         });
     } catch (error) {
         console.error('Update role permissions error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+// Tạo permission mới
+exports.createPermission = async (req, res) => {
+    try {
+        const { resource, action, description = '', name } = req.body;
+
+        if (!resource || !action) {
+            return res.status(400).json({ message: 'resource và action là bắt buộc' });
+        }
+
+        // Kiểm tra tồn tại
+        const existing = await Permission.findOne({ where: { resource, action } });
+        if (existing) {
+            return res.status(400).json({ message: 'Permission đã tồn tại' });
+        }
+
+        const perm = await Permission.create({ resource, action, description, name: name || `${resource}-${action}` });
+
+        res.status(201).json({ message: 'Tạo permission thành công', permission: perm });
+    } catch (error) {
+        console.error('Create permission error:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 };

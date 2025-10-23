@@ -5,7 +5,7 @@ exports.createSubtask = async (req, res) => {
     try {
         const { taskId } = req.params; // Lấy taskId từ URL params
         const { tenSubtask, mota, nguoiThucHienId, ngayBatDau, ngayKetThuc, ghiChu } = req.body;
-        
+
         // Kiểm tra task có tồn tại không
         const task = await Task.findByPk(taskId);
         if (!task) {
@@ -20,6 +20,56 @@ exports.createSubtask = async (req, res) => {
 
         // Tự động tính thứ tự cho subtask mới
         const maxOrder = await Subtask.max('thuTu', { where: { taskId } }) || 0;
+
+        // Yêu cầu: phải chọn ngày bắt đầu cho subtask
+        if (!ngayBatDau) {
+            return res.status(400).json({ error: 'Vui lòng chọn ngày bắt đầu cho công việc nhỏ' });
+        }
+
+        const subStart = new Date(ngayBatDau);
+        if (isNaN(subStart.getTime())) {
+            return res.status(400).json({ error: 'Ngày bắt đầu không hợp lệ' });
+        }
+
+        // Nếu task có ngày bắt đầu, đảm bảo subStart >= task.ngayBatDau
+        if (task.ngayBatDau) {
+            const taskStart = new Date(task.ngayBatDau);
+            if (!isNaN(taskStart.getTime()) && subStart < taskStart) {
+                return res.status(400).json({ error: 'Ngày bắt đầu của công việc nhỏ phải lớn hơn hoặc bằng ngày bắt đầu của công việc chính' });
+            }
+        }
+
+        // Nếu task có ngày kết thúc, đảm bảo subStart < task.ngayKetThuc
+        if (task.ngayKetThuc) {
+            const taskEnd = new Date(task.ngayKetThuc);
+            if (isNaN(taskEnd.getTime())) {
+                return res.status(400).json({ error: 'Ngày kết thúc của công việc chính không hợp lệ' });
+            }
+            if (!(subStart < taskEnd)) {
+                return res.status(400).json({ error: 'Ngày bắt đầu của công việc nhỏ phải nhỏ hơn ngày kết thúc của công việc chính' });
+            }
+        }
+
+        // Nếu cả ngày bắt đầu và kết thúc của subtask đều có, kiểm tra thứ tự
+        if (ngayBatDau && ngayKetThuc) {
+            const start = new Date(ngayBatDau);
+            const end = new Date(ngayKetThuc);
+            if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
+                return res.status(400).json({ error: 'Ngày bắt đầu phải trước hoặc bằng ngày kết thúc' });
+            }
+        }
+
+        // Nếu có ngày kết thúc, đảm bảo nó nhỏ hơn ngày kết thúc của task (điều kiện đã có trước)
+        if (ngayKetThuc && task.ngayKetThuc) {
+            const subEnd = new Date(ngayKetThuc);
+            const taskEnd = new Date(task.ngayKetThuc);
+            if (isNaN(subEnd.getTime()) || isNaN(taskEnd.getTime())) {
+                return res.status(400).json({ error: 'Ngày không hợp lệ' });
+            }
+            if (!(subEnd < taskEnd)) {
+                return res.status(400).json({ error: 'Ngày kết thúc của subtask phải nhỏ hơn ngày kết thúc của công việc chính' });
+            }
+        }
 
         const newSubtask = await Subtask.create({
             tenSubtask,
@@ -58,7 +108,14 @@ exports.createSubtask = async (req, res) => {
         });
     } catch (error) {
         console.error('Create subtask error:', error);
-        res.status(500).json({ error: 'Lỗi khi tạo công việc nhỏ' });
+        // Include error details to aid debugging (non-sensitive)
+        const responsePayload = { error: 'Lỗi khi tạo công việc nhỏ' };
+        if (error && error.message) responsePayload.details = error.message;
+        // If Sequelize validation errors exist, include their messages
+        if (error && Array.isArray(error.errors)) {
+            responsePayload.sequelizeErrors = error.errors.map(e => e.message);
+        }
+        res.status(500).json(responsePayload);
     }
 };
 
@@ -103,9 +160,9 @@ exports.updateSubtask = async (req, res) => {
         }
 
         // Kiểm tra quyền cập nhật (người thực hiện, người giao task hoặc người được giao task chính)
-        const canUpdate = subtask.nguoiThucHienId === req.user.id || 
-                         subtask.task.nguoiGiaoId === req.user.id || 
-                         subtask.task.nguoiDuocGiaoId === req.user.id;
+        const canUpdate = subtask.nguoiThucHienId === req.user.id ||
+            subtask.task.nguoiGiaoId === req.user.id ||
+            subtask.task.nguoiDuocGiaoId === req.user.id;
 
         if (!canUpdate) {
             return res.status(403).json({ error: 'Không có quyền cập nhật công việc nhỏ này' });
@@ -114,6 +171,15 @@ exports.updateSubtask = async (req, res) => {
         // Tự động cập nhật ngày hoàn thành khi trạng thái là "Hoàn thành"
         if (updateData.trangThai === 'Hoàn thành' && !updateData.ngayHoanThanh) {
             updateData.ngayHoanThanh = new Date();
+        }
+
+        // Validate dates on update
+        if (updateData.ngayBatDau && updateData.ngayKetThuc) {
+            const start = new Date(updateData.ngayBatDau);
+            const end = new Date(updateData.ngayKetThuc);
+            if (isNaN(start.getTime()) || isNaN(end.getTime()) || start > end) {
+                return res.status(400).json({ error: 'Ngày bắt đầu phải trước hoặc bằng ngày kết thúc' });
+            }
         }
 
         await subtask.update(updateData);
@@ -158,8 +224,8 @@ exports.deleteSubtask = async (req, res) => {
         }
 
         // Kiểm tra quyền xóa (người giao task hoặc người được giao task chính)
-        const canDelete = subtask.task.nguoiGiaoId === req.user.id || 
-                         subtask.task.nguoiDuocGiaoId === req.user.id;
+        const canDelete = subtask.task.nguoiGiaoId === req.user.id ||
+            subtask.task.nguoiDuocGiaoId === req.user.id;
 
         if (!canDelete) {
             return res.status(403).json({ error: 'Không có quyền xóa công việc nhỏ này' });
@@ -217,7 +283,7 @@ exports.reorderSubtasks = async (req, res) => {
 async function updateTaskProgress(taskId) {
     try {
         const subtasks = await Subtask.findAll({ where: { taskId } });
-        
+
         if (subtasks.length === 0) {
             // Nếu không có subtask, giữ nguyên tiến độ hiện tại
             return;
@@ -234,7 +300,7 @@ async function updateTaskProgress(taskId) {
         }
 
         await Task.update(
-            { 
+            {
                 tienDo: progress,
                 trangThai: taskStatus,
                 ngayHoanThanh: progress === 100 ? new Date() : null
@@ -266,7 +332,7 @@ async function reorderSubtasks(taskId) {
 async function updateTaskProgress(taskId) {
     try {
         const subtasks = await Subtask.findAll({ where: { taskId } });
-        
+
         if (subtasks.length === 0) {
             await Task.update({ progress: 0 }, { where: { id: taskId } });
             return;
@@ -274,7 +340,7 @@ async function updateTaskProgress(taskId) {
 
         const completedCount = subtasks.filter(st => st.trangThai === 'Hoàn thành').length;
         const progress = Math.round((completedCount / subtasks.length) * 100);
-        
+
         // Tự động cập nhật trạng thái task dựa vào progress
         let status = 'Chưa bắt đầu';
         if (progress === 100) {
@@ -283,9 +349,9 @@ async function updateTaskProgress(taskId) {
             status = 'Đang chạy';
         }
 
-        await Task.update({ 
-            progress, 
-            trangThai: status 
+        await Task.update({
+            progress,
+            trangThai: status
         }, { where: { id: taskId } });
     } catch (error) {
         console.error('Update task progress error:', error);

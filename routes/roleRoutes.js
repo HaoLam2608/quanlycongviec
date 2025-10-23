@@ -12,6 +12,7 @@ router.delete("/:id", authenticateToken, checkPermission('roles', 'delete'), rol
 
 // Routes cho permission management
 router.get("/permissions", authenticateToken, checkPermission('roles', 'read'), roleController.getAllPermissions);
+router.post("/permissions", authenticateToken, checkPermission('roles', 'create'), roleController.createPermission);
 router.get("/:roleId/permissions", authenticateToken, checkPermission('roles', 'read'), roleController.getRolePermissions);
 router.put("/:roleId/permissions", authenticateToken, checkPermission('roles', 'update'), roleController.updateRolePermissions);
 
