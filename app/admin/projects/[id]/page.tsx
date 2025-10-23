@@ -19,6 +19,7 @@ import {
     ChevronDown,
 } from "lucide-react"
 import { FolderKanban } from "lucide-react"
+import { FolderKanban } from "lucide-react"
 import Modal from "@/components/admin/Modal"
 import { useToastContext } from "@/components/providers/toast-provider"
 

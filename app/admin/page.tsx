@@ -38,8 +38,10 @@ export default function AdminDashboard() {
         },
     ])
 
+
     const [loading, setLoading] = useState(true)
 
+    const [recentActivities, setRecentActivities] = useState<any[]>([])
     const [recentActivities, setRecentActivities] = useState<any[]>([])
 
     useEffect(() => {
@@ -63,11 +65,15 @@ export default function AdminDashboard() {
                     title: "Tổng người dùng",
                     value: String(totalUsers),
                     change: "+0%",
+                    value: String(totalUsers),
+                    change: "+0%",
                     icon: Users,
                     color: "from-[#003D82] to-[#0052A3]",
                 },
                 {
                     title: "Admin",
+                    value: String(adminCount),
+                    change: "+0%",
                     value: String(adminCount),
                     change: "+0%",
                     icon: Shield,
@@ -77,11 +83,15 @@ export default function AdminDashboard() {
                     title: "Manager",
                     value: String(managerCount),
                     change: "+0%",
+                    value: String(managerCount),
+                    change: "+0%",
                     icon: FolderKanban,
                     color: "from-[#006BB8] to-[#0084CF]",
                 },
                 {
                     title: "User",
+                    value: String(userCount),
+                    change: "+0%",
                     value: String(userCount),
                     change: "+0%",
                     icon: Activity,
