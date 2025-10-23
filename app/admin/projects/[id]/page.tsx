@@ -37,6 +37,7 @@ import {
 } from "@/axios/api"
 import { getGroups, groupAPI } from "@/axios/adminApi"
 import { useRef } from "react"
+import TimelineInline from "./timeline/page"
 
 // SearchableSelect Component for Group Selection
 interface SearchableGroupSelectProps {
@@ -71,7 +72,7 @@ function SearchableGroupSelect({ groups, value, onChange, placeholder, className
     }, []);
 
     return (
-        <div className={`relative ${className}`} ref={dropdownRef}>
+        <div className={`relative ${className || ''}`} ref={dropdownRef}>
             <button
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
@@ -87,19 +88,16 @@ function SearchableGroupSelect({ groups, value, onChange, placeholder, className
             </button>
 
             {isOpen && (
-                <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-xl shadow-lg max-h-80 overflow-hidden">
-                    <div className="p-3 border-b border-border">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <input
-                                type="text"
-                                placeholder="Tìm kiếm nhóm..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-9 pr-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                autoFocus
-                            />
-                        </div>
+                <div className="absolute z-50 mt-2 w-full bg-card border border-border rounded-lg shadow-lg">
+                    <div className="p-3">
+                        <input
+                            type="text"
+                            placeholder="Tìm kiếm nhóm..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-9 pr-3 py-2 text-sm bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50"
+                            autoFocus
+                        />
                     </div>
                     <div className="max-h-60 overflow-y-auto">
                         <button
@@ -113,6 +111,7 @@ function SearchableGroupSelect({ groups, value, onChange, placeholder, className
                         >
                             {placeholder}
                         </button>
+
                         {filteredGroups.length === 0 ? (
                             <div className="px-4 py-3 text-sm text-muted-foreground">Không tìm thấy nhóm nào</div>
                         ) : (
@@ -149,12 +148,24 @@ function SearchableGroupSelect({ groups, value, onChange, placeholder, className
 }
 
 export default function ProjectDetailPage() {
+    // helper to format nullable date strings
+    const formatDate = (d?: string) => {
+        if (!d) return 'Chưa xác định'
+        try {
+            const dt = new Date(d)
+            if (isNaN(dt.getTime())) return 'Chưa xác định'
+            return dt.toLocaleDateString('vi-VN')
+        } catch (e) {
+            return 'Chưa xác định'
+        }
+    }
+
     const [searchTerm, setSearchTerm] = useState('');
     const [mounted, setMounted] = useState(false);
     useEffect(() => { setMounted(true); }, []);
     const { id } = useParams()
     const { showSuccess, showError, showWarning } = useToastContext()
-    const [activeTab, setActiveTab] = useState<"tasks" | "teams" | "documents">("tasks")
+    const [activeTab, setActiveTab] = useState<"tasks" | "teams" | "documents" | "timeline">("tasks")
     const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false)
     const [isTaskDetailModalOpen, setIsTaskDetailModalOpen] = useState(false)
     const [isAddSubtaskModalOpen, setIsAddSubtaskModalOpen] = useState(false)
@@ -167,6 +178,7 @@ export default function ProjectDetailPage() {
     const [loadingTasks, setLoadingTasks] = useState(false);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [projectGroups, setProjectGroups] = useState<any[]>([]);
+    const [showAllAssigneesFallback, setShowAllAssigneesFallback] = useState(false);
     const [documents, setDocuments] = useState<any[]>([]);
     const [isUploadOpen, setIsUploadOpen] = useState(false);
     const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -238,6 +250,7 @@ export default function ProjectDetailPage() {
             alert('Không thể tải xuống tài liệu');
         }
     }
+
     const [availableGroups, setAvailableGroups] = useState<any[]>([]);
     const [selectedGroupId, setSelectedGroupId] = useState<string>('');
     const router = useRouter();
@@ -256,11 +269,14 @@ export default function ProjectDetailPage() {
         assigneeId: "",
         priority: "medium",
         dueDate: "",
+        startDate: "",
     })
     const [subtaskFormData, setSubtaskFormData] = useState({
         name: "",
         description: "",
         assigneeId: "",
+        startDate: "",
+        endDate: "",
     })
 
 
@@ -286,6 +302,13 @@ export default function ProjectDetailPage() {
 
                 // Load project groups
                 await loadProjectGroups();
+                // load documents for project
+                try {
+                    const docs = await fetchDocuments(Number(id));
+                    setDocuments(docs);
+                } catch (err) {
+                    console.error('Lỗi load tài liệu', err);
+                }
                 // load documents for project
                 try {
                     const docs = await fetchDocuments(Number(id));
@@ -339,7 +362,7 @@ export default function ProjectDetailPage() {
             // Lấy tất cả nhóm
             const allGroupsRes = await getGroups();
             const allGroups = allGroupsRes.groups || [];
-            console.log('DEBUG allGroups:', allGroups);
+            // removed debug log
             // Lọc nhóm đã tham gia dự án này (theo projects - association belongsToMany)
             const projectGroups = allGroups.filter((g: any) =>
                 Array.isArray(g.projects) && g.projects.some((p: any) => p.id === Number(id))
@@ -355,7 +378,7 @@ export default function ProjectDetailPage() {
                 const isInThisProject = groupProjects.some((gp: any) => gp.projectId === Number(id) && gp.status === 'active');
                 return !isInThisProject && joinedActiveProjects < 2;
             });
-            console.log('DEBUG availableGroups:', availableGroups);
+            // removed debug log
             setAvailableGroups(availableGroups);
         } catch (err) {
             console.error("Lỗi load nhóm:", err);
@@ -389,6 +412,53 @@ export default function ProjectDetailPage() {
         role: user.chucvu,
         avatar: user.hoten?.charAt(0)?.toUpperCase() || "U"
     }));
+
+    // Lọc chỉ những người có role 'teamleader' để dùng cho trường 'Người phụ trách'
+    const teamLeaders = users
+        .filter((u: any) => u.role && (u.role.name === 'teamleader' || u.role.name === 'leader' || u.chucvu === 'Trưởng nhóm'))
+        .map((user: any) => ({ id: user.id, name: user.hoten, role: user.chucvu }));
+
+    // Helper: lấy danh sách thành viên nhóm được phân công cho task
+    // Logic: nếu có task.groupId thì dùng nhóm đó; nếu không, tìm nhóm trong projectGroups mà
+    // - Ưu tiên: nhóm mà mainAssignee là leader (và nhóm tham gia dự án này)
+    // - Fallback: nhóm mà mainAssignee là member
+    // Nếu không tìm được, trả về mảng rỗng
+    const getGroupMembersForTask = (task: any): Array<{ id: any; name: string; role?: any }> => {
+        if (!task) return [];
+
+        const mainAssigneeId = task.nguoiDuocGiaoId || task.nguoiDuocGiao?.id || null;
+        // removed debug log
+
+        // Nếu task có thuộc tính groupId (nếu có), ưu tiên dùng nhóm đó
+        if (task.groupId) {
+            const g = projectGroups.find((grp: any) => Number(grp.id) === Number(task.groupId));
+            if (g && Array.isArray(g.members) && g.members.length) {
+                return g.members.map((m: any) => ({ id: m.id, name: m.hoten || m.name, role: m.chucvu || m.role }));
+            }
+        }
+
+        if (mainAssigneeId) {
+            // 1) Tìm nhóm trong projectGroups mà mainAssignee là leader
+            const leaderGrp = projectGroups.find((g: any) => {
+                // leader info may be in g.leader or g.leaderId
+                if (g.leader && g.leader.id) return Number(g.leader.id) === Number(mainAssigneeId);
+                if (g.leaderId) return Number(g.leaderId) === Number(mainAssigneeId);
+                return false;
+            });
+            if (leaderGrp && Array.isArray(leaderGrp.members) && leaderGrp.members.length) {
+                return leaderGrp.members.map((m: any) => ({ id: m.id, name: m.hoten || m.name, role: m.chucvu || m.role }));
+            }
+
+            // 2) Fallback: tìm nhóm nơi mainAssignee là member
+            const memberGrp = projectGroups.find((g: any) => Array.isArray(g.members) && g.members.some((m: any) => Number(m.id) === Number(mainAssigneeId)));
+            if (memberGrp && Array.isArray(memberGrp.members) && memberGrp.members.length) {
+                return memberGrp.members.map((m: any) => ({ id: m.id, name: m.hoten || m.name, role: m.chucvu || m.role }));
+            }
+        }
+
+        // removed debug log
+        return [];
+    }
 
     if (loading) {
         return <p className="p-4">Đang tải dữ liệu...</p>
@@ -451,6 +521,7 @@ export default function ProjectDetailPage() {
                 mota: taskFormData.description,
                 duanId: Number(id),
                 nguoiDuocGiaoId: Number(taskFormData.assigneeId),
+                ngayBatDau: taskFormData.startDate,
                 ngayKetThuc: taskFormData.dueDate,
                 mucDoUuTien: taskFormData.priority
             });
@@ -460,7 +531,7 @@ export default function ProjectDetailPage() {
             setTasks(tasksData.tasks || []);
 
             setIsAddTaskModalOpen(false);
-            setTaskFormData({ name: "", description: "", assigneeId: "", priority: "medium", dueDate: "" });
+            setTaskFormData({ name: "", description: "", assigneeId: "", priority: "medium", dueDate: "", startDate: "" });
         } catch (error) {
             console.error("Lỗi tạo task:", error);
             alert("Không thể tạo công việc. Vui lòng thử lại!");
@@ -477,11 +548,50 @@ export default function ProjectDetailPage() {
         try {
             if (!selectedTask) return;
 
-            await createSubtask(selectedTask.id, {
+            // Client-side validation: start date is required
+            if (!subtaskFormData.startDate) {
+                alert('Vui lòng chọn ngày bắt đầu cho công việc nhỏ');
+                return;
+            }
+
+            const subStart = new Date(subtaskFormData.startDate);
+            if (isNaN(subStart.getTime())) {
+                alert('Ngày bắt đầu không hợp lệ');
+                return;
+            }
+
+            // If task has a start date, ensure subStart >= task.start
+            if (selectedTask.ngayBatDau) {
+                const taskStart = new Date(selectedTask.ngayBatDau);
+                if (!isNaN(taskStart.getTime()) && subStart < taskStart) {
+                    alert('Ngày bắt đầu của công việc nhỏ phải lớn hơn hoặc bằng ngày bắt đầu của công việc chính');
+                    return;
+                }
+            }
+
+            // If task has an end date, ensure subStart < task.end
+            if (selectedTask.ngayKetThuc) {
+                const taskEnd = new Date(selectedTask.ngayKetThuc);
+                if (isNaN(taskEnd.getTime())) {
+                    alert('Ngày kết thúc của công việc chính không hợp lệ');
+                    return;
+                }
+                if (!(subStart < taskEnd)) {
+                    alert('Ngày bắt đầu của công việc nhỏ phải nhỏ hơn ngày kết thúc của công việc chính');
+                    return;
+                }
+            }
+
+            // Sanitize payload: send null for empty date strings and ensure assigneeId is number
+            const payload: any = {
                 tenSubtask: subtaskFormData.name,
                 mota: subtaskFormData.description,
-                nguoiThucHienId: Number(subtaskFormData.assigneeId)
-            });
+                nguoiThucHienId: subtaskFormData.assigneeId ? Number(subtaskFormData.assigneeId) : null,
+                ngayBatDau: subtaskFormData.startDate || null,
+                ngayKetThuc: subtaskFormData.endDate || null
+            };
+
+            await createSubtask(selectedTask.id, payload);
 
             // Refresh tasks to get updated subtasks
             const tasksData = await getTasksByProject(id as string);
@@ -494,10 +604,18 @@ export default function ProjectDetailPage() {
             }
 
             setIsAddSubtaskModalOpen(false);
-            setSubtaskFormData({ name: "", description: "", assigneeId: "" });
+            setSubtaskFormData({ name: "", description: "", assigneeId: "", startDate: "", endDate: "" });
         } catch (error) {
             console.error("Lỗi tạo subtask:", error);
-            alert("Không thể tạo công việc nhỏ. Vui lòng thử lại!");
+            // If backend provided details, show them to help debugging
+            const errData: any = error;
+            if (errData && (errData.details || errData.error || errData.message || errData.sequelizeErrors)) {
+                console.error('Backend error details:', errData);
+                const details = errData.details || errData.error || errData.message || (Array.isArray(errData.sequelizeErrors) ? errData.sequelizeErrors.join('; ') : undefined);
+                alert('Lỗi khi tạo công việc nhỏ: ' + (details || 'Xem console để biết thêm chi tiết'));
+            } else {
+                alert("Không thể tạo công việc nhỏ. Vui lòng thử lại!");
+            }
         }
     }
 
@@ -538,7 +656,7 @@ export default function ProjectDetailPage() {
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Calendar size={16} />
                         <span>
-                            {project?.ngaybatdau} - {project?.ngayketthuc}
+                            {formatDate(project?.ngaybatdau)} - {formatDate(project?.ngayketthuc)}
                         </span>
                         <div className="flex flex-wrap gap-2">
                             <button
@@ -583,6 +701,14 @@ export default function ProjectDetailPage() {
                         Nhóm làm việc
                     </button>
                     <button
+                        onClick={() => { setActiveTab("timeline"); }}
+                        className={`flex-1 px-6 py-4 font-semibold transition-all flex items-center justify-center gap-2 ${activeTab === "timeline" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"
+                            }`}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3v18M3 12h18" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                        Timeline
+                    </button>
+                    <button
                         onClick={() => setActiveTab("documents")}
                         className={`flex-1 px-6 py-4 font-semibold transition-all flex items-center justify-center gap-2 ${activeTab === "documents" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"
                             }`}
@@ -590,6 +716,8 @@ export default function ProjectDetailPage() {
                         <FolderKanban size={20} />
                         Tài liệu
                     </button>
+
+
                 </div>
 
                 <div className="p-6 bg-gradient-to-br from-white to-gray-50">
@@ -673,7 +801,8 @@ export default function ProjectDetailPage() {
                                                         </div>
                                                     </td>
                                                     <td className="p-3 text-xs text-muted-foreground">
-                                                        {task.ngayKetThuc ? new Date(task.ngayKetThuc).toLocaleDateString('vi-VN') : 'Chưa xác định'}
+                                                        <div>{task.ngayBatDau ? new Date(task.ngayBatDau).toLocaleDateString('vi-VN') : '—'}</div>
+                                                        <div className="font-semibold">{task.ngayKetThuc ? new Date(task.ngayKetThuc).toLocaleDateString('vi-VN') : 'Chưa xác định'}</div>
                                                     </td>
                                                     <td className="p-3">{getStatusBadge(task.trangThai)}</td>
                                                     <td className="p-3">
@@ -691,6 +820,13 @@ export default function ProjectDetailPage() {
                                     </table>
                                 )}
                             </div>
+                        </div>
+                    )}
+
+                    {activeTab === "timeline" && (
+                        <div>
+                            {/* Inline timeline component */}
+                            <TimelineInline params={{ id: String(id) }} />
                         </div>
                     )}
 
@@ -905,12 +1041,33 @@ export default function ProjectDetailPage() {
                             className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                         >
                             <option value="">Chọn người phụ trách</option>
-                            {allMembers.map((member) => (
+                            {teamLeaders.map((member) => (
                                 <option key={member.id} value={member.id}>
                                     {member.name} - {member.role}
                                 </option>
                             ))}
                         </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-semibold text-foreground mb-2">Ngày bắt đầu</label>
+                            <input
+                                type="date"
+                                value={taskFormData.startDate}
+                                onChange={(e) => setTaskFormData({ ...taskFormData, startDate: e.target.value })}
+                                className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold text-foreground mb-2">Hạn chót</label>
+                            <input
+                                type="date"
+                                value={taskFormData.dueDate}
+                                onChange={(e) => setTaskFormData({ ...taskFormData, dueDate: e.target.value })}
+                                className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                            />
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -927,16 +1084,6 @@ export default function ProjectDetailPage() {
                                 <option value="high">Cao</option>
                             </select>
                         </div>
-                        <div>
-                            <label className="block text-sm font-semibold text-foreground mb-2">Hạn chót *</label>
-                            <input
-                                type="date"
-                                required
-                                value={taskFormData.dueDate}
-                                onChange={(e) => setTaskFormData({ ...taskFormData, dueDate: e.target.value })}
-                                className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                            />
-                        </div>
                     </div>
 
                     <div className="flex gap-3 pt-4">
@@ -946,14 +1093,13 @@ export default function ProjectDetailPage() {
                             className="flex-1 px-6 py-3 bg-secondary text-foreground rounded-xl font-semibold hover:bg-secondary/80 transition-all"
                         >
                             Hủy
-                            {(project?.status !== 'hoan_thanh' && project?.status !== 'dong') && (
-                                <button
-                                    onClick={() => setIsAddGroupModalOpen(true)}
-                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all"
-                                >
-                                    Thêm nhóm có sẵn
-                                </button>
-                            )}
+                        </button>
+
+                        <button
+                            type="submit"
+                            className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all"
+                        >
+                            Thêm công việc
                         </button>
                     </div>
                 </form>
@@ -1048,7 +1194,11 @@ export default function ProjectDetailPage() {
                                     </div>
                                 </div>
                                 <button
-                                    onClick={() => setIsAddSubtaskModalOpen(true)}
+                                    onClick={() => {
+                                        // Open Add Subtask modal
+                                        setShowAllAssigneesFallback(false);
+                                        setIsAddSubtaskModalOpen(true);
+                                    }}
                                     className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:from-blue-600 hover:to-indigo-700 transition-all flex items-center gap-2 shadow-md"
                                 >
                                     <Plus size={16} />
@@ -1081,6 +1231,10 @@ export default function ProjectDetailPage() {
                                                         <span className="text-gray-600 font-medium">
                                                             {subtask.nguoiThucHien?.hoten || "Chưa phân công"}
                                                         </span>
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground mt-2">
+                                                        <div>Ngày bắt đầu: {subtask.ngayBatDau ? new Date(subtask.ngayBatDau).toLocaleDateString('vi-VN') : '—'}</div>
+                                                        <div>Hạn chót: {subtask.ngayKetThuc ? new Date(subtask.ngayKetThuc).toLocaleDateString('vi-VN') : '—'}</div>
                                                     </div>
                                                 </div>
 
@@ -1205,12 +1359,59 @@ export default function ProjectDetailPage() {
                             className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                         >
                             <option value="">Chọn người thực hiện</option>
-                            {allMembers.map((member) => (
-                                <option key={member.id} value={member.id}>
-                                    {member.name} - {member.role}
-                                </option>
-                            ))}
+                            {(() => {
+                                const members = getGroupMembersForTask(selectedTask);
+                                const useAll = showAllAssigneesFallback;
+                                const optionsSource = useAll ? allMembers : members;
+                                if (!optionsSource || optionsSource.length === 0) {
+                                    return (
+                                        <option value="" disabled>
+                                            (Không có thành viên nhóm được phân công cho công việc này)
+                                        </option>
+                                    );
+                                }
+                                return optionsSource.map((member) => (
+                                    <option key={member.id} value={member.id}>
+                                        {member.name}
+                                    </option>
+                                ));
+                            })()}
                         </select>
+
+                        {/* Nếu không có thành viên nhóm, cho phép bật fallback hiển thị tất cả users */}
+                        {(!getGroupMembersForTask(selectedTask) || getGroupMembersForTask(selectedTask).length === 0) && (
+                            <div className="mt-2 text-sm text-muted-foreground flex items-center gap-2">
+                                <span>(Không tìm thấy thành viên nhóm phù hợp.)</span>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAllAssigneesFallback(true)}
+                                    className="underline text-primary"
+                                >
+                                    Hiển thị tất cả người dùng
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-semibold text-foreground mb-2">Ngày bắt đầu</label>
+                            <input
+                                type="date"
+                                value={subtaskFormData.startDate}
+                                onChange={(e) => setSubtaskFormData({ ...subtaskFormData, startDate: e.target.value })}
+                                className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold text-foreground mb-2">Ngày kết thúc</label>
+                            <input
+                                type="date"
+                                value={subtaskFormData.endDate}
+                                onChange={(e) => setSubtaskFormData({ ...subtaskFormData, endDate: e.target.value })}
+                                className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                            />
+                        </div>
                     </div>
 
                     <div className="flex gap-3 pt-4">
@@ -1306,6 +1507,8 @@ export default function ProjectDetailPage() {
                     </div>
                 </div>
             </Modal>
+
+
 
             {/* Upload Document Modal */}
             <Modal isOpen={isUploadOpen} onClose={() => setIsUploadOpen(false)} title="Tải lên tài liệu">

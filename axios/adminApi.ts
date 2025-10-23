@@ -60,6 +60,8 @@ export const roleAPI = {
 
   // Lấy tất cả permissions
   getPermissions: () => api.get('/roles/permissions'),
+  // Tạo permission mới
+  createPermission: (data: { resource: string; action: string; description?: string; name?: string }) => api.post('/roles/permissions', data),
 
   // Lấy permissions của role
   getRolePermissions: (roleId: number) => api.get(`/roles/${roleId}/permissions`),
@@ -221,6 +223,15 @@ export const addGroupMembers = async (id: number, memberIds: number[]) => {
 export const removeGroupMember = async (id: number, userId: number) => {
   try {
     const res = await groupAPI.removeMember(id, userId);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Lỗi không xác định' };
+  }
+};
+
+export const createPermission = async (data: { resource: string; action: string; description?: string; name?: string }) => {
+  try {
+    const res = await roleAPI.createPermission(data);
     return res.data;
   } catch (err: any) {
     throw err.response?.data || { message: 'Lỗi không xác định' };

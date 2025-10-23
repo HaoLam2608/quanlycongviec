@@ -1,6 +1,7 @@
 "use client"
 import { useState, useEffect } from "react"
 import RoleForm from "@/components/admin/RoleForm"
+import PermissionForm from "@/components/admin/PermissionForm"
 import { Shield, Plus, Edit, Trash2, Users } from "lucide-react"
 import { deleteRole, getRoles, roleAPI } from "@/axios/adminApi"
 
@@ -18,6 +19,7 @@ interface Role {
 
 export default function RolesPage() {
     const [openModal, setOpenModal] = useState(false)
+    const [openPermModal, setOpenPermModal] = useState(false)
     const [roles, setRoles] = useState<Role[]>([])
     const [loading, setLoading] = useState(false)
     const [editRole, setEditRole] = useState<Role | null>(null)
@@ -55,7 +57,7 @@ export default function RolesPage() {
         }
     }
 
-    
+
 
     const handleModalClose = () => {
         setOpenModal(false)
@@ -65,7 +67,7 @@ export default function RolesPage() {
     const getRoleColor = (index: number) => {
         const colors = [
             "from-purple-500 to-pink-600",
-            "from-blue-500 to-indigo-600", 
+            "from-blue-500 to-indigo-600",
             "from-orange-500 to-red-600",
             "from-green-500 to-emerald-600",
             "from-yellow-500 to-orange-600",
@@ -94,6 +96,12 @@ export default function RolesPage() {
                     <Plus size={20} />
                     Thêm vai trò
                 </button>
+                <button
+                    onClick={() => setOpenPermModal(true)}
+                    className="ml-3 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg border border-gray-200 hover:bg-gray-200 transition-all"
+                >
+                    Thêm quyền
+                </button>
             </div>
 
             {/* Roles Grid */}
@@ -120,13 +128,13 @@ export default function RolesPage() {
                                         <Shield className="w-6 h-6 text-white" />
                                     </div>
                                     <div className="flex items-center gap-1">
-                                        <button 
+                                        <button
                                             onClick={() => handleEdit(role)}
                                             className="p-2 hover:bg-secondary rounded-lg transition-colors text-muted-foreground hover:text-foreground"
                                         >
                                             <Edit size={16} />
                                         </button>
-                                        <button 
+                                        <button
                                             onClick={() => handleDelete(role.id)}
                                             className="p-2 hover:bg-destructive/10 rounded-lg transition-colors text-muted-foreground hover:text-destructive"
                                         >
@@ -164,6 +172,8 @@ export default function RolesPage() {
                 onSuccess={loadRoles}
                 editRole={editRole}
             />
+
+            <PermissionForm isOpen={openPermModal} onClose={() => setOpenPermModal(false)} onSuccess={() => { setOpenPermModal(false); loadRoles(); }} />
         </div>
     )
 }

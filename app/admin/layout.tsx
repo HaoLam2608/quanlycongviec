@@ -3,128 +3,144 @@ import Link from "next/link"
 import type React from "react"
 import { useRouter } from "next/navigation"
 import { usePathname } from "next/navigation"
-import { Home, Users, Shield, FolderKanban, Sparkles, LogOut, Layers3 } from "lucide-react"
+import { Home, Users, Shield, FolderKanban, LogOut, Layers3 } from "lucide-react"
 import AuthGuard from "@/components/auth/AuthGuard"
+import Image from "next/image"
 
-const menuItems = [
-    { name: "Dashboard", href: "/admin", icon: Home },
-    { name: "Người dùng", href: "/admin/users", icon: Users },
-    { name: "Phân quyền", href: "/admin/roles", icon: Shield },
-    { name: "Dự án", href: "/admin/projects", icon: FolderKanban },
-    { name: "Nhóm", href: "/admin/groups", icon: Layers3 },
+const menuCategories = [
+    {
+        title: "Chính",
+        items: [{ name: "Dashboard", href: "/admin", icon: Home }],
+    },
+    {
+        title: "Quản lý",
+        items: [
+            { name: "Người dùng", href: "/admin/users", icon: Users },
+            { name: "Phân quyền", href: "/admin/roles", icon: Shield },
+        ],
+    },
+    {
+        title: "Dự án",
+        items: [
+            { name: "Dự án", href: "/admin/projects", icon: FolderKanban },
+            { name: "Nhóm", href: "/admin/groups", icon: Layers3 },
+        ],
+    },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
     const router = useRouter()
-
-    // Lấy thông tin user từ localStorage
-    const getUserInfo = () => {
-        if (typeof window !== 'undefined') {
-            return {
-                hoten: localStorage.getItem('hoten') || 'Admin User',
-                manv: localStorage.getItem('manv') || 'ADMIN001',
-                role: localStorage.getItem('role') || 'admin'
-            }
-        }
-        return { hoten: 'Admin User', manv: 'ADMIN001', role: 'admin' }
+    const userInfo = {
+        hoten: "John Doe",
+        role: "admin",
+        manv: "12345",
+        refreshToken: "refreshTokenValue",
+        token: "tokenValue",
     }
-
-    const userInfo = getUserInfo()
 
     const handleLogout = () => {
         // Xác nhận đăng xuất
-        if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
+        if (confirm("Bạn có chắc chắn muốn đăng xuất?")) {
             // Xóa token và thông tin user từ localStorage
-            localStorage.removeItem('token')
-            localStorage.removeItem('refreshToken')
-            localStorage.removeItem('manv')
-            localStorage.removeItem('hoten')
-            localStorage.removeItem('role')
-            
+            localStorage.removeItem("token")
+            localStorage.removeItem("refreshToken")
+            localStorage.removeItem("manv")
+            localStorage.removeItem("hoten")
+            localStorage.removeItem("role")
+
             // Hiển thị thông báo đăng xuất thành công
-            alert('Đăng xuất thành công!')
-            
+            alert("Đăng xuất thành công!")
+
             // Chuyển về trang đăng nhập
-            router.push('/')
+            router.push("/")
         }
     }
 
     return (
         <AuthGuard>
-            <div className="flex min-h-screen bg-background">
-                {/* Sidebar */}
-                <aside className="w-72 bg-card border-r border-border flex flex-col sticky top-0 h-screen shadow-sm">
-                <div className="p-6 border-b border-border">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-                            <Sparkles className="w-5 h-5 text-white" />
+            <div className="flex flex-col min-h-screen bg-background">
+                <header className="bg-white border-b border-[#E5E7EB] shadow-sm sticky top-0 z-50">
+                    <div className="flex items-center justify-between h-20">
+                        {/* Logo - fills entire header height */}
+                        <div className="h-full flex items-center">
+                            <Image
+                                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Logo_Huit-IWimrgiEFAgwC7TB8MBStRusseaQ9A.png"
+                                alt="HUIT Logo"
+                                width={200}
+                                height={80}
+                                className="h-full w-auto object-contain"
+                            />
                         </div>
-                        <div>
-                            <h1 className="text-xl font-bold text-foreground">Admin Panel</h1>
-                            <p className="text-xs text-muted-foreground">Quản trị hệ thống</p>
-                        </div>
-                    </div>
-                </div>
 
-                <nav className="flex-1 p-4 space-y-1">
-                    {menuItems.map((item) => {
-                        const Icon = item.icon
-                        const isActive = pathname === item.href
-                        return (
-                            <Link key={item.href} href={item.href}>
-                                <div
-                                    className={`flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all duration-200 group ${isActive
-                                        ? "bg-primary text-primary-foreground shadow-md shadow-primary/10"
-                                        : "hover:bg-secondary text-muted-foreground hover:text-foreground"
-                                        }`}
-                                >
-                                    <Icon
-                                        size={20}
-                                        className={`transition-transform duration-200 ${isActive ? "" : "group-hover:scale-110"}`}
-                                    />
-                                    <span className="font-medium">{item.name}</span>
+                        {/* Admin info and logout */}
+                        <div className="flex items-center gap-6 px-8">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#003D82] to-[#0052A3] flex items-center justify-center text-white font-bold text-sm shadow-md">
+                                    {userInfo.hoten.charAt(0).toUpperCase()}
                                 </div>
-                            </Link>
-                        )
-                    })}
-                </nav>
+                                <div className="hidden sm:block">
+                                    <p className="text-sm font-medium text-foreground">{userInfo.hoten}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {userInfo.role === "admin" ? "Quản trị viên" : userInfo.role}
+                                    </p>
+                                </div>
+                            </div>
 
-                {/* User Info */}
-                <div className="p-4 border-t border-border">
-                    <div className="flex items-center gap-3 mb-3 p-3 rounded-xl bg-secondary/30">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white font-bold text-sm shadow-md shadow-green-500/20">
-                            {userInfo.hoten.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">
-                                {userInfo.hoten}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                                {userInfo.manv} • {userInfo.role === 'admin' ? 'Quản trị viên' : userInfo.role}
-                            </p>
+                            {/* Logout button */}
+                            <button
+                                onClick={handleLogout}
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 text-muted-foreground hover:text-[#003D82] hover:bg-[#F0F4F8]"
+                            >
+                                <LogOut size={18} />
+                                <span className="text-sm font-medium hidden sm:inline">Đăng xuất</span>
+                            </button>
                         </div>
                     </div>
+                </header>
 
-                    {/* Logout Button */}
-                    <button
-                        onClick={handleLogout}
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all duration-200 group w-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive"
-                    >
-                        <LogOut
-                            size={20}
-                            className="transition-transform duration-200 group-hover:scale-110"
-                        />
-                        <span className="font-medium">Đăng xuất</span>
-                    </button>
+                <div className="flex flex-1">
+                    <aside className="w-72 bg-[#F8FAFC] border-r border-[#E5E7EB] flex flex-col sticky top-20 h-[calc(100vh-80px)] shadow-sm">
+                        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+                            {menuCategories.map((category) => (
+                                <div key={category.title} className="space-y-1">
+                                    {/* Category header */}
+                                    <div className="w-full px-4 py-2 text-xs font-semibold text-[#003D82] uppercase tracking-wider">
+                                        <span>{category.title}</span>
+                                    </div>
+
+                                    <div className="space-y-1">
+                                        {category.items.map((item) => {
+                                            const Icon = item.icon
+                                            const isActive = pathname === item.href
+                                            return (
+                                                <Link key={item.href} href={item.href}>
+                                                    <div
+                                                        className={`flex items-center gap-3 px-4 py-3 rounded-lg cursor-pointer transition-all duration-200 group ${isActive
+                                                            ? "bg-[#003D82] text-white shadow-md shadow-[#003D82]/20"
+                                                            : "hover:bg-[#E5E7EB] text-muted-foreground hover:text-foreground"
+                                                            }`}
+                                                    >
+                                                        <Icon
+                                                            size={20}
+                                                            className={`transition-transform duration-200 ${isActive ? "" : "group-hover:scale-110"}`}
+                                                        />
+                                                        <span className="font-medium text-sm">{item.name}</span>
+                                                    </div>
+                                                </Link>
+                                            )
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
+                        </nav>
+                    </aside>
+
+                    {/* Main content */}
+                    <main className="flex-1 overflow-y-auto">
+                        <div className="max-w-7xl mx-auto p-8">{children}</div>
+                    </main>
                 </div>
-
-            </aside>
-
-                {/* Main content */}
-                <main className="flex-1 overflow-y-auto">
-                    <div className="max-w-7xl mx-auto p-8">{children}</div>
-                </main>
             </div>
         </AuthGuard>
     )

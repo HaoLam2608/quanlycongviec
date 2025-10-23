@@ -178,7 +178,6 @@ export default function ProjectsPage() {
                             ) : Array.isArray(users) && users.length > 0 ? (
                                 users
                                     .filter((u: any) => {
-                                        console.log('User:', u); // Debug log
                                         return u.role?.name === 'admin' || u.role?.name === 'manager';
                                     })
                                     .map((u: any) => (
@@ -190,8 +189,8 @@ export default function ProjectsPage() {
                                 <option disabled>Không có dữ liệu người dùng</option>
                             )}
                         </select>
-                        
-                       
+
+
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

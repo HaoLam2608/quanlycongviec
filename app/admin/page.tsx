@@ -1,41 +1,40 @@
 "use client"
 
-import { useState, useEffect, use } from "react"
+import { useState, useEffect } from "react"
 import { Users, Shield, FolderKanban, TrendingUp, Activity, Clock } from "lucide-react"
 import { getDashboardStats } from "@/axios/adminApi"
-import { fetchUsers } from "@/axios/api";
 
 export default function AdminDashboard() {
-    const [users , setUsers] = useState<any[]>([]);
-   
+    const [users, setUsers] = useState<any[]>([])
+
     const [stats, setStats] = useState([
         {
             title: "Tổng người dùng",
             value: "0",
             change: "0%",
             icon: Users,
-            color: "from-blue-500 to-indigo-600",
+            color: "from-[#003D82] to-[#0052A3]",
         },
         {
             title: "Admin",
             value: "0",
             change: "0%",
             icon: Shield,
-            color: "from-purple-500 to-pink-600",
+            color: "from-[#0052A3] to-[#006BB8]",
         },
         {
             title: "Manager",
             value: "0",
             change: "0%",
             icon: FolderKanban,
-            color: "from-orange-500 to-red-600",
+            color: "from-[#006BB8] to-[#0084CF]",
         },
         {
             title: "User",
             value: "0",
             change: "0%",
             icon: Activity,
-            color: "from-green-500 to-emerald-600",
+            color: "from-[#0084CF] to-[#009DE6]",
         },
     ])
 
@@ -53,12 +52,11 @@ export default function AdminDashboard() {
             const res = await getDashboardStats()
             const data = res.stats || res
 
-            // data.stats shape from backend: { totalUsers, newUsers, usersByRole: [{role, count}, ...] }
             const totalUsers = data.totalUsers || 0
             const usersByRole = data.usersByRole || []
-            const adminCount = usersByRole.find((r: any) => r.role === 'admin')?.count || 0
-            const managerCount = usersByRole.find((r: any) => r.role === 'manager')?.count || 0
-            const userCount = usersByRole.find((r: any) => r.role === 'employee')?.count || 0
+            const adminCount = usersByRole.find((r: any) => r.role === "admin")?.count || 0
+            const managerCount = usersByRole.find((r: any) => r.role === "manager")?.count || 0
+            const userCount = usersByRole.find((r: any) => r.role === "employee")?.count || 0
 
             setStats([
                 {
@@ -66,66 +64,64 @@ export default function AdminDashboard() {
                     value: String(totalUsers),
                     change: "+0%",
                     icon: Users,
-                    color: "from-blue-500 to-indigo-600",
+                    color: "from-[#003D82] to-[#0052A3]",
                 },
                 {
                     title: "Admin",
                     value: String(adminCount),
                     change: "+0%",
                     icon: Shield,
-                    color: "from-purple-500 to-pink-600",
+                    color: "from-[#0052A3] to-[#006BB8]",
                 },
                 {
                     title: "Manager",
                     value: String(managerCount),
                     change: "+0%",
                     icon: FolderKanban,
-                    color: "from-orange-500 to-red-600",
+                    color: "from-[#006BB8] to-[#0084CF]",
                 },
                 {
                     title: "User",
                     value: String(userCount),
                     change: "+0%",
                     icon: Activity,
-                    color: "from-green-500 to-emerald-600",
+                    color: "from-[#0084CF] to-[#009DE6]",
                 },
             ])
 
-            // Map backend recentActivities (User rows) into UI-friendly items.
-            const rawActs = res.recentActivities || [];
+            const rawActs = res.recentActivities || []
             const mapped = rawActs.map((u: any) => {
-                const name = u.hoten || u.manv || u.name || u.username || '';
-                const action = u.action || 'cập nhật thông tin';
-                const project = u.duanName || u.project || '';
-                const time = u.updatedAt ? timeAgo(new Date(u.updatedAt)) : '';
-                return { user: name || '—', action, project, time };
-            });
+                const name = u.hoten || u.manv || u.name || u.username || ""
+                const action = u.action || "cập nhật thông tin"
+                const project = u.duanName || u.project || ""
+                const time = u.updatedAt ? timeAgo(new Date(u.updatedAt)) : ""
+                return { user: name || "—", action, project, time }
+            })
 
             setRecentActivities(mapped)
         } catch (error: any) {
-            console.error('Load stats error:', error)
+            console.error("Load stats error:", error)
         } finally {
             setLoading(false)
         }
     }
 
-    // small helper to format relative time
     const timeAgo = (date: Date) => {
-        const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+        const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
         const intervals: [number, string][] = [
-            [31536000, 'năm'],
-            [2592000, 'tháng'],
-            [86400, 'ngày'],
-            [3600, 'giờ'],
-            [60, 'phút'],
-            [1, 'giây'],
-        ];
+            [31536000, "năm"],
+            [2592000, "tháng"],
+            [86400, "ngày"],
+            [3600, "giờ"],
+            [60, "phút"],
+            [1, "giây"],
+        ]
 
         for (const [sec, label] of intervals) {
-            const count = Math.floor(seconds / sec);
-            if (count > 0) return `${count} ${label} trước`;
+            const count = Math.floor(seconds / sec)
+            if (count > 0) return `${count} ${label} trước`
         }
-        return 'vừa xong';
+        return "vừa xong"
     }
 
     return (
@@ -138,12 +134,9 @@ export default function AdminDashboard() {
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {loading ? (
-                    Array.from({ length: 4 }).map((_, index) => (
-                        <div
-                            key={index}
-                            className="bg-card border border-border rounded-2xl p-6 shadow-sm animate-pulse"
-                        >
+                {loading
+                    ? Array.from({ length: 4 }).map((_, index) => (
+                        <div key={index} className="bg-card border border-border rounded-2xl p-6 shadow-sm animate-pulse">
                             <div className="flex items-start justify-between mb-4">
                                 <div className="w-12 h-12 rounded-xl bg-secondary"></div>
                                 <div className="w-16 h-4 bg-secondary rounded"></div>
@@ -154,8 +147,7 @@ export default function AdminDashboard() {
                             </div>
                         </div>
                     ))
-                ) : (
-                    stats.map((stat, index) => {
+                    : stats.map((stat, index) => {
                         const Icon = stat.icon
                         return (
                             <div
@@ -164,11 +156,11 @@ export default function AdminDashboard() {
                             >
                                 <div className="flex items-start justify-between mb-4">
                                     <div
-                                        className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center shadow-md shadow-blue-500/20`}
+                                        className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center shadow-md shadow-[#003D82]/20`}
                                     >
                                         <Icon className="w-6 h-6 text-white" />
                                     </div>
-                                    <div className="flex items-center gap-1 text-green-600 text-sm font-medium">
+                                    <div className="flex items-center gap-1 text-[#0084CF] text-sm font-medium">
                                         <TrendingUp size={16} />
                                         {stat.change}
                                     </div>
@@ -179,8 +171,7 @@ export default function AdminDashboard() {
                                 </div>
                             </div>
                         )
-                    })
-                )}
+                    })}
             </div>
 
             {/* Recent Activities */}
@@ -201,14 +192,14 @@ export default function AdminDashboard() {
                             key={index}
                             className="flex items-start gap-4 p-4 rounded-xl hover:bg-secondary/50 transition-colors group"
                         >
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 shadow-md shadow-blue-500/20">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#003D82] to-[#0052A3] flex items-center justify-center text-white font-bold text-sm flex-shrink-0 shadow-md shadow-[#003D82]/20">
                                 {activity.user.charAt(0)}
                             </div>
                             <div className="flex-1 min-w-0">
                                 <p className="text-foreground">
                                     <span className="font-semibold">{activity.user}</span>{" "}
                                     <span className="text-muted-foreground">{activity.action}</span>{" "}
-                                    <span className="font-semibold text-primary">{activity.project}</span>
+                                    <span className="font-semibold text-[#003D82]">{activity.project}</span>
                                 </p>
                                 <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                                     <Clock size={12} />
