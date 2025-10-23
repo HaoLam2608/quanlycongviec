@@ -296,6 +296,7 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
                 if (newMembers.length) await addGroupMembers(editGroup.id, newMembers);
                 showSuccess('Cập nhật nhóm thành công');
             } else {
+                console.log("Creating group with data:", formData, "and members:", memberIds);
                 await createGroup({
                     name: formData.name,
                     description: formData.description,

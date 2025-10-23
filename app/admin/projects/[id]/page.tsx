@@ -19,7 +19,6 @@ import {
     ChevronDown,
 } from "lucide-react"
 import { FolderKanban } from "lucide-react"
-import { FolderKanban } from "lucide-react"
 import Modal from "@/components/admin/Modal"
 import { useToastContext } from "@/components/providers/toast-provider"
 
@@ -404,7 +403,7 @@ export default function ProjectDetailPage() {
     };
 
 
-    // const allMembers = teams.flatMap((team) => team.members)
+    // const allMembers = projectGroups.flatMap((group) => group.members || [])
 
     // Sử dụng users từ API thay vì mock data
     const allMembers = users.map(user => ({
@@ -1162,6 +1161,7 @@ export default function ProjectDetailPage() {
                             </h4>
                             <div className="grid grid-cols-2 gap-3">
                                 {getTaskAssignees(selectedTask).map((member) => {
+                                    const team = projectGroups.find((group) => group.members?.some((m: any) => m.id === member.id))
                                     return (
                                         <div
                                             key={member.id}
