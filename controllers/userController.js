@@ -235,3 +235,90 @@ exports.getDashboardStats = async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 };
+
+// Upload avatar for current user
+exports.uploadAvatar = async (req, res) => {
+    try {
+        if (!req.upload) return res.status(500).json({ message: 'Upload middleware not configured' });
+        // multer middleware will have filled req.file
+        const file = req.file;
+        if (!file) return res.status(400).json({ message: 'No file uploaded' });
+        // store the file buffer directly on the User record (avatarData)
+        const user = await User.findByPk(req.user.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        user.avatarData = file.buffer;
+        user.avatarMime = file.mimetype;
+        // keep legacy avatar string for compatibility but point to new endpoint
+        user.avatar = `/users/${user.id}/avatar`;
+        await user.save();
+
+        const avatarUrl = `/users/${user.id}/avatar`;
+        res.json({ message: 'Avatar uploaded', avatarUrl });
+    } catch (err) {
+        console.error('Upload avatar error:', err);
+        res.status(500).json({ error: err.message });
+    }
+}
+
+// Serve current user's avatar
+exports.getMyAvatar = async (req, res) => {
+    try {
+        const user = await User.findByPk(req.user.id, { attributes: ['avatarData', 'avatarMime'] });
+        if (!user) return res.status(404).json({ message: 'User not found' });
+        if (!user.avatarData) return res.status(404).json({ message: 'Avatar not set' });
+
+        res.setHeader('Content-Type', user.avatarMime || 'image/*');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        return res.send(user.avatarData);
+    } catch (err) {
+        console.error('Get my avatar error:', err);
+        res.status(500).json({ error: err.message });
+    }
+}
+
+// Serve avatar by user id (public)
+exports.getAvatarById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const user = await User.findByPk(id, { attributes: ['avatarData', 'avatarMime'] });
+        if (!user) return res.status(404).json({ message: 'User not found' });
+        if (!user.avatarData) return res.status(404).json({ message: 'Avatar not set' });
+
+        res.setHeader('Content-Type', user.avatarMime || 'image/*');
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        return res.send(user.avatarData);
+    } catch (err) {
+        console.error('Get avatar by id error:', err);
+        res.status(500).json({ error: err.message });
+    }
+}
+
+// Update current user's profile (allowed fields only)
+exports.updateMyProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { hoten, sdt, chucvu, password } = req.body;
+
+        const user = await User.findByPk(userId);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        const updateData = {};
+        if (hoten) updateData.hoten = hoten;
+        if (sdt) updateData.sdt = sdt;
+        if (chucvu) updateData.chucvu = chucvu;
+
+        if (password) {
+            const bcrypt = require('bcryptjs');
+            updateData.password = await bcrypt.hash(password, 10);
+        }
+
+        await user.update(updateData);
+
+        const updatedUser = await User.findByPk(userId, { attributes: { exclude: ['password', 'token'] }, include: [{ model: Role, as: 'role' }] });
+        res.json({ message: 'Cập nhật hồ sơ thành công', user: updatedUser });
+    } catch (err) {
+        console.error('Update my profile error:', err);
+        res.status(500).json({ error: err.message });
+    }
+}

@@ -16,19 +16,18 @@ app.use(cors());
 
 app.use(bodyParser.json());
 
-// routes...
-app.use('/auth', require('./routes/authRoutes'));
-app.use('/duan', duanRoutes);
-app.use('/users', require('./routes/userRoutes'));
-app.use('/roles', require('./routes/roleRoutes'));
-app.use('/groups', require('./routes/groupRoutes'));
-
-// mount document routes with upload middleware for /upload
-app.use('/documents', (req, res, next) => { req.upload = upload; next(); }, documentRoutes);
 // NOTE: switch to memory storage to keep file buffer in req.file.buffer
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
+// routes...
+app.use('/auth', require('./routes/authRoutes'));
+app.use('/duan', duanRoutes);
+app.use('/users', (req, res, next) => { req.upload = upload; next(); }, require('./routes/userRoutes'));
+app.use('/roles', require('./routes/roleRoutes'));
+app.use('/groups', require('./routes/groupRoutes'));
+// settings routes
+app.use('/settings', require('./routes/settingsRoutes'));
 // mount document routes with upload middleware for /upload
 app.use('/documents', (req, res, next) => { req.upload = upload; next(); }, documentRoutes);
 
