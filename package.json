@@ -12,12 +12,11 @@
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
-    "multer": "^1.4.5-lts.1",
     "mysql2": "^3.15.1",
     "sequelize": "^6.37.7"
   },
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js"
+    "start": "bun run index.js",
+    "dev": "bun --watch index.js"
   }
 }

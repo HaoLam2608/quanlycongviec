@@ -4,7 +4,8 @@ const { DuAn, User } = require('../models');
 exports.createDuAn = async (req, res) => {
     try {
         const { tenduan, mota, ngaybatdau, ngayketthuc, status } = req.body;
-        const userId = req.user.id; // lấy từ token
+        const providedUserId = req.body.userId || req.body.managerId || null;
+        const userId = providedUserId ? Number(providedUserId) : req.user.id;
 
         const duan = await DuAn.create({
             tenduan,
@@ -28,6 +29,34 @@ exports.getAllDuAn = async (req, res) => {
         const duans = await DuAn.findAll({
             include: [{ model: User, as: 'nguoiDamNhan', attributes: ['id', 'manv', 'hoten', 'chucvu'] }]
         });
+        res.json(duans);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+// Lấy danh sách dự án theo managerId (dành cho admin hoặc dùng manv)
+exports.getDuAnByManagerId = async (req, res) => {
+    try {
+        const { managerId } = req.params;
+        if (!managerId) return res.status(400).json({ message: 'managerId is required' });
+
+        let whereClause = {};
+
+        // Nếu managerId là số nguyên thuần (id), tìm theo userId
+        if (/^\d+$/.test(String(managerId))) {
+            whereClause.userId = Number(managerId);
+        } else {
+            // Nếu không phải số, cố gắng tìm user theo manv rồi lấy id
+            const managerUser = await User.findOne({ where: { manv: managerId }, attributes: ['id'] });
+            if (!managerUser) return res.json([]);
+            whereClause.userId = managerUser.id;
+        }
+
+        const duans = await DuAn.findAll({
+            where: whereClause,
+            include: [{ model: User, as: 'nguoiDamNhan', attributes: ['id', 'manv', 'hoten', 'chucvu'] }]
+        });
+
         res.json(duans);
     } catch (err) {
         res.status(500).json({ error: err.message });

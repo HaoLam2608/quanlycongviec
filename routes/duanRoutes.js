@@ -6,6 +6,8 @@ const { checkPermission } = require('../middleware/rbac');
 
 router.post('/create', authenticateToken, checkPermission('projects', 'create'), duanController.createDuAn);
 router.get('/getAll', authenticateToken, checkPermission('projects', 'read'), duanController.getAllDuAn);
+// Lấy danh sách dự án theo manager id (admin)
+router.get('/byManager/:managerId', authenticateToken, checkPermission('projects', 'read'), duanController.getDuAnByManagerId);
 router.get("/getById/:id", authenticateToken, checkPermission('projects', 'read'), duanController.getDuAnById);  // 👈 lấy chi tiết
 router.put('/update/:id', authenticateToken, checkPermission('projects', 'update'), duanController.updateDuAn);   // 👈 sửa
 router.delete('/delete/:id', authenticateToken, checkPermission('projects', 'delete'), duanController.deleteDuAn); // 👈 xoá
