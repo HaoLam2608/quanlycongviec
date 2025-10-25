@@ -149,6 +149,27 @@ export const uploadDocument = async (file: File, duanId?: number, description?: 
   }
 };
 
+export const uploadAvatar = async (file: File) => {
+  try {
+    const form = new FormData();
+    form.append('avatar', file);
+
+    const res = await api.post('/users/avatar', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Không thể upload avatar' };
+  }
+};
+
+export const updateMyProfile = async (data: { hoten?: string; sdt?: string; chucvu?: string; password?: string }) => {
+  try {
+    const res = await api.put('/users/me', data);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Không thể cập nhật hồ sơ' };
+  }
+};
+
 export const deleteDocument = async (id: number) => {
   try {
     const res = await api.delete(`/documents/delete/${id}`);

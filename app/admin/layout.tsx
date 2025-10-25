@@ -16,6 +16,7 @@ import {
     Settings,
 } from "lucide-react"
 import AuthGuard from "@/components/auth/AuthGuard"
+import { useToastContext } from '@/components/providers/toast-provider'
 import Image from "next/image"
 
 const menuCategories = [
@@ -49,6 +50,7 @@ const menuCategories = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
     const router = useRouter()
+    const { showSuccess } = useToastContext()
     const userInfo = {
         hoten: "John Doe",
         role: "admin",
@@ -68,7 +70,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             localStorage.removeItem("role")
 
             // Hiển thị thông báo đăng xuất thành công
-            alert("Đăng xuất thành công!")
+            showSuccess("Đăng xuất thành công!")
 
             // Chuyển về trang đăng nhập
             router.push("/")

@@ -1,6 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { getSystemSettings, updateSystemSettings, testSystemNotification } from "@/axios/adminApi"
+import { useToastContext } from '@/components/providers/toast-provider'
 import { Save, Bell, Lock, Palette } from "lucide-react"
 
 export default function SettingsPage() {
@@ -20,8 +22,61 @@ export default function SettingsPage() {
         setSettings({ ...settings, [field]: value })
     }
 
-    const handleSave = () => {
-        alert("Cài đặt đã được lưu thành công!")
+    const [loading, setLoading] = useState(false)
+
+    const { showSuccess, showError } = useToastContext()
+
+    useEffect(() => {
+        const load = async () => {
+            setLoading(true)
+            try {
+                const data = await getSystemSettings()
+                // merge defaults with loaded data
+                setSettings({ ...settings, ...data })
+            } catch (err: any) {
+                console.error('Lỗi khi tải cài đặt hệ thống', err)
+                showError(err?.message || 'Không thể tải cài đặt hệ thống')
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        load()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+
+    const handleSave = async () => {
+        setLoading(true)
+        try {
+            const updated = await updateSystemSettings(settings)
+            setSettings({ ...settings, ...updated })
+            showSuccess('Cài đặt đã được lưu thành công!')
+        } catch (err: any) {
+            console.error('Lỗi khi lưu cài đặt', err)
+            showError(err?.message || 'Không thể lưu cài đặt')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleTestEmail = async () => {
+        try {
+            const res = await testSystemNotification({ type: 'email', to: settings.email })
+            showSuccess(res?.message || 'Đã gửi thử email (xem console server)')
+        } catch (err: any) {
+            console.error('Lỗi khi gửi thử email', err)
+            showError(err?.message || 'Không thể gửi thử email')
+        }
+    }
+
+    const handleTestSystem = async () => {
+        try {
+            const res = await testSystemNotification({ type: 'system' })
+            showSuccess(res?.message || 'Đã gửi thử thông báo hệ thống (xem console server)')
+        } catch (err: any) {
+            console.error('Lỗi khi gửi thử thông báo hệ thống', err)
+            showError(err?.message || 'Không thể gửi thử thông báo hệ thống')
+        }
     }
 
     return (
@@ -46,7 +101,8 @@ export default function SettingsPage() {
                             type="text"
                             value={settings.tenCongTy}
                             onChange={(e) => handleChange("tenCongTy", e.target.value)}
-                            className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003D82]"
+                            disabled={loading}
+                            className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003D82] disabled:opacity-50"
                         />
                     </div>
 
@@ -57,7 +113,8 @@ export default function SettingsPage() {
                                 type="email"
                                 value={settings.email}
                                 onChange={(e) => handleChange("email", e.target.value)}
-                                className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003D82]"
+                                disabled={loading}
+                                className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003D82] disabled:opacity-50"
                             />
                         </div>
                         <div>
@@ -66,7 +123,8 @@ export default function SettingsPage() {
                                 type="tel"
                                 value={settings.soDienThoai}
                                 onChange={(e) => handleChange("soDienThoai", e.target.value)}
-                                className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003D82]"
+                                disabled={loading}
+                                className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003D82] disabled:opacity-50"
                             />
                         </div>
                     </div>
@@ -77,7 +135,8 @@ export default function SettingsPage() {
                             type="text"
                             value={settings.diaChi}
                             onChange={(e) => handleChange("diaChi", e.target.value)}
-                            className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003D82]"
+                            disabled={loading}
+                            className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003D82] disabled:opacity-50"
                         />
                     </div>
                 </div>
@@ -97,7 +156,8 @@ export default function SettingsPage() {
                             <select
                                 value={settings.muiGio}
                                 onChange={(e) => handleChange("muiGio", e.target.value)}
-                                className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003D82]"
+                                disabled={loading}
+                                className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003D82] disabled:opacity-50"
                             >
                                 <option>Asia/Ho_Chi_Minh</option>
                                 <option>Asia/Bangkok</option>
@@ -109,7 +169,8 @@ export default function SettingsPage() {
                             <select
                                 value={settings.ngonNgu}
                                 onChange={(e) => handleChange("ngonNgu", e.target.value)}
-                                className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003D82]"
+                                disabled={loading}
+                                className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003D82] disabled:opacity-50"
                             >
                                 <option>Tiếng Việt</option>
                                 <option>English</option>
@@ -133,7 +194,8 @@ export default function SettingsPage() {
                             type="checkbox"
                             checked={settings.thongBaoEmail}
                             onChange={(e) => handleChange("thongBaoEmail", e.target.checked)}
-                            className="w-4 h-4 rounded border-border cursor-pointer accent-[#003D82]"
+                            disabled={loading}
+                            className="w-4 h-4 rounded border-border cursor-pointer accent-[#003D82] disabled:opacity-50"
                         />
                         <span className="text-foreground font-medium">Bật thông báo qua email</span>
                     </label>
@@ -143,7 +205,8 @@ export default function SettingsPage() {
                             type="checkbox"
                             checked={settings.thongBaoHeThong}
                             onChange={(e) => handleChange("thongBaoHeThong", e.target.checked)}
-                            className="w-4 h-4 rounded border-border cursor-pointer accent-[#003D82]"
+                            disabled={loading}
+                            className="w-4 h-4 rounded border-border cursor-pointer accent-[#003D82] disabled:opacity-50"
                         />
                         <span className="text-foreground font-medium">Bật thông báo hệ thống</span>
                     </label>
@@ -162,7 +225,8 @@ export default function SettingsPage() {
                     <select
                         value={settings.cheDoBaoMat}
                         onChange={(e) => handleChange("cheDoBaoMat", e.target.value)}
-                        className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003D82]"
+                        disabled={loading}
+                        className="w-full px-4 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#003D82] disabled:opacity-50"
                     >
                         <option>Cao</option>
                         <option>Trung bình</option>
@@ -171,14 +235,41 @@ export default function SettingsPage() {
                 </div>
             </div>
 
-            {/* Save Button */}
-            <button
-                onClick={handleSave}
-                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-[#003D82] text-white rounded-lg hover:bg-[#002855] transition-colors font-bold text-lg"
-            >
-                <Save size={20} />
-                Lưu cài đặt
-            </button>
+            {/* Save & Test Buttons */}
+            <div className="flex gap-3">
+                <button
+                    onClick={handleSave}
+                    disabled={loading}
+                    className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-[#003D82] text-white rounded-lg hover:bg-[#002855] transition-colors font-bold text-lg disabled:opacity-50"
+                >
+                    {loading ? (
+                        <svg className="animate-spin h-5 w-5 text-white mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+                        </svg>
+                    ) : (
+                        <Save size={20} />
+                    )}
+                    {loading ? 'Đang lưu...' : 'Lưu cài đặt'}
+                </button>
+
+                <div className="flex flex-col gap-2">
+                    <button
+                        onClick={handleTestEmail}
+                        disabled={loading}
+                        className="px-4 py-3 bg-white border border-border rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50"
+                    >
+                        Gửi thử email
+                    </button>
+                    <button
+                        onClick={handleTestSystem}
+                        disabled={loading}
+                        className="px-4 py-3 bg-white border border-border rounded-lg text-sm hover:bg-gray-50 disabled:opacity-50"
+                    >
+                        Gửi thử hệ thống
+                    </button>
+                </div>
+            </div>
         </div>
     )
 }

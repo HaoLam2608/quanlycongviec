@@ -71,17 +71,19 @@ export default function PMLayout({ children }: { children: React.ReactNode }) {
 
                         {/* PM info and logout */}
                         <div className="flex items-center gap-6 px-8">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#003D82] to-[#0052A3] flex items-center justify-center text-white font-bold text-sm shadow-md">
-                                    {userInfo.hoten.charAt(0).toUpperCase()}
+                            <Link href="/manager/profile">
+                                <div className="flex items-center gap-3 cursor-pointer">
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#003D82] to-[#0052A3] flex items-center justify-center text-white font-bold text-sm shadow-md">
+                                        {userInfo.hoten.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div className="hidden sm:block">
+                                        <p className="text-sm font-medium text-foreground">{userInfo.hoten}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {userInfo.role === "manager" ? "Quản lý dự án" : userInfo.role}
+                                        </p>
+                                    </div>
                                 </div>
-                                <div className="hidden sm:block">
-                                    <p className="text-sm font-medium text-foreground">{userInfo.hoten}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                        {userInfo.role === "manager" ? "Quản lý dự án" : userInfo.role}
-                                    </p>
-                                </div>
-                            </div>
+                            </Link>
 
                             {/* Logout button */}
                             <button

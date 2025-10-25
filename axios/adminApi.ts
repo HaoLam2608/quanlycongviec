@@ -237,3 +237,37 @@ export const createPermission = async (data: { resource: string; action: string;
     throw err.response?.data || { message: 'Lỗi không xác định' };
   }
 };
+
+// Settings APIs
+export const settingsAPI = {
+  getSettings: () => api.get('/settings'),
+  updateSettings: (data: any) => api.put('/settings', data),
+  testNotification: (payload: { type?: string; to?: string }) => api.post('/settings/notify-test', payload),
+};
+
+export const getSystemSettings = async () => {
+  try {
+    const res = await settingsAPI.getSettings();
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Không thể lấy cài đặt hệ thống' };
+  }
+};
+
+export const updateSystemSettings = async (data: any) => {
+  try {
+    const res = await settingsAPI.updateSettings(data);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Không thể cập nhật cài đặt hệ thống' };
+  }
+};
+
+export const testSystemNotification = async (payload: { type?: string; to?: string }) => {
+  try {
+    const res = await settingsAPI.testNotification(payload);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Không thể gửi thử thông báo' };
+  }
+};
