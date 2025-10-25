@@ -30,8 +30,11 @@ export function LoginForm() {
       localStorage.setItem("hoten", res.hoten)
       localStorage.setItem("role", res.role)
 
-      if (res.role === "admin" || res.role === "manager") {
+      if (res.role === "admin") {
         router.push("/admin")
+      }
+      else if (res.role === "manager") {
+        router.push("/manager")
       } else {
         router.push("/")
       }

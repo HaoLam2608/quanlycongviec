@@ -1,30 +1,29 @@
 import { Card, CardContent } from "@/components/ui/card"
-import { Zap, Users, BarChart3, Shield } from "lucide-react"
+import { CheckCircle2, Users, BarChart3, Clock } from "lucide-react"
 
 const features = [
   {
-    icon: Zap,
-    title: "Lightning Fast Automation",
+    icon: CheckCircle2,
+    title: "Giao việc thông minh",
     description:
-      "Automate repetitive tasks and workflows with our intelligent automation engine. Save hours every week and focus on what matters most.",
+      "Giao việc cho đội ngũ một cách dễ dàng, theo dõi tiến độ thực tế, và đảm bảo mọi công việc được hoàn thành đúng hạn.",
   },
   {
     icon: Users,
-    title: "Seamless Collaboration",
+    title: "Cộng tác nhóm",
     description:
-      "Work together in real-time with your team. Share files, communicate instantly, and keep everyone on the same page effortlessly.",
+      "Làm việc cùng nhau trong thời gian thực. Chia sẻ tệp, bình luận, và giữ mọi người trên cùng một trang.",
   },
   {
     icon: BarChart3,
-    title: "Powerful Analytics",
+    title: "Báo cáo chi tiết",
     description:
-      "Get deep insights into your team's performance with comprehensive analytics and reporting. Make data-driven decisions with confidence.",
+      "Nhận thông tin chi tiết về hiệu suất đội ngũ với báo cáo toàn diện. Đưa ra quyết định dựa trên dữ liệu.",
   },
   {
-    icon: Shield,
-    title: "Enterprise-Grade Security",
-    description:
-      "Your data is protected with bank-level encryption, SOC 2 compliance, and advanced security features. Sleep soundly knowing your information is safe.",
+    icon: Clock,
+    title: "Quản lý thời gian",
+    description: "Theo dõi thời gian dự án, quản lý deadline, và tối ưu hóa quy trình làm việc của đội ngũ.",
   },
 ]
 
@@ -34,10 +33,10 @@ export function Features() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center mb-16">
           <h2 className="font-heading text-3xl font-bold tracking-tight text-foreground sm:text-5xl mb-4">
-            Everything you need to succeed
+            Tính năng mạnh mẽ cho đội ngũ
           </h2>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            Powerful features designed to help your team work smarter, not harder.
+            Tất cả những gì bạn cần để quản lý giao việc hiệu quả và nâng cao năng suất.
           </p>
         </div>
 

@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "build": " next build",
-    "dev": "next dev",
-    "lint": "npx next lint",
-    "start": "npx next start -p 3001"
+    "build": "bunx next build",
+    "dev": "bunx next dev",
+    "lint": "bunx next lint",
+    "start": "bunx next start -p 3001"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

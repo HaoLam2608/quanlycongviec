@@ -55,6 +55,16 @@ export const fetchProjects = async () => {
     throw err.response?.data || { message: "Không thể lấy danh sách dự án" };
   }
 };
+// Lấy dự án của người đang đăng nhập (manager)
+// Lấy dự án theo managerId (admin)
+export const fetchProjectsByManager = async (managerId: string | number) => {
+  try {
+    const res = await api.get(`/duan/byManager/${managerId}`);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Không thể lấy dự án theo manager' };
+  }
+};
 export const getProjectById = async (id: string) => {
   try {
     const res = await api.get(`/duan/getById/${id}`);

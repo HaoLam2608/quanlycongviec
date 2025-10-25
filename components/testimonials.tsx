@@ -3,27 +3,27 @@ import { Star } from "lucide-react"
 
 const testimonials = [
   {
-    name: "Sarah Johnson",
-    role: "CEO, TechStart Inc.",
-    image: "/professional-woman-headshot.png",
+    name: "Nguyễn Văn A",
+    role: "Giám đốc Dự án, Công ty ABC",
+    image: "/professional-avatar.png",
     content:
-      "StreamLine has completely transformed how our team works. We've seen a 40% increase in productivity since switching. The automation features alone have saved us countless hours.",
+      "HUIT Task Manager đã thay đổi hoàn toàn cách đội ngũ của chúng tôi làm việc. Năng suất tăng 40% kể từ khi chúng tôi chuyển sang. Các tính năng tự động hóa đã tiết kiệm cho chúng tôi hàng chục giờ mỗi tuần.",
     rating: 5,
   },
   {
-    name: "Michael Chen",
-    role: "Product Manager, InnovateCo",
-    image: "/professional-man-headshot.png",
+    name: "Trần Thị B",
+    role: "Quản lý Sản phẩm, Công ty XYZ",
+    image: "/professional-avatar.png",
     content:
-      "The best investment we've made this year. The collaboration tools are intuitive, and the analytics give us insights we never had before. Highly recommend!",
+      "Đây là khoản đầu tư tốt nhất mà chúng tôi đã thực hiện năm nay. Các công cụ cộng tác rất trực quan, và báo cáo phân tích cung cấp cho chúng tôi những thông tin chúng tôi chưa bao giờ có được trước đây.",
     rating: 5,
   },
   {
-    name: "Emily Rodriguez",
-    role: "Operations Director, GrowthLabs",
-    image: "/avatar-1.png",
+    name: "Lê Văn C",
+    role: "Giám đốc Vận hành, Công ty DEF",
+    image: "/professional-avatar.png",
     content:
-      "We tried several platforms before finding StreamLine. The difference is night and day. Our team actually enjoys using it, and the results speak for themselves.",
+      "Chúng tôi đã thử nhiều nền tảng trước khi tìm thấy HUIT Task Manager. Sự khác biệt là rõ ràng. Đội ngũ của chúng tôi thực sự thích sử dụng nó, và kết quả nói lên tất cả.",
     rating: 5,
   },
 ]
@@ -34,10 +34,10 @@ export function Testimonials() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center mb-16">
           <h2 className="font-heading text-3xl font-bold tracking-tight text-foreground sm:text-5xl mb-4">
-            Loved by teams worldwide
+            Được yêu thích bởi các đội ngũ
           </h2>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            Don't just take our word for it. Here's what our customers have to say.
+            Đừng chỉ nghe lời chúng tôi nói. Đây là những gì khách hàng của chúng tôi nói.
           </p>
         </div>
 
@@ -47,7 +47,7 @@ export function Testimonials() {
               <CardContent className="p-8">
                 <div className="flex gap-1 mb-4">
                   {[...Array(testimonial.rating)].map((_, i) => (
-                    <Star key={i} className="h-5 w-5 fill-secondary text-secondary" />
+                    <Star key={i} className="h-5 w-5 fill-primary text-primary" />
                   ))}
                 </div>
                 <p className="text-card-foreground leading-relaxed mb-6">"{testimonial.content}"</p>

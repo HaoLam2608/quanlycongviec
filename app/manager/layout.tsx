@@ -3,74 +3,52 @@ import Link from "next/link"
 import type React from "react"
 import { useRouter } from "next/navigation"
 import { usePathname } from "next/navigation"
-import {
-    Home,
-    Users,
-    Shield,
-    FolderKanban,
-    LogOut,
-    Layers3,
-    Building2,
-    CheckSquare,
-    BarChart3,
-    Settings,
-} from "lucide-react"
+import { Home, FolderKanban, CheckSquare, Users, BarChart3, Settings, LogOut } from "lucide-react"
 import AuthGuard from "@/components/auth/AuthGuard"
 import Image from "next/image"
 
 const menuCategories = [
     {
         title: "Chính",
-        items: [{ name: "Dashboard", href: "/admin", icon: Home }],
+        items: [{ name: "Dashboard", href: "/pm", icon: Home }],
     },
     {
-        title: "Quản lý người dùng",
+        title: "Quản lý",
         items: [
-            { name: "Người dùng", href: "/admin/users", icon: Users },
-            { name: "Phân quyền", href: "/admin/roles", icon: Shield },
+            { name: "Dự án", href: "/manager/projects", icon: FolderKanban },
+            { name: "Nhiệm vụ", href: "/pm/tasks", icon: CheckSquare },
+            { name: "Nhân sự", href: "/manager/groups", icon: Users },
         ],
     },
     {
-        title: "Quản lý dự án",
+        title: "Báo cáo",
         items: [
-            { name: "Dự án", href: "/admin/projects", icon: FolderKanban },
-            { name: "Nhóm", href: "/admin/groups", icon: Layers3 },
-        ],
-    },
-    {
-        title: "Báo cáo & Cài đặt",
-        items: [
-            { name: "Báo cáo", href: "/admin/reports", icon: BarChart3 },
-            { name: "Cài đặt", href: "/admin/settings", icon: Settings },
+            { name: "Báo cáo tiến độ", href: "/pm/reports", icon: BarChart3 },
+            { name: "Cài đặt", href: "/pm/settings", icon: Settings },
         ],
     },
 ]
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+export default function PMLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
     const router = useRouter()
     const userInfo = {
-        hoten: "John Doe",
-        role: "admin",
-        manv: "12345",
+        hoten: "Jane Smith",
+        role: "manager",
+        manv: "54321",
         refreshToken: "refreshTokenValue",
         token: "tokenValue",
     }
 
     const handleLogout = () => {
-        // Xác nhận đăng xuất
         if (confirm("Bạn có chắc chắn muốn đăng xuất?")) {
-            // Xóa token và thông tin user từ localStorage
             localStorage.removeItem("token")
             localStorage.removeItem("refreshToken")
             localStorage.removeItem("manv")
             localStorage.removeItem("hoten")
             localStorage.removeItem("role")
 
-            // Hiển thị thông báo đăng xuất thành công
             alert("Đăng xuất thành công!")
-
-            // Chuyển về trang đăng nhập
             router.push("/")
         }
     }
@@ -91,7 +69,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             />
                         </div>
 
-                        {/* Admin info and logout */}
+                        {/* PM info and logout */}
                         <div className="flex items-center gap-6 px-8">
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#003D82] to-[#0052A3] flex items-center justify-center text-white font-bold text-sm shadow-md">
@@ -100,7 +78,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                 <div className="hidden sm:block">
                                     <p className="text-sm font-medium text-foreground">{userInfo.hoten}</p>
                                     <p className="text-xs text-muted-foreground">
-                                        {userInfo.role === "admin" ? "Quản trị viên" : userInfo.role}
+                                        {userInfo.role === "manager" ? "Quản lý dự án" : userInfo.role}
                                     </p>
                                 </div>
                             </div>

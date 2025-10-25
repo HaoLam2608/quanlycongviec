@@ -15,36 +15,36 @@ export function Header() {
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
-              <div className="h-8 w-8 rounded-lg bg-primary" />
-              <span className="font-heading text-xl font-bold text-foreground">StreamLine</span>
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-primary/80" />
+              <span className="font-heading text-xl font-bold text-foreground">HUIT Task Manager</span>
             </Link>
           </div>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
             <a href="#features" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
-              Features
+              Tính năng
             </a>
             <a
               href="#testimonials"
               className="text-sm font-medium text-foreground hover:text-primary transition-colors"
             >
-              Testimonials
+              Đánh giá
             </a>
             <a href="#pricing" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
-              Pricing
+              Giá cả
             </a>
             <a href="#" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
-              About
+              Về chúng tôi
             </a>
           </nav>
 
           <div className="hidden md:flex items-center space-x-4">
             <Button variant="ghost" size="sm" asChild>
-              <Link href="/login">Sign In</Link>
+              <Link href="/login">Đăng nhập</Link>
             </Button>
             <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90" asChild>
-              <Link href="/signup">Get Started</Link>
+              <Link href="/signup">Bắt đầu</Link>
             </Button>
           </div>
 
@@ -62,35 +62,35 @@ export function Header() {
               className="block text-sm font-medium text-foreground hover:text-primary transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
-              Features
+              Tính năng
             </a>
             <a
               href="#testimonials"
               className="block text-sm font-medium text-foreground hover:text-primary transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
-              Testimonials
+              Đánh giá
             </a>
             <a
               href="#pricing"
               className="block text-sm font-medium text-foreground hover:text-primary transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
-              Pricing
+              Giá cả
             </a>
             <a
               href="#"
               className="block text-sm font-medium text-foreground hover:text-primary transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
-              About
+              Về chúng tôi
             </a>
             <div className="flex flex-col space-y-2 pt-4">
               <Button variant="ghost" size="sm" asChild>
-                <Link href="/login">Sign In</Link>
+                <Link href="/login">Đăng nhập</Link>
               </Button>
               <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90" asChild>
-                <Link href="/signup">Get Started</Link>
+                <Link href="/signup">Bắt đầu</Link>
               </Button>
             </div>
           </div>

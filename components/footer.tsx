@@ -8,36 +8,36 @@ export function Footer() {
           {/* Brand */}
           <div className="col-span-1">
             <div className="flex items-center space-x-2 mb-4">
-              <div className="h-8 w-8 rounded-lg bg-primary" />
-              <span className="font-heading text-xl font-bold text-foreground">StreamLine</span>
+              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-primary/80" />
+              <span className="font-heading text-xl font-bold text-foreground">HUIT Task Manager</span>
             </div>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Streamline your workflow and amplify your results with the all-in-one productivity platform.
+              Nền tảng quản lý giao việc toàn diện giúp đội ngũ của bạn làm việc thông minh hơn và đạt được nhiều hơn.
             </p>
           </div>
 
           {/* Product */}
           <div>
-            <h3 className="font-semibold text-foreground mb-4">Product</h3>
+            <h3 className="font-semibold text-foreground mb-4">Sản phẩm</h3>
             <ul className="space-y-3">
               <li>
                 <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                  Features
+                  Tính năng
                 </a>
               </li>
               <li>
                 <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                  Pricing
+                  Giá cả
                 </a>
               </li>
               <li>
                 <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                  Integrations
+                  Tích hợp
                 </a>
               </li>
               <li>
                 <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                  Changelog
+                  Nhật ký thay đổi
                 </a>
               </li>
             </ul>
@@ -45,16 +45,16 @@ export function Footer() {
 
           {/* Company */}
           <div>
-            <h3 className="font-semibold text-foreground mb-4">Company</h3>
+            <h3 className="font-semibold text-foreground mb-4">Công ty</h3>
             <ul className="space-y-3">
               <li>
                 <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                  About Us
+                  Về chúng tôi
                 </a>
               </li>
               <li>
                 <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                  Careers
+                  Tuyển dụng
                 </a>
               </li>
               <li>
@@ -64,7 +64,7 @@ export function Footer() {
               </li>
               <li>
                 <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                  Contact
+                  Liên hệ
                 </a>
               </li>
             </ul>
@@ -72,26 +72,26 @@ export function Footer() {
 
           {/* Legal */}
           <div>
-            <h3 className="font-semibold text-foreground mb-4">Legal</h3>
+            <h3 className="font-semibold text-foreground mb-4">Pháp lý</h3>
             <ul className="space-y-3">
               <li>
                 <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                  Privacy Policy
+                  Chính sách bảo mật
                 </a>
               </li>
               <li>
                 <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                  Terms of Service
+                  Điều khoản dịch vụ
                 </a>
               </li>
               <li>
                 <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                  Cookie Policy
+                  Chính sách cookie
                 </a>
               </li>
               <li>
                 <a href="#" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                  Security
+                  Bảo mật
                 </a>
               </li>
             </ul>
@@ -100,7 +100,7 @@ export function Footer() {
 
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-sm text-muted-foreground">© 2025 StreamLine. All rights reserved.</p>
+          <p className="text-sm text-muted-foreground">© 2025 HUIT Task Manager. Tất cả quyền được bảo lưu.</p>
 
           {/* Social Media Icons */}
           <div className="flex items-center gap-4">
