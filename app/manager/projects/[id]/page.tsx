@@ -38,6 +38,8 @@ import {
 import { getGroups, groupAPI } from "@/axios/adminApi"
 import { useRef } from "react"
 import TimelineInline from "./timeline/page"
+import WorklogTask from "@/components/worklog-task"
+import WorklogSubtask from "@/components/worklog-subtask"
 
 // SearchableSelect Component for Group Selection
 interface SearchableGroupSelectProps {
@@ -183,6 +185,7 @@ export default function ProjectDetailPage() {
     const [isUploadOpen, setIsUploadOpen] = useState(false);
     const [uploadFile, setUploadFile] = useState<File | null>(null);
     const [uploadDesc, setUploadDesc] = useState('');
+    const [expandedWorklogTaskId, setExpandedWorklogTaskId] = useState<number | null>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const f = e.target.files?.[0] || null;
@@ -356,36 +359,29 @@ export default function ProjectDetailPage() {
     }, [id]);
 
 
-    // Lấy danh sách nhóm đã tham gia dự án này (theo group_projects)
     const loadProjectGroups = async () => {
         try {
-            // Lấy tất cả nhóm
             const allGroupsRes = await getGroups();
             const allGroups = allGroupsRes.groups || [];
-            // removed debug log
-            // Lọc nhóm đã tham gia dự án này (theo projects - association belongsToMany)
+
             const projectGroups = allGroups.filter((g: any) =>
                 Array.isArray(g.projects) && g.projects.some((p: any) => p.id === Number(id))
             );
             setProjectGroups(projectGroups);
 
-            // Lọc nhóm khả dụng để thêm vào dự án:
-            // - Chưa tham gia dự án này
-            // - Số lượng dự án đang active < 2 (dựa vào groupProjects status)
+
             const availableGroups = allGroups.filter((g: any) => {
                 const groupProjects = Array.isArray(g.groupProjects) ? g.groupProjects : [];
                 const joinedActiveProjects = groupProjects.filter((gp: any) => gp.status === 'active').length;
                 const isInThisProject = groupProjects.some((gp: any) => gp.projectId === Number(id) && gp.status === 'active');
                 return !isInThisProject && joinedActiveProjects < 2;
             });
-            // removed debug log
             setAvailableGroups(availableGroups);
         } catch (err) {
             console.error("Lỗi load nhóm:", err);
         }
     };
 
-    // Gọi API thêm nhóm vào dự án (cần backend endpoint mới)
     const handleAddGroupToProject = async () => {
         if (!selectedGroupId) return;
         try {
@@ -418,18 +414,12 @@ export default function ProjectDetailPage() {
         .filter((u: any) => u.role && (u.role.name === 'teamleader' || u.role.name === 'leader' || u.chucvu === 'Trưởng nhóm'))
         .map((user: any) => ({ id: user.id, name: user.hoten, role: user.chucvu }));
 
-    // Helper: lấy danh sách thành viên nhóm được phân công cho task
-    // Logic: nếu có task.groupId thì dùng nhóm đó; nếu không, tìm nhóm trong projectGroups mà
-    // - Ưu tiên: nhóm mà mainAssignee là leader (và nhóm tham gia dự án này)
-    // - Fallback: nhóm mà mainAssignee là member
-    // Nếu không tìm được, trả về mảng rỗng
+
     const getGroupMembersForTask = (task: any): Array<{ id: any; name: string; role?: any }> => {
         if (!task) return [];
 
         const mainAssigneeId = task.nguoiDuocGiaoId || task.nguoiDuocGiao?.id || null;
-        // removed debug log
 
-        // Nếu task có thuộc tính groupId (nếu có), ưu tiên dùng nhóm đó
         if (task.groupId) {
             const g = projectGroups.find((grp: any) => Number(grp.id) === Number(task.groupId));
             if (g && Array.isArray(g.members) && g.members.length) {
@@ -438,7 +428,6 @@ export default function ProjectDetailPage() {
         }
 
         if (mainAssigneeId) {
-            // 1) Tìm nhóm trong projectGroups mà mainAssignee là leader
             const leaderGrp = projectGroups.find((g: any) => {
                 // leader info may be in g.leader or g.leaderId
                 if (g.leader && g.leader.id) return Number(g.leader.id) === Number(mainAssigneeId);
@@ -449,7 +438,6 @@ export default function ProjectDetailPage() {
                 return leaderGrp.members.map((m: any) => ({ id: m.id, name: m.hoten || m.name, role: m.chucvu || m.role }));
             }
 
-            // 2) Fallback: tìm nhóm nơi mainAssignee là member
             const memberGrp = projectGroups.find((g: any) => Array.isArray(g.members) && g.members.some((m: any) => Number(m.id) === Number(mainAssigneeId)));
             if (memberGrp && Array.isArray(memberGrp.members) && memberGrp.members.length) {
                 return memberGrp.members.map((m: any) => ({ id: m.id, name: m.hoten || m.name, role: m.chucvu || m.role }));
@@ -754,7 +742,7 @@ export default function ProjectDetailPage() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {tasks.map((task) => (
+                                            {tasks.map((task) => ([
                                                 <tr
                                                     key={task.id}
                                                     className="border-b border-border last:border-0 hover:bg-secondary/50 transition-colors"
@@ -806,16 +794,31 @@ export default function ProjectDetailPage() {
                                                     </td>
                                                     <td className="p-3">{getStatusBadge(task.trangThai)}</td>
                                                     <td className="p-3">
-                                                        <button
-                                                            onClick={() => handleViewTaskDetail(task)}
-                                                            className="w-full px-3 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-xs font-medium hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 flex items-center justify-center gap-1 shadow-md hover:shadow-lg"
-                                                        >
-                                                            Xem chi tiết
-                                                            <ChevronRight size={14} />
-                                                        </button>
+                                                        <div className="flex flex-col gap-1.5">
+                                                            <button
+                                                                onClick={() => handleViewTaskDetail(task)}
+                                                                className="w-full px-3 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-xs font-medium hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 flex items-center justify-center gap-1 shadow-md hover:shadow-lg"
+                                                            >
+                                                                Xem chi tiết
+                                                                <ChevronRight size={14} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setExpandedWorklogTaskId(expandedWorklogTaskId === task.id ? null : task.id)}
+                                                                className="w-full px-3 py-2 bg-slate-100 text-slate-700 rounded-lg text-xs font-medium hover:bg-slate-200 transition-all duration-200 flex items-center justify-center gap-1 border border-slate-200"
+                                                            >
+                                                                Worklog
+                                                            </button>
+                                                        </div>
                                                     </td>
-                                                </tr>
-                                            ))}
+                                                </tr>,
+                                                expandedWorklogTaskId === task.id && (
+                                                    <tr key={`${task.id}-worklog`} className="bg-slate-50 border-b border-border">
+                                                        <td colSpan={8} className="p-0">
+                                                            <WorklogTask taskId={task.id} />
+                                                        </td>
+                                                    </tr>
+                                                )
+                                            ]))}
                                         </tbody>
                                     </table>
                                 )}
@@ -1255,7 +1258,7 @@ export default function ProjectDetailPage() {
                                                             try {
                                                                 await updateSubtask(selectedTask.id, subtask.id, { trangThai: e.target.value });
                                                                 // Refresh tasks
-                                                                const tasksData = await getTasksByProject(id as string);
+                                                                const tasksData = await getTasksByProject(id as string); // tasksData is { tasks: [...] }
                                                                 setTasks(tasksData.tasks || []);
                                                                 // Update selected task
                                                                 const updatedTask = tasksData.tasks?.find((t: any) => t.id === selectedTask.id);
@@ -1281,7 +1284,7 @@ export default function ProjectDetailPage() {
                                                             try {
                                                                 await deleteSubtask(selectedTask.id, subtask.id);
                                                                 // Refresh tasks
-                                                                const tasksData = await getTasksByProject(id as string);
+                                                                const tasksData = await getTasksByProject(id as string); // tasksData is { tasks: [...] }
                                                                 setTasks(tasksData.tasks || []);
                                                                 // Update selected task
                                                                 const updatedTask = tasksData.tasks?.find((t: any) => t.id === selectedTask.id);
@@ -1300,6 +1303,11 @@ export default function ProjectDetailPage() {
                                                     Xóa
                                                 </button>
                                             </div>
+
+                                            {/* Worklog cho subtask */}
+                                            <div className="mt-6">
+                                                <WorklogSubtask subtaskId={subtask.id} />
+                                            </div>
                                         </div>
                                     ))
                                 ) : (
@@ -1313,6 +1321,9 @@ export default function ProjectDetailPage() {
                                 )}
                             </div>
                         </div>
+
+                        {/* Tổng hợp Worklog cho Task */}
+                        <WorklogTask taskId={selectedTask.id} />
 
                         <div className="flex justify-end pt-4">
                             <button

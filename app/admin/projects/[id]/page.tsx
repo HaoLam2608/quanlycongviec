@@ -37,6 +37,8 @@ import {
 } from "@/axios/api"
 import { getGroups, groupAPI } from "@/axios/adminApi"
 import { useRef } from "react"
+import WorklogSubtask from "@/components/worklog-subtask"
+import WorklogTask from "@/components/worklog-task"
 import TimelineInline from "./timeline/page"
 
 // SearchableSelect Component for Group Selection
@@ -183,6 +185,7 @@ export default function ProjectDetailPage() {
     const [isUploadOpen, setIsUploadOpen] = useState(false);
     const [uploadFile, setUploadFile] = useState<File | null>(null);
     const [uploadDesc, setUploadDesc] = useState('');
+    const [expandedWorklogTaskId, setExpandedWorklogTaskId] = useState<number | null>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const f = e.target.files?.[0] || null;
@@ -754,7 +757,7 @@ export default function ProjectDetailPage() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {tasks.map((task) => (
+                                            {tasks.map((task) => ([
                                                 <tr
                                                     key={task.id}
                                                     className="border-b border-border last:border-0 hover:bg-secondary/50 transition-colors"
@@ -806,16 +809,31 @@ export default function ProjectDetailPage() {
                                                     </td>
                                                     <td className="p-3">{getStatusBadge(task.trangThai)}</td>
                                                     <td className="p-3">
-                                                        <button
-                                                            onClick={() => handleViewTaskDetail(task)}
-                                                            className="w-full px-3 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-xs font-medium hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 flex items-center justify-center gap-1 shadow-md hover:shadow-lg"
-                                                        >
-                                                            Xem chi tiết
-                                                            <ChevronRight size={14} />
-                                                        </button>
+                                                        <div className="flex flex-col gap-1.5">
+                                                            <button
+                                                                onClick={() => handleViewTaskDetail(task)}
+                                                                className="w-full px-3 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-xs font-medium hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 flex items-center justify-center gap-1 shadow-md hover:shadow-lg"
+                                                            >
+                                                                Chi tiết
+                                                                <ChevronRight size={14} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setExpandedWorklogTaskId(expandedWorklogTaskId === task.id ? null : task.id)}
+                                                                className="w-full px-3 py-2 bg-slate-100 text-slate-700 rounded-lg text-xs font-medium hover:bg-slate-200 transition-all duration-200 flex items-center justify-center gap-1 border border-slate-200"
+                                                            >
+                                                                Worklog
+                                                            </button>
+                                                        </div>
                                                     </td>
-                                                </tr>
-                                            ))}
+                                                </tr>,
+                                                expandedWorklogTaskId === task.id && (
+                                                    <tr key={`${task.id}-worklog`} className="bg-slate-50 border-b border-border">
+                                                        <td colSpan={8} className="p-0">
+                                                            <WorklogTask taskId={task.id} />
+                                                        </td>
+                                                    </tr>
+                                                )
+                                            ]))}
                                         </tbody>
                                     </table>
                                 )}
@@ -1300,6 +1318,11 @@ export default function ProjectDetailPage() {
                                                     Xóa
                                                 </button>
                                             </div>
+
+                                            {/* Worklog cho subtask */}
+                                            <div className="mt-6">
+                                                <WorklogSubtask subtaskId={subtask.id} />
+                                            </div>
                                         </div>
                                     ))
                                 ) : (
@@ -1313,6 +1336,9 @@ export default function ProjectDetailPage() {
                                 )}
                             </div>
                         </div>
+
+                        {/* Tổng hợp Worklog cho Task */}
+                        <WorklogTask taskId={selectedTask.id} />
 
                         <div className="flex justify-end pt-4">
                             <button

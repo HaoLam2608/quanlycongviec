@@ -1,6 +1,6 @@
 "use client"
 import { useEffect, useMemo, useRef, useState } from "react"
-import { getProjectById, getTasksByProject } from "@/axios/api"
+import { getProjectById, getTasksByProject, getWorklogs } from "@/axios/api"
 import { ZoomIn, ZoomOut } from "lucide-react"
 
 function daysBetween(a: Date, b: Date) {
@@ -28,11 +28,17 @@ function buildHeaderDays(minDate: Date, totalDays: number) {
     return days
 }
 
+
+
+
+
 export default function ProjectTimelinePage({ params }: { params: { id: string } }) {
     const { id } = params
     const [project, setProject] = useState<any | null>(null)
     const [tasks, setTasks] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
+
+
 
     useEffect(() => {
         const load = async () => {
@@ -49,6 +55,10 @@ export default function ProjectTimelinePage({ params }: { params: { id: string }
         }
         load()
     }, [id])
+
+
+
+
 
     const containerRef = useRef<HTMLDivElement | null>(null)
     const [zoom, setZoom] = useState(1)
@@ -237,22 +247,30 @@ export default function ProjectTimelinePage({ params }: { params: { id: string }
                                     </div>
 
                                     <div style={{ position: "relative", height: 22, borderTop: "1px solid var(--border)" }}>
-                                        {buildHeaderDays(timeline.minDate, timeline.totalDays).map((d, i) => (
-                                            <div
-                                                key={i}
-                                                style={{
-                                                    position: "absolute",
-                                                    left: i * pxPerDay,
-                                                    width: pxPerDay,
-                                                    height: 22,
-                                                    textAlign: "center",
-                                                    fontSize: 11,
-                                                }}
-                                                className="text-foreground border-r border-border/50 flex items-center justify-center"
-                                            >
-                                                {d.getDate()}
-                                            </div>
-                                        ))}
+                                        {buildHeaderDays(timeline.minDate, timeline.totalDays).map((d, i) => {
+                                            // Chỉ hiển thị ngày đầu tháng hoặc ngày đầu tuần
+                                            const isFirstOfMonth = d.getDate() === 1;
+                                            const isMonday = d.getDay() === 1;
+                                            if (!isFirstOfMonth && !isMonday && i !== 0 && i !== timeline.totalDays) return null;
+                                            return (
+                                                <div
+                                                    key={i}
+                                                    style={{
+                                                        position: "absolute",
+                                                        left: i * pxPerDay,
+                                                        width: pxPerDay * 2,
+                                                        height: 22,
+                                                        textAlign: "center",
+                                                        fontSize: 11,
+                                                        fontWeight: isFirstOfMonth ? 700 : 400,
+                                                        color: isFirstOfMonth ? '#2563eb' : '#64748b',
+                                                    }}
+                                                    className="border-r border-border/50 flex items-center justify-center"
+                                                >
+                                                    {d.getDate()}
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             </div>
@@ -260,37 +278,46 @@ export default function ProjectTimelinePage({ params }: { params: { id: string }
 
                         <div className="mt-8">
                             <h3 className="text-lg font-semibold text-foreground mb-4">Tasks</h3>
-                            <div className="space-y-2">
+                            <div className="space-y-4">
                                 {tasks.map((task) => {
                                     const hasTaskDates = !!(task.ngayBatDau || task.ngayKetThuc)
                                     const tStart = task.ngayBatDau ? new Date(task.ngayBatDau) : timeline.minDate
                                     const tEnd = task.ngayKetThuc ? new Date(task.ngayKetThuc) : timeline.maxDate
                                     const tx = hasTaskDates ? dateToX(tStart) : 0
-                                    const tw = hasTaskDates ? Math.max(6, dateToX(tEnd) - tx) : 0
+                                    const tw = hasTaskDates ? Math.max(12, dateToX(tEnd) - tx) : 0
 
                                     return (
-                                        <div key={task.id} className="">
-                                            <div className="flex items-center gap-4 py-2 hover:bg-muted/30 rounded px-2 transition-colors">
-                                                <div style={{ width: 180 }} className="text-sm font-medium text-foreground truncate">
-                                                    T-{task.id} {task.tentask}
+                                        <div key={task.id} className="border border-border rounded-lg bg-white/80 shadow-sm p-3 hover:shadow-md transition-all">
+                                            <div className="flex items-center gap-4 py-2">
+                                                <div style={{ width: 180 }} className="text-sm font-semibold text-primary truncate">
+                                                    <span className="inline-block bg-blue-100 text-blue-700 rounded px-2 py-0.5 mr-2 text-xs font-mono">T-{task.id}</span>
+                                                    {task.tentask}
                                                 </div>
-                                                <div style={{ position: "relative", height: 28, flex: 1 }}>
+                                                <div style={{ position: "relative", height: 32, flex: 1 }}>
                                                     {hasTaskDates && (
                                                         <div
                                                             style={{
                                                                 position: "absolute",
                                                                 left: tx,
                                                                 width: tw,
-                                                                height: 18,
-                                                                borderRadius: 6,
-                                                                fontSize: 12,
+                                                                height: 22,
+                                                                borderRadius: 8,
+                                                                fontSize: 13,
                                                                 display: "flex",
                                                                 alignItems: "center",
-                                                                paddingLeft: 8,
+                                                                paddingLeft: 12,
+                                                                background: 'linear-gradient(90deg, #2563eb 60%, #60a5fa 100%)',
+                                                                color: '#fff',
+                                                                boxShadow: '0 2px 8px 0 #2563eb22',
+                                                                cursor: 'pointer',
                                                             }}
-                                                            className="bg-primary text-primary-foreground shadow-sm font-medium"
+                                                            className="font-semibold group relative hover:brightness-110 transition-all"
+                                                            title={`Từ ${tStart.toLocaleDateString('vi-VN')} đến ${tEnd.toLocaleDateString('vi-VN')}`}
                                                         >
-                                                            {task.tentask}
+                                                            <span>{task.tentask}</span>
+                                                            <span className="absolute left-0 -top-7 hidden group-hover:block bg-black/80 text-white text-xs rounded px-2 py-1 z-10 whitespace-nowrap">
+                                                                {`Từ ${tStart.toLocaleDateString('vi-VN')} đến ${tEnd.toLocaleDateString('vi-VN')}`}
+                                                            </span>
                                                         </div>
                                                     )}
                                                 </div>
@@ -302,25 +329,38 @@ export default function ProjectTimelinePage({ params }: { params: { id: string }
                                                     const sStart = st.ngayBatDau ? new Date(st.ngayBatDau) : timeline.minDate
                                                     const sEnd = st.ngayKetThuc ? new Date(st.ngayKetThuc) : timeline.maxDate
                                                     const sx = hasStDates ? dateToX(sStart) : 0
-                                                    const sw = hasStDates ? Math.max(4, dateToX(sEnd) - sx) : 0
+                                                    const sw = hasStDates ? Math.max(8, dateToX(sEnd) - sx) : 0
                                                     return (
                                                         <div
                                                             key={st.id}
-                                                            className="flex items-center gap-4 py-1.5 hover:bg-muted/20 rounded px-2 transition-colors"
+                                                            className="flex items-center gap-4 py-1.5 px-2 hover:bg-orange-50 rounded transition-colors"
                                                         >
                                                             <div
-                                                                style={{ width: 180, paddingLeft: 20 }}
-                                                                className="text-sm text-muted-foreground truncate"
+                                                                style={{ width: 180, paddingLeft: 28 }}
+                                                                className="text-xs text-orange-700 truncate font-medium"
                                                             >
                                                                 ↳ {st.tenSubtask || st.name}
                                                             </div>
-                                                            <div style={{ position: "relative", height: 20, flex: 1 }}>
+                                                            <div style={{ position: "relative", height: 18, flex: 1 }}>
                                                                 {hasStDates && (
                                                                     <div
-                                                                        title={st.tenSubtask || st.name}
-                                                                        style={{ position: "absolute", left: sx, width: sw, height: 12, borderRadius: 3 }}
-                                                                        className="bg-orange-500 shadow-sm hover:shadow-md transition-shadow"
-                                                                    />
+                                                                        title={`Từ ${sStart.toLocaleDateString('vi-VN')} đến ${sEnd.toLocaleDateString('vi-VN')}`}
+                                                                        style={{
+                                                                            position: "absolute",
+                                                                            left: sx,
+                                                                            width: sw,
+                                                                            height: 12,
+                                                                            borderRadius: 6,
+                                                                            background: 'linear-gradient(90deg, #f59e42 60%, #fbbf24 100%)',
+                                                                            boxShadow: '0 1px 4px 0 #f59e4222',
+                                                                            cursor: 'pointer',
+                                                                        }}
+                                                                        className="font-medium group relative hover:brightness-110 transition-all"
+                                                                    >
+                                                                        <span className="absolute left-0 -top-7 hidden group-hover:block bg-black/80 text-white text-xs rounded px-2 py-1 z-10 whitespace-nowrap">
+                                                                            {`Từ ${sStart.toLocaleDateString('vi-VN')} đến ${sEnd.toLocaleDateString('vi-VN')}`}
+                                                                        </span>
+                                                                    </div>
                                                                 )}
                                                             </div>
                                                         </div>

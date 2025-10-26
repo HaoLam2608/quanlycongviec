@@ -27,6 +27,7 @@ export function LoginForm() {
       localStorage.setItem("accesstoken", res.accessToken || res.token)
       localStorage.setItem("refreshToken", res.refreshToken || "")
       localStorage.setItem("manv", res.manv)
+      localStorage.setItem("userId", res.userId)
       localStorage.setItem("hoten", res.hoten)
       localStorage.setItem("role", res.role)
 

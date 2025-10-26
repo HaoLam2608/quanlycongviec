@@ -27,7 +27,7 @@ export const loginUser = async (data: { manv: string; password: string }) => {
 export const authAPI = {
   login: (manv: string, password: string) =>
     api.post('/auth/login', { manv, password }),
-  
+
   register: (userData: any) =>
     api.post('/auth/register', userData),
 };
@@ -38,12 +38,12 @@ export const usersAPI = {
   createUser: (userData: any) => api.post('/users', userData),
   updateUser: (id: number, userData: any) => api.put(`/users/${id}`, userData),
   deleteUser: (id: number) => api.delete(`/users/${id}`),
-  
+
   getRoles: () => api.get('/users/roles'),
   createRole: (roleData: any) => api.post('/users/roles', roleData),
   updateRole: (id: number, roleData: any) => api.put(`/users/roles/${id}`, roleData),
   deleteRole: (id: number) => api.delete(`/users/roles/${id}`),
-  
+
   getPermissions: () => api.get('/users/permissions'),
   getMyPermissions: () => api.get('/users/my-permissions'),
 };
@@ -90,15 +90,15 @@ export const createProject = async (data: {
 };
 export const fetchUsers = async () => {
   try {
-    const res = await api.get("/users"); 
-    
+    const res = await api.get("/users");
+
     const usersData = res.data.users || res.data;
-    
+
     if (!Array.isArray(usersData)) {
       console.error('Thông tin users không hợp lệ:', res.data);
       return [];
     }
-    
+
     return usersData;
   } catch (err: any) {
     console.error('Error fetching users:', err);
@@ -302,4 +302,29 @@ export const deleteSubtask = async (taskId: string | number, subtaskId: number) 
   }
 };
 
+// ============ WORKLOG APIs ============
 
+export const getWorklogs = async (params: { taskId?: number; subtaskId?: number }) => {
+  try {
+    const res = await api.get('/worklogs', { params });
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy danh sách worklog" };
+  }
+};
+
+export const createWorklog = async (data: {
+  userId: number;
+  taskId?: number;
+  subtaskId?: number;
+  hours: number;
+  note: string;
+  date: string;
+}) => {
+  try {
+    const res = await api.post('/worklogs', data);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể tạo worklog" };
+  }
+};
