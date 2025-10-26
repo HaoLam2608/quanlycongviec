@@ -617,7 +617,7 @@ export default function ProjectDetailPage() {
     return (
         <div className="space-y-6">
             <Link
-                href="/admin/projects"
+                href="/manager/projects"
                 className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
             >
                 <ArrowLeft size={20} />

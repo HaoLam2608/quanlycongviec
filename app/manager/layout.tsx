@@ -6,25 +6,26 @@ import { usePathname } from "next/navigation"
 import { Home, FolderKanban, CheckSquare, Users, BarChart3, Settings, LogOut } from "lucide-react"
 import AuthGuard from "@/components/auth/AuthGuard"
 import Image from "next/image"
+import { useToastContext } from "@/components/providers/toast-provider"
 
 const menuCategories = [
     {
         title: "Chính",
-        items: [{ name: "Dashboard", href: "/pm", icon: Home }],
+        items: [{ name: "Dashboard", href: "/manager", icon: Home }],
     },
     {
         title: "Quản lý",
         items: [
             { name: "Dự án", href: "/manager/projects", icon: FolderKanban },
-            { name: "Nhiệm vụ", href: "/pm/tasks", icon: CheckSquare },
+            { name: "Nhiệm vụ", href: "/manager/tasks", icon: CheckSquare },
             { name: "Nhân sự", href: "/manager/groups", icon: Users },
         ],
     },
     {
         title: "Báo cáo",
         items: [
-            { name: "Báo cáo tiến độ", href: "/pm/reports", icon: BarChart3 },
-            { name: "Cài đặt", href: "/pm/settings", icon: Settings },
+            { name: "Báo cáo tiến độ", href: "/manager/reports", icon: BarChart3 },
+            { name: "Cài đặt", href: "/manager/settings", icon: Settings },
         ],
     },
 ]
@@ -32,6 +33,8 @@ const menuCategories = [
 export default function PMLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
     const router = useRouter()
+    const { showSuccess } = useToastContext()
+
     const userInfo = {
         hoten: "Jane Smith",
         role: "manager",
@@ -48,7 +51,7 @@ export default function PMLayout({ children }: { children: React.ReactNode }) {
             localStorage.removeItem("hoten")
             localStorage.removeItem("role")
 
-            alert("Đăng xuất thành công!")
+            showSuccess("Đăng xuất thành công!")
             router.push("/")
         }
     }
@@ -143,3 +146,5 @@ export default function PMLayout({ children }: { children: React.ReactNode }) {
         </AuthGuard>
     )
 }
+
+

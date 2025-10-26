@@ -51,7 +51,9 @@ export function ProfileCard({ user, isOwnProfile = false, onEdit }: ProfileCardP
             const res = await uploadAvatar(file)
             const avatarPath = res.avatarUrl || res.data?.avatarUrl || ''
             const full = makeFullUrl(avatarPath)
-            setAvatarUrl(full)
+            // Thêm cache-buster để trình duyệt không dùng ảnh cũ được cache
+            const fullWithTs = full ? `${full}${full.includes('?') ? '&' : '?'}t=${Date.now()}` : full
+            setAvatarUrl(fullWithTs)
             showSuccess('Upload avatar thành công')
             // also update local user and notify parent via onEdit if provided
             setLocalUser((prev: any) => ({ ...prev, avatar: avatarPath }))
@@ -61,6 +63,12 @@ export function ProfileCard({ user, isOwnProfile = false, onEdit }: ProfileCardP
             showError(err?.message || 'Không thể upload avatar')
         } finally {
             setUploading(false)
+            // reset input value so user can re-select the same file if needed
+            try {
+                if (inputRef.current) inputRef.current.value = ''
+            } catch (e) {
+                // ignore
+            }
         }
     }
     const handleStartEdit = () => {
