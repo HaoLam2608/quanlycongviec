@@ -17,6 +17,9 @@ module.exports = (sequelize, DataTypes) => {
 
       // User có nhiều subtasks
       User.hasMany(models.Subtask, { foreignKey: 'nguoiThucHienId', as: 'subtasks' });
+
+      // User có nhiều worklogs
+      User.hasMany(models.Worklog, { foreignKey: 'userId' });
     }
 
     // Method để kiểm tra quyền

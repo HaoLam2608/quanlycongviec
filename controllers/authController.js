@@ -71,6 +71,7 @@ exports.login = async (req, res) => {
             message: "Đăng nhập thành công",
             accessToken: accessToken,
             refreshToken,
+            userId: user.id, // <--- THÊM DÒNG NÀY
             manv: user.manv,
             hoten: user.hoten,
 

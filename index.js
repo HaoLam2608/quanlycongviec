@@ -36,6 +36,7 @@ app.get('/', (req, res) => {
     res.json({ status: 'ok', time: new Date().toISOString() });
 });
 app.use('/tasks', taskRoutes);
+app.use('/worklogs', require('./routes/worklogRoutes'));
 app.listen(PORT, () => {
     console.log(`🚀 Server running at http://localhost:${PORT}`);
 });

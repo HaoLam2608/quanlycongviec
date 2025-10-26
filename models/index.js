@@ -36,6 +36,10 @@ fs
 const GroupProject = require("./groupproject")(sequelize, Sequelize.DataTypes);
 db.GroupProject = GroupProject;
 
+// Thêm Worklog vào db
+const Worklog = require("./worklog")(sequelize, Sequelize.DataTypes);
+db.Worklog = Worklog;
+
 // Thiết lập association nhiều-nhiều giữa Group và DuAn qua GroupProject
 if (db.Group && db.DuAn) {
   db.Group.belongsToMany(db.DuAn, {
