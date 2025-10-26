@@ -257,6 +257,33 @@ export const getMyTasks = async (params?: { page?: number; limit?: number; statu
   }
 };
 
+// Lấy tasks theo Kanban view
+export const getKanbanTasks = async (projectId: string | number) => {
+  try {
+    console.log('📡 API Call: getKanbanTasks for project:', projectId);
+    const url = `/tasks/project/${projectId}/kanban`;
+    console.log('📡 Request URL:', url);
+    const res = await api.get(url);
+    console.log('📡 Response status:', res.status);
+    console.log('📡 Response data:', res.data);
+    return res.data;
+  } catch (err: any) {
+    console.error('📡 API Error:', err);
+    console.error('📡 Error response:', err.response);
+    throw err.response?.data || { message: "Không thể lấy dữ liệu Kanban" };
+  }
+};
+
+// Cập nhật trạng thái task (dùng cho drag & drop)
+export const updateTaskStatus = async (taskId: number, trangThai: string) => {
+  try {
+    const res = await api.patch(`/tasks/${taskId}/status`, { trangThai });
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể cập nhật trạng thái công việc" };
+  }
+};
+
 // ============ SUBTASK APIs ============
 
 export const getSubtasksByTask = async (taskId: string | number) => {

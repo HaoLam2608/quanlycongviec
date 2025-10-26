@@ -1,4 +1,10 @@
 /** @type {import('next').NextConfig} */
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+// --- cần 2 dòng này để tạo __dirname ---
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
@@ -6,6 +12,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  outputFileTracingRoot: __dirname
 }
 
 export default nextConfig

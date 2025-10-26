@@ -19,6 +19,7 @@ import {
     ChevronDown,
 } from "lucide-react"
 import { FolderKanban } from "lucide-react"
+import { KanbanBoard } from '@/components/kanban/KanbanBoard'
 import Modal from "@/components/admin/Modal"
 import { useToastContext } from "@/components/providers/toast-provider"
 
@@ -167,7 +168,7 @@ export default function ProjectDetailPage() {
     useEffect(() => { setMounted(true); }, []);
     const { id } = useParams()
     const { showSuccess, showError, showWarning } = useToastContext()
-    const [activeTab, setActiveTab] = useState<"tasks" | "teams" | "documents" | "timeline">("tasks")
+    const [activeTab, setActiveTab] = useState<"tasks" | "teams" | "documents" | "timeline" | "kanban">("tasks")
     const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false)
     const [isTaskDetailModalOpen, setIsTaskDetailModalOpen] = useState(false)
     const [isAddSubtaskModalOpen, setIsAddSubtaskModalOpen] = useState(false)
@@ -719,8 +720,14 @@ export default function ProjectDetailPage() {
                         <FolderKanban size={20} />
                         Tài liệu
                     </button>
-
-
+                    <button
+                        onClick={() => setActiveTab("kanban")}
+                        className={`flex-1 px-6 py-4 font-semibold transition-all flex items-center justify-center gap-2 ${activeTab === "kanban" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"
+                            }`}
+                    >
+                        <FolderKanban size={20} />
+                        Kanban
+                    </button>
                 </div>
 
                 <div className="p-6 bg-gradient-to-br from-white to-gray-50">
@@ -1023,6 +1030,11 @@ export default function ProjectDetailPage() {
                         </div>
                     )}
                 </div>
+                {activeTab === "kanban" && (
+                    <div className="p-6 bg-gradient-to-br from-white to-gray-50">
+                        <KanbanBoard projectId={Array.isArray(id) ? id[0] : id} />
+                    </div>
+                )}
             </div>
 
             <Modal isOpen={isAddTaskModalOpen} onClose={() => setIsAddTaskModalOpen(false)} title="Thêm công việc mới">
@@ -1126,6 +1138,7 @@ export default function ProjectDetailPage() {
             <Modal isOpen={isTaskDetailModalOpen} onClose={() => setIsTaskDetailModalOpen(false)} title="Chi tiết công việc">
                 {selectedTask && (
                     <div className="space-y-6">
+                        <div onClick={() => setActiveTab('kanban')} className="inline-block px-3 py-2 bg-blue-600 text-white rounded-md cursor-pointer">Xem Kanban</div>
                         {/* Task Info */}
                         <div className="bg-secondary/30 rounded-xl p-5 space-y-3">
                             <div className="flex items-start justify-between">
