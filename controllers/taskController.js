@@ -1,6 +1,88 @@
 const { Task, Subtask, User, DuAn } = require('../models');
 const { Op } = require('sequelize');
 
+// Lấy tasks theo Kanban view (nhóm theo trạng thái)
+exports.getKanbanTasks = async (req, res) => {
+    try {
+        const { projectId } = req.params;
+
+        console.log('🔍 Backend: getKanbanTasks called for projectId:', projectId);
+
+        // Lấy tất cả tasks của dự án
+        const tasks = await Task.findAll({
+            where: { duanId: projectId },
+            include: [
+                {
+                    model: User,
+                    as: 'nguoiDuocGiao',
+                    attributes: ['id', 'hoten', 'manv', 'email']
+                },
+                {
+                    model: User,
+                    as: 'nguoiGiao',
+                    attributes: ['id', 'hoten', 'manv', 'email']
+                },
+                {
+                    model: Subtask,
+                    as: 'subtasks',
+                    include: [{
+                        model: User,
+                        as: 'nguoiThucHien',
+                        attributes: ['id', 'hoten', 'manv', 'email']
+                    }]
+                }
+            ],
+            order: [['createdAt', 'DESC']]
+        });
+
+        console.log('📊 Total tasks found:', tasks.length);
+
+        // Nhóm tasks theo trạng thái
+        const kanbanData = {
+            'Chưa bắt đầu': [],
+            'Đang chạy': [],
+            'Hoàn thành': []
+        };
+
+        // Tính progress cho mỗi task
+        tasks.forEach(task => {
+            const taskData = task.toJSON();
+            
+            // Tính progress dựa vào subtasks
+            if (taskData.subtasks && taskData.subtasks.length > 0) {
+                const completedCount = taskData.subtasks.filter(st => st.trangThai === 'Hoàn thành').length;
+                taskData.progress = Math.round((completedCount / taskData.subtasks.length) * 100);
+            } else {
+                taskData.progress = 0;
+            }
+
+            // Nhóm theo trạng thái
+            const status = taskData.trangThai;
+            if (kanbanData[status]) {
+                kanbanData[status].push(taskData);
+            }
+        });
+
+        // Tính thống kê
+        const stats = {
+            total: tasks.length,
+            notStarted: kanbanData['Chưa bắt đầu'].length,
+            inProgress: kanbanData['Đang chạy'].length,
+            completed: kanbanData['Hoàn thành'].length
+        };
+
+        console.log('📈 Stats:', stats);
+
+        res.json({
+            kanban: kanbanData,
+            stats: stats
+        });
+    } catch (error) {
+        console.error('❌ Kanban fetch error:', error);
+        res.status(500).json({ error: 'Lỗi khi lấy dữ liệu Kanban', details: error.message });
+    }
+};
+
 // Lấy danh sách tasks của một dự án
 exports.getTasksByProject = async (req, res) => {
     try {
@@ -324,5 +406,158 @@ exports.getMyTasks = async (req, res) => {
     } catch (error) {
         console.error('Get my tasks error:', error);
         res.status(500).json({ error: 'Lỗi khi lấy danh sách công việc của tôi' });
+    }
+};
+
+// Lấy tasks theo Kanban view (grouped by status)
+exports.getKanbanTasks = async (req, res) => {
+    try {
+        const { projectId } = req.params;
+        console.log('=== KANBAN DEBUG ===');
+        console.log('Project ID:', projectId);
+
+        // Lấy tất cả tasks của dự án
+        const tasks = await Task.findAll({
+            where: { duanId: projectId },
+            include: [
+                {
+                    model: User,
+                    as: 'nguoiDuocGiao',
+                    attributes: ['id', 'hoten', 'manv']
+                },
+                {
+                    model: User,
+                    as: 'nguoiGiao',
+                    attributes: ['id', 'hoten', 'manv']
+                },
+                {
+                    model: Subtask,
+                    as: 'subtasks',
+                    include: [{
+                        model: User,
+                        as: 'nguoiThucHien',
+                        attributes: ['id', 'hoten', 'manv']
+                    }]
+                }
+            ],
+            order: [
+                ['mucDoUuTien', 'DESC'], // High priority first
+                ['ngayKetThuc', 'ASC'],  // Then by deadline
+                ['createdAt', 'DESC']
+            ]
+        });
+
+        console.log('Total tasks found:', tasks.length);
+        console.log('Tasks data:', tasks.map(t => ({ id: t.id, tentask: t.tentask, trangThai: t.trangThai })));
+
+        // Group tasks by status và tính progress
+        const kanbanData = {
+            'Chưa bắt đầu': [],
+            'Đang chạy': [],
+            'Hoàn thành': []
+        };
+
+        tasks.forEach(task => {
+            const taskData = task.toJSON();
+            
+            // Tính progress từ subtasks
+            if (taskData.subtasks && taskData.subtasks.length > 0) {
+                const completedCount = taskData.subtasks.filter(st => st.trangThai === 'Hoàn thành').length;
+                taskData.progress = Math.round((completedCount / taskData.subtasks.length) * 100);
+            } else {
+                taskData.progress = taskData.tienDo || 0;
+            }
+
+            // Add task vào column tương ứng
+            if (kanbanData[taskData.trangThai]) {
+                kanbanData[taskData.trangThai].push(taskData);
+            }
+        });
+
+        console.log('Kanban data:', {
+            todo: kanbanData['Chưa bắt đầu'].length,
+            inProgress: kanbanData['Đang chạy'].length,
+            completed: kanbanData['Hoàn thành'].length
+        });
+
+        res.json({
+            kanban: kanbanData,
+            stats: {
+                total: tasks.length,
+                todo: kanbanData['Chưa bắt đầu'].length,
+                inProgress: kanbanData['Đang chạy'].length,
+                completed: kanbanData['Hoàn thành'].length
+            }
+        });
+    } catch (error) {
+        console.error('Get kanban tasks error:', error);
+        res.status(500).json({ error: 'Lỗi khi lấy dữ liệu Kanban' });
+    }
+};
+
+// Cập nhật trạng thái task (dùng cho drag & drop trong Kanban)
+exports.updateTaskStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { trangThai } = req.body;
+
+        // Validate trạng thái
+        const validStatuses = ['Chưa bắt đầu', 'Đang chạy', 'Hoàn thành'];
+        if (!validStatuses.includes(trangThai)) {
+            return res.status(400).json({ error: 'Trạng thái không hợp lệ' });
+        }
+
+        const task = await Task.findByPk(id);
+        if (!task) {
+            return res.status(404).json({ error: 'Không tìm thấy công việc' });
+        }
+
+        // Cập nhật trạng thái
+        const updateData = { trangThai };
+        
+        // Tự động cập nhật các trường liên quan
+        if (trangThai === 'Đang chạy' && !task.ngayBatDau) {
+            updateData.ngayBatDau = new Date();
+        }
+        
+        if (trangThai === 'Hoàn thành') {
+            updateData.ngayHoanThanh = new Date();
+            updateData.tienDo = 100;
+        }
+
+        await task.update(updateData);
+
+        // Lấy task với thông tin đầy đủ
+        const updatedTask = await Task.findByPk(id, {
+            include: [
+                {
+                    model: User,
+                    as: 'nguoiDuocGiao',
+                    attributes: ['id', 'hoten', 'manv']
+                },
+                {
+                    model: User,
+                    as: 'nguoiGiao',
+                    attributes: ['id', 'hoten', 'manv']
+                },
+                {
+                    model: Subtask,
+                    as: 'subtasks',
+                    include: [{
+                        model: User,
+                        as: 'nguoiThucHien',
+                        attributes: ['id', 'hoten', 'manv']
+                    }]
+                }
+            ]
+        });
+
+        res.json({
+            message: 'Cập nhật trạng thái thành công',
+            task: updatedTask
+        });
+    } catch (error) {
+        console.error('Update task status error:', error);
+        res.status(500).json({ error: 'Lỗi khi cập nhật trạng thái công việc' });
     }
 };

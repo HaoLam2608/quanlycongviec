@@ -17,6 +17,7 @@
   },
   "scripts": {
     "start": "bun run index.js",
-    "dev": "bun --watch index.js"
+    "dev": "bun --watch index.js",
+    "dev1" : "nodemon index.js"
   }
 }

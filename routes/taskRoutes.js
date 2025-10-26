@@ -7,9 +7,21 @@ const { checkPermission } = require('../middleware/rbac');
 
 // ============ TASK ROUTES ============
 
+// Quick ping (no auth) to verify router is mounted
+router.get('/ping', (req, res) => {
+    res.json({ ok: true, route: '/tasks/ping' });
+});
+
+// Lấy tasks theo Kanban view (grouped by status)
+router.get('/project/:projectId/kanban', 
+    authenticateToken, 
+    checkPermission('projects', 'read'),
+    taskController.getKanbanTasks
+);
+
 // Lấy tasks của một dự án
 router.get('/project/:projectId', 
-    authenticateToken, 
+    authenticateToken,
     checkPermission('projects', 'read'),
     taskController.getTasksByProject
 );
@@ -32,6 +44,13 @@ router.post('/',
     authenticateToken,
     checkPermission('tasks', 'create'),
     taskController.createTask
+);
+
+// Cập nhật trạng thái task (Kanban drag & drop)
+router.patch('/:id/status', 
+    authenticateToken,
+    checkPermission('tasks', 'update'),
+    taskController.updateTaskStatus
 );
 
 // Cập nhật task
