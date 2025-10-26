@@ -261,6 +261,24 @@ exports.uploadAvatar = async (req, res) => {
     }
 }
 
+// Delete current user's avatar
+exports.deleteAvatar = async (req, res) => {
+    try {
+        const user = await User.findByPk(req.user.id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+
+        user.avatarData = null;
+        user.avatarMime = null;
+        user.avatar = null;
+        await user.save();
+
+        res.json({ message: 'Avatar removed' });
+    } catch (err) {
+        console.error('Delete avatar error:', err);
+        res.status(500).json({ error: err.message });
+    }
+}
+
 // Serve current user's avatar
 exports.getMyAvatar = async (req, res) => {
     try {

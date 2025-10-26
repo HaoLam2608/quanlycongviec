@@ -25,6 +25,9 @@ router.post('/avatar', authenticateToken, (req, res, next) => {
     });
 }, userController.uploadAvatar);
 
+// Remove current user's avatar
+router.delete('/avatar', authenticateToken, userController.deleteAvatar);
+
 // Update current user's profile (no extra permission required)
 
 module.exports = router;
