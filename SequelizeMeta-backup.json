@@ -1,0 +1,71 @@
+[
+  {
+    "name": "20251001142935-create-user.js"
+  },
+  {
+    "name": "20251003150632-create-du-an.js"
+  },
+  {
+    "name": "20251004100000-create-role.js"
+  },
+  {
+    "name": "20251004100001-create-permission.js"
+  },
+  {
+    "name": "20251004100002-create-role-permission.js"
+  },
+  {
+    "name": "20251004100003-add-role-to-users.js"
+  },
+  {
+    "name": "20251004160632-add-status-to-duan.js"
+  },
+  {
+    "name": "20251009120000-create-group.js"
+  },
+  {
+    "name": "20251009120100-create-group-member.js"
+  },
+  {
+    "name": "20251011000000-create-group-project-history.js"
+  },
+  {
+    "name": "20251011000001-create-task.js"
+  },
+  {
+    "name": "20251011000002-create-subtask.js"
+  },
+  {
+    "name": "20251011000002-simple-duanid-nullable.js"
+  },
+  {
+    "name": "20251011120000-create-document.js"
+  },
+  {
+    "name": "20251011121000-add-data-to-documents.js"
+  },
+  {
+    "name": "20251014152000-create-group-projects.js"
+  },
+  {
+    "name": "20251015120000-add-dates-to-tasks-and-subtasks.js"
+  },
+  {
+    "name": "20251025-add-avatar-data-to-user.js"
+  },
+  {
+    "name": "20251025-add-avatar-to-user.js"
+  },
+  {
+    "name": "20251025-create-worklog.js"
+  },
+  {
+    "name": "20251025180000-recreate-worklogs.js"
+  },
+  {
+    "name": "20251025182000-add-subtaskid-to-worklogs.js"
+  },
+  {
+    "name": "20251025183000-allow-null-taskid-subtaskid-worklogs.js"
+  }
+]
