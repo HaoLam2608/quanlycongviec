@@ -170,15 +170,27 @@ export const getDashboardStats = async () => {
 
 // Group APIs
 export const groupAPI = {
+  // Đóng nhóm
+  closeGroup: (id: number) => api.patch(`/groups/${id}/close`),
   getGroups: (params?: { duanId?: number }) => api.get('/groups', { params }),
   getGroup: (id: number) => api.get(`/groups/${id}`),
   createGroup: (data: { name: string; description?: string; duanId?: number; leaderId?: number; memberIds?: number[] }) => api.post('/groups', data),
-  updateGroup: (id: number, data: { name?: string; description?: string; leaderId?: number; duanId?: number }) => api.put(`/groups/${id}`, data),
+  updateGroup: (id: number, data: { name?: string; description?: string; leaderId?: number; duanId?: number; memberIds?: number[]; projectIds?: number[] }) => api.put(`/groups/${id}`, data),
   // Xóa deleteGroup - không cho phép xóa nhóm
   addMembers: (id: number, memberIds: number[]) => api.post(`/groups/${id}/members`, { memberIds }),
   removeMember: (id: number, userId: number) => api.delete(`/groups/${id}/members/${userId}`),
   // Thêm nhóm vào dự án (qua group_projects)
   addGroupToProject: (groupId: number, projectId: number) => api.post('/groups/add-to-project', { groupId, projectId })
+};
+
+// Đóng nhóm
+export const closeGroup = async (id: number) => {
+  try {
+    const res = await groupAPI.closeGroup(id);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Lỗi không xác định' };
+  }
 };
 
 // Wrapper for groups
@@ -200,7 +212,7 @@ export const createGroup = async (data: { name: string; description?: string; du
   }
 };
 
-export const updateGroup = async (id: number, data: { name?: string; description?: string; leaderId?: number; duanId?: number }) => {
+export const updateGroup = async (id: number, data: { name?: string; description?: string; leaderId?: number; duanId?: number; memberIds?: number[]; projectIds?: number[] }) => {
   try {
     const res = await groupAPI.updateGroup(id, data);
     return res.data;

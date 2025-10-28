@@ -64,7 +64,7 @@ function useMounted() {
     return mounted;
 }
 import { X, Save, Users, Plus, Search, ChevronDown } from 'lucide-react';
-import { getUsers, createGroup, updateGroup, addGroupMembers, groupAPI } from '@/axios/adminApi';
+import { getUsers, createGroup, updateGroup, addGroupMembers, groupAPI, closeGroup } from '@/axios/adminApi';
 import { useToastContext } from '@/components/providers/toast-provider';
 import api from '@/axios/config';
 
@@ -189,6 +189,7 @@ function SearchableSelect({ options, value, onChange, placeholder, displayKey, v
 }
 
 export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: GroupFormProps) {
+    const isClosed = editGroup && editGroup.status === 'closed';
     const mounted = useMounted();
     const [showLeaderDropdown, setShowLeaderDropdown] = useState(false);
     const { showSuccess, showError, showWarning } = useToastContext();
@@ -224,7 +225,9 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
                 });
                 const memberList = (editGroup.members || []).map((m: any) => m.id);
                 setMemberIds(memberList);
-                setSelectedProjectIds([]); // Không cho sửa dự án khi edit
+                // Lấy danh sách projectIds từ editGroup nếu có
+                const projectList = (editGroup.projects || []).map((p: any) => p.id);
+                setSelectedProjectIds(projectList);
             } else {
                 setFormData({ name: '', description: '', leaderId: '' });
                 setMemberIds([]);
@@ -289,11 +292,10 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
                 await updateGroup(editGroup.id, {
                     name: formData.name,
                     description: formData.description,
-                    leaderId: formData.leaderId ? Number(formData.leaderId) : undefined
+                    leaderId: formData.leaderId ? Number(formData.leaderId) : undefined,
+                    memberIds: memberIds,
+                    projectIds: selectedProjectIds // Gửi projectIds khi update
                 });
-                // Cập nhật lại members: đơn giản gửi thêm các member mới (backend ignore trùng)
-                const newMembers = memberIds.filter(id => !(editGroup.members || []).some((m: any) => m.id === id));
-                if (newMembers.length) await addGroupMembers(editGroup.id, newMembers);
                 showSuccess('Cập nhật nhóm thành công');
             } else {
                 console.log("Creating group with data:", formData, "and members:", memberIds);
@@ -336,7 +338,7 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
                         </div>
                         <div>
                             <label className="block text-sm font-medium mb-2">Tên nhóm *</label>
-                            <input name="name" value={formData.name} onChange={handleChange} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Nhập tên nhóm" required />
+                            <input name="name" value={formData.name} onChange={handleChange} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Nhập tên nhóm" required disabled={isClosed} />
                         </div>
                         {/* Đã bỏ chọn dự án khi tạo nhóm, chỉ tạo nhóm thuần */}
                         <div>
@@ -347,6 +349,7 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
                                     type="button"
                                     className="w-full px-3 py-2 text-left border rounded-lg bg-white focus:ring-2 focus:ring-blue-500 flex items-center justify-between"
                                     onClick={() => setShowLeaderDropdown((v: any) => !v)}
+                                    disabled={isClosed}
                                 >
                                     <span className={formData.leaderId ? 'text-gray-900' : 'text-gray-500'}>
                                         {teamLeaders.find(l => String(l.id) === formData.leaderId)?.hoten || '-- Chọn trưởng nhóm --'}
@@ -381,7 +384,7 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
                         </div>
                         <div className="md:col-span-2">
                             <label className="block text-sm font-medium mb-2">Mô tả</label>
-                            <textarea name="description" value={formData.description} onChange={handleChange} rows={3} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Mô tả ngắn về nhóm" />
+                            <textarea name="description" value={formData.description} onChange={handleChange} rows={3} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Mô tả ngắn về nhóm" disabled={isClosed} />
                         </div>
                     </div>
                     <div>
@@ -425,7 +428,7 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
                                         <label key={u.id} className={`flex items-center gap-3 text-sm cursor-pointer p-2 rounded-md hover:bg-gray-50 ${disabled ? 'opacity-60' : ''}`} title={overLimit ? 'Nhân viên đã tham gia 2 nhóm' : ''}>
                                             <input
                                                 type="checkbox"
-                                                disabled={disabled}
+                                                disabled={disabled || isClosed}
                                                 checked={checked}
                                                 onChange={() => toggleMember(u.id)}
                                                 className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
@@ -477,10 +480,32 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
                     )}
                     <div className="flex gap-3 pt-2">
                         <button type="button" onClick={onClose} className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">Hủy</button>
-                        <button type="submit" disabled={loading} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 disabled:opacity-50">
-                            <Save className="w-4 h-4" /> {loading ? 'Đang lưu...' : 'Lưu'}
+                        <button type="submit" disabled={loading || isClosed} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 disabled:opacity-50">
+                            <Save className="w-4 h-4" /> {loading ? 'Đang lưu...' : isClosed ? 'Đã đóng nhóm' : 'Lưu'}
                         </button>
+                        {!isClosed && editGroup && (
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    if (window.confirm('Bạn có chắc chắn muốn đóng nhóm này?')) {
+                                        try {
+                                            await closeGroup(editGroup.id);
+                                            showSuccess('Đã đóng nhóm thành công');
+                                            onSuccess();
+                                            onClose();
+                                        } catch (e: any) {
+                                            const errorMessage = e.response?.data?.message || e.message || 'Lỗi đóng nhóm';
+                                            showError(errorMessage);
+                                        }
+                                    }
+                                }}
+                                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                                Đóng nhóm
+                            </button>
+                        )}
                     </div>
+                    {isClosed && <div className="p-3 mt-2 rounded bg-yellow-100 text-yellow-800 text-sm">Nhóm đã đóng, không thể chỉnh sửa!</div>}
                 </form>
             </div>
         </div>

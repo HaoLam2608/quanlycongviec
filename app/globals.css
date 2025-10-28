@@ -1,3 +1,9 @@
+select,
+select option {
+  color: #111 !important;
+  background: #fff !important;
+}
+
 @import "tailwindcss";
 @import "tw-animate-css";
 

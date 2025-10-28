@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, Users, FolderKanban, RefreshCw, Edit } from 'lucide-react';
 import GroupForm from '@/components/admin/GroupForm';
-import { getGroups, updateGroup, groupAPI } from '@/axios/adminApi';
+import { getGroups, updateGroup, groupAPI, closeGroup } from '@/axios/adminApi';
 import { useToastContext } from '@/components/providers/toast-provider';
 import api from '@/axios/config';
 
@@ -22,11 +22,24 @@ interface Group {
     leaderId?: number;
     members?: { id: number; hoten: string; manv: string }[];
     groupProjects?: GroupProject[];
+    status?: string;
 }
 
 export default function GroupsPage() {
     const { showSuccess, showError, showWarning } = useToastContext();
     const [groups, setGroups] = useState<Group[]>([]);
+
+    const handleCloseGroup = async (id: number) => {
+        if (!window.confirm('Bạn có chắc chắn muốn đóng nhóm này?')) return;
+        try {
+            await closeGroup(id);
+            showSuccess('Đã đóng nhóm thành công');
+            loadGroups();
+        } catch (e: any) {
+            const errorMessage = e.response?.data?.message || e.message || 'Lỗi đóng nhóm';
+            showError(errorMessage);
+        }
+    };
     const [loading, setLoading] = useState(false);
     const [openModal, setOpenModal] = useState(false);
     const [editGroup, setEditGroup] = useState<Group | null>(null);
@@ -198,14 +211,21 @@ export default function GroupsPage() {
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center justify-end space-x-2">
-                                            <button
-                                                onClick={() => handleEdit(g)}
-                                                className="p-2.5 hover:bg-blue-100 rounded-lg text-blue-600 hover:text-blue-700 transition-all duration-150 hover:scale-110 border border-blue-200 hover:border-blue-300"
-                                                title="Chỉnh sửa nhóm"
-                                            >
-                                                <Edit size={16} />
-                                            </button>
-                                            {/* Xóa nút delete - không cho phép xóa nhóm */}
+                                            {g.status !== 'closed' ? (
+                                                <button
+                                                    onClick={() => handleEdit(g)}
+                                                    className="p-2.5 hover:bg-blue-100 rounded-lg text-blue-600 hover:text-blue-700 transition-all duration-150 hover:scale-110 border border-blue-200 hover:border-blue-300"
+                                                    title="Chỉnh sửa nhóm"
+                                                >
+                                                    <Edit size={16} />
+                                                </button>
+                                            ) : (
+                                                <span title="Nhóm đã đóng" className="p-2.5 rounded-lg text-gray-400 border border-gray-200 bg-gray-50 flex items-center justify-center">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 17a2 2 0 100-4 2 2 0 000 4zm6-6V9a6 6 0 10-12 0v2a2 2 0 00-2 2v7a2 2 0 002 2h12a2 2 0 002-2v-7a2 2 0 00-2-2zm-2 0H8V9a4 4 0 118 0v2z" />
+                                                    </svg>
+                                                </span>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
