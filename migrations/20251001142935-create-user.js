@@ -22,7 +22,11 @@ module.exports = {
       password: {
         type: Sequelize.STRING,
         allowNull: false
-
+      },
+      email: {
+        type: Sequelize.STRING,
+        allowNull: false,
+        unique: true
       },
       chucvu: {
         type: Sequelize.STRING
@@ -37,7 +41,7 @@ module.exports = {
         allowNull: false,
         type: Sequelize.DATE
       },
-      updatedAt : {
+      updatedAt: {
         allowNull: false,
         type: Sequelize.DATE
       }

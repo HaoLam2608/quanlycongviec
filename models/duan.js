@@ -4,7 +4,6 @@ module.exports = (sequelize, DataTypes) => {
   class DuAn extends Model {
     static associate(models) {
       DuAn.belongsTo(models.User, { foreignKey: 'userId', as: 'nguoiDamNhan' });
-      
       // Dự án có nhiều tasks
       DuAn.hasMany(models.Task, {
         foreignKey: 'duanId',
@@ -29,6 +28,5 @@ module.exports = (sequelize, DataTypes) => {
       modelName: "DuAn",
     }
   );
-
   return DuAn;
 };

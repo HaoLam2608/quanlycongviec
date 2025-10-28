@@ -1,8 +1,26 @@
+// Đóng nhóm (chuyển trạng thái sang closed)
+exports.closeGroup = async (req, res) => {
+    try {
+        const group = await Group.findByPk(req.params.id);
+        if (!group) return res.status(404).json({ message: 'Không tìm thấy nhóm' });
+        if (group.status === 'closed') return res.status(400).json({ message: 'Nhóm đã đóng trước đó' });
+        await group.update({ status: 'closed' });
+        res.json({ message: 'Đã đóng nhóm thành công', group });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ message: 'Lỗi server' });
+    }
+};
 // Thêm nhóm vào dự án (group_projects)
 exports.addGroupToProject = async (req, res) => {
     try {
         const { groupId, projectId } = req.body;
         if (!groupId || !projectId) return res.status(400).json({ message: 'Thiếu groupId hoặc projectId' });
+
+        // Kiểm tra trạng thái nhóm
+        const group = await Group.findByPk(groupId);
+        if (!group) return res.status(404).json({ message: 'Không tìm thấy nhóm' });
+        if (group.status === 'closed') return res.status(400).json({ message: 'Nhóm đã đóng, không thể thêm vào dự án!' });
 
         // Lấy số lượng dự án active mà nhóm đang tham gia
         const { GroupProject } = require('../models');
@@ -78,7 +96,12 @@ exports.createGroup = async (req, res) => {
             }
         }
 
-        const group = await Group.create({ name, description, leaderId });
+        const group = await Group.create({
+            name,
+            description,
+            leaderId,
+            duanId: req.body.duanId ?? null // Đảm bảo luôn có duanId, null nếu không chọn
+        });
 
         // Xử lý gán dự án cho nhóm nếu có
         if (Array.isArray(projectIds) && projectIds.length > 0) {
@@ -152,15 +175,65 @@ exports.getGroup = async (req, res) => {
 // Update
 exports.updateGroup = async (req, res) => {
     try {
-        const { name, description, leaderId } = req.body;
+        const { name, description, leaderId, memberIds, projectIds } = req.body;
         const group = await Group.findByPk(req.params.id);
         if (!group) return res.status(404).json({ message: 'Không tìm thấy nhóm' });
+        if (group.status === 'closed') return res.status(400).json({ message: 'Nhóm đã đóng, không thể chỉnh sửa!' });
 
         await group.update({
             name: name ?? group.name,
             description: description ?? group.description,
             leaderId: leaderId ?? group.leaderId
         });
+
+        // Đồng bộ lại thành viên nhóm nếu có memberIds
+        if (Array.isArray(memberIds)) {
+            const { GroupMember } = require('../models');
+            // Lấy danh sách thành viên hiện tại
+            const currentMembers = await GroupMember.findAll({ where: { groupId: group.id } });
+            const currentIds = currentMembers.map(m => m.userId);
+            // Xóa các thành viên không còn trong memberIds
+            const toRemove = currentIds.filter(id => !memberIds.includes(id));
+            if (toRemove.length > 0) {
+                await GroupMember.destroy({ where: { groupId: group.id, userId: toRemove } });
+            }
+            // Thêm các thành viên mới
+            const toAdd = memberIds.filter(id => !currentIds.includes(id));
+            if (toAdd.length > 0) {
+                const bulk = toAdd.map(uid => ({ groupId: group.id, userId: uid }));
+                await GroupMember.bulkCreate(bulk, { ignoreDuplicates: true });
+            }
+        }
+
+        // Đồng bộ lại dự án nếu có projectIds
+        if (Array.isArray(projectIds)) {
+            if (projectIds.length > 2) return res.status(400).json({ message: 'Chỉ được chọn tối đa 2 dự án đang chạy hoặc chuẩn bị!' });
+            // Lấy danh sách dự án hợp lệ
+            const validProjects = await DuAn.findAll({
+                where: {
+                    id: projectIds,
+                    status: ['chua_bat_dau', 'dang_chay']
+                }
+            });
+            if (validProjects.length !== projectIds.length) {
+                return res.status(400).json({ message: 'Chỉ được chọn dự án ở trạng thái chuẩn bị hoặc đang chạy!' });
+            }
+            const { GroupProject } = require('../models');
+            // Lấy danh sách projectId hiện tại của nhóm
+            const currentProjects = await GroupProject.findAll({ where: { groupId: group.id, status: 'active' } });
+            const currentPids = currentProjects.map(p => p.projectId);
+            // Xóa các dự án không còn trong projectIds
+            const toRemove = currentPids.filter(pid => !projectIds.includes(pid));
+            if (toRemove.length > 0) {
+                await GroupProject.destroy({ where: { groupId: group.id, projectId: toRemove, status: 'active' } });
+            }
+            // Thêm các dự án mới
+            const toAdd = projectIds.filter(pid => !currentPids.includes(pid));
+            if (toAdd.length > 0) {
+                const bulk = toAdd.map(pid => ({ groupId: group.id, projectId: pid, status: 'active' }));
+                await GroupProject.bulkCreate(bulk, { ignoreDuplicates: true });
+            }
+        }
 
         const { GroupProject } = require('../models');
         const full = await Group.findByPk(group.id, {
@@ -187,6 +260,7 @@ exports.addMembers = async (req, res) => {
 
         const group = await Group.findByPk(id);
         if (!group) return res.status(404).json({ message: 'Không tìm thấy nhóm' });
+        if (group.status === 'closed') return res.status(400).json({ message: 'Nhóm đã đóng, không thể thêm thành viên!' });
 
         // Validation cho từng member
         for (const userId of memberIds) {
@@ -220,6 +294,9 @@ exports.addMembers = async (req, res) => {
 exports.removeMember = async (req, res) => {
     try {
         const { id, userId } = req.params;
+        const group = await Group.findByPk(id);
+        if (!group) return res.status(404).json({ message: 'Không tìm thấy nhóm' });
+        if (group.status === 'closed') return res.status(400).json({ message: 'Nhóm đã đóng, không thể xóa thành viên!' });
         const gm = await GroupMember.findOne({ where: { groupId: id, userId } });
         if (!gm) return res.status(404).json({ message: 'Thành viên không thuộc nhóm' });
         await gm.destroy();

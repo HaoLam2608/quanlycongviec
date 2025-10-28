@@ -1,10 +1,12 @@
 
-
 const express = require('express');
 const router = express.Router();
 const authenticateToken = require('../middleware/auth');
 const { checkPermission } = require('../middleware/rbac');
 const groupController = require('../controllers/groupController');
+
+// Đóng nhóm
+router.patch('/:id/close', authenticateToken, checkPermission('groups', 'update'), groupController.closeGroup);
 
 // Thêm nhóm vào dự án (group_projects)
 router.post('/add-to-project', authenticateToken, checkPermission('groups', 'update'), groupController.addGroupToProject);

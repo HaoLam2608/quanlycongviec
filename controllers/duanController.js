@@ -6,7 +6,6 @@ exports.createDuAn = async (req, res) => {
         const { tenduan, mota, ngaybatdau, ngayketthuc, status } = req.body;
         const providedUserId = req.body.userId || req.body.managerId || null;
         const userId = providedUserId ? Number(providedUserId) : req.user.id;
-
         const duan = await DuAn.create({
             tenduan,
             mota,

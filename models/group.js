@@ -22,8 +22,14 @@ module.exports = (sequelize, DataTypes) => {
     Group.init({
         name: { type: DataTypes.STRING, allowNull: false },
         description: { type: DataTypes.TEXT },
-        // duanId: { type: DataTypes.INTEGER, allowNull: true },
-        leaderId: { type: DataTypes.INTEGER }
+        duanId: { type: DataTypes.INTEGER, allowNull: true },
+        leaderId: { type: DataTypes.INTEGER, allowNull: true },
+        status: {
+            type: DataTypes.ENUM('active', 'closed'),
+            allowNull: false,
+            defaultValue: 'active',
+            comment: 'Trạng thái nhóm: active (đang hoạt động), closed (đã đóng)'
+        }
     }, {
         sequelize,
         modelName: 'Group',
