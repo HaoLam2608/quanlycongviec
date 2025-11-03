@@ -171,6 +171,8 @@ export default function ProjectDetailPage() {
     const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false)
     const [isTaskDetailModalOpen, setIsTaskDetailModalOpen] = useState(false)
     const [isAddSubtaskModalOpen, setIsAddSubtaskModalOpen] = useState(false)
+    const [isEditSubtaskModalOpen, setIsEditSubtaskModalOpen] = useState(false);
+    const [selectedSubtask, setSelectedSubtask] = useState<any>(null);
     const [isAddGroupModalOpen, setIsAddGroupModalOpen] = useState(false)
     const [selectedTask, setSelectedTask] = useState<any>(null)
     const [project, setProject] = useState<any>(null);
@@ -281,6 +283,28 @@ export default function ProjectDetailPage() {
         startDate: "",
         endDate: "",
     })
+    const [editSubtaskForm, setEditSubtaskForm] = useState({
+        name: "",
+        description: "",
+        assigneeId: "",
+        startDate: "",
+        endDate: "",
+    });
+
+    // Effect to populate edit subtask form when a subtask is selected for editing
+    useEffect(() => {
+        if (selectedSubtask) {
+            setEditSubtaskForm({
+                name: selectedSubtask.tenSubtask || "",
+                description: selectedSubtask.mota || "",
+                assigneeId: selectedSubtask.nguoiThucHienId?.toString() || "",
+                startDate: selectedSubtask.ngayBatDau ? new Date(selectedSubtask.ngayBatDau).toISOString().slice(0, 10) : "",
+                endDate: selectedSubtask.ngayKetThuc ? new Date(selectedSubtask.ngayKetThuc).toISOString().slice(0, 10) : "",
+            });
+        }
+    }, [selectedSubtask]);
+
+
 
 
 
@@ -606,6 +630,43 @@ export default function ProjectDetailPage() {
             }
         }
     }
+
+    const handleUpdateSubtask = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedTask || !selectedSubtask) return;
+
+        try {
+            const payload = {
+                tenSubtask: editSubtaskForm.name,
+                mota: editSubtaskForm.description,
+                nguoiThucHienId: editSubtaskForm.assigneeId ? Number(editSubtaskForm.assigneeId) : null,
+                ngayBatDau: editSubtaskForm.startDate || null,
+                ngayKetThuc: editSubtaskForm.endDate || null,
+            };
+
+            await updateSubtask(selectedTask.id, selectedSubtask.id, payload);
+
+            // Refresh data
+            const tasksData = await getTasksByProject(id as string);
+            setTasks(tasksData.tasks || []);
+
+            const updatedTask = tasksData.tasks?.find((t: any) => t.id === selectedTask.id);
+            if (updatedTask) {
+                setSelectedTask(updatedTask);
+            }
+
+            setIsEditSubtaskModalOpen(false);
+            setSelectedSubtask(null);
+            showSuccess("Cập nhật công việc nhỏ thành công!");
+
+        } catch (error) {
+            console.error("Lỗi cập nhật subtask:", error);
+            const errData: any = error;
+            const details = errData.details || errData.error || errData.message;
+            showError(`Lỗi khi cập nhật công việc nhỏ: ${details || 'Vui lòng thử lại.'}`);
+        }
+    };
+
 
     const getTaskAssignees = (task: any) => {
         if (!task.subtasks || !Array.isArray(task.subtasks)) return [];
@@ -1279,6 +1340,15 @@ export default function ProjectDetailPage() {
                                                 </div>
 
                                                 <button
+                                                    onClick={() => {
+                                                        setSelectedSubtask(subtask);
+                                                        setIsEditSubtaskModalOpen(true);
+                                                    }}
+                                                    className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm rounded-xl font-medium transition-colors shadow-sm hover:shadow-md"
+                                                >
+                                                    Chỉnh sửa
+                                                </button>
+                                                <button
                                                     onClick={async () => {
                                                         if (confirm("Bạn có chắc muốn xóa công việc nhỏ này?")) {
                                                             try {
@@ -1439,6 +1509,88 @@ export default function ProjectDetailPage() {
                             className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all"
                         >
                             Thêm công việc nhỏ
+                        </button>
+                    </div>
+                </form>
+            </Modal>
+
+            {/* Edit Subtask Modal */}
+            <Modal isOpen={isEditSubtaskModalOpen} onClose={() => setIsEditSubtaskModalOpen(false)} title="Chỉnh sửa công việc nhỏ">
+                <form onSubmit={handleUpdateSubtask} className="space-y-5">
+                    <div>
+                        <label className="block text-sm font-semibold text-foreground mb-2">Tên công việc nhỏ *</label>
+                        <input
+                            type="text"
+                            required
+                            value={editSubtaskForm.name}
+                            onChange={(e) => setEditSubtaskForm({ ...editSubtaskForm, name: e.target.value })}
+                            className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                            placeholder="Nhập tên công việc nhỏ"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-semibold text-foreground mb-2">Mô tả</label>
+                        <textarea
+                            value={editSubtaskForm.description}
+                            onChange={(e) => setEditSubtaskForm({ ...editSubtaskForm, description: e.target.value })}
+                            className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all resize-none"
+                            placeholder="Mô tả công việc nhỏ"
+                            rows={3}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-semibold text-foreground mb-2">Người thực hiện *</label>
+                        <select
+                            required
+                            value={editSubtaskForm.assigneeId}
+                            onChange={(e) => setEditSubtaskForm({ ...editSubtaskForm, assigneeId: e.target.value })}
+                            className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                        >
+                            <option value="">Chọn người thực hiện</option>
+                            {getGroupMembersForTask(selectedTask).map((member) => (
+                                <option key={member.id} value={member.id}>
+                                    {member.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-semibold text-foreground mb-2">Ngày bắt đầu</label>
+                            <input
+                                type="date"
+                                value={editSubtaskForm.startDate}
+                                onChange={(e) => setEditSubtaskForm({ ...editSubtaskForm, startDate: e.target.value })}
+                                className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold text-foreground mb-2">Ngày kết thúc</label>
+                            <input
+                                type="date"
+                                value={editSubtaskForm.endDate}
+                                onChange={(e) => setEditSubtaskForm({ ...editSubtaskForm, endDate: e.target.value })}
+                                className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-4">
+                        <button
+                            type="button"
+                            onClick={() => setIsEditSubtaskModalOpen(false)}
+                            className="flex-1 px-6 py-3 bg-secondary text-foreground rounded-xl font-semibold hover:bg-secondary/80 transition-all"
+                        >
+                            Hủy
+                        </button>
+                        <button
+                            type="submit"
+                            className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all"
+                        >
+                            Lưu thay đổi
                         </button>
                     </div>
                 </form>
