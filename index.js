@@ -30,6 +30,8 @@ app.use('/groups', require('./routes/groupRoutes'));
 app.use('/settings', require('./routes/settingsRoutes'));
 // mount document routes with upload middleware for /upload
 app.use('/documents', (req, res, next) => { req.upload = upload; next(); }, documentRoutes);
+// member routes
+app.use('/members', require('./routes/memberRoutes'));
 
 // Health / root route
 app.get('/', (req, res) => {
