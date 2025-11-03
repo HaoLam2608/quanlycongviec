@@ -355,3 +355,82 @@ export const createWorklog = async (data: {
     throw err.response?.data || { message: "Không thể tạo worklog" };
   }
 };
+
+// Member Dashboard APIs
+export const getMemberStats = async () => {
+  try {
+    const res = await api.get('/members/dashboard/stats');
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy thống kê" };
+  }
+};
+
+export const getTodayTasks = async () => {
+  try {
+    const res = await api.get('/members/tasks/today');
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy công việc hôm nay" };
+  }
+};
+
+export const getUpcomingTasks = async (days: number = 7) => {
+  try {
+    const res = await api.get(`/members/tasks/upcoming?days=${days}`);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy công việc sắp tới" };
+  }
+};
+
+export const getRecentActivities = async (limit: number = 10) => {
+  try {
+    const res = await api.get(`/members/activities/recent?limit=${limit}`);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy hoạt động gần đây" };
+  }
+};
+
+export const getMemberTasks = async (filters?: {
+  status?: string;
+  priority?: string;
+  projectId?: number;
+  dateFrom?: string;
+  dateTo?: string;
+  search?: string;
+}) => {
+  try {
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== '') {
+          params.append(key, value.toString());
+        }
+      });
+    }
+    const res = await api.get(`/members/tasks?${params.toString()}`);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy danh sách công việc" };
+  }
+};
+
+export const updateMemberTaskStatus = async (taskId: number, status: string) => {
+  try {
+    const res = await api.put(`/tasks/${taskId}/status`, { status });
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể cập nhật trạng thái" };
+  }
+};
+
+export const updateMemberSubtaskStatus = async (taskId: number, subtaskId: number, status: string) => {
+  try {
+    const res = await api.put(`/tasks/${taskId}/subtasks/${subtaskId}/status`, { status });
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể cập nhật trạng thái subtask" };
+  }
+};

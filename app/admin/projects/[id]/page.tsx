@@ -41,6 +41,7 @@ import { useRef } from "react"
 import WorklogSubtask from "@/components/worklog-subtask"
 import WorklogTask from "@/components/worklog-task"
 import TimelineInline from "./timeline/page"
+import ProjectCalendarPage from "./calendar/page"
 
 // SearchableSelect Component for Group Selection
 interface SearchableGroupSelectProps {
@@ -168,7 +169,7 @@ export default function ProjectDetailPage() {
     useEffect(() => { setMounted(true); }, []);
     const { id } = useParams()
     const { showSuccess, showError, showWarning } = useToastContext()
-    const [activeTab, setActiveTab] = useState<"tasks" | "teams" | "documents" | "timeline" | "kanban">("tasks")
+    const [activeTab, setActiveTab] = useState<"tasks" | "teams" | "documents" | "timeline" | "calendar" | "kanban">("tasks")
     const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false)
     const [isTaskDetailModalOpen, setIsTaskDetailModalOpen] = useState(false)
     const [isAddSubtaskModalOpen, setIsAddSubtaskModalOpen] = useState(false)
@@ -713,6 +714,14 @@ export default function ProjectDetailPage() {
                         Timeline
                     </button>
                     <button
+                        onClick={() => { setActiveTab("calendar"); }}
+                        className={`flex-1 px-6 py-4 font-semibold transition-all flex items-center justify-center gap-2 ${activeTab === "calendar" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"
+                            }`}
+                    >
+                        <Calendar size={20} />
+                        Calendar
+                    </button>
+                    <button
                         onClick={() => setActiveTab("documents")}
                         className={`flex-1 px-6 py-4 font-semibold transition-all flex items-center justify-center gap-2 ${activeTab === "documents" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"
                             }`}
@@ -852,6 +861,13 @@ export default function ProjectDetailPage() {
                         <div>
                             {/* Inline timeline component */}
                             <TimelineInline params={{ id: String(id) }} />
+                        </div>
+                    )}
+
+                    {activeTab === "calendar" && (
+                        <div>
+                            {/* Inline calendar component */}
+                            <ProjectCalendarPage params={{ id: String(id) }} />
                         </div>
                     )}
 

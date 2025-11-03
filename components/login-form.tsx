@@ -36,6 +36,9 @@ export function LoginForm() {
       }
       else if (res.role === "manager") {
         router.push("/manager")
+      }
+      else if (res.role === "employee") {
+        router.push("/member")
       } else {
         router.push("/")
       }

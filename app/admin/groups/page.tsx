@@ -38,6 +38,7 @@ export default function GroupsPage() {
         setLoading(true);
         try {
             const res = await getGroups(duanFilter ? { duanId: Number(duanFilter) } : undefined);
+            console.log('Loaded groups:', res.groups);
             setGroups(res.groups || []);
         } catch (e: any) {
             const errorMessage = e.response?.data?.message || e.message || 'Lỗi tải nhóm';
