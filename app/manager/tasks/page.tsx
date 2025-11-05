@@ -1,520 +1,896 @@
 "use client"
+
 import { useState, useEffect } from "react"
-import Link from "next/link"
-import {
-    CheckSquare,
-    Clock,
-    Calendar,
-    User,
-    Plus,
-    Filter,
-    Search,
-    Eye,
-    Edit3,
-    Trash2,
-    AlertCircle,
-    CheckCircle,
-    XCircle,
-    PlayCircle,
-    FolderOpen,
-    Users
+import { 
+    CheckSquare, Clock, Calendar, User, Plus, Filter, Search, Eye, Edit3, 
+    Trash2, AlertCircle, CheckCircle, XCircle, PlayCircle, FolderOpen, 
+    Users, LayoutGrid, List, Download, Upload, MoreVertical, Tag, 
+    TrendingUp, MessageSquare, Paperclip, ChevronDown, X as CloseIcon
 } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { useToastContext } from "@/components/providers/toast-provider"
+import { fetchProjectsByManager, getTasksByProject, createTask, updateTask, deleteTask } from "@/axios/api"
+import { getUsers } from "@/axios/adminApi"
 
 interface Task {
     id: number
-    name: string
-    description: string
-    status: "Chưa bắt đầu" | "Đang chạy" | "Hoàn thành" | "Tạm dừng"
-    priority: "Thấp" | "Trung bình" | "Cao" | "Khẩn cấp"
-    assignee: string
-    assigneeAvatar: string
-    project: string
-    startDate: string
-    endDate: string
-    progress: number
-    createdAt: string
+    tentask: string
+    mota?: string
+    trangThai: string
+    mucDoUuTien?: string
+    nguoiDuocGiaoId: number
+    duanId: number
+    ngayBatDau?: string
+    ngayKetThuc?: string
+    nguoiDuocGiao?: {
+        id: number
+        hoten: string
+        email?: string
+    }
+    duan?: {
+        id: number
+        tenduan: string
+    }
+}
+
+interface Project {
+    id: number
+    tenduan: string
+}
+
+interface UserType {
+    id: number
+    hoten: string
+    email?: string
+    manv: string
 }
 
 export default function ManagerTasksPage() {
     const [tasks, setTasks] = useState<Task[]>([])
+    const [projects, setProjects] = useState<Project[]>([])
+    const [users, setUsers] = useState<UserType[]>([])
     const [loading, setLoading] = useState(true)
+    const [viewMode, setViewMode] = useState<"list" | "kanban">("list")
+    const { showError, showSuccess } = useToastContext()
+
+    // Filters
     const [searchTerm, setSearchTerm] = useState("")
+    const [projectFilter, setProjectFilter] = useState<string>("all")
     const [statusFilter, setStatusFilter] = useState<string>("all")
     const [priorityFilter, setPriorityFilter] = useState<string>("all")
+    const [assigneeFilter, setAssigneeFilter] = useState<string>("all")
+
+    // Task modal
+    const [isTaskModalOpen, setIsTaskModalOpen] = useState(false)
+    const [isEditMode, setIsEditMode] = useState(false)
     const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+    const [taskForm, setTaskForm] = useState({
+        tentask: "",
+        mota: "",
+        duanId: "",
+        nguoiDuocGiaoId: "",
+        mucDoUuTien: "trung_binh",
+        ngayBatDau: "",
+        ngayKetThuc: ""
+    })
+
+    // Detail modal
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+    const [detailTask, setDetailTask] = useState<Task | null>(null)
+
+    // Bulk actions
+    const [selectedTasks, setSelectedTasks] = useState<number[]>([])
 
     useEffect(() => {
-        loadTasks()
+        loadData()
     }, [])
 
-    const loadTasks = async () => {
+    const loadData = async () => {
         try {
-            // Mock data for now
-            const mockTasks: Task[] = [
-                {
-                    id: 1,
-                    name: "Thiết kế UI Dashboard",
-                    description: "Thiết kế giao diện dashboard cho hệ thống quản lý dự án",
-                    status: "Đang chạy",
-                    priority: "Cao",
-                    assignee: "Nguyễn Văn A",
-                    assigneeAvatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=32&h=32&fit=crop&crop=face",
-                    project: "Hệ thống quản lý",
-                    startDate: "2025-10-15",
-                    endDate: "2025-11-10",
-                    progress: 65,
-                    createdAt: "2025-10-10"
-                },
-                {
-                    id: 2,
-                    name: "Phát triển API Authentication",
-                    description: "Xây dựng hệ thống xác thực và phân quyền",
-                    status: "Hoàn thành",
-                    priority: "Khẩn cấp",
-                    assignee: "Trần Thị B",
-                    assigneeAvatar: "https://images.unsplash.com/photo-1494790108755-2616b612b100?w=32&h=32&fit=crop&crop=face",
-                    project: "Hệ thống quản lý",
-                    startDate: "2025-10-01",
-                    endDate: "2025-10-30",
-                    progress: 100,
-                    createdAt: "2025-09-25"
-                },
-                {
-                    id: 3,
-                    name: "Testing và Debug",
-                    description: "Kiểm thử và sửa lỗi cho module user management",
-                    status: "Chưa bắt đầu",
-                    priority: "Trung bình",
-                    assignee: "Lê Văn C",
-                    assigneeAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=32&h=32&fit=crop&crop=face",
-                    project: "Mobile App",
-                    startDate: "2025-11-05",
-                    endDate: "2025-11-20",
-                    progress: 0,
-                    createdAt: "2025-10-20"
-                },
-                {
-                    id: 4,
-                    name: "Tối ưu Performance",
-                    description: "Cải thiện hiệu suất và tốc độ tải trang",
-                    status: "Tạm dừng",
-                    priority: "Thấp",
-                    assignee: "Phạm Thị D",
-                    assigneeAvatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=32&h=32&fit=crop&crop=face",
-                    project: "Website",
-                    startDate: "2025-10-20",
-                    endDate: "2025-12-01",
-                    progress: 25,
-                    createdAt: "2025-10-15"
-                }
-            ]
+            setLoading(true)
+            const manv = localStorage.getItem('manv')
+            if (!manv) {
+                showError('Không tìm thấy thông tin người dùng')
+                return
+            }
 
-            setTasks(mockTasks)
-        } catch (error) {
-            console.error("Error loading tasks:", error)
+            // Load projects
+            const projRes = await fetchProjectsByManager(manv)
+            const projectsList = (projRes.projects || projRes || []) as Project[]
+            setProjects(projectsList)
+
+            // Load all tasks from all projects
+            let allTasks: Task[] = []
+            for (const proj of projectsList) {
+                try {
+                    const taskRes = await getTasksByProject(proj.id)
+                    const projectTasks = (taskRes.tasks || taskRes || []) as Task[]
+                    allTasks = [...allTasks, ...projectTasks]
+                } catch (e) {
+                    // ignore
+                }
+            }
+            setTasks(allTasks)
+
+            // Load users for assignment
+            const usersRes = await getUsers({})
+            const usersList = (usersRes.users || usersRes || []) as UserType[]
+            setUsers(usersList)
+
+        } catch (err: any) {
+            console.error('Load data error', err)
+            showError(err?.message || 'Không thể tải dữ liệu')
         } finally {
             setLoading(false)
         }
     }
 
+    const openCreateModal = () => {
+        setIsEditMode(false)
+        setSelectedTask(null)
+        setTaskForm({
+            tentask: "",
+            mota: "",
+            duanId: "",
+            nguoiDuocGiaoId: "",
+            mucDoUuTien: "trung_binh",
+            ngayBatDau: "",
+            ngayKetThuc: ""
+        })
+        setIsTaskModalOpen(true)
+    }
+
+    const openEditModal = (task: Task) => {
+        setIsEditMode(true)
+        setSelectedTask(task)
+        setTaskForm({
+            tentask: task.tentask,
+            mota: task.mota || "",
+            duanId: task.duanId.toString(),
+            nguoiDuocGiaoId: task.nguoiDuocGiaoId.toString(),
+            mucDoUuTien: task.mucDoUuTien || "trung_binh",
+            ngayBatDau: task.ngayBatDau || "",
+            ngayKetThuc: task.ngayKetThuc || ""
+        })
+        setIsTaskModalOpen(true)
+    }
+
+    const handleSaveTask = async () => {
+        try {
+            if (!taskForm.tentask || !taskForm.duanId || !taskForm.nguoiDuocGiaoId || !taskForm.ngayKetThuc) {
+                showError('Vui lòng điền đầy đủ thông tin bắt buộc')
+                return
+            }
+
+            const payload = {
+                tentask: taskForm.tentask,
+                mota: taskForm.mota,
+                duanId: parseInt(taskForm.duanId),
+                nguoiDuocGiaoId: parseInt(taskForm.nguoiDuocGiaoId),
+                mucDoUuTien: taskForm.mucDoUuTien,
+                ngayBatDau: taskForm.ngayBatDau,
+                ngayKetThuc: taskForm.ngayKetThuc
+            }
+
+            if (isEditMode && selectedTask) {
+                await updateTask(selectedTask.id, payload)
+                showSuccess('Cập nhật nhiệm vụ thành công')
+            } else {
+                await createTask(payload)
+                showSuccess('Tạo nhiệm vụ thành công')
+            }
+
+            setIsTaskModalOpen(false)
+            loadData()
+        } catch (err: any) {
+            console.error('Save task error', err)
+            showError(err?.message || 'Không thể lưu nhiệm vụ')
+        }
+    }
+
+    const handleDeleteTask = async (taskId: number) => {
+        if (!confirm('Bạn có chắc chắn muốn xóa nhiệm vụ này?')) return
+        
+        try {
+            await deleteTask(taskId)
+            showSuccess('Xóa nhiệm vụ thành công')
+            loadData()
+        } catch (err: any) {
+            console.error('Delete task error', err)
+            showError(err?.message || 'Không thể xóa nhiệm vụ')
+        }
+    }
+
+    const openDetailModal = (task: Task) => {
+        setDetailTask(task)
+        setIsDetailModalOpen(true)
+    }
+
     const getStatusColor = (status: string) => {
-        switch (status) {
-            case "Hoàn thành": return "bg-green-100 text-green-800"
-            case "Đang chạy": return "bg-blue-100 text-blue-800"
-            case "Chưa bắt đầu": return "bg-gray-100 text-gray-800"
-            case "Tạm dừng": return "bg-yellow-100 text-yellow-800"
-            default: return "bg-gray-100 text-gray-800"
+        switch (status?.toLowerCase()) {
+            case 'hoan_thanh':
+            case 'completed':
+            case 'hoàn thành': 
+                return 'bg-green-100 text-green-800 border-green-200'
+            case 'dang_thuc_hien':
+            case 'in_progress':
+            case 'đang thực hiện': 
+                return 'bg-blue-100 text-blue-800 border-blue-200'
+            case 'chua_bat_dau':
+            case 'not_started':
+            case 'chưa bắt đầu': 
+                return 'bg-gray-100 text-gray-800 border-gray-200'
+            default: 
+                return 'bg-gray-100 text-gray-800 border-gray-200'
         }
     }
 
-    const getPriorityColor = (priority: string) => {
-        switch (priority) {
-            case "Khẩn cấp": return "bg-red-100 text-red-800"
-            case "Cao": return "bg-orange-100 text-orange-800"
-            case "Trung bình": return "bg-yellow-100 text-yellow-800"
-            case "Thấp": return "bg-green-100 text-green-800"
-            default: return "bg-gray-100 text-gray-800"
+    const getStatusText = (status: string) => {
+        switch (status?.toLowerCase()) {
+            case 'hoan_thanh':
+            case 'completed': return 'Hoàn thành'
+            case 'dang_thuc_hien':
+            case 'in_progress': return 'Đang thực hiện'
+            case 'chua_bat_dau':
+            case 'not_started': return 'Chưa bắt đầu'
+            default: return status
         }
     }
 
-    const getStatusIcon = (status: string) => {
-        switch (status) {
-            case "Hoàn thành": return <CheckCircle className="w-4 h-4" />
-            case "Đang chạy": return <PlayCircle className="w-4 h-4" />
-            case "Chưa bắt đầu": return <XCircle className="w-4 h-4" />
-            case "Tạm dừng": return <AlertCircle className="w-4 h-4" />
-            default: return <XCircle className="w-4 h-4" />
+    const getPriorityColor = (priority?: string) => {
+        switch (priority?.toLowerCase()) {
+            case 'cao':
+            case 'high': return 'bg-red-100 text-red-800 border-red-200'
+            case 'trung_binh':
+            case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200'
+            case 'thap':
+            case 'low': return 'bg-green-100 text-green-800 border-green-200'
+            default: return 'bg-gray-100 text-gray-800 border-gray-200'
+        }
+    }
+
+    const getPriorityText = (priority?: string) => {
+        switch (priority?.toLowerCase()) {
+            case 'cao':
+            case 'high': return 'Cao'
+            case 'trung_binh':
+            case 'medium': return 'Trung bình'
+            case 'thap':
+            case 'low': return 'Thấp'
+            default: return 'Trung bình'
         }
     }
 
     const filteredTasks = tasks.filter(task => {
-        const matchesSearch = task.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            task.assignee.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            task.project.toLowerCase().includes(searchTerm.toLowerCase())
-        const matchesStatus = statusFilter === "all" || task.status === statusFilter
-        const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter
+        const matchesSearch = task.tentask.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            task.nguoiDuocGiao?.hoten.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            task.duan?.tenduan.toLowerCase().includes(searchTerm.toLowerCase())
+        
+        const matchesProject = projectFilter === "all" || task.duanId.toString() === projectFilter
+        const matchesStatus = statusFilter === "all" || task.trangThai?.toLowerCase() === statusFilter.toLowerCase()
+        const matchesPriority = priorityFilter === "all" || task.mucDoUuTien?.toLowerCase() === priorityFilter.toLowerCase()
+        const matchesAssignee = assigneeFilter === "all" || task.nguoiDuocGiaoId.toString() === assigneeFilter
 
-        return matchesSearch && matchesStatus && matchesPriority
+        return matchesSearch && matchesProject && matchesStatus && matchesPriority && matchesAssignee
     })
 
     const taskStats = {
         total: tasks.length,
-        completed: tasks.filter(t => t.status === "Hoàn thành").length,
-        inProgress: tasks.filter(t => t.status === "Đang chạy").length,
-        pending: tasks.filter(t => t.status === "Chưa bắt đầu").length,
-        paused: tasks.filter(t => t.status === "Tạm dừng").length
+        completed: tasks.filter(t => ['hoan_thanh', 'completed', 'hoàn thành'].includes(t.trangThai?.toLowerCase())).length,
+        inProgress: tasks.filter(t => ['dang_thuc_hien', 'in_progress', 'đang thực hiện'].includes(t.trangThai?.toLowerCase())).length,
+        pending: tasks.filter(t => ['chua_bat_dau', 'not_started', 'chưa bắt đầu'].includes(t.trangThai?.toLowerCase())).length,
     }
 
-    const openTaskDetail = (task: Task) => {
-        setSelectedTask(task)
-        setIsDetailModalOpen(true)
+    const toggleTaskSelection = (taskId: number) => {
+        setSelectedTasks(prev => 
+            prev.includes(taskId) ? prev.filter(id => id !== taskId) : [...prev, taskId]
+        )
+    }
+
+    const toggleSelectAll = () => {
+        if (selectedTasks.length === filteredTasks.length) {
+            setSelectedTasks([])
+        } else {
+            setSelectedTasks(filteredTasks.map(t => t.id))
+        }
+    }
+
+    const handleBulkDelete = async () => {
+        if (selectedTasks.length === 0) return
+        if (!confirm(`Bạn có chắc chắn muốn xóa ${selectedTasks.length} nhiệm vụ?`)) return
+
+        try {
+            for (const taskId of selectedTasks) {
+                await deleteTask(taskId)
+            }
+            showSuccess(`Đã xóa ${selectedTasks.length} nhiệm vụ`)
+            setSelectedTasks([])
+            loadData()
+        } catch (err: any) {
+            showError('Có lỗi xảy ra khi xóa nhiệm vụ')
+        }
     }
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Đang tải danh sách nhiệm vụ...</p>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#003D82] mx-auto mb-4"></div>
+                    <p className="text-slate-600">Đang tải danh sách nhiệm vụ...</p>
                 </div>
             </div>
         )
     }
 
     return (
-        <div>
-            {/* Header */}
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Quản lý nhiệm vụ</h1>
-                <p className="text-gray-600">Theo dõi và quản lý tất cả nhiệm vụ trong các dự án</p>
-            </div>
-
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm font-medium text-gray-600">Tổng nhiệm vụ</p>
-                            <p className="text-2xl font-bold text-gray-900">{taskStats.total}</p>
-                        </div>
-                        <CheckSquare className="w-8 h-8 text-blue-600" />
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 p-6">
+            <div className="max-w-7xl mx-auto">
+                {/* Header */}
+                <div className="mb-8 flex items-center justify-between">
+                    <div>
+                        <h1 className="text-4xl font-bold text-slate-900 flex items-center gap-3">
+                            <CheckSquare className="w-10 h-10 text-[#003D82]" />
+                            Quản lý nhiệm vụ
+                        </h1>
+                        <p className="text-slate-600 mt-2">Theo dõi và quản lý tất cả nhiệm vụ trong các dự án</p>
                     </div>
-                </div>
-
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm font-medium text-gray-600">Hoàn thành</p>
-                            <p className="text-2xl font-bold text-green-600">{taskStats.completed}</p>
-                        </div>
-                        <CheckCircle className="w-8 h-8 text-green-600" />
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm font-medium text-gray-600">Đang thực hiện</p>
-                            <p className="text-2xl font-bold text-blue-600">{taskStats.inProgress}</p>
-                        </div>
-                        <PlayCircle className="w-8 h-8 text-blue-600" />
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm font-medium text-gray-600">Chưa bắt đầu</p>
-                            <p className="text-2xl font-bold text-gray-600">{taskStats.pending}</p>
-                        </div>
-                        <XCircle className="w-8 h-8 text-gray-600" />
-                    </div>
-                </div>
-
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm font-medium text-gray-600">Tạm dừng</p>
-                            <p className="text-2xl font-bold text-yellow-600">{taskStats.paused}</p>
-                        </div>
-                        <AlertCircle className="w-8 h-8 text-yellow-600" />
-                    </div>
-                </div>
-            </div>
-
-            {/* Filters and Search */}
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 mb-8">
-                <div className="flex flex-col lg:flex-row gap-4">
-                    <div className="flex-1">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                            <input
-                                type="text"
-                                placeholder="Tìm kiếm nhiệm vụ, người thực hiện, dự án..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="flex gap-4">
-                        <select
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                            className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    <div className="flex gap-3">
+                        <Button
+                            variant="outline"
+                            onClick={() => setViewMode(viewMode === "list" ? "kanban" : "list")}
+                            className="gap-2"
                         >
-                            <option value="all">Tất cả trạng thái</option>
-                            <option value="Chưa bắt đầu">Chưa bắt đầu</option>
-                            <option value="Đang chạy">Đang thực hiện</option>
-                            <option value="Hoàn thành">Hoàn thành</option>
-                            <option value="Tạm dừng">Tạm dừng</option>
-                        </select>
-
-                        <select
-                            value={priorityFilter}
-                            onChange={(e) => setPriorityFilter(e.target.value)}
-                            className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        >
-                            <option value="all">Tất cả độ ưu tiên</option>
-                            <option value="Khẩn cấp">Khẩn cấp</option>
-                            <option value="Cao">Cao</option>
-                            <option value="Trung bình">Trung bình</option>
-                            <option value="Thấp">Thấp</option>
-                        </select>
-
-                        <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
+                            {viewMode === "list" ? <LayoutGrid className="w-4 h-4" /> : <List className="w-4 h-4" />}
+                            {viewMode === "list" ? "Kanban" : "Danh sách"}
+                        </Button>
+                        <Button onClick={openCreateModal} className="bg-[#003D82] hover:bg-[#0052A3] gap-2">
                             <Plus className="w-4 h-4" />
-                            Thêm nhiệm vụ
-                        </button>
+                            Tạo nhiệm vụ
+                        </Button>
                     </div>
                 </div>
-            </div>
 
-            {/* Tasks Table */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead className="bg-gray-50 border-b border-gray-200">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Nhiệm vụ
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Dự án
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Người thực hiện
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Trạng thái
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Độ ưu tiên
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Tiến độ
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Deadline
-                                </th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Thao tác
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {filteredTasks.map((task) => (
-                                <tr key={task.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4">
-                                        <div>
-                                            <div className="font-medium text-gray-900">{task.name}</div>
-                                            <div className="text-sm text-gray-500 mt-1 max-w-xs truncate">
-                                                {task.description}
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="flex items-center">
-                                            <FolderOpen className="w-4 h-4 text-gray-400 mr-2" />
-                                            <span className="text-sm text-gray-900">{task.project}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="flex items-center">
-                                            <img
-                                                src={task.assigneeAvatar}
-                                                alt={task.assignee}
-                                                className="w-8 h-8 rounded-full mr-3"
-                                            />
-                                            <span className="text-sm text-gray-900">{task.assignee}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
-                                            {getStatusIcon(task.status)}
-                                            {task.status}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(task.priority)}`}>
-                                            {task.priority}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="flex items-center">
-                                            <div className="flex-1 bg-gray-200 rounded-full h-2 mr-2">
-                                                <div
-                                                    className="bg-blue-600 h-2 rounded-full"
-                                                    style={{ width: `${task.progress}%` }}
-                                                ></div>
-                                            </div>
-                                            <span className="text-sm text-gray-600 min-w-0">{task.progress}%</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="flex items-center text-sm text-gray-900">
-                                            <Calendar className="w-4 h-4 text-gray-400 mr-1" />
-                                            {new Date(task.endDate).toLocaleDateString('vi-VN')}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                                        <div className="flex items-center justify-end gap-2">
-                                            <button
-                                                onClick={() => openTaskDetail(task)}
-                                                className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded"
-                                            >
-                                                <Eye className="w-4 h-4" />
-                                            </button>
-                                            <button className="p-1 text-green-600 hover:text-green-800 hover:bg-green-100 rounded">
-                                                <Edit3 className="w-4 h-4" />
-                                            </button>
-                                            <button className="p-1 text-red-600 hover:text-red-800 hover:bg-red-100 rounded">
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                {/* Stats Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <Card className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-slate-600">Tổng nhiệm vụ</p>
+                                <p className="text-3xl font-bold text-blue-700">{taskStats.total}</p>
+                            </div>
+                            <CheckSquare className="w-10 h-10 text-blue-600" />
+                        </div>
+                    </Card>
+
+                    <Card className="p-6 bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-slate-600">Hoàn thành</p>
+                                <p className="text-3xl font-bold text-green-700">{taskStats.completed}</p>
+                            </div>
+                            <CheckCircle className="w-10 h-10 text-green-600" />
+                        </div>
+                    </Card>
+
+                    <Card className="p-6 bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-slate-600">Đang thực hiện</p>
+                                <p className="text-3xl font-bold text-purple-700">{taskStats.inProgress}</p>
+                            </div>
+                            <PlayCircle className="w-10 h-10 text-purple-600" />
+                        </div>
+                    </Card>
+
+                    <Card className="p-6 bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-slate-600">Chưa bắt đầu</p>
+                                <p className="text-3xl font-bold text-gray-700">{taskStats.pending}</p>
+                            </div>
+                            <XCircle className="w-10 h-10 text-gray-600" />
+                        </div>
+                    </Card>
                 </div>
 
-                {filteredTasks.length === 0 && (
-                    <div className="p-12 text-center">
-                        <CheckSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">Không tìm thấy nhiệm vụ</h3>
-                        <p className="text-gray-500 mb-4">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
+                {/* Filters */}
+                <Card className="p-6 mb-8 bg-white shadow-lg border-slate-200">
+                    <div className="flex flex-col lg:flex-row gap-4">
+                        {/* Search */}
+                        <div className="flex-1">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                <Input
+                                    placeholder="Tìm kiếm nhiệm vụ, người thực hiện, dự án..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="pl-10"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Project Filter */}
+                        <Select value={projectFilter} onValueChange={setProjectFilter}>
+                            <SelectTrigger className="w-[200px]">
+                                <SelectValue placeholder="Dự án" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Tất cả dự án</SelectItem>
+                                {projects.map(project => (
+                                    <SelectItem key={project.id} value={project.id.toString()}>
+                                        {project.tenduan}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        {/* Status Filter */}
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <SelectTrigger className="w-[180px]">
+                                <SelectValue placeholder="Trạng thái" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Tất cả</SelectItem>
+                                <SelectItem value="chua_bat_dau">Chưa bắt đầu</SelectItem>
+                                <SelectItem value="dang_thuc_hien">Đang thực hiện</SelectItem>
+                                <SelectItem value="hoan_thanh">Hoàn thành</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        {/* Priority Filter */}
+                        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                            <SelectTrigger className="w-[180px]">
+                                <SelectValue placeholder="Ưu tiên" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Tất cả</SelectItem>
+                                <SelectItem value="cao">Cao</SelectItem>
+                                <SelectItem value="trung_binh">Trung bình</SelectItem>
+                                <SelectItem value="thap">Thấp</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        {/* Assignee Filter */}
+                        <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+                            <SelectTrigger className="w-[200px]">
+                                <SelectValue placeholder="Người thực hiện" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Tất cả</SelectItem>
+                                {users.map(user => (
+                                    <SelectItem key={user.id} value={user.id.toString()}>
+                                        {user.hoten}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {/* Bulk Actions */}
+                    {selectedTasks.length > 0 && (
+                        <div className="mt-4 flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+                            <span className="text-sm font-medium text-blue-700">
+                                Đã chọn {selectedTasks.length} nhiệm vụ
+                            </span>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleBulkDelete}
+                                className="text-red-600 border-red-200 hover:bg-red-50"
+                            >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Xóa
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelectedTasks([])}
+                            >
+                                Bỏ chọn
+                            </Button>
+                        </div>
+                    )}
+                </Card>
+
+                {/* Task List */}
+                {viewMode === "list" ? (
+                    <Card className="bg-white shadow-lg border-slate-200 overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-slate-50 border-b border-slate-200">
+                                    <tr>
+                                        <th className="p-4 text-left">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedTasks.length === filteredTasks.length && filteredTasks.length > 0}
+                                                onChange={toggleSelectAll}
+                                                className="rounded border-gray-300"
+                                            />
+                                        </th>
+                                        <th className="p-4 text-left text-sm font-semibold text-slate-700">Nhiệm vụ</th>
+                                        <th className="p-4 text-left text-sm font-semibold text-slate-700">Dự án</th>
+                                        <th className="p-4 text-left text-sm font-semibold text-slate-700">Người thực hiện</th>
+                                        <th className="p-4 text-left text-sm font-semibold text-slate-700">Trạng thái</th>
+                                        <th className="p-4 text-left text-sm font-semibold text-slate-700">Ưu tiên</th>
+                                        <th className="p-4 text-left text-sm font-semibold text-slate-700">Hạn</th>
+                                        <th className="p-4 text-center text-sm font-semibold text-slate-700">Thao tác</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {filteredTasks.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={8} className="p-12 text-center">
+                                                <CheckSquare className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+                                                <p className="text-slate-500 text-lg">Không tìm thấy nhiệm vụ nào</p>
+                                                <p className="text-slate-400 text-sm mt-2">Thử thay đổi bộ lọc hoặc tạo nhiệm vụ mới</p>
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        filteredTasks.map((task) => (
+                                            <tr key={task.id} className="hover:bg-slate-50 transition-colors">
+                                                <td className="p-4">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedTasks.includes(task.id)}
+                                                        onChange={() => toggleTaskSelection(task.id)}
+                                                        className="rounded border-gray-300"
+                                                    />
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div>
+                                                            <p className="font-medium text-slate-900">{task.tentask}</p>
+                                                            {task.mota && (
+                                                                <p className="text-sm text-slate-500 line-clamp-1">{task.mota}</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <FolderOpen className="w-4 h-4 text-blue-600" />
+                                                        <span className="text-sm text-slate-700">{task.duan?.tenduan || 'N/A'}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                                            <User className="w-4 h-4 text-blue-600" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-medium text-slate-900">
+                                                                {task.nguoiDuocGiao?.hoten || 'N/A'}
+                                                            </p>
+                                                            {task.nguoiDuocGiao?.email && (
+                                                                <p className="text-xs text-slate-500">{task.nguoiDuocGiao.email}</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="p-4">
+                                                    <Badge className={getStatusColor(task.trangThai)}>
+                                                        {getStatusText(task.trangThai)}
+                                                    </Badge>
+                                                </td>
+                                                <td className="p-4">
+                                                    <Badge className={getPriorityColor(task.mucDoUuTien)}>
+                                                        {getPriorityText(task.mucDoUuTien)}
+                                                    </Badge>
+                                                </td>
+                                                <td className="p-4">
+                                                    {task.ngayKetThuc && (
+                                                        <div className="flex items-center gap-2 text-sm text-slate-600">
+                                                            <Calendar className="w-4 h-4" />
+                                                            {new Date(task.ngayKetThuc).toLocaleDateString('vi-VN')}
+                                                        </div>
+                                                    )}
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => openDetailModal(task)}
+                                                        >
+                                                            <Eye className="w-4 h-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => openEditModal(task)}
+                                                        >
+                                                            <Edit3 className="w-4 h-4" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => handleDeleteTask(task.id)}
+                                                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </Button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </Card>
+                ) : (
+                    // Kanban View
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {['chua_bat_dau', 'dang_thuc_hien', 'hoan_thanh'].map((status) => (
+                            <Card key={status} className="bg-white shadow-lg border-slate-200 p-4">
+                                <div className="mb-4">
+                                    <h3 className="font-semibold text-lg text-slate-900 flex items-center gap-2">
+                                        {status === 'chua_bat_dau' && <XCircle className="w-5 h-5 text-gray-600" />}
+                                        {status === 'dang_thuc_hien' && <PlayCircle className="w-5 h-5 text-blue-600" />}
+                                        {status === 'hoan_thanh' && <CheckCircle className="w-5 h-5 text-green-600" />}
+                                        {getStatusText(status)}
+                                        <Badge variant="outline" className="ml-auto">
+                                            {filteredTasks.filter(t => t.trangThai?.toLowerCase() === status).length}
+                                        </Badge>
+                                    </h3>
+                                </div>
+                                <div className="space-y-3 max-h-[600px] overflow-y-auto">
+                                    {filteredTasks
+                                        .filter(t => t.trangThai?.toLowerCase() === status)
+                                        .map((task) => (
+                                            <Card key={task.id} className="p-4 hover:shadow-md transition-all border-slate-200 cursor-pointer"
+                                                onClick={() => openDetailModal(task)}>
+                                                <div className="mb-2">
+                                                    <p className="font-medium text-slate-900 mb-1">{task.tentask}</p>
+                                                    {task.mota && (
+                                                        <p className="text-sm text-slate-500 line-clamp-2">{task.mota}</p>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
+                                                    <FolderOpen className="w-3 h-3" />
+                                                    <span>{task.duan?.tenduan}</span>
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center">
+                                                            <User className="w-3 h-3 text-blue-600" />
+                                                        </div>
+                                                        <span className="text-xs text-slate-600">{task.nguoiDuocGiao?.hoten}</span>
+                                                    </div>
+                                                    <Badge className={getPriorityColor(task.mucDoUuTien)}>
+                                                        {getPriorityText(task.mucDoUuTien)}
+                                                    </Badge>
+                                                </div>
+                                                {task.ngayKetThuc && (
+                                                    <div className="mt-2 flex items-center gap-1 text-xs text-slate-500">
+                                                        <Calendar className="w-3 h-3" />
+                                                        {new Date(task.ngayKetThuc).toLocaleDateString('vi-VN')}
+                                                    </div>
+                                                )}
+                                            </Card>
+                                        ))}
+                                </div>
+                            </Card>
+                        ))}
                     </div>
                 )}
             </div>
 
-            {/* Task Detail Modal */}
-            {isDetailModalOpen && selectedTask && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                        <div className="p-6 border-b border-gray-200">
-                            <div className="flex items-center justify-between">
-                                <h2 className="text-xl font-bold text-gray-900">Chi tiết nhiệm vụ</h2>
-                                <button
-                                    onClick={() => setIsDetailModalOpen(false)}
-                                    className="text-gray-400 hover:text-gray-600"
-                                >
-                                    <XCircle className="w-6 h-6" />
-                                </button>
+            {/* Create/Edit Task Modal */}
+            <Dialog open={isTaskModalOpen} onOpenChange={setIsTaskModalOpen}>
+                <DialogContent className="sm:max-w-[600px]">
+                    <DialogHeader>
+                        <DialogTitle>{isEditMode ? 'Chỉnh sửa nhiệm vụ' : 'Tạo nhiệm vụ mới'}</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="tentask">Tên nhiệm vụ *</Label>
+                            <Input
+                                id="tentask"
+                                value={taskForm.tentask}
+                                onChange={(e) => setTaskForm(prev => ({ ...prev, tentask: e.target.value }))}
+                                placeholder="Nhập tên nhiệm vụ"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="mota">Mô tả</Label>
+                            <Textarea
+                                id="mota"
+                                value={taskForm.mota}
+                                onChange={(e) => setTaskForm(prev => ({ ...prev, mota: e.target.value }))}
+                                placeholder="Mô tả chi tiết nhiệm vụ"
+                                rows={3}
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="duanId">Dự án *</Label>
+                                <Select value={taskForm.duanId} onValueChange={(value) => setTaskForm(prev => ({ ...prev, duanId: value }))}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Chọn dự án" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {projects.map(project => (
+                                            <SelectItem key={project.id} value={project.id.toString()}>
+                                                {project.tenduan}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="nguoiDuocGiaoId">Người thực hiện *</Label>
+                                <Select value={taskForm.nguoiDuocGiaoId} onValueChange={(value) => setTaskForm(prev => ({ ...prev, nguoiDuocGiaoId: value }))}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Chọn người" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {users.map(user => (
+                                            <SelectItem key={user.id} value={user.id.toString()}>
+                                                {user.hoten} ({user.manv})
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
 
-                        <div className="p-6">
-                            <div className="space-y-6">
-                                <div>
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{selectedTask.name}</h3>
-                                    <p className="text-gray-600">{selectedTask.description}</p>
-                                </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="ngayBatDau">Ngày bắt đầu</Label>
+                                <Input
+                                    id="ngayBatDau"
+                                    type="date"
+                                    value={taskForm.ngayBatDau}
+                                    onChange={(e) => setTaskForm(prev => ({ ...prev, ngayBatDau: e.target.value }))}
+                                />
+                            </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Dự án</label>
-                                        <div className="flex items-center">
-                                            <FolderOpen className="w-4 h-4 text-gray-400 mr-2" />
-                                            <span>{selectedTask.project}</span>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Người thực hiện</label>
-                                        <div className="flex items-center">
-                                            <img
-                                                src={selectedTask.assigneeAvatar}
-                                                alt={selectedTask.assignee}
-                                                className="w-6 h-6 rounded-full mr-2"
-                                            />
-                                            <span>{selectedTask.assignee}</span>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
-                                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(selectedTask.status)}`}>
-                                            {getStatusIcon(selectedTask.status)}
-                                            {selectedTask.status}
-                                        </span>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Độ ưu tiên</label>
-                                        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(selectedTask.priority)}`}>
-                                            {selectedTask.priority}
-                                        </span>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Ngày bắt đầu</label>
-                                        <div className="flex items-center">
-                                            <Calendar className="w-4 h-4 text-gray-400 mr-2" />
-                                            <span>{new Date(selectedTask.startDate).toLocaleDateString('vi-VN')}</span>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Ngày kết thúc</label>
-                                        <div className="flex items-center">
-                                            <Calendar className="w-4 h-4 text-gray-400 mr-2" />
-                                            <span>{new Date(selectedTask.endDate).toLocaleDateString('vi-VN')}</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Tiến độ</label>
-                                    <div className="flex items-center">
-                                        <div className="flex-1 bg-gray-200 rounded-full h-3 mr-4">
-                                            <div
-                                                className="bg-blue-600 h-3 rounded-full"
-                                                style={{ width: `${selectedTask.progress}%` }}
-                                            ></div>
-                                        </div>
-                                        <span className="text-sm font-medium text-gray-900">{selectedTask.progress}%</span>
-                                    </div>
-                                </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="ngayKetThuc">Hạn hoàn thành *</Label>
+                                <Input
+                                    id="ngayKetThuc"
+                                    type="date"
+                                    value={taskForm.ngayKetThuc}
+                                    onChange={(e) => setTaskForm(prev => ({ ...prev, ngayKetThuc: e.target.value }))}
+                                />
                             </div>
                         </div>
 
-                        <div className="p-6 border-t border-gray-200 flex gap-3">
-                            <button
-                                onClick={() => setIsDetailModalOpen(false)}
-                                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                            >
-                                Đóng
-                            </button>
-                            <button className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                                Chỉnh sửa
-                            </button>
+                        <div className="space-y-2">
+                            <Label htmlFor="mucDoUuTien">Mức độ ưu tiên</Label>
+                            <Select value={taskForm.mucDoUuTien} onValueChange={(value) => setTaskForm(prev => ({ ...prev, mucDoUuTien: value }))}>
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="cao">Cao</SelectItem>
+                                    <SelectItem value="trung_binh">Trung bình</SelectItem>
+                                    <SelectItem value="thap">Thấp</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
-                </div>
-            )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsTaskModalOpen(false)}>
+                            Hủy
+                        </Button>
+                        <Button onClick={handleSaveTask} className="bg-[#003D82] hover:bg-[#0052A3]">
+                            {isEditMode ? 'Cập nhật' : 'Tạo nhiệm vụ'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Task Detail Modal */}
+            <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
+                <DialogContent className="sm:max-w-[700px]">
+                    <DialogHeader>
+                        <DialogTitle>Chi tiết nhiệm vụ</DialogTitle>
+                    </DialogHeader>
+                    {detailTask && (
+                        <div className="space-y-6 py-4">
+                            <div>
+                                <h3 className="text-2xl font-bold text-slate-900 mb-2">{detailTask.tentask}</h3>
+                                <div className="flex items-center gap-2">
+                                    <Badge className={getStatusColor(detailTask.trangThai)}>
+                                        {getStatusText(detailTask.trangThai)}
+                                    </Badge>
+                                    <Badge className={getPriorityColor(detailTask.mucDoUuTien)}>
+                                        {getPriorityText(detailTask.mucDoUuTien)}
+                                    </Badge>
+                                </div>
+                            </div>
+
+                            {detailTask.mota && (
+                                <div>
+                                    <h4 className="font-semibold text-slate-900 mb-2">Mô tả</h4>
+                                    <p className="text-slate-600">{detailTask.mota}</p>
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-2 gap-6">
+                                <div>
+                                    <h4 className="font-semibold text-slate-900 mb-3">Thông tin dự án</h4>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <FolderOpen className="w-4 h-4 text-blue-600" />
+                                            <span className="text-slate-700">{detailTask.duan?.tenduan || 'N/A'}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <h4 className="font-semibold text-slate-900 mb-3">Người thực hiện</h4>
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                                            <User className="w-5 h-5 text-blue-600" />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium text-slate-900">{detailTask.nguoiDuocGiao?.hoten || 'N/A'}</p>
+                                            {detailTask.nguoiDuocGiao?.email && (
+                                                <p className="text-sm text-slate-500">{detailTask.nguoiDuocGiao.email}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 className="font-semibold text-slate-900 mb-3">Thời gian</h4>
+                                <div className="grid grid-cols-2 gap-4">
+                                    {detailTask.ngayBatDau && (
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <Calendar className="w-4 h-4 text-slate-600" />
+                                            <div>
+                                                <p className="text-xs text-slate-500">Bắt đầu</p>
+                                                <p className="font-medium text-slate-900">
+                                                    {new Date(detailTask.ngayBatDau).toLocaleDateString('vi-VN')}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {detailTask.ngayKetThuc && (
+                                        <div className="flex items-center gap-2 text-sm">
+                                            <Clock className="w-4 h-4 text-slate-600" />
+                                            <div>
+                                                <p className="text-xs text-slate-500">Hạn hoàn thành</p>
+                                                <p className="font-medium text-slate-900">
+                                                    {new Date(detailTask.ngayKetThuc).toLocaleDateString('vi-VN')}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsDetailModalOpen(false)}>
+                            Đóng
+                        </Button>
+                        {detailTask && (
+                            <Button onClick={() => {
+                                setIsDetailModalOpen(false)
+                                openEditModal(detailTask)
+                            }} className="bg-blue-600 hover:bg-blue-700">
+                                <Edit3 className="w-4 h-4 mr-2" />
+                                Chỉnh sửa
+                            </Button>
+                        )}
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

@@ -22,12 +22,18 @@ export default function ProjectsPage() {
     const [projects, setProjects] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [submitting, setSubmitting] = useState(false)
+    const [isClient, setIsClient] = useState(false);
 
     useEffect(() => {
+        setIsClient(true);
+    }, []);
+
+    useEffect(() => {
+        if (!isClient) return;
         const loadData = async () => {
             try {
                 const [projectsData, usersData] = await Promise.all([
-                    fetchProjects(),
+                    fetchProjects(), // Admin xem tất cả dự án
                     fetchUsers()
                 ])
                 setProjects(projectsData)
@@ -39,7 +45,7 @@ export default function ProjectsPage() {
             }
         }
         loadData()
-    }, [])
+    }, [isClient])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -52,6 +58,7 @@ export default function ProjectsPage() {
                 status: formData.status,
                 userId: formData.managerId
             })
+            // Reload tất cả dự án
             const data = await fetchProjects()
             setProjects(data)
             setIsCreateModalOpen(false)
@@ -84,7 +91,7 @@ export default function ProjectsPage() {
             </div>
 
             {/* Projects Grid */}
-            {loading ? (
+            {(!isClient || loading) ? (
                 <p>Đang tải dữ liệu...</p>
             ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

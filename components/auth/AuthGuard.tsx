@@ -7,7 +7,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         // Kiểm tra token trong localStorage
-        const token = localStorage.getItem('accesstoken')
+        const token = localStorage.getItem('accessToken')
         
         if (!token) {
             // Không có token, chuyển về trang đăng nhập
@@ -23,7 +23,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
             if (tokenPayload.exp && tokenPayload.exp < currentTime) {
                 // Token hết hạn
-                localStorage.removeItem('accesstoken')
+                localStorage.removeItem('accessToken')
                 localStorage.removeItem('manv')
                 localStorage.removeItem('hoten')
                 localStorage.removeItem('role')
@@ -32,7 +32,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
             }
         } catch (error) {
             // Token không hợp lệ
-            localStorage.removeItem('accesstoken')
+            localStorage.removeItem('accessToken')
             localStorage.removeItem('manv')
             localStorage.removeItem('hoten')
             localStorage.removeItem('role')
@@ -43,7 +43,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
 
     // Kiểm tra token trước khi render
     if (typeof window !== 'undefined') {
-        const token = localStorage.getItem('accesstoken')
+        const token = localStorage.getItem('accessToken')
         if (!token) {
             return (
                 <div className="min-h-screen flex items-center justify-center bg-background">

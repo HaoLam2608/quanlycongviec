@@ -57,7 +57,14 @@ export function ProfileCard({ user, isOwnProfile = false, onEdit }: ProfileCardP
             showSuccess('Upload avatar thành công')
             // also update local user and notify parent via onEdit if provided
             setLocalUser((prev: any) => ({ ...prev, avatar: avatarPath }))
+            // Lưu avatar mới vào localStorage để layout cập nhật
+            if (avatarPath) {
+                // Lưu kèm cache-buster để layout luôn lấy ảnh mới
+                localStorage.setItem('avatar', `${avatarPath}?t=${Date.now()}`)
+            }
             if (onEdit) onEdit()
+            // Reload lại trang để layout lấy avatar mới
+            window.location.reload()
         } catch (err: any) {
             console.error('Upload avatar error', err)
             showError(err?.message || 'Không thể upload avatar')

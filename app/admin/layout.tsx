@@ -1,7 +1,6 @@
 "use client"
 import Link from "next/link"
-import type React from "react"
-import { useState } from "react"
+import React, { useState } from "react"
 import { useRouter } from "next/navigation"
 import { usePathname } from "next/navigation"
 import {
@@ -57,13 +56,40 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const router = useRouter()
     const { showSuccess } = useToastContext()
     const [sidebarOpen, setSidebarOpen] = useState(false)
-    const userInfo = {
-        hoten: "John Doe",
-        role: "admin",
-        manv: "12345",
-        refreshToken: "refreshTokenValue",
-        token: "tokenValue",
-    }
+    const [userInfo, setUserInfo] = useState({
+        hoten: "",
+        role: "",
+        manv: "",
+        refreshToken: "",
+        token: "",
+        avatar: "",
+    });
+
+    React.useEffect(() => {
+        const loadUserInfo = () => {
+            if (typeof window !== "undefined") {
+                let avatar = localStorage.getItem("avatar") || ""
+                // Nếu avatar là /users/... và chưa có cache-buster thì thêm
+                if (avatar && avatar.startsWith('/users/') && !avatar.includes('t=')) {
+                    avatar = `${avatar}${avatar.includes('?') ? '&' : '?'}t=${Date.now()}`
+                }
+                setUserInfo({
+                    hoten: localStorage.getItem("hoten") || "",
+                    role: localStorage.getItem("role") || "",
+                    manv: localStorage.getItem("manv") || "",
+                    refreshToken: localStorage.getItem("refreshToken") || "",
+                    token: localStorage.getItem("token") || "",
+                    avatar,
+                });
+            }
+        };
+
+        loadUserInfo();
+
+        // Lắng nghe sự kiện cập nhật avatar
+        window.addEventListener('avatarUpdated', loadUserInfo);
+        return () => window.removeEventListener('avatarUpdated', loadUserInfo);
+    }, []);
 
     const handleLogout = () => {
         // Xác nhận đăng xuất
@@ -74,6 +100,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             localStorage.removeItem("manv")
             localStorage.removeItem("hoten")
             localStorage.removeItem("role")
+            localStorage.removeItem("avatar")
 
             // Hiển thị thông báo đăng xuất thành công
             showSuccess("Đăng xuất thành công!")
@@ -197,13 +224,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         {/* User section */}
                         <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
                             <div className="flex items-center">
-                                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                                    <User className="w-4 h-4 text-white" />
-                                </div>
-                                <div className="ml-3">
-                                    <p className="text-sm font-medium text-gray-700">{userInfo.hoten}</p>
-                                    <p className="text-xs text-gray-500">Quản trị viên</p>
-                                </div>
+                                <Link href="/admin/profile" className="flex items-center group">
+                                    <div className="w-8 h-8 rounded-full overflow-hidden bg-blue-500 flex items-center justify-center group-hover:ring-2 group-hover:ring-blue-400 transition">
+                                        {userInfo.avatar && userInfo.avatar.startsWith('/users/') ? (
+                                            <img src={`http://localhost:5000${userInfo.avatar}`} alt="avatar" className="w-full h-full object-cover" />
+                                        ) : userInfo.avatar ? (
+                                            <img src={userInfo.avatar} alt="avatar" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <span className="w-full h-full flex items-center justify-center text-2xl text-white">?</span>
+                                        )}
+                                    </div>
+                                    <div className="ml-3">
+                                        <p className="text-sm font-medium text-gray-700 group-hover:underline cursor-pointer">{userInfo.hoten}</p>
+                                        <p className="text-xs text-gray-500">Quản trị viên</p>
+                                    </div>
+                                </Link>
                             </div>
                         </div>
                     </div>
@@ -241,13 +276,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
                             {/* User menu */}
                             <div className="relative flex items-center space-x-3">
-                                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                                    <User className="w-4 h-4 text-white" />
-                                </div>
-                                <div className="hidden lg:block">
-                                    <p className="text-sm font-medium text-gray-700">{userInfo.hoten}</p>
-                                    <p className="text-xs text-gray-500">Quản trị viên</p>
-                                </div>
+                                <Link href="/admin/profile" className="flex items-center group">
+                                    <div className="w-8 h-8 rounded-full overflow-hidden bg-blue-500 flex items-center justify-center group-hover:ring-2 group-hover:ring-blue-400 transition">
+                                        {userInfo.avatar && userInfo.avatar.startsWith('/users/') ? (
+                                            <img src={`http://localhost:5000${userInfo.avatar}`} alt="avatar" className="w-full h-full object-cover" />
+                                        ) : userInfo.avatar ? (
+                                            <img src={userInfo.avatar} alt="avatar" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <span className="w-full h-full flex items-center justify-center text-2xl text-white">?</span>
+                                        )}
+                                    </div>
+                                    <div className="hidden lg:block ml-3">
+                                        <p className="text-sm font-medium text-gray-700 group-hover:underline cursor-pointer">{userInfo.hoten}</p>
+                                        <p className="text-xs text-gray-500">Quản trị viên</p>
+                                    </div>
+                                </Link>
                             </div>
 
                             {/* Logout */}

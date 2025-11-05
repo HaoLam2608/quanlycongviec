@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { loginUser } from "@/axios/api"
+import { getUsers } from "@/axios/adminApi"
 
 export function LoginForm() {
   const [manv, setManv] = useState("")
@@ -24,12 +25,24 @@ export function LoginForm() {
       const res = await loginUser({ manv, password })
       setMessage(res.message || "Đăng nhập thành công!")
 
-      localStorage.setItem("accesstoken", res.accessToken || res.token)
+      localStorage.setItem("accessToken", res.accessToken || res.token)
       localStorage.setItem("refreshToken", res.refreshToken || "")
       localStorage.setItem("manv", res.manv)
       localStorage.setItem("userId", res.userId)
       localStorage.setItem("hoten", res.hoten)
       localStorage.setItem("role", res.role)
+
+      // Lấy thông tin user từ API để lấy avatar
+      try {
+        const userRes = await getUsers({ search: res.manv })
+        const users = userRes.users || userRes.rows || userRes
+        const user = Array.isArray(users) ? users[0] : users
+        if (user && user.avatar) {
+          localStorage.setItem("avatar", user.avatar)
+        }
+      } catch (err) {
+        console.error("Failed to load avatar:", err)
+      }
 
       if (res.role === "admin") {
         router.push("/admin")

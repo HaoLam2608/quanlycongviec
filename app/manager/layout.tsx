@@ -1,7 +1,7 @@
 "use client"
 import Link from "next/link"
-import type React from "react"
-import { useState } from "react"
+import React, { useState } from "react"
+import api from '@/axios/config'
 import { useRouter } from "next/navigation"
 import { usePathname } from "next/navigation"
 import { Home, FolderKanban, CheckSquare, Users, BarChart3, Settings, LogOut, Bell, Menu, X, User } from "lucide-react"
@@ -36,14 +36,38 @@ export default function PMLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter()
     const { showSuccess } = useToastContext()
     const [sidebarOpen, setSidebarOpen] = useState(false)
-
-    const userInfo = {
+    const [isClient, setIsClient] = useState(false)
+    const [userInfo, setUserInfo] = useState({
         hoten: "Jane Smith",
+        chucvu: "Quản lý dự án",
+        avatar: undefined as string | undefined,
         role: "manager",
         manv: "54321",
         refreshToken: "refreshTokenValue",
         token: "tokenValue",
+    })
+
+    // Hàm chuẩn hóa avatar URL
+    const makeFullUrl = (path?: string) => {
+        if (!path) return undefined
+        if (path.startsWith('http')) return path
+        const base = api?.defaults?.baseURL || ''
+        return `${base.replace(/\/$/, '')}${path.startsWith('/') ? '' : '/'}${path}`
     }
+
+    // Đảm bảo chỉ lấy localStorage ở client
+    React.useEffect(() => {
+        setIsClient(true)
+        let avatar = localStorage.getItem('avatar') || undefined
+        // Nếu avatar chưa có cache-buster thì thêm
+        if (avatar && !avatar.includes('t=')) {
+            avatar = `${avatar}${avatar.includes('?') ? '&' : '?'}t=${Date.now()}`
+        }
+        if (avatar) avatar = makeFullUrl(avatar)
+        const hoten = localStorage.getItem('hoten') || "Jane Smith"
+        const chucvu = localStorage.getItem('chucvu') || "Quản lý dự án"
+        setUserInfo((prev) => ({ ...prev, avatar, hoten, chucvu }))
+    }, [])
 
     const handleLogout = () => {
         if (confirm("Bạn có chắc chắn muốn đăng xuất?")) {
@@ -52,6 +76,7 @@ export default function PMLayout({ children }: { children: React.ReactNode }) {
             localStorage.removeItem("manv")
             localStorage.removeItem("hoten")
             localStorage.removeItem("role")
+            localStorage.removeItem("avatar")
 
             showSuccess("Đăng xuất thành công!")
             router.push("/")
@@ -171,15 +196,28 @@ export default function PMLayout({ children }: { children: React.ReactNode }) {
 
                         {/* User section */}
                         <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
-                            <div className="flex items-center">
-                                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                                    <User className="w-4 h-4 text-white" />
+                            <Link href="/manager/profile" className="flex items-center w-full group hover:bg-gray-50 rounded-lg p-2 -m-2 transition-all duration-200">
+                                {isClient ? (
+                                    userInfo.avatar ? (
+                                        <img
+                                            src={userInfo.avatar}
+                                            alt={userInfo.hoten}
+                                            className="w-10 h-10 rounded-full object-cover border-2 border-gray-300 group-hover:border-blue-500 transition-all duration-200"
+                                        />
+                                    ) : (
+                                        <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center group-hover:bg-blue-600 transition-all duration-200">
+                                            <User className="w-5 h-5 text-white" />
+                                        </div>
+                                    )
+                                ) : (
+                                    <div className="w-10 h-10 bg-gray-200 rounded-full" />
+                                )}
+                                <div className="ml-3 flex-1">
+                                    <p className="text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors duration-200">{isClient ? userInfo.hoten : ''}</p>
+                                    <p className="text-xs text-gray-500 group-hover:text-gray-600 transition-colors duration-200">{isClient ? (userInfo.chucvu || "Quản lý dự án") : ''}</p>
                                 </div>
-                                <div className="ml-3">
-                                    <p className="text-sm font-medium text-gray-700">{userInfo.hoten}</p>
-                                    <p className="text-xs text-gray-500">Quản lý dự án</p>
-                                </div>
-                            </div>
+                                <User className="w-4 h-4 text-gray-400 group-hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-all duration-200" />
+                            </Link>
                         </div>
                     </div>
                 </div>
@@ -216,13 +254,25 @@ export default function PMLayout({ children }: { children: React.ReactNode }) {
 
                             {/* User menu */}
                             <Link href="/manager/profile">
-                                <div className="relative flex items-center space-x-3 cursor-pointer">
-                                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                                        <User className="w-4 h-4 text-white" />
-                                    </div>
+                                <div className="relative flex items-center space-x-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-50 group transition-all duration-200">
+                                    {isClient ? (
+                                        userInfo.avatar ? (
+                                            <img
+                                                src={userInfo.avatar}
+                                                alt={userInfo.hoten}
+                                                className="w-10 h-10 rounded-full object-cover border-2 border-gray-300 group-hover:border-blue-500 group-hover:scale-110 transition-all duration-200"
+                                            />
+                                        ) : (
+                                            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center group-hover:bg-blue-600 group-hover:scale-110 transition-all duration-200">
+                                                <User className="w-5 h-5 text-white" />
+                                            </div>
+                                        )
+                                    ) : (
+                                        <div className="w-10 h-10 bg-gray-200 rounded-full" />
+                                    )}
                                     <div className="hidden lg:block">
-                                        <p className="text-sm font-medium text-gray-700">{userInfo.hoten}</p>
-                                        <p className="text-xs text-gray-500">Quản lý dự án</p>
+                                        <p className="text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors duration-200">{isClient ? userInfo.hoten : ''}</p>
+                                        <p className="text-xs text-gray-500 group-hover:text-gray-600 transition-colors duration-200">{isClient ? (userInfo.chucvu || "Quản lý dự án") : ''}</p>
                                     </div>
                                 </div>
                             </Link>
