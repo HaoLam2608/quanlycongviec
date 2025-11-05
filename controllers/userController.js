@@ -1,3 +1,23 @@
+// Admin upload avatar for any user
+exports.adminUploadAvatar = async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!req.upload) return res.status(500).json({ message: 'Upload middleware not configured' });
+        const file = req.file;
+        if (!file) return res.status(400).json({ message: 'No file uploaded' });
+        const user = await User.findByPk(id);
+        if (!user) return res.status(404).json({ message: 'User not found' });
+        user.avatarData = file.buffer;
+        user.avatarMime = file.mimetype;
+        user.avatar = `/users/${user.id}/avatar`;
+        await user.save();
+        const avatarUrl = `/users/${user.id}/avatar`;
+        res.json({ message: 'Avatar uploaded', avatarUrl });
+    } catch (err) {
+        console.error('Admin upload avatar error:', err);
+        res.status(500).json({ error: err.message });
+    }
+}
 const { User, Role, Permission } = require('../models');
 const { Op } = require('sequelize');
 const sequelize = require('../models').sequelize;
@@ -25,14 +45,24 @@ exports.getAllUsers = async (req, res) => {
         const { count, rows } = await User.findAndCountAll({
             where: whereClause,
             include: includeClause,
-            attributes: { exclude: ['password', 'token'] },
+            attributes: { exclude: ['password', 'token', 'avatarData', 'avatarMime'] },
             limit: parseInt(limit),
             offset: parseInt(offset),
             order: [['createdAt', 'DESC']]
         });
 
+        // Map avatar url for each user if avatar hoặc avatarData tồn tại
+        const usersWithAvatar = rows.map(u => {
+            const user = u.toJSON();
+            if (user.avatar) {
+                user.avatarUrl = user.avatar;
+            } else if (user.id) {
+                user.avatarUrl = `/users/${user.id}/avatar`;
+            }
+            return user;
+        });
         res.json({
-            users: rows,
+            users: usersWithAvatar,
             pagination: {
                 page: parseInt(page),
                 limit: parseInt(limit),
@@ -90,7 +120,7 @@ exports.createUser = async (req, res) => {
 exports.updateUser = async (req, res) => {
     try {
         const { id } = req.params;
-        const { manv, chucvu, hoten, sdt, roleId, password } = req.body;
+    const { manv, chucvu, hoten, sdt, roleId, password, avatar } = req.body;
 
         const user = await User.findByPk(id);
         if (!user) {
@@ -107,11 +137,12 @@ exports.updateUser = async (req, res) => {
 
         // Chuẩn bị dữ liệu cập nhật
         const updateData = {};
-        if (manv) updateData.manv = manv;
-        if (chucvu) updateData.chucvu = chucvu;
-        if (hoten) updateData.hoten = hoten;
-        if (sdt) updateData.sdt = sdt;
-        if (roleId) updateData.roleId = roleId;
+    if (manv) updateData.manv = manv;
+    if (chucvu) updateData.chucvu = chucvu;
+    if (hoten) updateData.hoten = hoten;
+    if (sdt) updateData.sdt = sdt;
+    if (roleId) updateData.roleId = roleId;
+    if (avatar) updateData.avatar = avatar;
 
         // Hash password mới nếu có
         if (password) {

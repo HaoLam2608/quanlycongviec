@@ -28,7 +28,7 @@ const checkPermission = (resource, action) => {
             }
 
             // Kiểm tra permission
-            const permissionName = `${resource}-${action}`;
+            const permissionName = `${resource}:${action}`;
             const hasPermission = user.role?.permissions?.some(permission =>
                 permission.name === permissionName
             );

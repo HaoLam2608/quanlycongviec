@@ -47,6 +47,11 @@ module.exports = (sequelize, DataTypes) => {
   }
 
   User.init({
+    email: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true
+    },
     // legacy avatar URL (kept for backward compatibility) and new binary fields
     avatar: {
       type: DataTypes.STRING,
