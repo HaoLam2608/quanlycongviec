@@ -16,6 +16,7 @@ module.exports = (sequelize, DataTypes) => {
                 foreignKey: 'groupId',
                 as: 'projectHistories'
             });
+            // Note: hasMany GroupProject and belongsToMany DuAn are defined in models/index.js
         }
     }
 

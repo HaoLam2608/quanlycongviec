@@ -40,6 +40,8 @@ db.GroupProject = GroupProject;
 const Worklog = require("./worklog")(sequelize, Sequelize.DataTypes);
 db.Worklog = Worklog;
 
+// Report đã được auto-load bởi fs.readdirSync ở trên, không cần load thủ công
+
 // Thiết lập association nhiều-nhiều giữa Group và DuAn qua GroupProject
 if (db.Group && db.DuAn) {
   db.Group.belongsToMany(db.DuAn, {

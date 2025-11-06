@@ -151,7 +151,8 @@ exports.getGroups = async (req, res) => {
         });
         res.json({ groups });
     } catch (e) {
-        res.status(500).json({ message: 'Lỗi server' });
+        console.error('Error in getGroups:', e);
+        res.status(500).json({ message: 'Lỗi server', error: e.message });
     }
 };
 
@@ -169,7 +170,10 @@ exports.getGroup = async (req, res) => {
         });
         if (!group) return res.status(404).json({ message: 'Không tìm thấy nhóm' });
         res.json({ group });
-    } catch (e) { res.status(500).json({ message: 'Lỗi server' }); }
+    } catch (e) {
+        console.error('Error in getGroup:', e);
+        res.status(500).json({ message: 'Lỗi server', error: e.message });
+    }
 };
 
 // Update
