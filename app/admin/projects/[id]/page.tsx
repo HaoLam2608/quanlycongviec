@@ -17,6 +17,7 @@ import {
     User,
     Search,
     ChevronDown,
+    FileText,
 } from "lucide-react"
 import { FolderKanban } from "lucide-react"
 import { KanbanBoard } from '@/components/kanban/KanbanBoard'
@@ -43,6 +44,7 @@ import WorklogSubtask from "@/components/worklog-subtask"
 import WorklogTask from "@/components/worklog-task"
 import TimelineInline from "./timeline/page"
 import ProjectCalendarPage from "./calendar/page"
+import ProjectReportsAdvanced from "@/components/project-reports-advanced"
 
 // SearchableSelect Component for Group Selection
 interface SearchableGroupSelectProps {
@@ -198,7 +200,7 @@ export default function ProjectDetailPage() {
     useEffect(() => { setMounted(true); }, []);
     const { id } = useParams()
     const { showSuccess, showError, showWarning } = useToastContext()
-    const [activeTab, setActiveTab] = useState<"tasks" | "teams" | "documents" | "timeline" | "calendar" | "kanban">("tasks")
+    const [activeTab, setActiveTab] = useState<"tasks" | "teams" | "documents" | "timeline" | "calendar" | "kanban" | "reports">("tasks")
     const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false)
     const [isTaskDetailModalOpen, setIsTaskDetailModalOpen] = useState(false)
     const [isAddSubtaskModalOpen, setIsAddSubtaskModalOpen] = useState(false)
@@ -846,6 +848,14 @@ export default function ProjectDetailPage() {
                         <FolderKanban size={20} />
                         Kanban
                     </button>
+                    <button
+                        onClick={() => setActiveTab("reports")}
+                        className={`flex-1 px-6 py-4 font-semibold transition-all flex items-center justify-center gap-2 ${activeTab === "reports" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"
+                            }`}
+                    >
+                        <FileText size={20} />
+                        Báo cáo
+                    </button>
                 </div>
 
                 <div className="p-6 bg-gradient-to-br from-white to-gray-50">
@@ -1294,6 +1304,11 @@ export default function ProjectDetailPage() {
                 {activeTab === "kanban" && (
                     <div className="p-6 bg-gradient-to-br from-white to-gray-50">
                         <KanbanBoard projectId={Array.isArray(id) ? id[0] : id} />
+                    </div>
+                )}
+                {activeTab === "reports" && project && (
+                    <div className="p-6 bg-gradient-to-br from-white to-gray-50">
+                        <ProjectReportsAdvanced duanId={Number(id)} duanName={project.tenduan} userRole="admin" />
                     </div>
                 )}
             </div>

@@ -17,6 +17,7 @@ import {
     User,
     Search,
     ChevronDown,
+    FileText,
 } from "lucide-react"
 import { FolderKanban } from "lucide-react"
 import Modal from "@/components/admin/Modal"
@@ -40,6 +41,7 @@ import { useRef } from "react"
 import TimelineInline from "./timeline/page"
 import WorklogTask from "@/components/worklog-task"
 import WorklogSubtask from "@/components/worklog-subtask"
+import ProjectReportsAdvanced from "@/components/project-reports-advanced"
 
 // SearchableSelect Component for Group Selection
 interface SearchableGroupSelectProps {
@@ -167,7 +169,7 @@ export default function ProjectDetailPage() {
     useEffect(() => { setMounted(true); }, []);
     const { id } = useParams()
     const { showSuccess, showError, showWarning } = useToastContext()
-    const [activeTab, setActiveTab] = useState<"tasks" | "teams" | "documents" | "timeline">("tasks")
+    const [activeTab, setActiveTab] = useState<"tasks" | "teams" | "documents" | "timeline" | "reports">("tasks")
     const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false)
     const [isTaskDetailModalOpen, setIsTaskDetailModalOpen] = useState(false)
     const [isAddSubtaskModalOpen, setIsAddSubtaskModalOpen] = useState(false)
@@ -765,6 +767,14 @@ export default function ProjectDetailPage() {
                         <FolderKanban size={20} />
                         Tài liệu
                     </button>
+                    <button
+                        onClick={() => setActiveTab("reports")}
+                        className={`flex-1 px-6 py-4 font-semibold transition-all flex items-center justify-center gap-2 ${activeTab === "reports" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"
+                            }`}
+                    >
+                        <FileText size={20} />
+                        Báo cáo
+                    </button>
 
 
                 </div>
@@ -1067,6 +1077,10 @@ export default function ProjectDetailPage() {
                                 </div>
                             )}
                         </div>
+                    )}
+
+                    {activeTab === "reports" && project && (
+                        <ProjectReportsAdvanced duanId={Number(id)} duanName={project.tenduan} userRole="manager" />
                     )}
                 </div>
             </div>
