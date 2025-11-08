@@ -11,6 +11,7 @@ router.get("/stats", authenticateToken, checkPermission('users', 'read'), userCo
 router.get('/avatar', authenticateToken, userController.getMyAvatar);
 router.get('/:id/avatar', userController.getAvatarById);
 
+router.get('/me', authenticateToken, userController.getMyProfile);
 router.put('/me', authenticateToken, userController.updateMyProfile);
 router.get("/:id", authenticateToken, checkPermission('users', 'read'), userController.getUserById);
 router.post("/", authenticateToken, checkPermission('users', 'create'), userController.createUser);

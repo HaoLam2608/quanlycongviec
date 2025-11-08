@@ -343,6 +343,31 @@ exports.getAvatarById = async (req, res) => {
     }
 }
 
+// Get current user's profile
+exports.getMyProfile = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const user = await User.findByPk(userId, {
+            include: [{ model: Role, as: 'role' }],
+            attributes: { exclude: ['password', 'token'] }
+        });
+        if (!user) return res.status(404).json({ message: 'User not found' });
+        
+        // Format avatar URL
+        const userData = user.toJSON();
+        if (userData.avatar) {
+            userData.avatarUrl = userData.avatar;
+        } else if (userData.id) {
+            userData.avatarUrl = `/users/${userData.id}/avatar`;
+        }
+        
+        res.json({ user: userData });
+    } catch (err) {
+        console.error('Get my profile error:', err);
+        res.status(500).json({ error: err.message });
+    }
+}
+
 // Update current user's profile (allowed fields only)
 exports.updateMyProfile = async (req, res) => {
     try {
