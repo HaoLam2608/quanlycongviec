@@ -221,10 +221,49 @@ export default function ManagerReportsPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#003D82] mx-auto mb-4"></div>
-                    <p className="text-slate-600">Đang tải báo cáo thống kê...</p>
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 p-6">
+                <div className="max-w-7xl mx-auto">
+                    {/* Header Skeleton */}
+                    <div className="mb-8">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="w-10 h-10 bg-gray-200 rounded animate-pulse"></div>
+                            <div className="h-9 bg-gray-200 rounded-lg w-64 animate-pulse"></div>
+                        </div>
+                        <div className="h-5 bg-gray-200 rounded w-96 animate-pulse"></div>
+                    </div>
+
+                    {/* Filters Skeleton */}
+                    <div className="bg-white rounded-xl p-6 shadow-sm border mb-8">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {[1, 2, 3].map(i => (
+                                <div key={i} className="h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Stats Cards Skeleton */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                        {[1, 2, 3, 4].map(i => (
+                            <div key={i} className="bg-white rounded-xl p-6 shadow-sm border">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="w-12 h-12 bg-gray-200 rounded-lg animate-pulse"></div>
+                                    <div className="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
+                                </div>
+                                <div className="h-8 bg-gray-200 rounded w-16 mb-2 animate-pulse"></div>
+                                <div className="h-3 bg-gray-200 rounded w-24 animate-pulse"></div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Charts Skeleton */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {[1, 2].map(i => (
+                            <div key={i} className="bg-white rounded-xl p-6 shadow-sm border">
+                                <div className="h-6 bg-gray-200 rounded w-48 mb-6 animate-pulse"></div>
+                                <div className="h-64 bg-gray-200 rounded animate-pulse"></div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
         )

@@ -17,30 +17,54 @@ import {
     MessageSquare,
     Paperclip
 } from "lucide-react"
+import { getMemberTasks, updateMemberTaskStatus, updateMemberSubtaskStatus } from "@/axios/api"
 
 interface Task {
     id: number
-    title: string
-    description?: string
-    status: "Chưa bắt đầu" | "Đang chạy" | "Hoàn thành"
-    priority: "low" | "medium" | "high"
-    deadline?: string
-    startDate?: string
-    project: string
-    type: "task" | "subtask"
-    parentTask?: string
-    progress?: number
-    assignedBy?: string
+    tentask: string
+    mota?: string
+    trangThai: string
+    mucDoUuTien?: string
+    ngayKetThuc?: string
+    ngayBatDau?: string
+    duan?: {
+        id: number
+        tenduan: string
+        status: string
+    }
+    nguoiGiao?: {
+        id: number
+        hoten: string
+        manv: string
+    }
+    subtasks?: any[]
+}
+
+interface Subtask {
+    id: number
+    tenSubtask: string
+    trangThai: string
+    ngayKetThuc?: string
+    task?: {
+        id: number
+        tentask: string
+        duan?: {
+            id: number
+            tenduan: string
+        }
+    }
 }
 
 export default function MyTasksPage() {
     const [tasks, setTasks] = useState<Task[]>([])
+    const [subtasks, setSubtasks] = useState<Subtask[]>([])
     const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
     const [searchTerm, setSearchTerm] = useState("")
     const [statusFilter, setStatusFilter] = useState<string>("all")
     const [priorityFilter, setPriorityFilter] = useState<string>("all")
     const [projectFilter, setProjectFilter] = useState<string>("all")
-    const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+    const [selectedTask, setSelectedTask] = useState<any>(null)
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
 
     useEffect(() => {
@@ -49,64 +73,30 @@ export default function MyTasksPage() {
 
     const loadTasks = async () => {
         try {
-            // Mock data for now
-            const mockTasks: Task[] = [
-                {
-                    id: 1,
-                    title: "Thiết kế UI Dashboard",
-                    description: "Tạo wireframe và mockup cho trang dashboard admin",
-                    status: "Đang chạy",
-                    priority: "high",
-                    deadline: "2025-11-05",
-                    startDate: "2025-11-01",
-                    project: "Hệ thống quản lý",
-                    type: "task",
-                    progress: 75,
-                    assignedBy: "Nguyễn Văn A"
-                },
-                {
-                    id: 2,
-                    title: "Code API endpoints",
-                    description: "Phát triển RESTful API cho module user management",
-                    status: "Chưa bắt đầu",
-                    priority: "medium",
-                    deadline: "2025-11-07",
-                    startDate: "2025-11-04",
-                    project: "Hệ thống quản lý",
-                    type: "task",
-                    progress: 0,
-                    assignedBy: "Trần Thị B"
-                },
-                {
-                    id: 3,
-                    title: "Viết unit tests",
-                    description: "Tạo test cases cho các API đã phát triển",
-                    status: "Hoàn thành",
-                    priority: "low",
-                    deadline: "2025-11-03",
-                    project: "Hệ thống quản lý",
-                    type: "subtask",
-                    parentTask: "Code API endpoints",
-                    progress: 100,
-                    assignedBy: "Trần Thị B"
-                },
-                {
-                    id: 4,
-                    title: "Setup CI/CD pipeline",
-                    description: "Cấu hình automated deployment với GitHub Actions",
-                    status: "Đang chạy",
-                    priority: "high",
-                    deadline: "2025-11-06",
-                    startDate: "2025-11-02",
-                    project: "DevOps",
-                    type: "task",
-                    progress: 40,
-                    assignedBy: "Lê Văn C"
-                }
-            ]
-            setTasks(mockTasks)
-        } catch (error) {
-            console.error("Error loading tasks:", error)
+            setLoading(true)
+            setError(null)
+            
+            console.log('📡 Fetching member tasks...')
+            
+            // Get all tasks without filters - we'll filter on frontend
+            const data = await getMemberTasks({})
+            console.log('✅ Tasks received:', data)
+            console.log('📊 Tasks count:', data.tasks?.length || 0)
+            console.log('📊 Subtasks count:', data.subtasks?.length || 0)
+            
+            // Log first task to check data structure
+            if (data.tasks && data.tasks.length > 0) {
+                console.log('📝 Sample task:', data.tasks[0])
+            }
+            if (data.subtasks && data.subtasks.length > 0) {
+                console.log('📝 Sample subtask:', data.subtasks[0])
+            }
+            
+            setTasks(data.tasks || [])
+            setSubtasks(data.subtasks || [])
+        } catch (error: any) {
+            console.error("❌ Error loading tasks:", error)
+            setError(error.message || "Không thể tải danh sách công việc")
         } finally {
             setLoading(false)
         }
@@ -148,33 +138,153 @@ export default function MyTasksPage() {
         return diffDays
     }
 
-    const filteredTasks = tasks.filter(task => {
+    // Combine tasks and subtasks for display
+    const allItems = [
+        ...tasks.map(task => ({
+            id: task.id,
+            title: task.tentask,
+            description: task.mota,
+            status: task.trangThai,
+            priority: task.mucDoUuTien || 'medium',
+            deadline: task.ngayKetThuc,
+            startDate: task.ngayBatDau,
+            project: task.duan?.tenduan || 'Chưa có dự án',
+            projectId: task.duan?.id,
+            type: 'task' as const,
+            assignedBy: task.nguoiGiao?.hoten,
+            progress: task.trangThai === 'Hoàn thành' ? 100 : task.trangThai === 'Đang chạy' ? 50 : 0
+        })),
+        ...subtasks.map(subtask => ({
+            id: subtask.id,
+            title: subtask.tenSubtask,
+            description: '',
+            status: subtask.trangThai,
+            priority: 'medium',
+            deadline: subtask.ngayKetThuc,
+            project: subtask.task?.duan?.tenduan || 'Chưa có dự án',
+            projectId: subtask.task?.duan?.id,
+            type: 'subtask' as const,
+            parentTask: subtask.task?.tentask,
+            progress: subtask.trangThai === 'Hoàn thành' ? 100 : subtask.trangThai === 'Đang chạy' ? 50 : 0
+        }))
+    ]
+
+    const filteredTasks = allItems.filter(task => {
         const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
             task.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             task.project.toLowerCase().includes(searchTerm.toLowerCase())
         const matchesStatus = statusFilter === "all" || task.status === statusFilter
         const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter
-        const matchesProject = projectFilter === "all" || task.project === projectFilter
+        const matchesProject = projectFilter === "all" || task.projectId?.toString() === projectFilter
 
         return matchesSearch && matchesStatus && matchesPriority && matchesProject
     })
 
-    const projects = Array.from(new Set(tasks.map(task => task.project)))
+    // Debug logging for filters
+    console.log('🔍 Filter state:', { statusFilter, priorityFilter, projectFilter, searchTerm })
+    console.log('📦 All items:', allItems.length)
+    console.log('✅ Filtered items:', filteredTasks.length)
+    if (allItems.length > 0 && filteredTasks.length === 0) {
+        console.log('⚠️ No items after filtering. First item status:', allItems[0]?.status)
+        console.log('⚠️ Status filter:', statusFilter)
+    }
 
-    const updateTaskStatus = (taskId: number, newStatus: string) => {
-        setTasks(tasks.map(task =>
-            task.id === taskId
-                ? { ...task, status: newStatus as any }
-                : task
-        ))
+    const projects = Array.from(new Set(tasks.map(task => ({
+        id: task.duan?.id,
+        name: task.duan?.tenduan
+    })).filter(p => p.id && p.name)))
+
+    const updateTaskStatus = async (taskId: number, newStatus: string, type: 'task' | 'subtask') => {
+        try {
+            if (type === 'task') {
+                await updateMemberTaskStatus(taskId, newStatus)
+                setTasks(tasks.map(task =>
+                    task.id === taskId
+                        ? { ...task, trangThai: newStatus }
+                        : task
+                ))
+            } else {
+                const task = subtasks.find(st => st.id === taskId)
+                if (task?.task) {
+                    await updateMemberSubtaskStatus(task.task.id, taskId, newStatus)
+                    setSubtasks(subtasks.map(subtask =>
+                        subtask.id === taskId
+                            ? { ...subtask, trangThai: newStatus }
+                            : subtask
+                    ))
+                }
+            }
+        } catch (error) {
+            console.error('Error updating status:', error)
+        }
     }
 
     if (loading) {
         return (
+            <div className="p-6 bg-gray-50 min-h-screen">
+                <div className="max-w-7xl mx-auto">
+                    {/* Header Skeleton */}
+                    <div className="mb-6 flex items-center justify-between">
+                        <div className="flex-1">
+                            <div className="h-9 bg-gray-200 rounded-lg w-64 mb-2 animate-pulse"></div>
+                            <div className="h-5 bg-gray-200 rounded w-96 animate-pulse"></div>
+                        </div>
+                        <div className="text-right">
+                            <div className="h-4 bg-gray-200 rounded w-24 mb-2 animate-pulse"></div>
+                            <div className="h-8 bg-gray-200 rounded w-16 animate-pulse"></div>
+                        </div>
+                    </div>
+
+                    {/* Filters Skeleton */}
+                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 mb-6">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            {[1,2,3,4].map(i => (
+                                <div key={i} className="h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Tasks List Skeleton */}
+                    <div className="space-y-4">
+                        {[1,2,3,4,5].map(i => (
+                            <div key={i} className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="flex-1">
+                                        <div className="h-6 bg-gray-200 rounded w-64 mb-3 animate-pulse"></div>
+                                        <div className="h-4 bg-gray-200 rounded w-full mb-2 animate-pulse"></div>
+                                        <div className="h-4 bg-gray-200 rounded w-3/4 mb-4 animate-pulse"></div>
+                                        <div className="flex gap-2">
+                                            <div className="h-6 bg-gray-200 rounded-full w-24 animate-pulse"></div>
+                                            <div className="h-6 bg-gray-200 rounded-full w-20 animate-pulse"></div>
+                                        </div>
+                                    </div>
+                                    <div className="h-10 bg-gray-200 rounded-lg w-32 animate-pulse"></div>
+                                </div>
+                                <div className="flex items-center gap-4 pt-4 border-t border-gray-100">
+                                    <div className="h-4 bg-gray-200 rounded w-32 animate-pulse"></div>
+                                    <div className="h-4 bg-gray-200 rounded w-40 animate-pulse"></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    if (error) {
+        return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Đang tải công việc...</p>
+                    <AlertTriangle className="w-12 h-12 text-red-600 mx-auto mb-4" />
+                    <p className="text-gray-900 font-semibold mb-2">Lỗi khi tải dữ liệu</p>
+                    <p className="text-gray-600 mb-4">{error}</p>
+                    <button 
+                        onClick={loadTasks}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                        Thử lại
+                    </button>
                 </div>
             </div>
         )
@@ -184,64 +294,18 @@ export default function MyTasksPage() {
         <div className="p-6 bg-gray-50 min-h-screen">
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">Công việc của tôi</h1>
-                    <p className="text-gray-600">Quản lý và theo dõi tiến độ công việc được giao</p>
-                </div>
-
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-600">Tổng số</p>
-                                <p className="text-2xl font-bold text-gray-900">{tasks.length}</p>
-                            </div>
-                            <FileText className="w-8 h-8 text-blue-600" />
-                        </div>
+                <div className="mb-6 flex items-center justify-between">
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Công việc của tôi</h1>
+                        <p className="text-gray-600">Quản lý và theo dõi tiến độ công việc được giao</p>
                     </div>
-
-                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-600">Đang làm</p>
-                                <p className="text-2xl font-bold text-blue-600">
-                                    {tasks.filter(t => t.status === "Đang chạy").length}
-                                </p>
-                            </div>
-                            <Play className="w-8 h-8 text-blue-600" />
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-600">Hoàn thành</p>
-                                <p className="text-2xl font-bold text-green-600">
-                                    {tasks.filter(t => t.status === "Hoàn thành").length}
-                                </p>
-                            </div>
-                            <CheckCircle2 className="w-8 h-8 text-green-600" />
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-600">Quá hạn</p>
-                                <p className="text-2xl font-bold text-red-600">
-                                    {tasks.filter(t => {
-                                        if (!t.deadline || t.status === "Hoàn thành") return false
-                                        return getDaysUntilDeadline(t.deadline)! < 0
-                                    }).length}
-                                </p>
-                            </div>
-                            <AlertTriangle className="w-8 h-8 text-red-600" />
-                        </div>
+                    <div className="text-right">
+                        <p className="text-sm text-gray-500">Tổng số công việc</p>
+                        <p className="text-2xl font-bold text-blue-600">{allItems.length}</p>
                     </div>
                 </div>
 
-                {/* Filters */}
+                {/* Filters and Search */}
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 mb-6">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         {/* Search */}
@@ -288,7 +352,7 @@ export default function MyTasksPage() {
                         >
                             <option value="all">Tất cả dự án</option>
                             {projects.map(project => (
-                                <option key={project} value={project}>{project}</option>
+                                <option key={project.id} value={project.id?.toString()}>{project.name}</option>
                             ))}
                         </select>
                     </div>
@@ -333,7 +397,7 @@ export default function MyTasksPage() {
                                         </div>
 
                                         <div className="flex items-center gap-6 text-sm text-gray-500">
-                                            {task.startDate && (
+                                            {task.type === 'task' && task.startDate && (
                                                 <div className="flex items-center gap-1">
                                                     <CalendarIcon className="w-4 h-4" />
                                                     <span>Bắt đầu: {new Date(task.startDate).toLocaleDateString('vi-VN')}</span>
@@ -356,7 +420,7 @@ export default function MyTasksPage() {
                                                     </span>
                                                 </div>
                                             )}
-                                            {task.assignedBy && (
+                                            {task.type === 'task' && task.assignedBy && (
                                                 <span>Giao bởi: {task.assignedBy}</span>
                                             )}
                                         </div>
@@ -381,7 +445,7 @@ export default function MyTasksPage() {
                                         {/* Status Update Buttons */}
                                         {task.status === "Chưa bắt đầu" && (
                                             <button
-                                                onClick={() => updateTaskStatus(task.id, "Đang chạy")}
+                                                onClick={() => updateTaskStatus(task.id, "Đang chạy", task.type)}
                                                 className="px-3 py-1 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors flex items-center gap-1"
                                             >
                                                 <Play className="w-4 h-4" />
@@ -391,14 +455,14 @@ export default function MyTasksPage() {
                                         {task.status === "Đang chạy" && (
                                             <>
                                                 <button
-                                                    onClick={() => updateTaskStatus(task.id, "Chưa bắt đầu")}
+                                                    onClick={() => updateTaskStatus(task.id, "Chưa bắt đầu", task.type)}
                                                     className="px-3 py-1 bg-gray-600 text-white rounded-lg text-sm hover:bg-gray-700 transition-colors flex items-center gap-1"
                                                 >
                                                     <Pause className="w-4 h-4" />
                                                     Tạm dừng
                                                 </button>
                                                 <button
-                                                    onClick={() => updateTaskStatus(task.id, "Hoàn thành")}
+                                                    onClick={() => updateTaskStatus(task.id, "Hoàn thành", task.type)}
                                                     className="px-3 py-1 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors flex items-center gap-1"
                                                 >
                                                     <CheckCircle2 className="w-4 h-4" />

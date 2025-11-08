@@ -4,6 +4,7 @@ import RoleForm from "@/components/admin/RoleForm"
 import PermissionForm from "@/components/admin/PermissionForm"
 import { Shield, Plus, Edit, Trash2, Users } from "lucide-react"
 import { deleteRole, getRoles, roleAPI } from "@/axios/adminApi"
+import { showConfirm, showSuccess, showError } from "@/lib/notifications"
 
 interface Role {
     id: number
@@ -46,13 +47,15 @@ export default function RolesPage() {
     }
 
     const handleDelete = async (roleId: number) => {
-
-        if (confirm('Bạn có chắc chắn muốn xóa vai trò này?')) {
+        const confirmed = await showConfirm('Bạn có chắc chắn muốn xóa vai trò này?')
+        if (confirmed) {
             try {
                 await deleteRole(roleId)
+                showSuccess('Đã xóa vai trò thành công!')
                 loadRoles()
             } catch (error: any) {
                 console.error('Delete role error:', error)
+                showError(error.message || 'Có lỗi xảy ra khi xóa vai trò')
             }
         }
     }
@@ -107,9 +110,25 @@ export default function RolesPage() {
             {/* Roles Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {loading ? (
-                    <div className="col-span-full text-center py-8 text-muted-foreground">
-                        Đang tải dữ liệu...
-                    </div>
+                    <>
+                        {[1, 2, 3, 4, 5, 6].map(i => (
+                            <div key={i} className="bg-card border border-border rounded-2xl p-6 shadow-sm animate-pulse">
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="w-12 h-12 rounded-xl bg-secondary"></div>
+                                    <div className="flex gap-2">
+                                        <div className="w-8 h-8 rounded-lg bg-secondary"></div>
+                                        <div className="w-8 h-8 rounded-lg bg-secondary"></div>
+                                    </div>
+                                </div>
+                                <div className="h-6 w-32 bg-secondary rounded mb-2"></div>
+                                <div className="h-4 w-full bg-secondary rounded mb-4"></div>
+                                <div className="flex items-center justify-between pt-4 border-t border-border">
+                                    <div className="h-4 w-24 bg-secondary rounded"></div>
+                                    <div className="h-8 w-12 bg-secondary rounded-full"></div>
+                                </div>
+                            </div>
+                        ))}
+                    </>
                 ) : roles.length === 0 ? (
                     <div className="col-span-full text-center py-8 text-muted-foreground">
                         Chưa có vai trò nào

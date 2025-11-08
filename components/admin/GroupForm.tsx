@@ -66,6 +66,7 @@ function useMounted() {
 import { X, Save, Users, Plus, Search, ChevronDown } from 'lucide-react';
 import { getUsers, createGroup, updateGroup, addGroupMembers, groupAPI, closeGroup } from '@/axios/adminApi';
 import { useToastContext } from '@/components/providers/toast-provider';
+import { showConfirm } from '@/lib/notifications';
 import api from '@/axios/config';
 
 
@@ -487,7 +488,8 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
                             <button
                                 type="button"
                                 onClick={async () => {
-                                    if (window.confirm('Bạn có chắc chắn muốn đóng nhóm này?')) {
+                                    const confirmed = await showConfirm('Bạn có chắc chắn muốn đóng nhóm này?');
+                                    if (confirmed) {
                                         try {
                                             await closeGroup(editGroup.id);
                                             showSuccess('Đã đóng nhóm thành công');

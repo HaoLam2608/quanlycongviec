@@ -14,24 +14,26 @@ import {
     CheckCircle2,
     AlertTriangle
 } from "lucide-react"
+import { getMemberProjects } from "@/axios/api"
 
 interface Project {
     id: number
     name: string
     description: string
-    status: "Chưa bắt đầu" | "Đang chạy" | "Hoàn thành" | "Tạm dừng"
+    status: string
     progress: number
     startDate: string
     endDate?: string
     deadline: string
     teamSize: number
-    myRole: string
     manager: string
+    managerPosition?: string
     totalTasks: number
     completedTasks: number
     myTasks: number
     myCompletedTasks: number
-    documents: number
+    myRole?: string
+    documents?: number
 }
 
 export default function MyProjectsPage() {
@@ -39,6 +41,7 @@ export default function MyProjectsPage() {
     const [loading, setLoading] = useState(true)
     const [selectedProject, setSelectedProject] = useState<Project | null>(null)
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+    const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
         loadProjects()
@@ -46,81 +49,23 @@ export default function MyProjectsPage() {
 
     const loadProjects = async () => {
         try {
-            // Mock data for now
-            const mockProjects: Project[] = [
-                {
-                    id: 1,
-                    name: "Hệ thống quản lý công việc",
-                    description: "Phát triển ứng dụng web quản lý công việc và dự án cho doanh nghiệp",
-                    status: "Đang chạy",
-                    progress: 68,
-                    startDate: "2025-10-01",
-                    deadline: "2025-12-31",
-                    teamSize: 8,
-                    myRole: "Frontend Developer",
-                    manager: "Nguyễn Văn A",
-                    totalTasks: 45,
-                    completedTasks: 28,
-                    myTasks: 12,
-                    myCompletedTasks: 8,
-                    documents: 15
-                },
-                {
-                    id: 2,
-                    name: "Mobile App E-commerce",
-                    description: "Ứng dụng di động bán hàng trực tuyến với tích hợp thanh toán",
-                    status: "Hoàn thành",
-                    progress: 100,
-                    startDate: "2025-08-01",
-                    endDate: "2025-10-15",
-                    deadline: "2025-10-30",
-                    teamSize: 6,
-                    myRole: "UI/UX Designer",
-                    manager: "Trần Thị B",
-                    totalTasks: 32,
-                    completedTasks: 32,
-                    myTasks: 8,
-                    myCompletedTasks: 8,
-                    documents: 22
-                },
-                {
-                    id: 3,
-                    name: "Website Corporate",
-                    description: "Thiết kế và phát triển website giới thiệu công ty với CMS",
-                    status: "Chưa bắt đầu",
-                    progress: 0,
-                    startDate: "2025-11-15",
-                    deadline: "2026-01-30",
-                    teamSize: 4,
-                    myRole: "Full-stack Developer",
-                    manager: "Lê Văn C",
-                    totalTasks: 28,
-                    completedTasks: 0,
-                    myTasks: 10,
-                    myCompletedTasks: 0,
-                    documents: 5
-                },
-                {
-                    id: 4,
-                    name: "System Integration API",
-                    description: "Tích hợp hệ thống với các API bên thứ ba và xây dựng microservices",
-                    status: "Tạm dừng",
-                    progress: 25,
-                    startDate: "2025-09-01",
-                    deadline: "2025-11-30",
-                    teamSize: 5,
-                    myRole: "Backend Developer",
-                    manager: "Phạm Văn D",
-                    totalTasks: 38,
-                    completedTasks: 10,
-                    myTasks: 15,
-                    myCompletedTasks: 4,
-                    documents: 12
-                }
-            ]
-            setProjects(mockProjects)
-        } catch (error) {
+            setLoading(true)
+            setError(null)
+            
+            // Debug: Check if user is logged in
+            const token = localStorage.getItem('accessToken')
+            console.log('🔐 Token exists:', !!token)
+            
+            // Fetch real data from API
+            console.log('📡 Fetching member projects...')
+            const data = await getMemberProjects()
+            console.log('✅ Projects received:', data.length, 'projects')
+            console.log('📊 Projects data:', data)
+            
+            setProjects(data)
+        } catch (error: any) {
             console.error("Error loading projects:", error)
+            setError(error.message || "Không thể tải danh sách dự án")
         } finally {
             setLoading(false)
         }
@@ -153,10 +98,85 @@ export default function MyProjectsPage() {
 
     if (loading) {
         return (
+            <div className="p-6 bg-gray-50 min-h-screen">
+                <div className="max-w-7xl mx-auto">
+                    {/* Header Skeleton */}
+                    <div className="mb-8">
+                        <div className="h-9 bg-gray-200 rounded-lg w-64 mb-2 animate-pulse"></div>
+                        <div className="h-5 bg-gray-200 rounded w-96 animate-pulse"></div>
+                    </div>
+
+                    {/* Stats Overview Skeleton */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                        {[1, 2, 3, 4].map(i => (
+                            <div key={i} className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex-1">
+                                        <div className="h-4 bg-gray-200 rounded w-24 mb-2 animate-pulse"></div>
+                                        <div className="h-8 bg-gray-200 rounded w-16 animate-pulse"></div>
+                                    </div>
+                                    <div className="w-8 h-8 bg-gray-200 rounded animate-pulse"></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Projects Grid Skeleton */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {[1, 2, 3, 4].map(i => (
+                            <div key={i} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                                <div className="p-6">
+                                    <div className="flex items-start justify-between mb-4">
+                                        <div className="flex-1">
+                                            <div className="h-6 bg-gray-200 rounded w-48 mb-2 animate-pulse"></div>
+                                            <div className="h-4 bg-gray-200 rounded w-full mb-1 animate-pulse"></div>
+                                            <div className="h-4 bg-gray-200 rounded w-3/4 animate-pulse"></div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3 mb-4">
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-4 bg-gray-200 rounded w-32 animate-pulse"></div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-4 bg-gray-200 rounded w-40 animate-pulse"></div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mb-4">
+                                        <div className="flex justify-between text-sm mb-2">
+                                            <div className="h-4 bg-gray-200 rounded w-24 animate-pulse"></div>
+                                            <div className="h-4 bg-gray-200 rounded w-12 animate-pulse"></div>
+                                        </div>
+                                        <div className="w-full bg-gray-200 rounded-full h-2 animate-pulse"></div>
+                                    </div>
+
+                                    <div className="flex gap-2">
+                                        <div className="h-9 bg-gray-200 rounded-lg flex-1 animate-pulse"></div>
+                                        <div className="h-9 bg-gray-200 rounded-lg w-20 animate-pulse"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    if (error) {
+        return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Đang tải dự án...</p>
+                    <AlertTriangle className="w-12 h-12 text-red-600 mx-auto mb-4" />
+                    <p className="text-gray-900 font-semibold mb-2">Lỗi khi tải dữ liệu</p>
+                    <p className="text-gray-600 mb-4">{error}</p>
+                    <button 
+                        onClick={loadProjects}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                        Thử lại
+                    </button>
                 </div>
             </div>
         )
@@ -221,21 +241,31 @@ export default function MyProjectsPage() {
                 </div>
 
                 {/* Projects Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {projects.map(project => (
-                        <div key={project.id} className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-                            {/* Project Header */}
-                            <div className="flex items-start justify-between mb-4">
-                                <div className="flex-1">
-                                    <h3 className="text-xl font-semibold text-gray-900 mb-2">{project.name}</h3>
-                                    <p className="text-gray-600 text-sm mb-3">{project.description}</p>
-                                    <div className="flex items-center gap-3">
-                                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(project.status)}`}>
-                                            {project.status}
-                                        </span>
-                                        <span className="text-sm text-gray-500">Vai trò: {project.myRole}</span>
+                {projects.length === 0 ? (
+                    <div className="col-span-full bg-white rounded-xl p-12 text-center shadow-sm border border-gray-200">
+                        <FolderOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                        <h3 className="text-xl font-semibold text-gray-900 mb-2">Chưa có dự án</h3>
+                        <p className="text-gray-600">Bạn chưa được phân công vào dự án nào</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {projects.map(project => (
+                            <div key={project.id} className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                                {/* Project Header */}
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="flex-1">
+                                        <h3 className="text-xl font-semibold text-gray-900 mb-2">{project.name}</h3>
+                                        <p className="text-gray-600 text-sm mb-3">{project.description}</p>
+                                        <div className="flex items-center gap-3">
+                                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(project.status)}`}>
+                                                {project.status}
+                                            </span>
+                                            <span className="text-sm text-gray-500">
+                                                Quản lý: {project.manager}
+                                                {project.managerPosition && ` (${project.managerPosition})`}
+                                            </span>
+                                        </div>
                                     </div>
-                                </div>
                                 <button
                                     onClick={() => {
                                         setSelectedProject(project)
@@ -329,7 +359,8 @@ export default function MyProjectsPage() {
                             )}
                         </div>
                     ))}
-                </div>
+                    </div>
+                )}
 
                 {/* Project Detail Modal */}
                 {isDetailModalOpen && selectedProject && (

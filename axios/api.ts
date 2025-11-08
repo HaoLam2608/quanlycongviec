@@ -161,6 +161,15 @@ export const uploadAvatar = async (file: File) => {
   }
 };
 
+export const getMyProfile = async () => {
+  try {
+    const res = await api.get('/users/me');
+    return res.data.user;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Không thể lấy thông tin hồ sơ' };
+  }
+};
+
 export const updateMyProfile = async (data: { hoten?: string; sdt?: string; chucvu?: string; password?: string }) => {
   try {
     const res = await api.put('/users/me', data);
@@ -419,7 +428,8 @@ export const getMemberTasks = async (filters?: {
 
 export const updateMemberTaskStatus = async (taskId: number, status: string) => {
   try {
-    const res = await api.put(`/tasks/${taskId}/status`, { status });
+    // Backend expects body field `trangThai`
+    const res = await api.patch(`/tasks/${taskId}/status`, { trangThai: status });
     return res.data;
   } catch (err: any) {
     throw err.response?.data || { message: "Không thể cập nhật trạng thái" };
@@ -428,9 +438,19 @@ export const updateMemberTaskStatus = async (taskId: number, status: string) => 
 
 export const updateMemberSubtaskStatus = async (taskId: number, subtaskId: number, status: string) => {
   try {
-    const res = await api.put(`/tasks/${taskId}/subtasks/${subtaskId}/status`, { status });
+    // There is no /status route for subtask; backend expects PUT /tasks/:taskId/subtasks/:id with { trangThai }
+    const res = await api.put(`/tasks/${taskId}/subtasks/${subtaskId}`, { trangThai: status });
     return res.data;
   } catch (err: any) {
     throw err.response?.data || { message: "Không thể cập nhật trạng thái subtask" };
+  }
+};
+
+export const getMemberProjects = async () => {
+  try {
+    const res = await api.get('/members/projects');
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy danh sách dự án" };
   }
 };

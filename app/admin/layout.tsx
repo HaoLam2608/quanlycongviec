@@ -21,6 +21,7 @@ import {
 } from "lucide-react"
 import AuthGuard from "@/components/auth/AuthGuard"
 import { useToastContext } from '@/components/providers/toast-provider'
+import { showConfirm } from '@/lib/notifications'
 import Image from "next/image"
 
 const menuCategories = [
@@ -91,13 +92,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         return () => window.removeEventListener('avatarUpdated', loadUserInfo);
     }, []);
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
         // Xác nhận đăng xuất
-        if (confirm("Bạn có chắc chắn muốn đăng xuất?")) {
-            // Xóa token và thông tin user từ localStorage
+        const confirmed = await showConfirm("Bạn có chắc chắn muốn đăng xuất?")
+        if (confirmed) {
+            // Xóa accessToken (key chính dùng trong app) và các thông tin khác
+            localStorage.removeItem("accessToken")
+            // giữ xóa 'token' cũ để backward compat
             localStorage.removeItem("token")
             localStorage.removeItem("refreshToken")
             localStorage.removeItem("manv")
+            localStorage.removeItem("userId")
             localStorage.removeItem("hoten")
             localStorage.removeItem("role")
             localStorage.removeItem("avatar")
