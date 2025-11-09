@@ -16,6 +16,8 @@ import {
 } from "recharts"
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
+import html2canvas from 'html2canvas'
+import { showError } from '@/lib/notifications'
 
 // Loading Skeleton Component
 const StatCardSkeleton = () => (
@@ -814,7 +816,7 @@ export default function ReportsPage() {
             XLSX.writeFile(wb, `Bao_cao_tong_quan_${date}_${time}.xlsx`)
         } catch (error) {
             console.error("Export Excel error:", error)
-            alert("Có lỗi khi xuất file Excel")
+            showError("Có lỗi khi xuất file Excel")
         }
     }
 
@@ -1034,10 +1036,10 @@ export default function ReportsPage() {
             pdf.save(`Bao_cao_tong_quan_${date}_${time}.pdf`)
 
         } catch (error) {
-            console.error('Export PDF error:', error)
-            alert('Co loi khi xuat file PDF: ' + ((error as any)?.message || String(error)))
-        } finally {
-            setExportingPdf(false)
+
+            console.error("Export PDF error:", error)
+            showError("Có lỗi khi xuất file PDF")
+
         }
     }
 

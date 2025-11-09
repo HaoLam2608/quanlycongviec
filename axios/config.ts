@@ -35,15 +35,51 @@ api.interceptors.response.use(
         originalRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
-        localStorage.clear();
-        window.location.href = "/login";
+        // Only remove authentication-related keys (avoid wiping other app data)
+        try {
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          localStorage.removeItem('manv');
+          localStorage.removeItem('hoten');
+          localStorage.removeItem('role');
+          localStorage.removeItem('avatar');
+          localStorage.removeItem('userId');
+          localStorage.removeItem('token');
+        } catch (e) {
+          // ignore storage errors
+        }
+        // lightweight diagnostic: record why we cleared auth keys so you can
+        // inspect it in the browser after reproduction
+        try {
+          const ev = {
+            time: new Date().toISOString(),
+            type: 'refreshFailed',
+            message: refreshError?.toString?.() || String(refreshError)
+          }
+          localStorage.setItem('lastAuthEvent', JSON.stringify(ev))
+        } catch (e) {
+          /* ignore */
+        }
+        // Do NOT force a full-page redirect here. Reject the error and let
+        // client-side auth handling (AuthGuard) decide where to navigate.
+        console.warn('Refresh failed — auth keys cleared, rejecting so AuthGuard can handle redirect', refreshError)
         return Promise.reject(refreshError);
       }
     }
 
-    // 403 lúc này là lỗi phân quyền thực sự (RBAC)
+    // 403: lỗi phân quyền thực sự (RBAC) - chuyển tới trang 403
     if (status === 403) {
       console.warn('Permission denied:', message);
+      try {
+        // diagnostic: record permission-denied event
+        try {
+          localStorage.setItem('lastAuthEvent', JSON.stringify({ time: new Date().toISOString(), type: 'permissionDenied', message }))
+        } catch (e) { /* ignore */ }
+        // redirect to 403 page (still a hard redirect for now)
+        if (typeof window !== 'undefined') window.location.href = '/403';
+      } catch (e) {
+        /* ignore */
+      }
     }
     return Promise.reject(err);
   }

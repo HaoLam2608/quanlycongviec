@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useToastContext } from "@/components/providers/toast-provider"
+import { showConfirm, showSuccess, showError } from "@/lib/notifications"
 import { fetchProjectsByManager, getTasksByProject, createTask, updateTask, deleteTask } from "@/axios/api"
 import { getUsers } from "@/axios/adminApi"
 
@@ -196,7 +197,8 @@ export default function ManagerTasksPage() {
     }
 
     const handleDeleteTask = async (taskId: number) => {
-        if (!confirm('Bạn có chắc chắn muốn xóa nhiệm vụ này?')) return
+        const confirmed = await showConfirm('Bạn có chắc chắn muốn xóa nhiệm vụ này?')
+        if (!confirmed) return
         
         try {
             await deleteTask(taskId)
@@ -304,7 +306,8 @@ export default function ManagerTasksPage() {
 
     const handleBulkDelete = async () => {
         if (selectedTasks.length === 0) return
-        if (!confirm(`Bạn có chắc chắn muốn xóa ${selectedTasks.length} nhiệm vụ?`)) return
+        const confirmed = await showConfirm(`Bạn có chắc chắn muốn xóa ${selectedTasks.length} nhiệm vụ?`)
+        if (!confirmed) return
 
         try {
             for (const taskId of selectedTasks) {
@@ -320,10 +323,67 @@ export default function ManagerTasksPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#003D82] mx-auto mb-4"></div>
-                    <p className="text-slate-600">Đang tải danh sách nhiệm vụ...</p>
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 p-6">
+                <div className="max-w-7xl mx-auto">
+                    {/* Header Skeleton */}
+                    <div className="mb-8">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="w-10 h-10 bg-gray-200 rounded animate-pulse"></div>
+                            <div className="h-9 bg-gray-200 rounded-lg w-64 animate-pulse"></div>
+                        </div>
+                        <div className="h-5 bg-gray-200 rounded w-96 animate-pulse"></div>
+                    </div>
+
+                    {/* Stats Cards Skeleton */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                        {[1, 2, 3, 4].map(i => (
+                            <div key={i} className="bg-white rounded-xl p-6 shadow-sm border">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="w-12 h-12 bg-gray-200 rounded-lg animate-pulse"></div>
+                                    <div className="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
+                                </div>
+                                <div className="h-8 bg-gray-200 rounded w-16 mb-2 animate-pulse"></div>
+                                <div className="h-3 bg-gray-200 rounded w-24 animate-pulse"></div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Filters Skeleton */}
+                    <div className="bg-white rounded-xl p-6 shadow-sm border mb-6">
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                            {[1, 2, 3, 4, 5].map(i => (
+                                <div key={i} className="h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Tasks List Skeleton */}
+                    <div className="space-y-4">
+                        {[1, 2, 3, 4, 5].map(i => (
+                            <div key={i} className="bg-white rounded-xl p-6 shadow-sm border">
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="flex-1">
+                                        <div className="h-6 bg-gray-200 rounded w-64 mb-3 animate-pulse"></div>
+                                        <div className="h-4 bg-gray-200 rounded w-full mb-2 animate-pulse"></div>
+                                        <div className="h-4 bg-gray-200 rounded w-3/4 mb-4 animate-pulse"></div>
+                                        <div className="flex gap-2">
+                                            <div className="h-6 bg-gray-200 rounded-full w-24 animate-pulse"></div>
+                                            <div className="h-6 bg-gray-200 rounded-full w-20 animate-pulse"></div>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <div className="w-9 h-9 bg-gray-200 rounded-lg animate-pulse"></div>
+                                        <div className="w-9 h-9 bg-gray-200 rounded-lg animate-pulse"></div>
+                                        <div className="w-9 h-9 bg-gray-200 rounded-lg animate-pulse"></div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-4 pt-4 border-t border-gray-100">
+                                    <div className="h-4 bg-gray-200 rounded w-32 animate-pulse"></div>
+                                    <div className="h-4 bg-gray-200 rounded w-40 animate-pulse"></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
         )

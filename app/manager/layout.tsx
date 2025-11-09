@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation"
 import { Home, FolderKanban, CheckSquare, Users, BarChart3, Settings, LogOut, Bell, Menu, X, User } from "lucide-react"
 import AuthGuard from "@/components/auth/AuthGuard"
 import { useToastContext } from "@/components/providers/toast-provider"
+import { showConfirm } from '@/lib/notifications'
 import Image from "next/image"
 
 const menuCategories = [
@@ -69,11 +70,16 @@ export default function PMLayout({ children }: { children: React.ReactNode }) {
         setUserInfo((prev) => ({ ...prev, avatar, hoten, chucvu }))
     }, [])
 
-    const handleLogout = () => {
-        if (confirm("Bạn có chắc chắn muốn đăng xuất?")) {
+    const handleLogout = async () => {
+        const confirmed = await showConfirm("Bạn có chắc chắn muốn đăng xuất?")
+        if (confirmed) {
+            // Xóa accessToken (key chính dùng trong app) và các thông tin khác
+            localStorage.removeItem("accessToken")
+            // giữ xóa 'token' cũ để backward compat
             localStorage.removeItem("token")
             localStorage.removeItem("refreshToken")
             localStorage.removeItem("manv")
+            localStorage.removeItem("userId")
             localStorage.removeItem("hoten")
             localStorage.removeItem("role")
             localStorage.removeItem("avatar")

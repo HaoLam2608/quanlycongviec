@@ -15,6 +15,7 @@ import {
     ChevronRight,
     Timer
 } from "lucide-react"
+import { showConfirm, showSuccess, showError } from "@/lib/notifications"
 
 interface Worklog {
     id: number
@@ -216,9 +217,11 @@ export default function TimesheetPage() {
         })
     }
 
-    const deleteWorklog = (id: number) => {
-        if (confirm("Bạn có chắc muốn xóa worklog này?")) {
+    const deleteWorklog = async (id: number) => {
+        const confirmed = await showConfirm("Bạn có chắc muốn xóa worklog này?")
+        if (confirmed) {
             setWorklogs(prev => prev.filter(log => log.id !== id))
+            showSuccess('Đã xóa worklog thành công!')
         }
     }
 
@@ -234,10 +237,96 @@ export default function TimesheetPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Đang tải timesheet...</p>
+            <div className="p-6 bg-gray-50 min-h-screen">
+                <div className="max-w-6xl mx-auto">
+                    {/* Header Skeleton */}
+                    <div className="mb-8">
+                        <div className="h-9 bg-gray-200 rounded-lg w-64 mb-2 animate-pulse"></div>
+                        <div className="h-5 bg-gray-200 rounded w-96 animate-pulse"></div>
+                    </div>
+
+                    {/* Timer Section Skeleton */}
+                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 mb-8">
+                        <div className="h-6 bg-gray-200 rounded w-48 mb-4 animate-pulse"></div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                            <div>
+                                <div className="h-4 bg-gray-200 rounded w-24 mb-2 animate-pulse"></div>
+                                <div className="h-10 bg-gray-200 rounded animate-pulse"></div>
+                            </div>
+                            <div>
+                                <div className="h-4 bg-gray-200 rounded w-24 mb-2 animate-pulse"></div>
+                                <div className="h-10 bg-gray-200 rounded animate-pulse"></div>
+                            </div>
+                        </div>
+                        <div className="flex items-center justify-center gap-4 py-8">
+                            <div className="w-32 h-32 bg-gray-200 rounded-full animate-pulse"></div>
+                        </div>
+                        <div className="flex gap-3 justify-center">
+                            <div className="h-10 bg-gray-200 rounded-lg w-32 animate-pulse"></div>
+                            <div className="h-10 bg-gray-200 rounded-lg w-32 animate-pulse"></div>
+                        </div>
+                    </div>
+
+                    {/* Calendar Navigation Skeleton */}
+                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 mb-6">
+                        <div className="flex items-center justify-between">
+                            <div className="h-6 bg-gray-200 rounded w-48 animate-pulse"></div>
+                            <div className="flex gap-2">
+                                <div className="w-9 h-9 bg-gray-200 rounded animate-pulse"></div>
+                                <div className="w-9 h-9 bg-gray-200 rounded animate-pulse"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Worklogs Table Skeleton */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="p-6 border-b border-gray-200">
+                            <div className="flex items-center justify-between">
+                                <div className="h-6 bg-gray-200 rounded w-48 animate-pulse"></div>
+                                <div className="h-10 bg-gray-200 rounded-lg w-32 animate-pulse"></div>
+                            </div>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead>
+                                    <tr className="border-b border-gray-200 bg-gray-50">
+                                        {[1, 2, 3, 4, 5, 6].map(i => (
+                                            <th key={i} className="px-6 py-3">
+                                                <div className="h-4 bg-gray-200 rounded w-20 animate-pulse"></div>
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {[1, 2, 3, 4].map(i => (
+                                        <tr key={i} className="border-b border-gray-100">
+                                            <td className="px-6 py-4">
+                                                <div className="h-4 bg-gray-200 rounded w-24 animate-pulse"></div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="h-4 bg-gray-200 rounded w-32 animate-pulse"></div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="h-4 bg-gray-200 rounded w-28 animate-pulse"></div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="h-4 bg-gray-200 rounded w-20 animate-pulse"></div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex gap-2">
+                                                    <div className="w-8 h-8 bg-gray-200 rounded animate-pulse"></div>
+                                                    <div className="w-8 h-8 bg-gray-200 rounded animate-pulse"></div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         )

@@ -3,6 +3,7 @@ import { useState, useEffect } from "react"
 import UserFormEnhanced from "@/components/admin/UserFormEnhanced"
 import { UserPlus, Search, Edit, Trash2, ChevronLeft, ChevronRight } from "lucide-react"
 import { getUsers, deleteUser } from "@/axios/adminApi"
+import { showConfirm, showSuccess, showError } from "@/lib/notifications"
 
 interface User {
     id: number
@@ -66,12 +67,14 @@ export default function UsersPage() {
     }
 
     const handleDelete = async (userId: number) => {
-        if (confirm('Bạn có chắc chắn muốn xóa người dùng này?')) {
+        const confirmed = await showConfirm('Bạn có chắc chắn muốn xóa người dùng này?')
+        if (confirmed) {
             try {
                 await deleteUser(userId)
+                showSuccess('Đã xóa người dùng thành công!')
                 loadUsers()
             } catch (error: any) {
-                alert(error.message || 'Có lỗi xảy ra khi xóa người dùng')
+                showError(error.message || 'Có lỗi xảy ra khi xóa người dùng')
             }
         }
     }
@@ -135,11 +138,37 @@ export default function UsersPage() {
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr>
-                                    <td colSpan={5} className="p-8 text-center text-muted-foreground">
-                                        Đang tải dữ liệu...
-                                    </td>
-                                </tr>
+                                // Skeleton loading state
+                                <>
+                                    {[1, 2, 3, 4, 5].map(i => (
+                                        <tr key={i} className="border-b border-border">
+                                            <td className="p-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse"></div>
+                                                    <div>
+                                                        <div className="h-4 bg-gray-200 rounded w-32 mb-2 animate-pulse"></div>
+                                                        <div className="h-3 bg-gray-200 rounded w-20 animate-pulse"></div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="p-4">
+                                                <div className="h-4 bg-gray-200 rounded w-24 animate-pulse"></div>
+                                            </td>
+                                            <td className="p-4">
+                                                <div className="h-6 bg-gray-200 rounded-full w-20 animate-pulse"></div>
+                                            </td>
+                                            <td className="p-4">
+                                                <div className="h-4 bg-gray-200 rounded w-28 animate-pulse"></div>
+                                            </td>
+                                            <td className="p-4">
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <div className="w-9 h-9 bg-gray-200 rounded-lg animate-pulse"></div>
+                                                    <div className="w-9 h-9 bg-gray-200 rounded-lg animate-pulse"></div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </>
                             ) : users.length === 0 ? (
                                 <tr>
                                     <td colSpan={5} className="p-8 text-center text-muted-foreground">

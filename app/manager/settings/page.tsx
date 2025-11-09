@@ -17,6 +17,7 @@ import {
     Trash2,
     Plus
 } from "lucide-react"
+import { showSuccess, showWarning } from "@/lib/notifications"
 
 interface NotificationSettings {
     emailNotifications: boolean
@@ -99,7 +100,7 @@ export default function ManagerSettingsPage() {
         try {
             // Mock save settings
             console.log("Settings saved:", { notifications, security, team })
-            alert("Cài đặt đã được lưu thành công!")
+            showSuccess("Cài đặt đã được lưu thành công!")
         } catch (error) {
             console.error("Error saving settings:", error)
         }
@@ -107,12 +108,12 @@ export default function ManagerSettingsPage() {
 
     const changePassword = async () => {
         if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-            alert("Mật khẩu mới và xác nhận mật khẩu không khớp!")
+            showWarning("Mật khẩu mới và xác nhận mật khẩu không khớp!")
             return
         }
 
         if (passwordForm.newPassword.length < 6) {
-            alert("Mật khẩu mới phải có ít nhất 6 ký tự!")
+            showWarning("Mật khẩu mới phải có ít nhất 6 ký tự!")
             return
         }
 
@@ -123,7 +124,7 @@ export default function ManagerSettingsPage() {
                 newPassword: "",
                 confirmPassword: ""
             })
-            alert("Đổi mật khẩu thành công!")
+            showSuccess("Đổi mật khẩu thành công!")
         } catch (error) {
             console.error("Error changing password:", error)
         }
@@ -155,10 +156,41 @@ export default function ManagerSettingsPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Đang tải cài đặt...</p>
+            <div className="min-h-screen bg-gray-50 p-6">
+                <div className="max-w-6xl mx-auto">
+                    {/* Header Skeleton */}
+                    <div className="mb-8">
+                        <div className="h-9 bg-gray-200 rounded-lg w-48 mb-2 animate-pulse"></div>
+                        <div className="h-5 bg-gray-200 rounded w-96 animate-pulse"></div>
+                    </div>
+
+                    <div className="flex flex-col lg:flex-row gap-8">
+                        {/* Sidebar Skeleton */}
+                        <div className="w-full lg:w-64">
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-2">
+                                {[1, 2, 3, 4].map(i => (
+                                    <div key={i} className="h-12 bg-gray-200 rounded-lg mb-2 animate-pulse"></div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Content Skeleton */}
+                        <div className="flex-1">
+                            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                                <div className="space-y-6">
+                                    {[1, 2, 3, 4, 5].map(i => (
+                                        <div key={i}>
+                                            <div className="h-5 bg-gray-200 rounded w-32 mb-3 animate-pulse"></div>
+                                            <div className="h-10 bg-gray-200 rounded animate-pulse"></div>
+                                        </div>
+                                    ))}
+                                    <div className="pt-4">
+                                        <div className="h-10 bg-gray-200 rounded-lg w-32 animate-pulse"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         )

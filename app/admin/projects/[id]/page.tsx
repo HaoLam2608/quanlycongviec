@@ -17,12 +17,14 @@ import {
     User,
     Search,
     ChevronDown,
+    FileText,
 } from "lucide-react"
 import { FolderKanban } from "lucide-react"
 import { KanbanBoard } from '@/components/kanban/KanbanBoard'
 import Modal from "@/components/admin/Modal"
 // import EditTaskModal from "@/components/admin/EditTaskModal"
 import { useToastContext } from "@/components/providers/toast-provider"
+import { showConfirm, showSuccess, showError, showWarning } from "@/lib/notifications"
 
 import {
     getProjectById,
@@ -43,6 +45,7 @@ import WorklogSubtask from "@/components/worklog-subtask"
 import WorklogTask from "@/components/worklog-task"
 import TimelineInline from "./timeline/page"
 import ProjectCalendarPage from "./calendar/page"
+import ProjectReportsAdvanced from "@/components/project-reports-advanced"
 
 // SearchableSelect Component for Group Selection
 interface SearchableGroupSelectProps {
@@ -198,7 +201,7 @@ export default function ProjectDetailPage() {
     useEffect(() => { setMounted(true); }, []);
     const { id } = useParams()
     const { showSuccess, showError, showWarning } = useToastContext()
-    const [activeTab, setActiveTab] = useState<"tasks" | "teams" | "documents" | "timeline" | "calendar" | "kanban">("tasks")
+    const [activeTab, setActiveTab] = useState<"tasks" | "teams" | "documents" | "timeline" | "calendar" | "kanban" | "reports">("tasks")
     const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false)
     const [isTaskDetailModalOpen, setIsTaskDetailModalOpen] = useState(false)
     const [isAddSubtaskModalOpen, setIsAddSubtaskModalOpen] = useState(false)
@@ -228,7 +231,7 @@ export default function ProjectDetailPage() {
     const handleUploadSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!uploadFile) {
-            alert('Vui lòng chọn file');
+            showWarning('Vui lòng chọn file');
             return;
         }
         try {
@@ -240,7 +243,7 @@ export default function ProjectDetailPage() {
             setUploadDesc('');
         } catch (err) {
             console.error('Lỗi upload', err);
-            alert('Có lỗi khi upload tài liệu');
+            showError('Có lỗi khi upload tài liệu');
         }
     }
 
@@ -266,7 +269,7 @@ export default function ProjectDetailPage() {
             }
         } catch (err) {
             console.error('Lỗi mở tài liệu', err);
-            alert('Không thể mở tài liệu');
+            showError('Không thể mở tài liệu');
         }
     }
 
@@ -283,7 +286,7 @@ export default function ProjectDetailPage() {
             setTimeout(() => URL.revokeObjectURL(url), 10000);
         } catch (err) {
             console.error('Lỗi tải xuống', err);
-            alert('Không thể tải xuống tài liệu');
+            showError('Không thể tải xuống tài liệu');
         }
     }
 
@@ -582,15 +585,15 @@ export default function ProjectDetailPage() {
         const taskEnd = taskFormData.dueDate ? new Date(taskFormData.dueDate) : null;
 
         if (projectStart && taskStart && taskStart < projectStart) {
-            alert('Ngày bắt đầu của công việc phải lớn hơn hoặc bằng ngày bắt đầu của dự án!');
+            showWarning('Ngày bắt đầu của công việc phải lớn hơn hoặc bằng ngày bắt đầu của dự án!');
             return;
         }
         if (projectEnd && taskEnd && taskEnd > projectEnd) {
-            alert('Ngày kết thúc của công việc phải nhỏ hơn hoặc bằng ngày kết thúc của dự án!');
+            showWarning('Ngày kết thúc của công việc phải nhỏ hơn hoặc bằng ngày kết thúc của dự án!');
             return;
         }
         if (taskStart && taskEnd && taskStart > taskEnd) {
-            alert('Ngày bắt đầu của công việc phải nhỏ hơn hoặc bằng ngày kết thúc!');
+            showWarning('Ngày bắt đầu của công việc phải nhỏ hơn hoặc bằng ngày kết thúc!');
             return;
         }
         try {
@@ -612,7 +615,7 @@ export default function ProjectDetailPage() {
             setTaskFormData({ name: "", description: "", assigneeId: "", priority: "medium", dueDate: "", startDate: "" });
         } catch (error) {
             console.error("Lỗi tạo task:", error);
-            alert("Không thể tạo công việc. Vui lòng thử lại!");
+            showError("Không thể tạo công việc. Vui lòng thử lại!");
         }
     }
 
@@ -628,13 +631,13 @@ export default function ProjectDetailPage() {
 
             // Client-side validation: start date is required
             if (!subtaskFormData.startDate) {
-                alert('Vui lòng chọn ngày bắt đầu cho công việc nhỏ');
+                showWarning('Vui lòng chọn ngày bắt đầu cho công việc nhỏ');
                 return;
             }
 
             const subStart = new Date(subtaskFormData.startDate);
             if (isNaN(subStart.getTime())) {
-                alert('Ngày bắt đầu không hợp lệ');
+                showWarning('Ngày bắt đầu không hợp lệ');
                 return;
             }
 
@@ -642,7 +645,7 @@ export default function ProjectDetailPage() {
             if (selectedTask.ngayBatDau) {
                 const taskStart = new Date(selectedTask.ngayBatDau);
                 if (!isNaN(taskStart.getTime()) && subStart < taskStart) {
-                    alert('Ngày bắt đầu của công việc nhỏ phải lớn hơn hoặc bằng ngày bắt đầu của công việc chính');
+                    showWarning('Ngày bắt đầu của công việc nhỏ phải lớn hơn hoặc bằng ngày bắt đầu của công việc chính');
                     return;
                 }
             }
@@ -651,11 +654,11 @@ export default function ProjectDetailPage() {
             if (selectedTask.ngayKetThuc) {
                 const taskEnd = new Date(selectedTask.ngayKetThuc);
                 if (isNaN(taskEnd.getTime())) {
-                    alert('Ngày kết thúc của công việc chính không hợp lệ');
+                    showWarning('Ngày kết thúc của công việc chính không hợp lệ');
                     return;
                 }
                 if (!(subStart < taskEnd)) {
-                    alert('Ngày bắt đầu của công việc nhỏ phải nhỏ hơn ngày kết thúc của công việc chính');
+                    showWarning('Ngày bắt đầu của công việc nhỏ phải nhỏ hơn ngày kết thúc của công việc chính');
                     return;
                 }
             }
@@ -690,9 +693,9 @@ export default function ProjectDetailPage() {
             if (errData && (errData.details || errData.error || errData.message || errData.sequelizeErrors)) {
                 console.error('Backend error details:', errData);
                 const details = errData.details || errData.error || errData.message || (Array.isArray(errData.sequelizeErrors) ? errData.sequelizeErrors.join('; ') : undefined);
-                alert('Lỗi khi tạo công việc nhỏ: ' + (details || 'Xem console để biết thêm chi tiết'));
+                showError('Lỗi khi tạo công việc nhỏ: ' + (details || 'Xem console để biết thêm chi tiết'));
             } else {
-                alert("Không thể tạo công việc nhỏ. Vui lòng thử lại!");
+                showError("Không thể tạo công việc nhỏ. Vui lòng thử lại!");
             }
         }
     }
@@ -781,7 +784,8 @@ export default function ProjectDetailPage() {
                             </button>
                             <button
                                 onClick={async () => {
-                                    if (confirm("Bạn có chắc muốn xoá dự án này?")) {
+                                    const confirmed = await showConfirm("Bạn có chắc muốn xoá dự án này?");
+                                    if (confirmed) {
                                         await deleteProject(Number(id));
                                         router.push("/admin/projects");
                                     }
@@ -845,6 +849,14 @@ export default function ProjectDetailPage() {
                     >
                         <FolderKanban size={20} />
                         Kanban
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("reports")}
+                        className={`flex-1 px-6 py-4 font-semibold transition-all flex items-center justify-center gap-2 ${activeTab === "reports" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"
+                            }`}
+                    >
+                        <FileText size={20} />
+                        Báo cáo
                     </button>
                 </div>
 
@@ -958,15 +970,15 @@ export default function ProjectDetailPage() {
                                                                         const taskStart = editTaskForm.startDate ? new Date(editTaskForm.startDate) : null;
                                                                         const taskEnd = editTaskForm.dueDate ? new Date(editTaskForm.dueDate) : null;
                                                                         if (projectStart && taskStart && taskStart < projectStart) {
-                                                                            alert('Ngày bắt đầu của công việc phải lớn hơn hoặc bằng ngày bắt đầu của dự án!');
+                                                                            showWarning('Ngày bắt đầu của công việc phải lớn hơn hoặc bằng ngày bắt đầu của dự án!');
                                                                             return;
                                                                         }
                                                                         if (projectEnd && taskEnd && taskEnd > projectEnd) {
-                                                                            alert('Ngày kết thúc của công việc phải nhỏ hơn hoặc bằng ngày kết thúc của dự án!');
+                                                                            showWarning('Ngày kết thúc của công việc phải nhỏ hơn hoặc bằng ngày kết thúc của dự án!');
                                                                             return;
                                                                         }
                                                                         if (taskStart && taskEnd && taskStart > taskEnd) {
-                                                                            alert('Ngày bắt đầu của công việc phải nhỏ hơn hoặc bằng ngày kết thúc!');
+                                                                            showWarning('Ngày bắt đầu của công việc phải nhỏ hơn hoặc bằng ngày kết thúc!');
                                                                             return;
                                                                         }
                                                                         try {
@@ -1187,12 +1199,13 @@ export default function ProjectDetailPage() {
                                                     {project?.status === 'hoan_thanh' ? (
                                                         <button
                                                             onClick={async () => {
-                                                                if (confirm('Bạn có chắc muốn rời khỏi dự án đã hoàn thành này?')) {
+                                                                const confirmed = await showConfirm('Bạn có chắc muốn rời khỏi dự án đã hoàn thành này?');
+                                                                if (confirmed) {
                                                                     try {
                                                                         await groupAPI.updateGroup(group.id, { duanId: undefined });
                                                                         await loadProjectGroups();
                                                                     } catch (err: any) {
-                                                                        alert(err.message || 'Có lỗi khi rời dự án');
+                                                                        showError(err.message || 'Có lỗi khi rời dự án');
                                                                     }
                                                                 }
                                                             }}
@@ -1275,12 +1288,13 @@ export default function ProjectDetailPage() {
                                                 <button onClick={() => handleOpenDocument(doc)} className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-sm">Xem / Mở</button>
                                                 <button onClick={() => handleForceDownload(doc)} className="px-3 py-1.5 bg-slate-700 text-white rounded-lg text-sm">Tải xuống</button>
                                                 <button onClick={async () => {
-                                                    if (!confirm('Xóa tài liệu này?')) return;
+                                                    const confirmed = await showConfirm('Xóa tài liệu này?');
+                                                    if (!confirmed) return;
                                                     try {
                                                         await deleteDocument(doc.id);
                                                         setDocuments(docs => docs.filter(d => d.id !== doc.id));
                                                     } catch (err) {
-                                                        alert('Có lỗi khi xóa tài liệu');
+                                                        showError('Có lỗi khi xóa tài liệu');
                                                     }
                                                 }} className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-sm">Xóa</button>
                                             </div>
@@ -1294,6 +1308,11 @@ export default function ProjectDetailPage() {
                 {activeTab === "kanban" && (
                     <div className="p-6 bg-gradient-to-br from-white to-gray-50">
                         <KanbanBoard projectId={Array.isArray(id) ? id[0] : id} />
+                    </div>
+                )}
+                {activeTab === "reports" && project && (
+                    <div className="p-6 bg-gradient-to-br from-white to-gray-50">
+                        <ProjectReportsAdvanced duanId={Number(id)} duanName={project.tenduan} userRole="admin" />
                     </div>
                 )}
             </div>
@@ -1556,7 +1575,7 @@ export default function ProjectDetailPage() {
                                                                 }
                                                             } catch (error) {
                                                                 console.error("Lỗi cập nhật subtask:", error);
-                                                                alert("Không thể cập nhật trạng thái!");
+                                                                showError("Không thể cập nhật trạng thái!");
                                                             }
                                                         }}
                                                         className="px-4 py-2 border-2 border-gray-300 rounded-xl bg-white hover:border-blue-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all text-sm font-medium"
@@ -1578,7 +1597,8 @@ export default function ProjectDetailPage() {
                                                 </button>
                                                 <button
                                                     onClick={async () => {
-                                                        if (confirm("Bạn có chắc muốn xóa công việc nhỏ này?")) {
+                                                        const confirmed = await showConfirm("Bạn có chắc muốn xóa công việc nhỏ này?");
+                                                        if (confirmed) {
                                                             try {
                                                                 await deleteSubtask(selectedTask.id, subtask.id);
                                                                 // Refresh tasks
@@ -1591,7 +1611,7 @@ export default function ProjectDetailPage() {
                                                                 }
                                                             } catch (error) {
                                                                 console.error("Lỗi xóa subtask:", error);
-                                                                alert("Không thể xóa công việc nhỏ!");
+                                                                showError("Không thể xóa công việc nhỏ!");
                                                             }
                                                         }
                                                     }}

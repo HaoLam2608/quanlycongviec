@@ -2,7 +2,9 @@
 import React, { useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
+import { useToastContext } from "@/components/providers/toast-provider"
+import { showConfirm } from '@/lib/notifications'
 import {
     LayoutDashboard,
     CheckSquare,
@@ -56,6 +58,8 @@ const navigation = [
 export default function MemberLayout({ children }: MemberLayoutProps) {
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const pathname = usePathname()
+    const router = useRouter()
+    const { showSuccess } = useToastContext()
 
     const updatedNavigation = navigation.map(item => ({
         ...item,
@@ -205,7 +209,21 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                         </div>
 
                         {/* Logout */}
-                        <button className="p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
+                        <button onClick={async () => {
+                            const confirmed = await showConfirm("Bạn có chắc chắn muốn đăng xuất?")
+                            if (confirmed) {
+                                localStorage.removeItem("accessToken")
+                                localStorage.removeItem("token")
+                                localStorage.removeItem("refreshToken")
+                                localStorage.removeItem("manv")
+                                localStorage.removeItem("userId")
+                                localStorage.removeItem("hoten")
+                                localStorage.removeItem("role")
+                                localStorage.removeItem("avatar")
+                                showSuccess("Đăng xuất thành công!")
+                                router.push("/")
+                            }
+                        }} className="p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
                             <LogOut className="h-5 w-5" />
                         </button>
                     </div>

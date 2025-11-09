@@ -82,14 +82,33 @@ export default function ManagerGroupsPage() {
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {loading ? (
-                                <tr>
-                                    <td colSpan={5} className="px-6 py-12 text-center">
-                                        <div className="flex flex-col items-center justify-center space-y-2">
-                                            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-                                            <span className="text-gray-500 text-sm">Đang tải...</span>
-                                        </div>
-                                    </td>
-                                </tr>
+                                <>
+                                    {[1, 2, 3, 4, 5].map(i => (
+                                        <tr key={i}>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse"></div>
+                                                    <div>
+                                                        <div className="h-5 bg-gray-200 rounded w-32 mb-2 animate-pulse"></div>
+                                                        <div className="h-3 bg-gray-200 rounded w-48 animate-pulse"></div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="h-6 bg-gray-200 rounded-full w-28 animate-pulse"></div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="h-4 bg-gray-200 rounded w-24 animate-pulse"></div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="w-9 h-9 bg-gray-200 rounded-lg animate-pulse ml-auto"></div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </>
                             ) : groups.length === 0 ? (
                                 <tr>
                                     <td colSpan={5} className="px-6 py-12 text-center">

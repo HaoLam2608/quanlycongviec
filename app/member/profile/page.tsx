@@ -17,6 +17,8 @@ import {
     Lock,
     Camera
 } from "lucide-react"
+import { showSuccess, showError, showWarning } from "@/lib/notifications"
+import { getMyProfile, updateMyProfile, uploadAvatar } from "@/axios/api"
 
 interface UserProfile {
     id: number
@@ -77,25 +79,28 @@ export default function ProfilePage() {
 
     const loadProfile = async () => {
         try {
-            // Mock data for now
-            const mockProfile: UserProfile = {
-                id: 1,
-                fullName: "Nguyễn Văn A",
-                email: "nguyenvana@company.com",
-                phone: "0123456789",
-                position: "Frontend Developer",
-                department: "Phát triển sản phẩm",
-                joinDate: "2024-01-15",
-                avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
-                role: "Member"
+            // Fetch dữ liệu thật từ database
+            const userData = await getMyProfile();
+            
+            // Format dữ liệu từ API
+            const profileData: UserProfile = {
+                id: userData.id,
+                fullName: userData.hoten || '',
+                email: userData.email || '',
+                phone: userData.sdt || '',
+                position: userData.chucvu || '',
+                department: userData.department || 'Chưa có',
+                joinDate: userData.createdAt || new Date().toISOString(),
+                avatar: userData.avatarUrl || `/users/${userData.id}/avatar`,
+                role: userData.role?.name || 'Member'
             }
 
-            setProfile(mockProfile)
+            setProfile(profileData)
             setEditProfile({
-                fullName: mockProfile.fullName,
-                phone: mockProfile.phone,
-                position: mockProfile.position,
-                department: mockProfile.department
+                fullName: profileData.fullName,
+                phone: profileData.phone,
+                position: profileData.position,
+                department: profileData.department
             })
         } catch (error) {
             console.error("Error loading profile:", error)
@@ -132,16 +137,21 @@ export default function ProfilePage() {
 
     const saveProfile = async () => {
         try {
-            // Mock save - would call API here
-            if (profile) {
-                setProfile({
-                    ...profile,
-                    ...editProfile
-                })
-            }
-            setIsEditing(false)
-        } catch (error) {
-            console.error("Error saving profile:", error)
+            // Gọi API để cập nhật profile
+            const updateData: any = {};
+            if (editProfile.fullName) updateData.hoten = editProfile.fullName;
+            if (editProfile.phone) updateData.sdt = editProfile.phone;
+            if (editProfile.position) updateData.chucvu = editProfile.position;
+            
+            await updateMyProfile(updateData);
+            
+            // Reload profile sau khi cập nhật
+            await loadProfile();
+            setIsEditing(false);
+            showSuccess('Cập nhật hồ sơ thành công!');
+        } catch (error: any) {
+            console.error("Error saving profile:", error);
+            showError(error.message || 'Có lỗi xảy ra khi cập nhật hồ sơ');
         }
     }
 
@@ -156,51 +166,94 @@ export default function ProfilePage() {
 
     const changePassword = async () => {
         if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-            alert("Mật khẩu mới và xác nhận mật khẩu không khớp!")
+            showWarning("Mật khẩu mới và xác nhận mật khẩu không khớp!")
             return
         }
 
         if (passwordForm.newPassword.length < 6) {
-            alert("Mật khẩu mới phải có ít nhất 6 ký tự!")
+            showWarning("Mật khẩu mới phải có ít nhất 6 ký tự!")
             return
         }
 
         try {
-            // Mock password change - would call API here
-            console.log("Password changed")
+            // Gọi API để đổi mật khẩu
+            await updateMyProfile({ password: passwordForm.newPassword });
+            
             setPasswordForm({
                 currentPassword: "",
                 newPassword: "",
                 confirmPassword: ""
             })
-            alert("Đổi mật khẩu thành công!")
-        } catch (error) {
-            console.error("Error changing password:", error)
+            showSuccess("Đổi mật khẩu thành công!")
+        } catch (error: any) {
+            console.error("Error changing password:", error);
+            showError(error.message || 'Có lỗi xảy ra khi đổi mật khẩu');
         }
     }
 
-    const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0]
         if (file) {
-            const reader = new FileReader()
-            reader.onloadend = () => {
-                if (profile) {
-                    setProfile({
-                        ...profile,
-                        avatar: reader.result as string
-                    })
-                }
+            try {
+                // Upload avatar lên server
+                await uploadAvatar(file);
+                
+                // Reload profile để lấy avatar mới
+                await loadProfile();
+                showSuccess('Cập nhật avatar thành công!');
+            } catch (error: any) {
+                console.error("Error uploading avatar:", error);
+                showError(error.message || 'Có lỗi xảy ra khi upload avatar');
             }
-            reader.readAsDataURL(file)
         }
     }
 
     if (loading || !profile || !settings) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Đang tải thông tin...</p>
+            <div className="p-6 bg-gray-50 min-h-screen">
+                <div className="max-w-4xl mx-auto">
+                    {/* Header Skeleton */}
+                    <div className="mb-8">
+                        <div className="h-9 bg-gray-200 rounded-lg w-48 mb-2 animate-pulse"></div>
+                        <div className="h-5 bg-gray-200 rounded w-96 animate-pulse"></div>
+                    </div>
+
+                    {/* Tabs Skeleton */}
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
+                        <div className="border-b border-gray-200 p-4">
+                            <div className="flex gap-4">
+                                {[1, 2, 3].map(i => (
+                                    <div key={i} className="h-10 bg-gray-200 rounded-lg w-32 animate-pulse"></div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="p-6">
+                            <div className="space-y-6">
+                                {/* Avatar Skeleton */}
+                                <div className="flex items-center gap-6">
+                                    <div className="w-24 h-24 rounded-full bg-gray-200 animate-pulse"></div>
+                                    <div className="flex-1">
+                                        <div className="h-6 bg-gray-200 rounded w-48 mb-2 animate-pulse"></div>
+                                        <div className="h-4 bg-gray-200 rounded w-64 animate-pulse"></div>
+                                    </div>
+                                </div>
+
+                                {/* Form Fields Skeleton */}
+                                {[1, 2, 3, 4].map(i => (
+                                    <div key={i}>
+                                        <div className="h-4 bg-gray-200 rounded w-32 mb-2 animate-pulse"></div>
+                                        <div className="h-10 bg-gray-200 rounded animate-pulse"></div>
+                                    </div>
+                                ))}
+
+                                {/* Button Skeleton */}
+                                <div className="flex gap-3 pt-4">
+                                    <div className="h-10 bg-gray-200 rounded-lg w-32 animate-pulse"></div>
+                                    <div className="h-10 bg-gray-200 rounded-lg w-24 animate-pulse"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         )
@@ -221,9 +274,12 @@ export default function ProfilePage() {
                         <div className="flex items-center gap-6">
                             <div className="relative">
                                 <img
-                                    src={profile.avatar}
+                                    src={profile.avatar.startsWith('http') ? profile.avatar : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${profile.avatar}`}
                                     alt={profile.fullName}
                                     className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
+                                    onError={(e) => {
+                                        (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(profile.fullName) + '&background=3b82f6&color=fff';
+                                    }}
                                 />
                                 <label className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors">
                                     <Camera className="w-4 h-4" />

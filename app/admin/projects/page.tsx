@@ -92,7 +92,25 @@ export default function ProjectsPage() {
 
             {/* Projects Grid */}
             {(!isClient || loading) ? (
-                <p>Đang tải dữ liệu...</p>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {[1, 2, 3, 4].map(i => (
+                        <div key={i} className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+                            <div className="flex items-start justify-between mb-4">
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="h-5 bg-gray-200 rounded w-16 animate-pulse"></div>
+                                        <div className="h-5 bg-gray-200 rounded-full w-24 animate-pulse"></div>
+                                    </div>
+                                    <div className="h-7 bg-gray-200 rounded w-3/4 mb-2 animate-pulse"></div>
+                                    <div className="h-4 bg-gray-200 rounded w-48 animate-pulse"></div>
+                                </div>
+                                <div className="w-10 h-10 bg-gray-200 rounded-lg animate-pulse"></div>
+                            </div>
+                            <div className="h-4 bg-gray-200 rounded w-full mb-2 animate-pulse"></div>
+                            <div className="h-4 bg-gray-200 rounded w-2/3 animate-pulse"></div>
+                        </div>
+                    ))}
+                </div>
             ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {projects.map((project: any) => (
