@@ -47,9 +47,10 @@ router.post('/',
 );
 
 // Cập nhật trạng thái task (Kanban drag & drop)
+const { allowOwnerOrPermission } = require('../middleware/rbac');
 router.patch('/:id/status',
     authenticateToken,
-    checkPermission('tasks', 'update'),
+    allowOwnerOrPermission('tasks', 'update'),
     taskController.updateTaskStatus
 );
 
@@ -92,21 +93,21 @@ router.post('/:taskId/subtasks',
 // Cập nhật subtask
 router.put('/:taskId/subtasks/:id',
     authenticateToken,
-    checkPermission('tasks', 'update'),
+    allowOwnerOrPermission('tasks', 'update'),
     subtaskController.updateSubtask
 );
 
 // Xóa subtask
 router.delete('/:taskId/subtasks/:id',
     authenticateToken,
-    checkPermission('tasks', 'delete'),
+    allowOwnerOrPermission('tasks', 'delete'),
     subtaskController.deleteSubtask
 );
 
 // Sắp xếp lại thứ tự subtasks
 router.put('/:taskId/subtasks/reorder',
     authenticateToken,
-    checkPermission('tasks', 'update'),
+    allowOwnerOrPermission('tasks', 'update'),
     subtaskController.reorderSubtasks
 );
 

@@ -1,7 +1,7 @@
 {
   "tenCongTy": "HUIT - Trường Đại học Công thương TP.HCM",
-  "email": "haolma@huit.edu.vn",
-  "soDienThoai": "+84 28 3825 000",
+  "email": "admin@huit.edu.vn",
+  "soDienThoai": "+84 28 3825 6688",
   "diaChi": "140 Lê Văn Sỹ, Phường 14, Quận 3, TP.HCM",
   "muiGio": "Asia/Ho_Chi_Minh",
   "ngonNgu": "Tiếng Việt",
@@ -10,7 +10,7 @@
   "cheDoBaoMat": "Cao",
   "settings": {
     "tenCongTy": "HUIT - Trường Đại học Công thương TP.HCM",
-    "email": "admin@huit.edu.vn",
+    "email": "haolma@huit.edu.vn",
     "soDienThoai": "+84 28 3825 000",
     "diaChi": "140 Lê Văn Sỹ, Phường 14, Quận 3, TP.HCM",
     "muiGio": "Asia/Ho_Chi_Minh",
@@ -20,8 +20,8 @@
     "cheDoBaoMat": "Cao",
     "settings": {
       "tenCongTy": "HUIT - Trường Đại học Công thương TP.HCM",
-      "email": "Haolam2684@gmail.com",
-      "soDienThoai": "+84 943767640",
+      "email": "admin@huit.edu.vn",
+      "soDienThoai": "+84 28 3825 000",
       "diaChi": "140 Lê Văn Sỹ, Phường 14, Quận 3, TP.HCM",
       "muiGio": "Asia/Ho_Chi_Minh",
       "ngonNgu": "Tiếng Việt",
@@ -30,16 +30,28 @@
       "cheDoBaoMat": "Cao",
       "settings": {
         "tenCongTy": "HUIT - Trường Đại học Công thương TP.HCM",
-        "email": "admin@huit.edu.vn",
-        "soDienThoai": "+84 28 3825 6688",
+        "email": "Haolam2684@gmail.com",
+        "soDienThoai": "+84 943767640",
         "diaChi": "140 Lê Văn Sỹ, Phường 14, Quận 3, TP.HCM",
         "muiGio": "Asia/Ho_Chi_Minh",
         "ngonNgu": "Tiếng Việt",
         "thongBaoEmail": true,
         "thongBaoHeThong": true,
-        "cheDoBaoMat": "Cao"
+        "cheDoBaoMat": "Cao",
+        "settings": {
+          "tenCongTy": "HUIT - Trường Đại học Công thương TP.HCM",
+          "email": "admin@huit.edu.vn",
+          "soDienThoai": "+84 28 3825 6688",
+          "diaChi": "140 Lê Văn Sỹ, Phường 14, Quận 3, TP.HCM",
+          "muiGio": "Asia/Ho_Chi_Minh",
+          "ngonNgu": "Tiếng Việt",
+          "thongBaoEmail": true,
+          "thongBaoHeThong": true,
+          "cheDoBaoMat": "Cao"
+        }
       }
-    }
+    },
+    "message": "Cập nhật cài đặt thành công"
   },
   "message": "Cập nhật cài đặt thành công"
 }

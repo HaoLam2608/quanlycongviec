@@ -9,6 +9,12 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'duanId',
         as: 'tasks'
       });
+      // Association with GroupProject
+      DuAn.hasMany(models.GroupProject, {
+        foreignKey: 'projectId',
+        as: 'groupProjects'
+      });
+      // Note: belongsToMany with Group is defined in models/index.js
     }
   }
   DuAn.init(

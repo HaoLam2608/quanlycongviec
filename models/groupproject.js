@@ -1,25 +1,38 @@
 "use strict";
+const { Model } = require('sequelize');
+
 module.exports = (sequelize, DataTypes) => {
-    const GroupProject = sequelize.define(
-        "GroupProject",
-        {
-            groupId: {
-                type: DataTypes.INTEGER,
-                allowNull: false,
-            },
-            projectId: {
-                type: DataTypes.INTEGER,
-                allowNull: false,
-            },
-            status: {
-                type: DataTypes.STRING,
-                defaultValue: "active",
-            },
-        },
-        {
-            tableName: "group_projects",
+    class GroupProject extends Model {
+        static associate(models) {
+            GroupProject.belongsTo(models.Group, {
+                foreignKey: 'groupId',
+                as: 'group'
+            });
+            GroupProject.belongsTo(models.DuAn, {
+                foreignKey: 'projectId',
+                as: 'project'
+            });
         }
-    );
-    // Không cần associate ở đây!
+    }
+
+    GroupProject.init({
+        groupId: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+        },
+        projectId: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+        },
+        status: {
+            type: DataTypes.STRING,
+            defaultValue: "active",
+        },
+    }, {
+        sequelize,
+        modelName: 'GroupProject',
+        tableName: "group_projects",
+    });
+
     return GroupProject;
 };

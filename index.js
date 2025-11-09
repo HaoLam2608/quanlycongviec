@@ -16,6 +16,9 @@ app.use(cors());
 
 app.use(bodyParser.json());
 
+// Serve static files from uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // NOTE: switch to memory storage to keep file buffer in req.file.buffer
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
@@ -44,6 +47,8 @@ app.get('/', (req, res) => {
 });
 app.use('/tasks', taskRoutes);
 app.use('/worklogs', require('./routes/worklogRoutes'));
+app.use('/reports', require('./routes/reportRoutes'));
+
 app.listen(PORT, () => {
     console.log(`🚀 Server running at http://localhost:${PORT}`);
 });

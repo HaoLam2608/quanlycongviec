@@ -11,11 +11,14 @@ router.get("/stats", authenticateToken, checkPermission('users', 'read'), userCo
 router.get('/avatar', authenticateToken, userController.getMyAvatar);
 router.get('/:id/avatar', userController.getAvatarById);
 
+router.get('/me', authenticateToken, userController.getMyProfile);
 router.put('/me', authenticateToken, userController.updateMyProfile);
 router.get("/:id", authenticateToken, checkPermission('users', 'read'), userController.getUserById);
 router.post("/", authenticateToken, checkPermission('users', 'create'), userController.createUser);
 router.put("/:id", authenticateToken, checkPermission('users', 'update'), userController.updateUser);
 router.delete("/:id", authenticateToken, checkPermission('users', 'delete'), userController.deleteUser);
+// Upload avatar for current user
+
 // Upload avatar for current user
 router.post('/avatar', authenticateToken, (req, res, next) => {
     if (!req.upload) return res.status(500).json({ message: 'Upload middleware not configured' });
@@ -24,6 +27,15 @@ router.post('/avatar', authenticateToken, (req, res, next) => {
         next();
     });
 }, userController.uploadAvatar);
+
+// Admin upload avatar for any user
+router.post('/:id/avatar', authenticateToken, checkRole('admin'), (req, res, next) => {
+    if (!req.upload) return res.status(500).json({ message: 'Upload middleware not configured' });
+    req.upload.single('avatar')(req, res, (err) => {
+        if (err) return res.status(500).json({ message: err.message });
+        next();
+    });
+}, userController.adminUploadAvatar);
 
 // Remove current user's avatar
 router.delete('/avatar', authenticateToken, userController.deleteAvatar);
