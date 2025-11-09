@@ -1,8 +1,10 @@
 "use client"
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
+import { authAPI } from "@/axios/api"
+import NotificationBell from "@/components/NotificationBell"
 import { useToastContext } from "@/components/providers/toast-provider"
 import { showConfirm } from '@/lib/notifications'
 import {
@@ -57,14 +59,67 @@ const navigation = [
 
 export default function MemberLayout({ children }: MemberLayoutProps) {
     const [sidebarOpen, setSidebarOpen] = useState(false)
+    const [isLoggingOut, setIsLoggingOut] = useState(false)
+    const [currentUser, setCurrentUser] = useState<any>(null)
     const pathname = usePathname()
-    const router = useRouter()
     const { showSuccess } = useToastContext()
+    const router = useRouter()
+
+    // Load user info from localStorage
+    useEffect(() => {
+        const loadUserInfo = () => {
+            const token = localStorage.getItem('accesstoken')
+            const userId = localStorage.getItem('userId')
+            const hoten = localStorage.getItem('hoten')
+            const manv = localStorage.getItem('manv')
+            const role = localStorage.getItem('role')
+
+            if (token && userId && hoten) {
+                setCurrentUser({
+                    id: parseInt(userId),
+                    hoten,
+                    manv,
+                    role
+                })
+            }
+        }
+
+        loadUserInfo()
+    }, [])
 
     const updatedNavigation = navigation.map(item => ({
         ...item,
         current: pathname === item.href
     }))
+
+    const handleLogout = async () => {
+        // Confirm logout
+        if (confirm('Bạn có chắc muốn đăng xuất?')) {
+            setIsLoggingOut(true)
+
+            try {
+                // Call logout API (optional - to invalidate token on server)
+                await authAPI.logout()
+            } catch (error) {
+                console.error('Logout API error:', error)
+                // Continue with logout even if API call fails
+            }
+
+            // Clear all authentication data
+            localStorage.removeItem('accesstoken')
+            localStorage.removeItem('refreshToken')
+            localStorage.removeItem('userId')
+            localStorage.removeItem('hoten')
+            localStorage.removeItem('manv')
+            localStorage.removeItem('role')
+
+            // Clear sessionStorage as well
+            sessionStorage.clear()
+
+            // Redirect to login page
+            router.push('/')
+        }
+    }
 
     return (
         <div className="h-screen flex bg-gray-100">
@@ -113,6 +168,16 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                                     {item.name}
                                 </Link>
                             ))}
+
+                            {/* Logout for mobile */}
+                            <button
+                                onClick={handleLogout}
+                                disabled={isLoggingOut}
+                                className="w-full text-left text-gray-600 hover:bg-red-50 hover:text-red-700 group flex items-center px-2 py-2 text-base font-medium rounded-md disabled:opacity-50"
+                            >
+                                <LogOut className={`text-gray-400 group-hover:text-red-500 mr-4 flex-shrink-0 h-6 w-6 ${isLoggingOut ? 'animate-spin' : ''}`} />
+                                {isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}
+                            </button>
                         </nav>
                     </div>
                 </div>
@@ -155,15 +220,27 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                     </div>
 
                     {/* User section */}
-                    <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
-                        <div className="flex items-center">
+                    <div className="flex-shrink-0 border-t border-gray-200">
+                        <div className="flex items-center p-4">
                             <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
                                 <User className="w-4 h-4 text-white" />
                             </div>
-                            <div className="ml-3">
-                                <p className="text-sm font-medium text-gray-700">Member User</p>
-                                <p className="text-xs text-gray-500">Nhân viên</p>
+                            <div className="ml-3 flex-1">
+                                <p className="text-sm font-medium text-gray-700">
+                                    {currentUser?.hoten || 'Member User'}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                    {currentUser?.manv || 'Nhân viên'}
+                                </p>
                             </div>
+                            <button
+                                onClick={handleLogout}
+                                disabled={isLoggingOut}
+                                className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                                title="Đăng xuất"
+                            >
+                                <LogOut className={`w-4 h-4 ${isLoggingOut ? 'animate-spin' : ''}`} />
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -188,9 +265,7 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                     {/* Header actions */}
                     <div className="flex items-center space-x-4">
                         {/* Notifications */}
-                        <button className="p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
-                            <Bell className="h-5 w-5" />
-                        </button>
+                        <NotificationBell userRole="member" />
 
                         {/* Settings */}
                         <button className="p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
@@ -203,8 +278,12 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                                 <User className="w-4 h-4 text-white" />
                             </div>
                             <div className="hidden lg:block">
-                                <p className="text-sm font-medium text-gray-700">Member User</p>
-                                <p className="text-xs text-gray-500">Nhân viên</p>
+                                <p className="text-sm font-medium text-gray-700">
+                                    {currentUser?.hoten || 'Member User'}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                    {currentUser?.manv || 'Nhân viên'}
+                                </p>
                             </div>
                         </div>
 
@@ -225,7 +304,14 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                             }
                         }} className="p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
                             <LogOut className="h-5 w-5" />
-                        </button>
+                            <button
+                                onClick={handleLogout}
+                                disabled={isLoggingOut}
+                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors disabled:opacity-50"
+                                title="Đăng xuất"
+                            >
+                                <LogOut className={`h-5 w-5 ${isLoggingOut ? 'animate-spin' : ''}`} />
+                            </button>
                     </div>
                 </div>
 

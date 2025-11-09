@@ -56,7 +56,10 @@ export function Features() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center mb-16">
           <h2 className="font-heading text-3xl font-bold tracking-tight text-foreground sm:text-5xl mb-4">
-            Tính năng toàn diện
+            Tính năng mạnh mẽ
+          </h2>
+          <h2 className="font-heading text-3xl font-bold tracking-tight text-foreground sm:text-5xl mb-4">
+            cho đội ngũ
           </h2>
           <p className="text-lg text-muted-foreground leading-relaxed">
             Hệ thống được thiết kế để đáp ứng mọi nhu cầu quản lý dự án và công việc nội bộ của công ty.

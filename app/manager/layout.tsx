@@ -7,6 +7,8 @@ import { usePathname } from "next/navigation"
 import { Home, FolderKanban, CheckSquare, Users, BarChart3, Settings, LogOut, Bell, Menu, X, User } from "lucide-react"
 import AuthGuard from "@/components/auth/AuthGuard"
 import { useToastContext } from "@/components/providers/toast-provider"
+import NotificationBell from "@/components/NotificationBell"
+
 import { showConfirm } from '@/lib/notifications'
 import Image from "next/image"
 
@@ -79,6 +81,7 @@ export default function PMLayout({ children }: { children: React.ReactNode }) {
             localStorage.removeItem("token")
             localStorage.removeItem("refreshToken")
             localStorage.removeItem("manv")
+            localStorage.removeItem("userId")
             localStorage.removeItem("userId")
             localStorage.removeItem("hoten")
             localStorage.removeItem("role")
@@ -247,9 +250,7 @@ export default function PMLayout({ children }: { children: React.ReactNode }) {
                         {/* Header actions */}
                         <div className="flex items-center space-x-4">
                             {/* Notifications */}
-                            <button className="p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
-                                <Bell className="h-5 w-5" />
-                            </button>
+                            <NotificationBell userRole="manager" />
 
                             {/* Settings */}
                             <Link href="/manager/settings">

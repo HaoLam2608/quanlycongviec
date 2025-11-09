@@ -30,6 +30,9 @@ export const authAPI = {
 
   register: (userData: any) =>
     api.post('/auth/register', userData),
+
+  logout: () =>
+    api.post('/auth/logout'),
 };
 
 // RBAC APIs
@@ -304,6 +307,15 @@ export const getSubtasksByTask = async (taskId: string | number) => {
   }
 };
 
+export const getMySubtasks = async () => {
+  try {
+    const res = await api.get('/tasks/subtasks/my-subtasks');
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy danh sách subtasks của tôi" };
+  }
+};
+
 export const createSubtask = async (taskId: string | number, data: {
   tenSubtask: string;
   mota?: string;
@@ -349,6 +361,15 @@ export const getWorklogs = async (params: { taskId?: number; subtaskId?: number 
   }
 };
 
+export const getMyWorklogs = async (params?: { date?: string }) => {
+  try {
+    const res = await api.get('/worklogs/my-worklogs', { params });
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy danh sách worklog của tôi" };
+  }
+};
+
 export const createWorklog = async (data: {
   userId: number;
   taskId?: number;
@@ -362,6 +383,31 @@ export const createWorklog = async (data: {
     return res.data;
   } catch (err: any) {
     throw err.response?.data || { message: "Không thể tạo worklog" };
+  }
+};
+
+export const updateWorklog = async (id: number, data: {
+  userId: number;
+  taskId?: number | null;
+  subtaskId?: number | null;
+  hours: number;
+  note?: string;
+  date: string;
+}) => {
+  try {
+    const res = await api.put(`/worklogs/${id}`, data);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể cập nhật worklog" };
+  }
+};
+
+export const deleteWorklog = async (id: number) => {
+  try {
+    const res = await api.delete(`/worklogs/${id}`);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể xóa worklog" };
   }
 };
 

@@ -7,7 +7,7 @@ const api = axios.create({
   },
 });
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("accessToken");
+  const token = localStorage.getItem("accesstoken");
   if (token) {
     config.headers["Authorization"] = `Bearer ${token}`;
   }
@@ -31,7 +31,7 @@ api.interceptors.response.use(
         if (!refreshToken) throw new Error('Missing refresh token');
         const response = await axios.post("http://localhost:5000/auth/refresh", { refreshToken });
         const newAccessToken = response.data.accessToken;
-        localStorage.setItem("accessToken", newAccessToken);
+        localStorage.setItem("accesstoken", newAccessToken);
         originalRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
