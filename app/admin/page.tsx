@@ -105,7 +105,7 @@ export default function AdminDashboard() {
                 {
                     title: "Tổng người dùng",
                     value: String(totalUsers),
-                    change: "+12%",
+                    change: "",
                     trend: "up",
                     icon: Users,
                     color: "from-blue-500 to-blue-600",
@@ -115,7 +115,7 @@ export default function AdminDashboard() {
                 {
                     title: "Quản trị viên",
                     value: String(adminCount),
-                    change: "+5%",
+                    change: "",
                     trend: "up",
                     icon: Shield,
                     color: "from-purple-500 to-purple-600",
@@ -125,7 +125,7 @@ export default function AdminDashboard() {
                 {
                     title: "Quản lý dự án",
                     value: String(managerCount),
-                    change: "+8%",
+                    change: "",
                     trend: "up",
                     icon: Briefcase,
                     color: "from-green-500 to-green-600",
@@ -135,7 +135,7 @@ export default function AdminDashboard() {
                 {
                     title: "Nhân viên",
                     value: String(userCount),
-                    change: "+15%",
+                    change: "",
                     trend: "up",
                     icon: UserCheck,
                     color: "from-orange-500 to-orange-600",
@@ -197,13 +197,12 @@ export default function AdminDashboard() {
                         </p>
                     </div>
                     <div className="flex gap-3">
-                        <button className="px-6 py-3 bg-white border-2 border-slate-200 text-slate-700 rounded-xl font-semibold hover:shadow-lg transition-all hover:-translate-y-0.5 flex items-center gap-2">
+                        <button 
+                            className="px-6 py-3 bg-white border-2 border-slate-200 text-slate-700 rounded-xl font-semibold hover:shadow-lg transition-all hover:-translate-y-0.5 flex items-center gap-2"
+                            onClick={() => window.location.href = '/admin/reports'}
+                        >
                             <BarChart3 className="w-5 h-5" />
                             Báo cáo
-                        </button>
-                        <button className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all hover:-translate-y-0.5 flex items-center gap-2">
-                            <Target className="w-5 h-5" />
-                            Tạo mới
                         </button>
                     </div>
                 </div>
@@ -241,10 +240,10 @@ export default function AdminDashboard() {
                                             >
                                                 <Icon className="w-7 h-7 text-white" />
                                             </div>
-                                            <div className={`flex items-center gap-1 ${stat.trend === 'up' ? 'text-green-600' : 'text-red-600'} text-sm font-bold px-3 py-1 rounded-full bg-white shadow-md`}>
+                                            {/* <div className={`flex items-center gap-1 ${stat.trend === 'up' ? 'text-green-600' : 'text-red-600'} text-sm font-bold px-3 py-1 rounded-full bg-white shadow-md`}>
                                                 <TrendIcon className="w-4 h-4" />
                                                 {stat.change}
-                                            </div>
+                                            </div> */}
                                         </div>
                                         <div>
                                             <p className="text-slate-600 text-sm font-medium mb-2">{stat.title}</p>

@@ -3,11 +3,12 @@
 import { useState, useEffect, useRef } from "react"
 import { 
   TrendingUp, Users, FolderKanban, CheckSquare, Filter, Download, 
-  Printer, Calendar, BarChart3, PieChart, LineChart, RefreshCw,
-  AlertTriangle, Clock, Trophy, Search, ArrowUpDown, ChevronLeft, ChevronRight
+  Calendar, BarChart3, PieChart, LineChart, RefreshCw,
+  AlertTriangle, Clock, Trophy, Search, ArrowUpDown, ChevronLeft, ChevronRight,
+  FileText, UserCheck, Briefcase
 } from "lucide-react"
-import { fetchProjects } from "@/axios/api"
-import { getUsers } from "@/axios/adminApi"
+import { fetchProjects, getMyTasks, getTasksByProject, getWorklogs, fetchDocuments } from "@/axios/api"
+import { getUsers, groupAPI } from "@/axios/adminApi"
 import {
   PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip,
   BarChart as RechartsBar, Bar, XAxis, YAxis, CartesianGrid, Legend,
@@ -15,7 +16,6 @@ import {
 } from "recharts"
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
-import html2canvas from 'html2canvas'
 
 // Loading Skeleton Component
 const StatCardSkeleton = () => (
@@ -63,11 +63,16 @@ export default function ReportsPage() {
     const [loading, setLoading] = useState(false)
     const [projects, setProjects] = useState<any[]>([])
     const [users, setUsers] = useState<any[]>([])
+    const [tasks, setTasks] = useState<any[]>([])
+    const [worklogs, setWorklogs] = useState<any[]>([])
+    const [documents, setDocuments] = useState<any[]>([])
+    const [groups, setGroups] = useState<any[]>([])
     const [searchTerm, setSearchTerm] = useState("")
     const [sortField, setSortField] = useState<string>("progress")
     const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc")
     const [currentPage, setCurrentPage] = useState(1)
     const [itemsPerPage] = useState(5)
+    const [filterApplied, setFilterApplied] = useState(false)
     
     const [filters, setFilters] = useState({
         startDate: "",
@@ -85,6 +90,20 @@ export default function ReportsPage() {
         completionRate: 0,
         ongoingTasks: 0,
         overdueTasks: 0,
+        // Project-level stats
+        completedProjects: 0,
+        pendingProjects: 0,
+        ongoingProjects: 0,
+        // Worklog stats
+        totalHoursLogged: 0,
+        avgHoursPerUser: 0,
+        // Document stats
+        totalDocuments: 0,
+        documentsPerProject: 0,
+        // Group stats
+        totalGroups: 0,
+        activeGroups: 0,
+        // keep avg/risk in state if needed elsewhere, but not shown
         avgCompletionTime: 0,
         riskProjects: 0,
     })
@@ -110,48 +129,500 @@ export default function ReportsPage() {
             { name: "User 4", tasks: 30 },
             { name: "User 5", tasks: 42 },
         ],
+        worklogHours: [] as { name: string; hours: number }[],
+        // per-project status breakdown for stacked chart
+        projectByStatus: [] as { project: string; completed: number; ongoing: number; pending: number }[],
+        overdueTrend: [] as { month: string; overdue: number }[],
     })
 
     const [tableData, setTableData] = useState<any[]>([])
     const [topPerformers, setTopPerformers] = useState<any[]>([])
+    const [taskCounts, setTaskCounts] = useState({ total: 0, completed: 0, ongoing: 0, pending: 0 })
+    const [subtaskCounts, setSubtaskCounts] = useState({ total: 0, completed: 0, ongoing: 0, pending: 0 })
 
     const printRef = useRef<HTMLDivElement>(null)
+    const [exportingPdf, setExportingPdf] = useState(false)
+
+    // Helpers to normalize task/subtask field names between backend schemas
+    const getTaskProjectId = (t: any) => {
+        return (t?.duanId ?? t?.duanid ?? t?.duan ?? t?.duanID ?? t?.duanId)?.toString()
+    }
+
+    const getTaskUserId = (t: any) => {
+        return (t?.nguoiDuocGiaoId ?? t?.nguoiThucHienId ?? t?.nguoiDuocGiaoID ?? t?.nguoiThucHienID ?? t?.userid ?? t?.userId ?? t?.nguoiDuocGiao)?.toString()
+    }
+
+    const getTaskStatus = (t: any) => {
+        const status = (t?.trangThai ?? t?.trangthai ?? t?.status ?? "").toString()
+        return status
+    }
+
+    const getTaskDeadline = (t: any) => {
+        return t?.ngayKetThuc ?? t?.ngayketthuc ?? t?.deadline ?? t?.dueDate ?? null
+    }
+
+    const getTaskStart = (t: any) => {
+        return t?.ngayBatDau ?? t?.ngaybatdau ?? t?.startDate ?? null
+    }
+
+    const getTaskCompletedAt = (t: any) => {
+        return t?.ngayHoanThanh ?? t?.ngayhoanthanh ?? t?.completedAt ?? null
+    }
 
     useEffect(() => {
         loadInitialData()
     }, [])
 
     useEffect(() => {
-        if (projects.length > 0) {
+        if (projects.length > 0 && users.length > 0 && tasks.length > 0 && filterApplied) {
             loadReportData()
         }
-    }, [filters, projects])
+    }, [filterApplied])
+
+    useEffect(() => {
+        if (projects.length > 0 && users.length > 0 && tasks.length > 0) {
+            setFilterApplied(true)
+        }
+    }, [projects, users, tasks])
+
+    const computeReportData = (
+        projectsList: any[],
+        usersList: any[],
+        tasksList: any[],
+        worklogsList: any[] = [],
+        documentsList: any[] = [],
+        groupsList: any[] = [],
+        filtersToUse = filters
+    ) => {
+        // This mirrors the logic in loadReportData but works with provided arrays
+        // so callers can compute reports immediately after fetching data.
+        try {
+            // Filter projects based on filters
+            let filteredProjects = projectsList
+            
+            if (filtersToUse.projectId) {
+                filteredProjects = filteredProjects.filter((p: any) => p.id === parseInt(filtersToUse.projectId))
+            }
+            
+            if (filtersToUse.status) {
+                const statusMap: Record<string, string[]> = {
+                    // Map UI filter values to DB ENUM values
+                    'completed': ['da_hoan_thanh', 'da_dong'],
+                    'ongoing': ['dang_chay'],
+                    'pending': ['chua_bat_dau']
+                }
+                filteredProjects = filteredProjects.filter((p: any) => {
+                    const projStatus = (p.status || '').toString().toLowerCase()
+                    return statusMap[filtersToUse.status]?.includes(projStatus)
+                })
+            }
+            
+            if (filtersToUse.startDate) {
+                filteredProjects = filteredProjects.filter((p: any) => {
+                    if (!p.ngaybatdau) return true
+                    return new Date(p.ngaybatdau) >= new Date(filtersToUse.startDate)
+                })
+            }
+            
+            if (filtersToUse.endDate) {
+                filteredProjects = filteredProjects.filter((p: any) => {
+                    if (!p.ngayketthuc) return true
+                    return new Date(p.ngayketthuc) <= new Date(filtersToUse.endDate)
+                })
+            }
+            
+            if (filtersToUse.userId) {
+                filteredProjects = filteredProjects.filter((p: any) => String(p.userId) === String(filtersToUse.userId))
+            }
+            
+            // Filter tasks based on filtered projects
+            const filteredTasks = tasksList.filter((t: any) => {
+                const taskProjectId = getTaskProjectId(t)
+                if (filtersToUse.projectId && String(taskProjectId) !== String(filtersToUse.projectId)) return false
+                return filteredProjects.some((p: any) => String(p.id) === String(taskProjectId))
+            })
+            
+            // Calculate stats from real data
+            const totalProjects = filteredProjects.length
+            const completedProjects = filteredProjects.filter((p: any) => {
+                const s = (p.status || '').toString().toLowerCase()
+                return s === 'da_hoan_thanh' || s === 'completed'
+            }).length
+
+            const ongoingProjects = filteredProjects.filter((p: any) => {
+                const s = (p.status || '').toString().toLowerCase()
+                return s === 'dang_chay' || s === 'inprogress'
+            }).length
+
+            const pendingProjects = filteredProjects.filter((p: any) => {
+                const s = (p.status || '').toString().toLowerCase()
+                return s === 'chua_bat_dau' || s === 'pending'
+            }).length
+            
+            const activeUsersCount = usersList.length
+            
+            const totalTasks = filteredTasks.length
+            const completedTasks = filteredTasks.filter((t: any) => {
+                const s = getTaskStatus(t)
+                return s === 'Hoàn thành'
+            }).length
+            const pendingTasks = filteredTasks.filter((t: any) => {
+                const s = getTaskStatus(t)
+                return s === 'Chưa bắt đầu'
+            }).length
+            const ongoingTasks = filteredTasks.filter((t: any) => {
+                const s = getTaskStatus(t)
+                return s === 'Đang chạy'
+            }).length
+
+            // set taskCounts
+            setTaskCounts({ total: totalTasks, completed: completedTasks, ongoing: ongoingTasks, pending: pendingTasks })
+            
+            const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+            
+            // Calculate overdue tasks
+            const now = new Date()
+            const overdueTasks = filteredTasks.filter((t: any) => {
+                const dl = getTaskDeadline(t)
+                if (!dl) return false
+                const deadline = new Date(dl)
+                const s = getTaskStatus(t)
+                return deadline < now && s !== 'Hoàn thành'
+            }).length
+            
+            // Calculate risk projects (< 50% progress and deadline within 7 days)
+            const riskProjects = filteredProjects.filter((p: any) => {
+                const projectTasks = tasksList.filter((t: any) => String(getTaskProjectId(t)) === String(p.id))
+                const completed = projectTasks.filter((t: any) => {
+                    const s = getTaskStatus(t)
+                    return s === 'Hoàn thành'
+                }).length
+                const progress = projectTasks.length > 0 ? (completed / projectTasks.length) * 100 : 0
+                if (!p.ngayketthuc) return false
+                const deadline = new Date(p.ngayketthuc)
+                const daysUntilDeadline = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+                return progress < 50 && daysUntilDeadline <= 7 && daysUntilDeadline > 0
+            }).length
+            
+            // Calculate average completion time (mock for now, can be improved with real data)
+            const avgCompletionTime = 15
+
+            // Calculate worklog statistics
+            const totalHoursLogged = worklogsList.reduce((sum: number, w: any) => sum + (parseFloat(w.hours) || 0), 0)
+            const avgHoursPerUser = usersList.length > 0 ? Math.round(totalHoursLogged / usersList.length) : 0
+
+            // Calculate document statistics
+            const totalDocuments = documentsList.length
+            const documentsPerProject = filteredProjects.length > 0 ? Math.round(totalDocuments / filteredProjects.length) : 0
+
+            // Calculate group statistics - ensure groupsList is an array
+            let groupsArray: any[] = [];
+            if (Array.isArray(groupsList)) {
+                groupsArray = groupsList;
+            } else if (groupsList && Array.isArray((groupsList as any).data?.groups)) {
+                groupsArray = (groupsList as any).data.groups;
+            }
+            const totalGroups = groupsArray.length;
+            const activeGroups = groupsArray.filter((g: any) => g.status === 'active').length;
+            
+            console.log('🟢 groupsList:', groupsList);
+            console.log('🟢 totalGroups:', totalGroups);
+
+            setStats({
+                totalProjects,
+                completedTasks,
+                activeUsers: activeUsersCount,
+                completionRate,
+                ongoingTasks,
+                overdueTasks,
+                // project-level
+                completedProjects,
+                pendingProjects,
+                ongoingProjects,
+                // worklog stats
+                totalHoursLogged: Math.round(totalHoursLogged),
+                avgHoursPerUser,
+                // document stats
+                totalDocuments,
+                documentsPerProject,
+                // group stats
+                totalGroups,
+                activeGroups,
+                // keep legacy values
+                avgCompletionTime,
+                riskProjects,
+            })
+
+            // Update chart data
+            setChartData((prev: any) => ({
+                ...prev,
+                projectStatus: [
+                    { name: "Hoàn thành", value: completedProjects, color: "#10b981" },
+                    { name: "Đang thực hiện", value: ongoingProjects, color: "#3b82f6" },
+                    { name: "Chưa bắt đầu", value: pendingProjects, color: "#f59e0b" },
+                ],
+            }))
+
+            // Build per-project status breakdown (for stacked bar chart)
+            const projectStatusByProject = filteredProjects.map((p: any) => {
+                const projectTasks = tasksList.filter((t: any) => String(getTaskProjectId(t)) === String(p.id))
+                const completed = projectTasks.filter((t: any) => getTaskStatus(t) === 'Hoàn thành').length
+                const ongoing = projectTasks.filter((t: any) => getTaskStatus(t) === 'Đang chạy').length
+                const pending = projectTasks.filter((t: any) => getTaskStatus(t) === 'Chưa bắt đầu').length
+                return {
+                    project: p.tenduan || p.ten || `Dự án ${p.id}`,
+                    completed,
+                    ongoing,
+                    pending,
+                }
+            })
+
+            setChartData((prev: any) => ({ ...prev, projectByStatus: projectStatusByProject }))
+
+            // Overdue trend - last 6 months
+            const months: { monthKey: string; label: string }[] = []
+            const monthNames = new Intl.DateTimeFormat('vi-VN', { month: 'short', year: 'numeric' })
+            for (let i = 5; i >= 0; i--) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+                months.push({ monthKey: `${d.getFullYear()}-${d.getMonth() + 1}`, label: monthNames.format(d) })
+            }
+
+            const overdueTrend = months.map(m => {
+                const [y, mnum] = m.monthKey.split('-').map(Number)
+                const count = filteredTasks.filter((t: any) => {
+                    const dl = getTaskDeadline(t)
+                    if (!dl) return false
+                    const d = new Date(dl)
+                    return d.getFullYear() === y && (d.getMonth() + 1) === mnum && d < now && getTaskStatus(t) !== 'Hoàn thành'
+                }).length
+                return { month: m.label, overdue: count }
+            })
+
+            // Build taskProgress per month (completed, ongoing, overdue)
+            const taskProgress = months.map(m => {
+                const [y, mnum] = m.monthKey.split('-').map(Number)
+                const periodStart = new Date(y, mnum - 1, 1)
+                const periodEnd = new Date(y, mnum, 0, 23, 59, 59, 999)
+
+                const completedCount = filteredTasks.filter((t: any) => {
+                    const ca = getTaskCompletedAt(t)
+                    if (!ca) return false
+                    const d = new Date(ca)
+                    return d.getFullYear() === y && (d.getMonth() + 1) === mnum
+                }).length
+
+                const ongoingCount = filteredTasks.filter((t: any) => {
+                    const sd = getTaskStart(t)
+                    const ca = getTaskCompletedAt(t)
+                    // task is considered ongoing in this period if it started on or before periodEnd
+                    // and either not completed yet or completed after periodEnd
+                    if (!sd) return false
+                    const sdDate = new Date(sd)
+                    const completedDate = ca ? new Date(ca) : null
+                    return sdDate <= periodEnd && (!completedDate || completedDate > periodEnd)
+                }).length
+
+                const overdueCount = filteredTasks.filter((t: any) => {
+                    const dl = getTaskDeadline(t)
+                    if (!dl) return 0
+                    const d = new Date(dl)
+                    // overdue in this month if deadline is in this month and task not completed by deadline
+                    const ca = getTaskCompletedAt(t)
+                    const completedDate = ca ? new Date(ca) : null
+                    return d.getFullYear() === y && (d.getMonth() + 1) === mnum && (!completedDate || completedDate > d)
+                }).length
+
+                return {
+                    month: m.label,
+                    completed: completedCount,
+                    ongoing: ongoingCount,
+                    overdue: overdueCount,
+                }
+            })
+
+            setChartData((prev: any) => ({ ...prev, overdueTrend, taskProgress }))
+            
+            // Calculate top performers based on real task data
+            const userTaskCounts = usersList.map((user: any) => {
+                const userCompletedTasks = filteredTasks.filter((t: any) => {
+                    const tuid = getTaskUserId(t)
+                    const s = getTaskStatus(t)
+                    return String(tuid) === String(user.id) && s === 'Hoàn thành'
+                }).length
+                return {
+                    name: user.hoten || user.manv || `User ${user.id}`,
+                    tasks: userCompletedTasks,
+                    avatar: user.avatar,
+                }
+            }).sort((a: any, b: any) => b.tasks - a.tasks).slice(0, 5)
+            
+            setTopPerformers(userTaskCounts)
+
+            // Calculate worklog hours by user for chart
+            const userWorklogHours = usersList.map((user: any) => {
+                const userLogs = worklogsList.filter((w: any) => String(w.userId) === String(user.id))
+                const totalHours = userLogs.reduce((sum: number, w: any) => sum + (parseFloat(w.hours) || 0), 0)
+                return {
+                    name: (user.hoten || user.manv || `User ${user.id}`).substring(0, 15),
+                    hours: Math.round(totalHours * 10) / 10,
+                }
+            }).filter((u: any) => u.hours > 0)
+              .sort((a: any, b: any) => b.hours - a.hours)
+              .slice(0, 10)
+            
+            // Update user performance chart
+            setChartData((prev: any) => ({
+                ...prev,
+                userPerformance: userTaskCounts,
+                worklogHours: userWorklogHours,
+            }))
+
+            // Subtask aggregation: check if tasks have nested subtasks
+            let allSubtasks: any[] = []
+            if (tasksList.some((t: any) => Array.isArray(t.subtasks) && t.subtasks.length > 0)) {
+                allSubtasks = tasksList.flatMap((t: any) => t.subtasks || [])
+            } else {
+                // no nested subtasks available in tasksList; leave allSubtasks empty (could fetch from API if exists)
+            }
+
+            if (allSubtasks.length > 0) {
+                const totalSub = allSubtasks.length
+                const completedSub = allSubtasks.filter((st: any) => {
+                    const s = getTaskStatus(st)
+                    return s === 'Hoàn thành'
+                }).length
+                const pendingSub = allSubtasks.filter((st: any) => {
+                    const s = getTaskStatus(st)
+                    return s === 'Chưa bắt đầu'
+                }).length
+                const ongoingSub = allSubtasks.filter((st: any) => {
+                    const s = getTaskStatus(st)
+                    return s === 'Đang chạy'
+                }).length
+                setSubtaskCounts({ total: totalSub, completed: completedSub, ongoing: ongoingSub, pending: pendingSub })
+            } else {
+                setSubtaskCounts({ total: 0, completed: 0, ongoing: 0, pending: 0 })
+            }
+
+            // Update table data with filtered projects
+            const tableRows = filteredProjects.map((p: any) => {
+                const projectTasks = tasksList.filter((t: any) => String(getTaskProjectId(t)) === String(p.id))
+                const completed = projectTasks.filter((t: any) => {
+                    const s = getTaskStatus(t)
+                    return s === 'Hoàn thành'
+                }).length
+                // Resolve manager name: prefer populated relation, else lookup by userId
+                let managerName = 'N/A'
+                if (p.nguoiDamNhan && (p.nguoiDamNhan.hoten || p.nguoiDamNhan.manv)) {
+                    managerName = p.nguoiDamNhan.hoten || p.nguoiDamNhan.manv
+                } else if (p.userId) {
+                    const mgr = usersList.find((u: any) => String(u.id) === String(p.userId))
+                    if (mgr) managerName = mgr.hoten || mgr.manv || `User ${mgr.id}`
+                } else if (p.manager) {
+                    managerName = p.manager
+                }
+
+                return {
+                    id: p.id,
+                    project: p.tenduan || p.ten || `Dự án ${p.id}`,
+                    tasks: projectTasks.length,
+                    completed,
+                    progress: projectTasks.length > 0 ? Math.round((completed / projectTasks.length) * 100) : 0,
+                    deadline: p.ngayketthuc ? new Date(p.ngayketthuc).toLocaleDateString('vi-VN') : "N/A",
+                    status: p.status || "chua_bat_dau",
+                    manager: managerName,
+                }
+            })
+            setTableData(tableRows)
+        } catch (error) {
+            console.error("Compute report error:", error)
+        }
+    }
 
     const loadInitialData = async () => {
         try {
-            const [projectsRes, usersRes] = await Promise.all([
-                fetchProjects(),
-                getUsers({})
-            ])
-            
-            const projectsList = projectsRes.duans || projectsRes || []
-            const usersList = usersRes.users || usersRes || []
-            
-            setProjects(projectsList)
-            setUsers(usersList)
-            
-            // Initialize table data
-            const tableRows = projectsList.map((p: any) => ({
-                id: p.id,
-                project: p.tenduan || p.ten || `Dự án ${p.id}`,
-                tasks: p.totalTasks || 0,
-                completed: p.completedTasks || 0,
-                progress: p.totalTasks > 0 ? Math.round((p.completedTasks / p.totalTasks) * 100) : 0,
-                deadline: p.ngayketthuc || "N/A",
-                status: p.trangthai || "pending",
-                manager: p.manager || "N/A",
-            }))
-            setTableData(tableRows)
+                // First fetch projects and users
+                const [projectsRes, usersRes, groupsRes, documentsRes] = await Promise.all([
+                    fetchProjects(),
+                    // Request a large limit to ensure we have all users for lookups (used to display manager names)
+                    getUsers({ page: 1, limit: 1000 }),
+                    groupAPI.getGroups({}).catch((err) => {
+                        console.error('❌ Error fetching groups:', err)
+                        return { groups: [] }
+                    }),
+                    fetchDocuments().catch((err) => {
+                        console.error('❌ Error fetching documents:', err)
+                        return { documents: [] }
+                    }),
+                ])
+
+                const projectsList = projectsRes.duans || projectsRes || []
+                const usersList = usersRes.users || usersRes || []
+                const groupsList = (groupsRes as any).groups || groupsRes || []
+                const documentsList = (documentsRes as any).documents || documentsRes || []
+
+                setProjects(projectsList)
+                setUsers(usersList)
+                setGroups(groupsList)
+                setDocuments(documentsList)
+
+                // Fetch tasks for each project (admin report needs all tasks)
+                let tasksList: any[] = []
+                try {
+                    const tasksPerProject = await Promise.all(
+                        projectsList.map((p: any) => getTasksByProject(p.id).catch((e: any) => {
+                            console.warn('Failed to load tasks for project', p.id, e)
+                            return []
+                        }))
+                    )
+                    // Each response may be { tasks: [...] } or an array
+                    tasksList = tasksPerProject.flatMap((r: any) => r.tasks || r || [])
+                } catch (err) {
+                    console.error('Error fetching tasks per project:', err)
+                }
+
+                setTasks(tasksList)
+
+                // Fetch all worklogs - skip for now since API requires taskId/subtaskId
+                let worklogsList: any[] = []
+                // Backend API requires taskId or subtaskId, so we can't fetch all worklogs at once
+                // We would need to fetch worklogs per task or create a new backend endpoint
+                setWorklogs(worklogsList)
+
+                // Initialize table data (basic)
+                const tableRowsInit = projectsList.map((p: any) => {
+                const projectTasks = tasksList.filter((t: any) => String(getTaskProjectId(t)) === String(p.id))
+                const completed = projectTasks.filter((t: any) => {
+                    const s = getTaskStatus(t)
+                    return s === 'Hoàn thành'
+                }).length
+
+                let managerName = 'N/A'
+                if (p.nguoiDamNhan && (p.nguoiDamNhan.hoten || p.nguoiDamNhan.manv)) {
+                    managerName = p.nguoiDamNhan.hoten || p.nguoiDamNhan.manv
+                } else if (p.userId) {
+                    const mgr = usersList.find((u: any) => String(u.id) === String(p.userId))
+                    if (mgr) managerName = mgr.hoten || mgr.manv || `User ${mgr.id}`
+                } else if (p.manager) {
+                    managerName = p.manager
+                }
+
+                return {
+                    id: p.id,
+                    project: p.tenduan || p.ten || `Dự án ${p.id}`,
+                    tasks: projectTasks.length,
+                    completed,
+                    progress: projectTasks.length > 0 ? Math.round((completed / projectTasks.length) * 100) : 0,
+                    deadline: p.ngayketthuc ? new Date(p.ngayketthuc).toLocaleDateString('vi-VN') : "N/A",
+                    status: p.status || "chua_bat_dau",
+                    manager: managerName,
+                }
+            })
+            setTableData(tableRowsInit)
+
+            // Compute report immediately using fetched data so the page shows values without requiring user to press "Lọc"
+            computeReportData(projectsList, usersList, tasksList, worklogsList, documentsList, groupsList)
+            setFilterApplied(true)
         } catch (error) {
             console.error("Load initial data error:", error)
         }
@@ -160,105 +631,8 @@ export default function ReportsPage() {
     const loadReportData = async () => {
         setLoading(true)
         try {
-            // Apply preset filters
-            applyPresetFilter()
-            
-            // Filter projects based on filters
-            let filteredProjects = projects
-            
-            if (filters.projectId) {
-                filteredProjects = filteredProjects.filter(p => p.id === parseInt(filters.projectId))
-            }
-            
-            if (filters.status) {
-                const statusMap: Record<string, string[]> = {
-                    'completed': ['completed', 'hoàn thành'],
-                    'ongoing': ['inprogress', 'đang thực hiện'],
-                    'pending': ['pending', 'chưa bắt đầu']
-                }
-                filteredProjects = filteredProjects.filter(p => 
-                    statusMap[filters.status]?.includes(p.trangthai?.toLowerCase() || '')
-                )
-            }
-            
-            // Calculate stats
-            const totalProjects = filteredProjects.length
-            const completedProjects = filteredProjects.filter(p => 
-                ['completed', 'hoàn thành'].includes(p.trangthai?.toLowerCase() || '')
-            ).length
-            
-            const ongoingProjects = filteredProjects.filter(p => 
-                ['inprogress', 'đang thực hiện'].includes(p.trangthai?.toLowerCase() || '')
-            ).length
-            
-            const activeUsersCount = users.filter(u => u.is_active !== false).length
-            
-            const completedTasks = filteredProjects.reduce((sum, p) => sum + (p.completedTasks || 0), 0) || 156
-            const totalTasks = filteredProjects.reduce((sum, p) => sum + (p.totalTasks || 0), 0) || 224
-            const ongoingTasks = totalTasks - completedTasks
-            const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 87
-            
-            // Calculate overdue tasks
-            const now = new Date()
-            const overdueTasks = filteredProjects.filter(p => {
-                if (!p.ngayketthuc) return false
-                const deadline = new Date(p.ngayketthuc)
-                return deadline < now && p.trangthai !== 'completed'
-            }).length
-            
-            // Calculate risk projects (< 50% progress and deadline soon)
-            const riskProjects = filteredProjects.filter(p => {
-                const progress = p.totalTasks > 0 ? (p.completedTasks / p.totalTasks) * 100 : 0
-                if (!p.ngayketthuc) return false
-                const deadline = new Date(p.ngayketthuc)
-                const daysUntilDeadline = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-                return progress < 50 && daysUntilDeadline < 30 && daysUntilDeadline > 0
-            }).length
-            
-            // Calculate average completion time (mock data for now)
-            const avgCompletionTime = 15 // days
-            
-            setStats({
-                totalProjects: totalProjects || 24,
-                completedTasks,
-                activeUsers: activeUsersCount || 45,
-                completionRate,
-                ongoingTasks,
-                overdueTasks,
-                avgCompletionTime,
-                riskProjects,
-            })
-
-            // Update chart data
-            setChartData(prev => ({
-                ...prev,
-                projectStatus: [
-                    { name: "Hoàn thành", value: completedProjects || 12, color: "#10b981" },
-                    { name: "Đang thực hiện", value: ongoingProjects || 8, color: "#3b82f6" },
-                    { name: "Chưa bắt đầu", value: (totalProjects - completedProjects - ongoingProjects) || 4, color: "#f59e0b" },
-                ],
-            }))
-            
-            // Calculate top performers
-            const userTaskCounts = users.map(user => {
-                const userTasks = filteredProjects.reduce((sum, p) => {
-                    // Mock: assume each user has some tasks
-                    return sum + Math.floor(Math.random() * 10)
-                }, 0)
-                return {
-                    name: user.hoten || user.manv || `User ${user.id}`,
-                    tasks: userTasks,
-                    avatar: user.avatar,
-                }
-            }).sort((a, b) => b.tasks - a.tasks).slice(0, 5)
-            
-            setTopPerformers(userTaskCounts)
-            
-            // Update user performance chart
-            setChartData(prev => ({
-                ...prev,
-                userPerformance: userTaskCounts,
-            }))
+            // Use computeReportData helper with current state arrays and filters
+            computeReportData(projects, users, tasks, worklogs, documents, groups, filters)
         } catch (error) {
             console.error("Load report error:", error)
         } finally {
@@ -266,114 +640,178 @@ export default function ReportsPage() {
         }
     }
 
-    const applyPresetFilter = () => {
-        if (!filters.preset) return
-        
+    const applyPresetFilter = (preset: string) => {
         const now = new Date()
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        let startDate = ""
+        let endDate = ""
         
-        switch (filters.preset) {
-            case 'today':
-                setFilters(prev => ({
-                    ...prev,
-                    startDate: today.toISOString().split('T')[0],
-                    endDate: today.toISOString().split('T')[0],
-                }))
-                break
-            case 'thisWeek':
-                const startOfWeek = new Date(today)
-                startOfWeek.setDate(today.getDate() - today.getDay())
-                const endOfWeek = new Date(startOfWeek)
-                endOfWeek.setDate(startOfWeek.getDate() + 6)
-                setFilters(prev => ({
-                    ...prev,
-                    startDate: startOfWeek.toISOString().split('T')[0],
-                    endDate: endOfWeek.toISOString().split('T')[0],
-                }))
-                break
+        switch (preset) {
             case 'thisMonth':
                 const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
                 const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-                setFilters(prev => ({
-                    ...prev,
-                    startDate: startOfMonth.toISOString().split('T')[0],
-                    endDate: endOfMonth.toISOString().split('T')[0],
-                }))
+                startDate = startOfMonth.toISOString().split('T')[0]
+                endDate = endOfMonth.toISOString().split('T')[0]
                 break
             case 'thisQuarter':
-                const quarter = Math.floor(now.getMonth() / 3)
-                const startOfQuarter = new Date(now.getFullYear(), quarter * 3, 1)
-                const endOfQuarter = new Date(now.getFullYear(), quarter * 3 + 3, 0)
-                setFilters(prev => ({
-                    ...prev,
-                    startDate: startOfQuarter.toISOString().split('T')[0],
-                    endDate: endOfQuarter.toISOString().split('T')[0],
-                }))
+                // Determine current quarter
+                const month = now.getMonth()
+                const quarterStartMonth = Math.floor(month / 3) * 3
+                const startOfQuarter = new Date(now.getFullYear(), quarterStartMonth, 1)
+                const endOfQuarter = new Date(now.getFullYear(), quarterStartMonth + 3, 0)
+                startDate = startOfQuarter.toISOString().split('T')[0]
+                endDate = endOfQuarter.toISOString().split('T')[0]
                 break
             case 'thisYear':
                 const startOfYear = new Date(now.getFullYear(), 0, 1)
                 const endOfYear = new Date(now.getFullYear(), 11, 31)
-                setFilters(prev => ({
-                    ...prev,
-                    startDate: startOfYear.toISOString().split('T')[0],
-                    endDate: endOfYear.toISOString().split('T')[0],
-                }))
+                startDate = startOfYear.toISOString().split('T')[0]
+                endDate = endOfYear.toISOString().split('T')[0]
                 break
         }
+        
+        setFilters(prev => ({
+            ...prev,
+            startDate,
+            endDate,
+            preset
+        }))
+        setFilterApplied(true)
     }
 
     const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target
-        setFilters({ ...filters, [name]: value, preset: name === 'preset' ? value : '' })
+        setFilters(prev => ({ ...prev, [name]: value, preset: '' }))
+    }
+
+    const handleSubmitFilter = (e?: React.FormEvent) => {
+        if (e) e.preventDefault()
+        // Run report using the current filters immediately
+        setFilterApplied(true)
+        computeReportData(projects, users, tasks, worklogs, documents, groups, filters)
+    }
+
+    const handleResetFilter = () => {
+        const emptyFilters = {
+            startDate: "",
+            endDate: "",
+            projectId: "",
+            status: "",
+            userId: "",
+            preset: "",
+        }
+        setFilters(emptyFilters)
+        // Recompute report with cleared filters
+        setFilterApplied(true)
+        computeReportData(projects, users, tasks, worklogs, documents, groups, emptyFilters)
     }
 
     const handleExportExcel = () => {
         try {
-            // Prepare data for export
+            // Prepare main project data with more details
             const exportData = tableData.map(row => ({
-                'Dự án': row.project,
-                'Tổng Tasks': row.tasks,
-                'Hoàn thành': row.completed,
-                'Tiến độ (%)': row.progress,
-                'Deadline': row.deadline,
-                'Trạng thái': row.status,
+                'STT': tableData.indexOf(row) + 1,
+                'Tên dự án': row.project,
                 'Quản lý': row.manager,
+                'Tổng công việc': row.tasks,
+                'Đã hoàn thành': row.completed,
+                'Tiến độ (%)': row.progress,
+                'Ngày hết hạn': row.deadline,
+                'Trạng thái': getStatusLabel(row.status),
+                'Công việc còn lại': row.tasks - row.completed,
+                'Mức độ rủi ro': row.progress < 30 ? 'Cao' : row.progress < 70 ? 'Trung bình' : 'Thấp'
             }))
 
             // Create workbook
             const wb = XLSX.utils.book_new()
+
+            // Main report sheet with enhanced formatting
             const ws = XLSX.utils.json_to_sheet(exportData)
 
             // Add column widths
             ws['!cols'] = [
-                { wch: 25 }, // Dự án
-                { wch: 12 }, // Tổng Tasks
-                { wch: 12 }, // Hoàn thành
-                { wch: 12 }, // Tiến độ
-                { wch: 12 }, // Deadline
-                { wch: 15 }, // Trạng thái
+                { wch: 5 },  // STT
+                { wch: 30 }, // Tên dự án
                 { wch: 20 }, // Quản lý
+                { wch: 12 }, // Tổng công việc
+                { wch: 12 }, // Đã hoàn thành
+                { wch: 10 }, // Tiến độ
+                { wch: 15 }, // Ngày hết hạn
+                { wch: 15 }, // Trạng thái
+                { wch: 12 }, // Còn lại
+                { wch: 15 }, // Rủi ro
             ]
+
+            // Add title and metadata
+            XLSX.utils.sheet_add_aoa(ws, [
+                ['BÁO CÁO TỔNG QUAN DỰ ÁN'],
+                [`Ngày xuất: ${new Date().toLocaleDateString('vi-VN')}`],
+                [`Thời gian: ${new Date().toLocaleTimeString('vi-VN')}`],
+                [''], // Empty row
+            ], { origin: 'A1' })
+
+            // Shift data down to accommodate header
+            const range = XLSX.utils.decode_range(ws['!ref'] || 'A1')
+            range.s.r += 4
+            ws['!ref'] = XLSX.utils.encode_range(range)
 
             XLSX.utils.book_append_sheet(wb, ws, 'Báo cáo dự án')
 
-            // Add stats sheet
+            // Enhanced stats sheet
+            const currentDate = new Date()
             const statsData = [
-                { 'Chỉ số': 'Tổng dự án', 'Giá trị': stats.totalProjects },
-                { 'Chỉ số': 'Nhiệm vụ hoàn thành', 'Giá trị': stats.completedTasks },
-                { 'Chỉ số': 'Nhân viên hoạt động', 'Giá trị': stats.activeUsers },
-                { 'Chỉ số': 'Tỷ lệ hoàn thành (%)', 'Giá trị': stats.completionRate },
-                { 'Chỉ số': 'Nhiệm vụ đang thực hiện', 'Giá trị': stats.ongoingTasks },
-                { 'Chỉ số': 'Nhiệm vụ quá hạn', 'Giá trị': stats.overdueTasks },
-                { 'Chỉ số': 'Dự án có rủi ro', 'Giá trị': stats.riskProjects },
+                { 'Loại': 'THỐNG KÊ DỰ ÁN', 'Chỉ số': '', 'Giá trị': '', 'Ghi chú': '' },
+                { 'Loại': 'Dự án', 'Chỉ số': 'Tổng số dự án', 'Giá trị': stats.totalProjects, 'Ghi chú': 'Tất cả dự án trong hệ thống' },
+                { 'Loại': 'Dự án', 'Chỉ số': 'Dự án hoàn thành', 'Giá trị': stats.completedProjects, 'Ghi chú': `${((stats.completedProjects / stats.totalProjects) * 100).toFixed(1)}% tổng số dự án` },
+                { 'Loại': 'Dự án', 'Chỉ số': 'Dự án đang thực hiện', 'Giá trị': stats.ongoingProjects, 'Ghi chú': `${((stats.ongoingProjects / stats.totalProjects) * 100).toFixed(1)}% tổng số dự án` },
+                { 'Loại': 'Dự án', 'Chỉ số': 'Dự án chưa bắt đầu', 'Giá trị': stats.pendingProjects, 'Ghi chú': `${((stats.pendingProjects / stats.totalProjects) * 100).toFixed(1)}% tổng số dự án` },
+                { 'Loại': '', 'Chỉ số': '', 'Giá trị': '', 'Ghi chú': '' },
+                { 'Loại': 'THỐNG KÊ CÔNG VIỆC', 'Chỉ số': '', 'Giá trị': '', 'Ghi chú': '' },
+                { 'Loại': 'Tasks', 'Chỉ số': 'Tổng công việc (Tasks)', 'Giá trị': taskCounts.total, 'Ghi chú': 'Tất cả công việc chính' },
+                { 'Loại': 'Tasks', 'Chỉ số': 'Công việc hoàn thành', 'Giá trị': taskCounts.completed, 'Ghi chú': `${((taskCounts.completed / taskCounts.total) * 100).toFixed(1)}% tổng tasks` },
+                { 'Loại': 'Tasks', 'Chỉ số': 'Công việc đang thực hiện', 'Giá trị': taskCounts.ongoing, 'Ghi chú': `${((taskCounts.ongoing / taskCounts.total) * 100).toFixed(1)}% tổng tasks` },
+                { 'Loại': 'Tasks', 'Chỉ số': 'Công việc chưa bắt đầu', 'Giá trị': taskCounts.pending, 'Ghi chú': `${((taskCounts.pending / taskCounts.total) * 100).toFixed(1)}% tổng tasks` },
+                { 'Loại': 'Tasks', 'Chỉ số': 'Công việc quá hạn', 'Giá trị': stats.overdueTasks, 'Ghi chú': `${((stats.overdueTasks / taskCounts.total) * 100).toFixed(1)}% tổng tasks` },
+                { 'Loại': '', 'Chỉ số': '', 'Giá trị': '', 'Ghi chú': '' },
+                { 'Loại': 'THỐNG KÊ SUBTASKS', 'Chỉ số': '', 'Giá trị': '', 'Ghi chú': '' },
+                { 'Loại': 'Subtasks', 'Chỉ số': 'Tổng công việc phụ', 'Giá trị': subtaskCounts.total, 'Ghi chú': 'Tất cả công việc phụ' },
+                { 'Loại': 'Subtasks', 'Chỉ số': 'Subtask hoàn thành', 'Giá trị': subtaskCounts.completed, 'Ghi chú': subtaskCounts.total > 0 ? `${((subtaskCounts.completed / subtaskCounts.total) * 100).toFixed(1)}% tổng subtasks` : 'N/A' },
+                { 'Loại': 'Subtasks', 'Chỉ số': 'Subtask đang thực hiện', 'Giá trị': subtaskCounts.ongoing, 'Ghi chú': subtaskCounts.total > 0 ? `${((subtaskCounts.ongoing / subtaskCounts.total) * 100).toFixed(1)}% tổng subtasks` : 'N/A' },
+                { 'Loại': 'Subtasks', 'Chỉ số': 'Subtask chưa bắt đầu', 'Giá trị': subtaskCounts.pending, 'Ghi chú': subtaskCounts.total > 0 ? `${((subtaskCounts.pending / subtaskCounts.total) * 100).toFixed(1)}% tổng subtasks` : 'N/A' },
+                { 'Loại': '', 'Chỉ số': '', 'Giá trị': '', 'Ghi chú': '' },
+                { 'Loại': 'THỐNG KÊ NHÂN SỰ', 'Chỉ số': '', 'Giá trị': '', 'Ghi chú': '' },
+                { 'Loại': 'Nhân sự', 'Chỉ số': 'Nhân viên tham gia', 'Giá trị': stats.activeUsers, 'Ghi chú': 'Số lượng nhân viên trong hệ thống' },
+                { 'Loại': 'Nhân sự', 'Chỉ số': 'Tổng giờ làm việc', 'Giá trị': `${stats.totalHoursLogged}h`, 'Ghi chú': 'Tổng thời gian đã ghi nhận' },
+                { 'Loại': 'Nhân sự', 'Chỉ số': 'Trung bình giờ/người', 'Giá trị': `${stats.avgHoursPerUser}h`, 'Ghi chú': 'Thời gian trung bình mỗi nhân viên' },
+                { 'Loại': '', 'Chỉ số': '', 'Giá trị': '', 'Ghi chú': '' },
+                { 'Loại': 'THỐNG KÊ KHÁC', 'Chỉ số': '', 'Giá trị': '', 'Ghi chú': '' },
+                { 'Loại': 'Tài liệu', 'Chỉ số': 'Tổng tài liệu', 'Giá trị': stats.totalDocuments, 'Ghi chú': 'Số lượng tài liệu trong hệ thống' },
+                { 'Loại': 'Tài liệu', 'Chỉ số': 'Trung bình tài liệu/dự án', 'Giá trị': stats.documentsPerProject, 'Ghi chú': 'Số tài liệu trung bình mỗi dự án' },
+                { 'Loại': 'Nhóm', 'Chỉ số': 'Tổng nhóm làm việc', 'Giá trị': stats.totalGroups, 'Ghi chú': 'Số lượng nhóm trong hệ thống' },
+                { 'Loại': 'Nhóm', 'Chỉ số': 'Nhóm đang hoạt động', 'Giá trị': stats.activeGroups, 'Ghi chú': `${stats.totalGroups > 0 ? ((stats.activeGroups / stats.totalGroups) * 100).toFixed(1) : 0}% tổng số nhóm` },
             ]
-            const wsStats = XLSX.utils.json_to_sheet(statsData)
-            wsStats['!cols'] = [{ wch: 25 }, { wch: 15 }]
-            XLSX.utils.book_append_sheet(wb, wsStats, 'Thống kê')
 
-            // Save file
+            const wsStats = XLSX.utils.json_to_sheet(statsData)
+            wsStats['!cols'] = [{ wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 35 }]
+            XLSX.utils.book_append_sheet(wb, wsStats, 'Thống kê chi tiết')
+
+            // Add top performers sheet
+            if (topPerformers.length > 0) {
+                const performersData = topPerformers.map((performer, index) => ({
+                    'Hạng': index + 1,
+                    'Tên nhân viên': performer.name,
+                    'Số công việc hoàn thành': performer.tasks,
+                    'Đánh giá': index === 0 ? 'Xuất sắc nhất' : index < 3 ? 'Xuất sắc' : 'Tốt'
+                }))
+                const wsPerformers = XLSX.utils.json_to_sheet(performersData)
+                wsPerformers['!cols'] = [{ wch: 8 }, { wch: 25 }, { wch: 20 }, { wch: 15 }]
+                XLSX.utils.book_append_sheet(wb, wsPerformers, 'Top nhân viên')
+            }
+
+            // Save file with enhanced name
             const date = new Date().toISOString().split('T')[0]
-            XLSX.writeFile(wb, `Bao_cao_du_an_${date}.xlsx`)
+            const time = new Date().toTimeString().slice(0, 5).replace(':', '')
+            XLSX.writeFile(wb, `Bao_cao_tong_quan_${date}_${time}.xlsx`)
         } catch (error) {
             console.error("Export Excel error:", error)
             alert("Có lỗi khi xuất file Excel")
@@ -381,41 +819,237 @@ export default function ReportsPage() {
     }
 
     const handleExportPDF = async () => {
-        try {
-            if (!printRef.current) return
+        if (!printRef.current) return
+        setExportingPdf(true)
 
-            const canvas = await html2canvas(printRef.current, {
-                scale: 2,
-                useCORS: true,
-                logging: false,
+        try {
+            // Helper to convert Vietnamese to ASCII for PDF compatibility
+            const toSafeText = (text: string): string => {
+                if (!text) return ''
+                return text
+                    .replace(/[àáạảãâầấậẩẫăằắặẳẵ]/g, 'a')
+                    .replace(/[ÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴ]/g, 'A')
+                    .replace(/[èéẹẻẽêềếệểễ]/g, 'e')
+                    .replace(/[ÈÉẸẺẼÊỀẾỆỂỄ]/g, 'E')
+                    .replace(/[ìíịỉĩ]/g, 'i')
+                    .replace(/[ÌÍỊỈĨ]/g, 'I')
+                    .replace(/[òóọỏõôồốộổỗơờớợởỡ]/g, 'o')
+                    .replace(/[ÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠ]/g, 'O')
+                    .replace(/[ùúụủũưừứựửữ]/g, 'u')
+                    .replace(/[ÙÚỤỦŨƯỪỨỰỬỮ]/g, 'U')
+                    .replace(/[ỳýỵỷỹ]/g, 'y')
+                    .replace(/[ỲÝỴỶỸ]/g, 'Y')
+                    .replace(/[đ]/g, 'd')
+                    .replace(/[Đ]/g, 'D')
+                    .replace(/[^\w\s.-]/g, '')
+                    .trim()
+            }
+
+            // Create PDF
+            const pdf = new jsPDF('p', 'mm', 'a4')
+            const pageWidth = pdf.internal.pageSize.getWidth()
+            const pageHeight = pdf.internal.pageSize.getHeight()
+            const margin = 15
+            let yPos = margin
+
+            // Helper to add new page if needed
+            const checkPageBreak = (requiredSpace: number) => {
+                if (yPos + requiredSpace > pageHeight - margin) {
+                    pdf.addPage()
+                    yPos = margin
+                    return true
+                }
+                return false
+            }
+
+            // HEADER
+            pdf.setFillColor(40, 86, 255)
+            pdf.rect(margin, yPos, pageWidth - 2 * margin, 25, 'F')
+            
+            pdf.setFontSize(20)
+            pdf.setTextColor(255, 255, 255)
+            pdf.text('BAO CAO TONG QUAN DU AN', margin + 5, yPos + 10)
+            
+            pdf.setFontSize(9)
+            const currentDate = new Date()
+            const dateStr = `Ngay xuat: ${currentDate.toLocaleDateString('vi-VN')}`
+            const timeStr = `${currentDate.toLocaleTimeString('vi-VN')}`
+            pdf.text(dateStr, margin + 5, yPos + 18)
+            pdf.text(timeStr, pageWidth - margin - pdf.getTextWidth(timeStr) - 5, yPos + 18)
+            
+            yPos += 35
+
+            // SUMMARY BOX
+            checkPageBreak(40)
+            pdf.setFillColor(248, 249, 250)
+            pdf.setDrawColor(220, 220, 220)
+            pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 35, 2, 2, 'FD')
+            
+            pdf.setFontSize(12)
+            pdf.setTextColor(30, 30, 30)
+            pdf.text('TONG QUAN HE THONG', margin + 5, yPos + 8)
+            
+            pdf.setFontSize(9)
+            pdf.setTextColor(70, 70, 70)
+            const col1 = margin + 5
+            const col2 = margin + (pageWidth - 2 * margin) / 2
+            
+            pdf.text(`Du an: ${stats.totalProjects} (${stats.completedProjects} hoan thanh)`, col1, yPos + 16)
+            pdf.text(`Nhan vien: ${stats.activeUsers} (${stats.totalHoursLogged}h)`, col2, yPos + 16)
+            pdf.text(`Tasks: ${taskCounts.total} (${taskCounts.completed} hoan thanh)`, col1, yPos + 22)
+            pdf.text(`Ty le: ${stats.completionRate}%`, col2, yPos + 22)
+            pdf.text(`Qua han: ${stats.overdueTasks}`, col1, yPos + 28)
+            pdf.text(`Tai lieu: ${stats.totalDocuments} | Nhom: ${stats.totalGroups}`, col2, yPos + 28)
+            
+            yPos += 45
+
+            // PROJECT TABLE
+            checkPageBreak(30)
+            pdf.setFontSize(14)
+            pdf.setTextColor(30, 30, 30)
+            pdf.text('CHI TIET DU AN', margin, yPos)
+            yPos += 8
+
+            // Table header
+            const rowHeight = 7
+            const colWidths = [12, 55, 35, 20, 20, 28]
+            const colX = [margin]
+            for (let i = 1; i < colWidths.length; i++) {
+                colX[i] = colX[i-1] + colWidths[i-1]
+            }
+
+            pdf.setFillColor(40, 86, 255)
+            pdf.rect(margin, yPos, pageWidth - 2 * margin, rowHeight, 'F')
+            
+            pdf.setFontSize(9)
+            pdf.setTextColor(255, 255, 255)
+            pdf.text('STT', colX[0] + 2, yPos + 5)
+            pdf.text('TEN DU AN', colX[1] + 2, yPos + 5)
+            pdf.text('QUAN LY', colX[2] + 2, yPos + 5)
+            pdf.text('TIEN DO', colX[3] + 2, yPos + 5)
+            pdf.text('TASKS', colX[4] + 2, yPos + 5)
+            pdf.text('TRANG THAI', colX[5] + 2, yPos + 5)
+            yPos += rowHeight
+
+            // Table rows
+            pdf.setFontSize(8)
+            pdf.setTextColor(50, 50, 50)
+
+            const statusMap: { [key: string]: string } = {
+                'da_hoan_thanh': 'Hoan thanh',
+                'dang_chay': 'Dang chay',
+                'chua_bat_dau': 'Chua BD',
+                'da_dong': 'Da dong'
+            }
+
+            tableData.slice(0, 30).forEach((row, index) => {
+                checkPageBreak(rowHeight + 5)
+                
+                // Alternating background
+                if (index % 2 === 0) {
+                    pdf.setFillColor(250, 250, 250)
+                    pdf.rect(margin, yPos, pageWidth - 2 * margin, rowHeight, 'F')
+                }
+
+                const projectName = toSafeText(row.project).substring(0, 28)
+                const managerName = toSafeText(row.manager).substring(0, 16)
+                const status = statusMap[row.status] || toSafeText(row.status).substring(0, 12)
+
+                pdf.setTextColor(50, 50, 50)
+                pdf.text((index + 1).toString(), colX[0] + 2, yPos + 5)
+                pdf.text(projectName, colX[1] + 2, yPos + 5)
+                pdf.text(managerName, colX[2] + 2, yPos + 5)
+                
+                // Color-coded progress
+                const progressColor = row.progress >= 80 ? [34, 197, 94] : 
+                                    row.progress >= 50 ? [59, 130, 246] : 
+                                    row.progress >= 30 ? [251, 191, 36] : [239, 68, 68]
+                pdf.setTextColor(progressColor[0], progressColor[1], progressColor[2])
+                pdf.text(`${row.progress}%`, colX[3] + 2, yPos + 5)
+                
+                pdf.setTextColor(50, 50, 50)
+                pdf.text(`${row.completed}/${row.tasks}`, colX[4] + 2, yPos + 5)
+                pdf.text(status, colX[5] + 2, yPos + 5)
+                
+                yPos += rowHeight
             })
 
-            const imgData = canvas.toDataURL('image/png')
-            const pdf = new jsPDF('p', 'mm', 'a4')
-            const pdfWidth = pdf.internal.pageSize.getWidth()
-            const pdfHeight = pdf.internal.pageSize.getHeight()
-            const imgWidth = canvas.width
-            const imgHeight = canvas.height
-            const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight)
-            const imgX = (pdfWidth - imgWidth * ratio) / 2
-            const imgY = 10
+            // TOP PERFORMERS
+            if (topPerformers.length > 0) {
+                yPos += 10
+                checkPageBreak(40)
+                
+                pdf.setFontSize(12)
+                pdf.setTextColor(30, 30, 30)
+                pdf.text('TOP NHAN VIEN XUAT SAC', margin, yPos + 2)
+                yPos += 10
 
-            pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio)
-            
+                // Top performers header
+                pdf.setFillColor(255, 243, 205)
+                pdf.rect(margin, yPos, pageWidth - 2 * margin, rowHeight, 'F')
+                
+                pdf.setFontSize(9)
+                pdf.setTextColor(40, 40, 40)
+                pdf.text('HANG', margin + 5, yPos + 5)
+                pdf.text('TEN NHAN VIEN', margin + 25, yPos + 5)
+                pdf.text('TASKS', margin + 100, yPos + 5)
+                pdf.text('DANH GIA', margin + 130, yPos + 5)
+                yPos += rowHeight
+
+                pdf.setFontSize(8)
+                pdf.setTextColor(60, 60, 60)
+                
+                topPerformers.slice(0, 10).forEach((performer, index) => {
+                    checkPageBreak(6)
+                    const cleanName = toSafeText(performer.name).substring(0, 28)
+                    const rating = index === 0 ? 'Xuat sac nhat' : index < 3 ? 'Xuat sac' : 'Tot'
+                    
+                    pdf.setTextColor(60, 60, 60)
+                    pdf.text(`${index + 1}`, margin + 5, yPos + 4)
+                    pdf.text(cleanName, margin + 25, yPos + 4)
+                    pdf.text(performer.tasks.toString(), margin + 100, yPos + 4)
+                    pdf.text(rating, margin + 130, yPos + 4)
+                    yPos += 5
+                })
+            }
+
+            // FOOTER on all pages
+            const pageCount = (pdf as any).internal.getNumberOfPages()
+            for (let i = 1; i <= pageCount; i++) {
+                pdf.setPage(i)
+                pdf.setFillColor(248, 249, 250)
+                pdf.rect(0, pageHeight - 12, pageWidth, 12, 'F')
+                
+                pdf.setFontSize(8)
+                pdf.setTextColor(120, 120, 120)
+                pdf.text('He thong quan ly cong viec', margin, pageHeight - 6)
+                
+                const pageText = `Trang ${i}/${pageCount}`
+                pdf.text(pageText, pageWidth - margin - pdf.getTextWidth(pageText), pageHeight - 6)
+            }
+
+            // Save PDF
             const date = new Date().toISOString().split('T')[0]
-            pdf.save(`Bao_cao_du_an_${date}.pdf`)
+            const time = new Date().toTimeString().slice(0, 5).replace(':', '')
+            pdf.save(`Bao_cao_tong_quan_${date}_${time}.pdf`)
+
         } catch (error) {
-            console.error("Export PDF error:", error)
-            alert("Có lỗi khi xuất file PDF")
+            console.error('Export PDF error:', error)
+            alert('Co loi khi xuat file PDF: ' + ((error as any)?.message || String(error)))
+        } finally {
+            setExportingPdf(false)
         }
     }
 
-    const handlePrint = () => {
-        window.print()
-    }
-
-    const handleRefresh = () => {
-        loadReportData()
+    const handleRefresh = async () => {
+        setLoading(true)
+        try {
+            await loadInitialData()
+        } catch (err) {
+            console.error('Refresh error:', err)
+        } finally {
+            setLoading(false)
+        }
     }
 
     const handleSort = (field: string) => {
@@ -455,10 +1089,21 @@ export default function ReportsPage() {
     const totalPages = Math.ceil(filteredAndSortedData.length / itemsPerPage)
 
     const getStatusColor = (status: string) => {
-        const statusLower = status.toLowerCase()
-        if (['completed', 'hoàn thành'].includes(statusLower)) return 'bg-green-100 text-green-700'
-        if (['inprogress', 'đang thực hiện'].includes(statusLower)) return 'bg-blue-100 text-blue-700'
+        const statusLower = (status || '').toString().toLowerCase()
+        // Project status từ DB: chua_bat_dau, dang_chay, da_hoan_thanh, da_dong
+        if (statusLower === 'da_hoan_thanh' || statusLower === 'da_dong') return 'bg-green-100 text-green-700'
+        if (statusLower === 'dang_chay') return 'bg-blue-100 text-blue-700'
+        if (statusLower === 'chua_bat_dau') return 'bg-gray-100 text-gray-700'
         return 'bg-gray-100 text-gray-700'
+    }
+
+    const getStatusLabel = (status: string) => {
+        const statusLower = (status || '').toString().toLowerCase()
+        if (statusLower === 'da_hoan_thanh') return 'Hoàn thành'
+        if (statusLower === 'da_dong') return 'Đã đóng'
+        if (statusLower === 'dang_chay') return 'Đang chạy'
+        if (statusLower === 'chua_bat_dau') return 'Chưa bắt đầu'
+        return status
     }
 
     const getProgressColor = (progress: number) => {
@@ -470,22 +1115,55 @@ export default function ReportsPage() {
 
     const statCards = [
         {
-            title: "Tổng dự án",
-            value: stats.totalProjects,
-            change: "+3 tuần này",
             icon: FolderKanban,
-            color: "from-blue-500 to-indigo-600",
+            title: "Tổng dự án",
+            variant: 'large',
+            main: stats.totalProjects,
+            breakdown: (
+                <div className="text-sm text-muted-foreground">
+                    <div>Hoàn thành: <b>{stats.completedProjects}</b></div>
+                    <div>Chưa bắt đầu: <b>{stats.pendingProjects}</b></div>
+                    <div>Đang thực hiện: <b>{stats.ongoingProjects}</b></div>
+                </div>
+            ),
+            change: `+${stats.completedProjects + stats.pendingProjects + stats.ongoingProjects} tuần này`,
+            color: "from-blue-500 to-cyan-600",
             bgColor: "bg-blue-50",
             textColor: "text-blue-600",
         },
         {
-            title: "Nhiệm vụ hoàn thành",
-            value: stats.completedTasks,
-            change: "+12 tuần này",
+            title: "Công việc (Tasks)",
+            variant: 'large',
             icon: CheckSquare,
-            color: "from-green-500 to-emerald-600",
-            bgColor: "bg-green-50",
-            textColor: "text-green-600",
+            main: taskCounts.total,
+            breakdown: (
+                <div className="text-sm">
+                    <div>Hoàn thành: <span className="font-semibold">{taskCounts.completed}</span></div>
+                    <div>Đang chạy: <span className="font-semibold">{taskCounts.ongoing}</span></div>
+                    <div>Chưa bắt đầu: <span className="font-semibold">{taskCounts.pending}</span></div>
+                </div>
+            ),
+            change: "Tổng: " + taskCounts.total,
+            color: "from-emerald-500 to-green-600",
+            bgColor: "bg-emerald-50",
+            textColor: "text-emerald-600",
+        },
+        {
+            title: "Subtasks",
+            variant: 'large',
+            icon: CheckSquare,
+            main: subtaskCounts.total,
+            breakdown: (
+                <div className="text-sm">
+                    <div>Hoàn thành: <span className="font-semibold">{subtaskCounts.completed}</span></div>
+                    <div>Đang chạy: <span className="font-semibold">{subtaskCounts.ongoing}</span></div>
+                    <div>Chưa bắt đầu: <span className="font-semibold">{subtaskCounts.pending}</span></div>
+                </div>
+            ),
+            change: "Tổng: " + subtaskCounts.total,
+            color: "from-cyan-500 to-blue-600",
+            bgColor: "bg-cyan-50",
+            textColor: "text-cyan-600",
         },
         {
             title: "Nhân viên hoạt động",
@@ -515,31 +1193,31 @@ export default function ReportsPage() {
             textColor: "text-red-600",
         },
         {
-            title: "Thời gian TB hoàn thành",
-            value: `${stats.avgCompletionTime} ngày`,
-            change: "-2 ngày so với tháng trước",
+            title: "Tổng giờ làm việc",
+            value: `${stats.totalHoursLogged}h`,
+            change: `Trung bình: ${stats.avgHoursPerUser}h/người`,
             icon: Clock,
-            color: "from-cyan-500 to-blue-600",
-            bgColor: "bg-cyan-50",
-            textColor: "text-cyan-600",
+            color: "from-teal-500 to-cyan-600",
+            bgColor: "bg-teal-50",
+            textColor: "text-teal-600",
         },
         {
-            title: "Dự án có rủi ro",
-            value: stats.riskProjects,
-            change: stats.riskProjects > 0 ? "Cần theo dõi" : "An toàn",
-            icon: AlertTriangle,
+            title: "Tài liệu",
+            value: stats.totalDocuments,
+            change: `TB: ${stats.documentsPerProject} tài liệu/dự án`,
+            icon: FileText,
             color: "from-yellow-500 to-orange-600",
             bgColor: "bg-yellow-50",
             textColor: "text-yellow-600",
         },
         {
-            title: "Tasks đang thực hiện",
-            value: stats.ongoingTasks,
-            change: `${Math.round((stats.ongoingTasks / (stats.completedTasks + stats.ongoingTasks)) * 100)}% tổng tasks`,
-            icon: BarChart3,
-            color: "from-indigo-500 to-purple-600",
-            bgColor: "bg-indigo-50",
-            textColor: "text-indigo-600",
+            title: "Nhóm làm việc",
+            value: stats.totalGroups,
+            change: `${stats.activeGroups} nhóm đang hoạt động`,
+            icon: Briefcase,
+            color: "from-violet-500 to-purple-600",
+            bgColor: "bg-violet-50",
+            textColor: "text-violet-600",
         },
     ]
 
@@ -567,16 +1245,39 @@ export default function ReportsPage() {
 
     return (
         <div className="space-y-6" ref={printRef}>
+            {/* Add print-specific styles */}
+            <style jsx global>{`
+                @media print {
+                    * {
+                        print-color-adjust: exact !important;
+                        -webkit-print-color-adjust: exact !important;
+                    }
+                    .print\\:hidden {
+                        display: none !important;
+                    }
+                    .print\\:text-black {
+                        color: #000 !important;
+                    }
+                    .print\\:bg-white {
+                        background-color: #fff !important;
+                    }
+                    .print\\:border-gray {
+                        border-color: #e5e7eb !important;
+                    }
+                }
+            `}</style>
+            
+            {/* Debug panel removed */}
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-4xl font-bold text-foreground mb-2 flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                    <h1 className="text-4xl font-bold text-foreground mb-2 flex items-center gap-3 print:text-black">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20 print:bg-blue-600">
                             <BarChart3 className="w-6 h-6 text-white" />
                         </div>
                         Báo cáo & Thống kê
                     </h1>
-                    <p className="text-muted-foreground">Tổng quan và phân tích dữ liệu hệ thống</p>
+                    <p className="text-muted-foreground print:text-gray-600">Tổng quan và phân tích dữ liệu hệ thống</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <button
@@ -588,13 +1289,6 @@ export default function ReportsPage() {
                         Làm mới
                     </button>
                     <button
-                        onClick={handlePrint}
-                        className="px-4 py-2 border border-border rounded-lg hover:bg-secondary transition-colors flex items-center gap-2 print:hidden"
-                    >
-                        <Printer className="w-4 h-4" />
-                        In
-                    </button>
-                    <button
                         onClick={handleExportExcel}
                         className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2 print:hidden"
                     >
@@ -603,139 +1297,188 @@ export default function ReportsPage() {
                     </button>
                     <button
                         onClick={handleExportPDF}
-                        className="px-4 py-2 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2 print:hidden"
+                        disabled={exportingPdf}
+                        className="px-4 py-2 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2 print:hidden disabled:opacity-50"
                     >
-                        <Download className="w-4 h-4" />
-                        Xuất PDF
+                        {exportingPdf ? (
+                            <>
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                                Đang xuất...
+                            </>
+                        ) : (
+                            <>
+                                <Download className="w-4 h-4" />
+                                Xuất PDF
+                            </>
+                        )}
                     </button>
                 </div>
             </div>
 
             {/* Filters */}
             <div className="bg-card border border-border rounded-2xl p-6 shadow-sm print:hidden">
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                        <Filter className="w-5 h-5 text-muted-foreground" />
-                        <h2 className="text-lg font-semibold text-foreground">Bộ lọc</h2>
+                <form onSubmit={handleSubmitFilter}>
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                            <Filter className="w-5 h-5 text-muted-foreground" />
+                            <h2 className="text-lg font-semibold text-foreground">Bộ lọc</h2>
+                        </div>
+                        {/* Preset Filters */}
+                        <div className="flex gap-2">
+                            <button
+                                type="button"
+                                onClick={() => applyPresetFilter('thisMonth')}
+                                className={`px-3 py-1 rounded-lg text-sm transition-colors ${
+                                    filters.preset === 'thisMonth' 
+                                        ? 'bg-blue-500 text-white' 
+                                        : 'bg-secondary hover:bg-secondary/80'
+                                }`}
+                            >
+                                Tháng này
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => applyPresetFilter('thisQuarter')}
+                                className={`px-3 py-1 rounded-lg text-sm transition-colors ${
+                                    filters.preset === 'thisQuarter' 
+                                        ? 'bg-blue-500 text-white' 
+                                        : 'bg-secondary hover:bg-secondary/80'
+                                }`}
+                            >
+                                Quý này
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => applyPresetFilter('thisYear')}
+                                className={`px-3 py-1 rounded-lg text-sm transition-colors ${
+                                    filters.preset === 'thisYear' 
+                                        ? 'bg-blue-500 text-white' 
+                                        : 'bg-secondary hover:bg-secondary/80'
+                                }`}
+                            >
+                                Năm này
+                            </button>
+                        </div>
                     </div>
-                    {/* Preset Filters */}
-                    <div className="flex gap-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-foreground mb-2">Từ ngày</label>
+                            <input
+                                type="date"
+                                name="startDate"
+                                value={filters.startDate}
+                                onChange={handleFilterChange}
+                                className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-foreground mb-2">Đến ngày</label>
+                            <input
+                                type="date"
+                                name="endDate"
+                                value={filters.endDate}
+                                onChange={handleFilterChange}
+                                className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-foreground mb-2">Dự án</label>
+                            <select
+                                name="projectId"
+                                value={filters.projectId}
+                                onChange={handleFilterChange}
+                                className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            >
+                                <option value="">Tất cả</option>
+                                {projects.map((project) => (
+                                    <option key={project.id} value={project.id}>
+                                        {project.tenduan || project.ten || `Dự án ${project.id}`}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-foreground mb-2">Trạng thái</label>
+                            <select
+                                name="status"
+                                value={filters.status}
+                                onChange={handleFilterChange}
+                                className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            >
+                                <option value="">Tất cả</option>
+                                <option value="completed">Hoàn thành</option>
+                                <option value="ongoing">Đang thực hiện</option>
+                                <option value="pending">Chưa bắt đầu</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-foreground mb-2">Nhân viên</label>
+                            <select
+                                name="userId"
+                                value={filters.userId}
+                                onChange={handleFilterChange}
+                                className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            >
+                                <option value="">Tất cả</option>
+                                {users.map((user) => (
+                                    <option key={user.id} value={user.id}>
+                                        {user.hoten || user.manv || `User ${user.id}`}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                    <div className="flex gap-3 mt-6">
                         <button
-                            onClick={() => setFilters({ ...filters, preset: 'today' })}
-                            className={`px-3 py-1 rounded-lg text-sm transition-colors ${
-                                filters.preset === 'today' 
-                                    ? 'bg-blue-500 text-white' 
-                                    : 'bg-secondary hover:bg-secondary/80'
-                            }`}
+                            type="submit"
+                            className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold"
                         >
-                            Hôm nay
+                            Lọc
                         </button>
                         <button
-                            onClick={() => setFilters({ ...filters, preset: 'thisWeek' })}
-                            className={`px-3 py-1 rounded-lg text-sm transition-colors ${
-                                filters.preset === 'thisWeek' 
-                                    ? 'bg-blue-500 text-white' 
-                                    : 'bg-secondary hover:bg-secondary/80'
-                            }`}
+                            type="button"
+                            onClick={handleResetFilter}
+                            className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-semibold"
                         >
-                            Tuần này
-                        </button>
-                        <button
-                            onClick={() => setFilters({ ...filters, preset: 'thisMonth' })}
-                            className={`px-3 py-1 rounded-lg text-sm transition-colors ${
-                                filters.preset === 'thisMonth' 
-                                    ? 'bg-blue-500 text-white' 
-                                    : 'bg-secondary hover:bg-secondary/80'
-                            }`}
-                        >
-                            Tháng này
-                        </button>
-                        <button
-                            onClick={() => setFilters({ ...filters, preset: 'thisYear' })}
-                            className={`px-3 py-1 rounded-lg text-sm transition-colors ${
-                                filters.preset === 'thisYear' 
-                                    ? 'bg-blue-500 text-white' 
-                                    : 'bg-secondary hover:bg-secondary/80'
-                            }`}
-                        >
-                            Năm này
+                            Hủy lọc
                         </button>
                     </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-foreground mb-2">Từ ngày</label>
-                        <input
-                            type="date"
-                            name="startDate"
-                            value={filters.startDate}
-                            onChange={handleFilterChange}
-                            className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-foreground mb-2">Đến ngày</label>
-                        <input
-                            type="date"
-                            name="endDate"
-                            value={filters.endDate}
-                            onChange={handleFilterChange}
-                            className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-foreground mb-2">Dự án</label>
-                        <select
-                            name="projectId"
-                            value={filters.projectId}
-                            onChange={handleFilterChange}
-                            className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        >
-                            <option value="">Tất cả</option>
-                            {projects.map((project) => (
-                                <option key={project.id} value={project.id}>
-                                    {project.tenduan || project.ten || `Dự án ${project.id}`}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-foreground mb-2">Trạng thái</label>
-                        <select
-                            name="status"
-                            value={filters.status}
-                            onChange={handleFilterChange}
-                            className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        >
-                            <option value="">Tất cả</option>
-                            <option value="completed">Hoàn thành</option>
-                            <option value="ongoing">Đang thực hiện</option>
-                            <option value="pending">Chưa bắt đầu</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-foreground mb-2">Nhân viên</label>
-                        <select
-                            name="userId"
-                            value={filters.userId}
-                            onChange={handleFilterChange}
-                            className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        >
-                            <option value="">Tất cả</option>
-                            {users.map((user) => (
-                                <option key={user.id} value={user.id}>
-                                    {user.hoten || user.manv || `User ${user.id}`}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                </div>
+                </form>
             </div>
 
             {/* Stats Cards - 8 cards in 4x2 grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {statCards.map((stat, index) => {
+                {statCards.map((stat: any, index: number) => {
                     const Icon = stat.icon
+                    // Large variant: render a wider, two-column style card
+                    if (stat.variant === 'large') {
+                        return (
+                            <div
+                                key={index}
+                                className="relative group overflow-hidden bg-card border border-border rounded-2xl p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 shadow-sm lg:col-span-2"
+                            >
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center shadow-md`}>
+                                        <Icon className="w-7 h-7 text-white" />
+                                    </div>
+                                    <div className="flex items-center gap-1 text-[#0084CF] text-sm font-medium">
+                                        <TrendingUp size={16} />
+                                        {stat.change}
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between gap-6">
+                                    <div>
+                                        <p className="text-muted-foreground text-sm mb-1">{stat.title}</p>
+                                        <div className="text-4xl font-extrabold text-foreground">{stat.main ?? stat.value}</div>
+                                    </div>
+                                    <div className="ml-4">{stat.breakdown ?? stat.value}</div>
+                                </div>
+                            </div>
+                        )
+                    }
+
+                    // Default small card
                     return (
                         <div
                             key={index}
@@ -754,7 +1497,7 @@ export default function ReportsPage() {
                             </div>
                             <div>
                                 <p className="text-muted-foreground text-sm mb-1">{stat.title}</p>
-                                <p className="text-3xl font-bold text-foreground">{stat.value}</p>
+                                <div className="text-3xl font-bold text-foreground">{stat.value ?? stat.main}</div>
                             </div>
                         </div>
                     )
@@ -769,27 +1512,31 @@ export default function ReportsPage() {
                         <PieChart className="w-5 h-5 text-blue-500" />
                         <h2 className="text-xl font-bold text-foreground">Trạng thái dự án</h2>
                     </div>
-                    <ResponsiveContainer width="100%" height={250}>
-                        <RechartsPie>
-                            <Pie
-                                data={chartData.projectStatus}
-                                cx="50%"
-                                cy="50%"
-                                labelLine={false}
-                                label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                outerRadius={80}
-                                fill="#8884d8"
-                                dataKey="value"
-                            >
-                                {chartData.projectStatus.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
-                                ))}
-                            </Pie>
-                            <RechartsTooltip />
-                        </RechartsPie>
-                    </ResponsiveContainer>
+                        {(!chartData.projectStatus || chartData.projectStatus.reduce((s:any, i:any) => s + (i.value || 0), 0) === 0) ? (
+                            <EmptyState message="Không có dự án trong phạm vi lọc này" />
+                        ) : (
+                            <ResponsiveContainer width="100%" height={250}>
+                                <RechartsPie>
+                                    <Pie
+                                        data={chartData.projectStatus}
+                                        cx="50%"
+                                        cy="50%"
+                                        label={false}
+                                        labelLine={false}
+                                        outerRadius={80}
+                                        fill="#8884d8"
+                                        dataKey="value"
+                                    >
+                                        {chartData.projectStatus.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.color} />
+                                        ))}
+                                    </Pie>
+                                    <RechartsTooltip formatter={(value: any) => [value, 'Số dự án']} />
+                                </RechartsPie>
+                            </ResponsiveContainer>
+                        )}
                     <div className="mt-4 space-y-2">
-                        {chartData.projectStatus.map((item, index) => (
+                        {chartData.projectStatus.map((item: any, index: number) => (
                             <div key={index} className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
@@ -818,6 +1565,10 @@ export default function ReportsPage() {
                                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
                                     <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
                                 </linearGradient>
+                                <linearGradient id="colorOverdue" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.7}/>
+                                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                                </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                             <XAxis dataKey="month" stroke="#6b7280" fontSize={12} />
@@ -831,6 +1582,8 @@ export default function ReportsPage() {
                             />
                             <Area type="monotone" dataKey="completed" stroke="#10b981" fillOpacity={1} fill="url(#colorCompleted)" name="Hoàn thành" />
                             <Area type="monotone" dataKey="ongoing" stroke="#3b82f6" fillOpacity={1} fill="url(#colorOngoing)" name="Đang thực hiện" />
+                            <Area type="monotone" dataKey="overdue" stroke="#ef4444" fillOpacity={0.6} fill="url(#colorOverdue)" name="Quá hạn" />
+                            <Legend verticalAlign="top" align="right" />
                         </AreaChart>
                     </ResponsiveContainer>
                 </div>
@@ -853,10 +1606,63 @@ export default function ReportsPage() {
                                     borderRadius: '8px' 
                                 }} 
                             />
+                            <Legend />
                             <Bar dataKey="tasks" fill="#8b5cf6" radius={[8, 8, 0, 0]} name="Tasks hoàn thành" />
                         </RechartsBar>
                     </ResponsiveContainer>
                 </div>
+
+                {/* Stacked chart: status breakdown per project */}
+                <div className="bg-card border border-border rounded-2xl p-6 shadow-sm lg:col-span-2">
+                    <div className="flex items-center gap-2 mb-6">
+                        <BarChart3 className="w-5 h-5 text-indigo-500" />
+                        <h2 className="text-xl font-bold text-foreground">Trạng thái theo dự án</h2>
+                    </div>
+                    {(!chartData.projectByStatus || chartData.projectByStatus.length === 0) ? (
+                        <EmptyState message="Không có dự án hoặc không có tasks để hiển thị phân tích theo dự án." />
+                    ) : (
+                        <ResponsiveContainer width="100%" height={420}>
+                            <RechartsBar data={chartData.projectByStatus} margin={{ top: 10, right: 20, left: 0, bottom: 120 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis dataKey="project" stroke="#6b7280" fontSize={12} angle={-30} textAnchor="end" interval={0} height={110} />
+                                <YAxis stroke="#6b7280" fontSize={12} />
+                                <RechartsTooltip 
+                                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                                />
+                                <Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ width: 220 }} />
+                                <Bar dataKey="completed" stackId="a" fill="#10b981" name="Hoàn thành" />
+                                <Bar dataKey="ongoing" stackId="a" fill="#3b82f6" name="Đang thực hiện" />
+                                <Bar dataKey="pending" stackId="a" fill="#f59e0b" name="Chưa bắt đầu" />
+                            </RechartsBar>
+                        </ResponsiveContainer>
+                    )}
+                </div>
+
+                {/* Worklog Hours - Bar Chart */}
+                {chartData.worklogHours && chartData.worklogHours.length > 0 && (
+                    <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
+                        <div className="flex items-center gap-2 mb-6">
+                            <Clock className="w-5 h-5 text-teal-500" />
+                            <h2 className="text-xl font-bold text-foreground">Giờ làm việc theo nhân viên</h2>
+                        </div>
+                        <ResponsiveContainer width="100%" height={250}>
+                            <RechartsBar data={chartData.worklogHours}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis dataKey="name" stroke="#6b7280" fontSize={10} angle={-20} textAnchor="end" height={80} />
+                                <YAxis stroke="#6b7280" fontSize={12} />
+                                <RechartsTooltip 
+                                    contentStyle={{ 
+                                        backgroundColor: '#fff', 
+                                        border: '1px solid #e5e7eb',
+                                        borderRadius: '8px' 
+                                    }} 
+                                />
+                                <Legend />
+                                <Bar dataKey="hours" fill="#14b8a6" radius={[8, 8, 0, 0]} name="Giờ làm việc" />
+                            </RechartsBar>
+                        </ResponsiveContainer>
+                    </div>
+                )}
             </div>
 
             {/* Top Performers List */}
@@ -978,7 +1784,7 @@ export default function ReportsPage() {
                                         <td className="px-4 py-3 text-sm text-muted-foreground">{row.deadline}</td>
                                         <td className="px-4 py-3">
                                             <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(row.status)}`}>
-                                                {row.status}
+                                                {getStatusLabel(row.status)}
                                             </span>
                                         </td>
                                         <td className="px-4 py-3 text-sm text-muted-foreground">{row.manager}</td>

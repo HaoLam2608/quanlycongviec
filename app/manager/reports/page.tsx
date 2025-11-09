@@ -28,6 +28,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToastContext } from "@/components/providers/toast-provider"
 import { fetchProjectsByManager, getTasksByProject } from "@/axios/api"
 import { getUsers } from "@/axios/adminApi"
+import {
+    PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip,
+    BarChart as RechartsBar, Bar, XAxis, YAxis, CartesianGrid, Legend,
+    LineChart as RechartsLine, Line, AreaChart, Area, RadarChart, PolarGrid, 
+    PolarAngleAxis, PolarRadiusAxis, Radar
+} from "recharts"
+import * as XLSX from 'xlsx'
 
 interface Project {
     id: number
@@ -86,20 +93,27 @@ export default function ManagerReportsPage() {
     const loadReportData = async () => {
         try {
             setLoading(true)
+            const userId = localStorage.getItem('userId')
             const manv = localStorage.getItem('manv')
-            if (!manv) {
+            
+            if (!userId && !manv) {
                 showError('Không tìm thấy thông tin người dùng')
                 return
             }
 
             // Load projects
-            const projRes = await fetchProjectsByManager(manv)
-            const projectsList = (projRes.projects || projRes || []) as Project[]
-            setProjects(projectsList)
+            const managerId = userId || manv || ''
+            const projRes = await fetchProjectsByManager(managerId)
+            const projectsList = (projRes.duans || projRes.projects || projRes || []) as Project[]
+            console.log('📦 Projects loaded:', projectsList.length)
+            
+            // Filter projects by date range
+            const filteredProjects = filterByDateRange(projectsList)
+            setProjects(filteredProjects)
 
             // Load all tasks from all projects
             let allTasks: Task[] = []
-            for (const proj of projectsList) {
+            for (const proj of filteredProjects) {
                 try {
                     const taskRes = await getTasksByProject(proj.id)
                     const projectTasks = (taskRes.tasks || taskRes || []) as Task[]
@@ -108,6 +122,7 @@ export default function ManagerReportsPage() {
                     // ignore
                 }
             }
+            console.log('📋 Tasks loaded:', allTasks.length)
             setTasks(allTasks)
 
             // Load users
@@ -120,6 +135,130 @@ export default function ManagerReportsPage() {
             showError(err?.message || 'Không thể tải dữ liệu báo cáo')
         } finally {
             setLoading(false)
+        }
+    }
+
+    const filterByDateRange = (data: Project[]) => {
+        const now = new Date()
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+        switch (dateRange) {
+            case 'thisWeek':
+                const weekStart = new Date(today)
+                weekStart.setDate(today.getDate() - today.getDay())
+                return data.filter(item => {
+                    const itemDate = item.ngayBatDau ? new Date(item.ngayBatDau) : null
+                    return itemDate && itemDate >= weekStart
+                })
+
+            case 'thisMonth':
+                const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+                return data.filter(item => {
+                    const itemDate = item.ngayBatDau ? new Date(item.ngayBatDau) : null
+                    return itemDate && itemDate >= monthStart
+                })
+
+            case 'thisQuarter':
+                const quarterMonth = Math.floor(now.getMonth() / 3) * 3
+                const quarterStart = new Date(now.getFullYear(), quarterMonth, 1)
+                return data.filter(item => {
+                    const itemDate = item.ngayBatDau ? new Date(item.ngayBatDau) : null
+                    return itemDate && itemDate >= quarterStart
+                })
+
+            case 'thisYear':
+                const yearStart = new Date(now.getFullYear(), 0, 1)
+                return data.filter(item => {
+                    const itemDate = item.ngayBatDau ? new Date(item.ngayBatDau) : null
+                    return itemDate && itemDate >= yearStart
+                })
+
+            case 'all':
+            default:
+                return data
+        }
+    }
+
+    const handleExportExcel = () => {
+        try {
+            // Create workbook
+            const wb = XLSX.utils.book_new()
+
+            // Sheet 1: Tổng quan
+            const overviewData = [
+                ['BÁO CÁO TỔNG QUAN DỰ ÁN'],
+                [`Ngày xuất: ${new Date().toLocaleDateString('vi-VN')}`],
+                [`Thời gian: ${new Date().toLocaleTimeString('vi-VN')}`],
+                [''],
+                ['THỐNG KÊ TỔNG HỢP'],
+                ['Chỉ số', 'Giá trị'],
+                ['Tổng dự án', totalStats.totalProjects],
+                ['Dự án hoàn thành', totalStats.completedProjects],
+                ['Dự án đang thực hiện', totalStats.inProgressProjects],
+                ['Dự án trễ tiến độ', totalStats.delayedProjects],
+                [''],
+                ['Tổng nhiệm vụ', totalStats.totalTasks],
+                ['Nhiệm vụ hoàn thành', totalStats.completedTasks],
+                ['Nhiệm vụ đang thực hiện', totalStats.inProgressTasks],
+                ['Nhiệm vụ chưa bắt đầu', totalStats.pendingTasks],
+                [''],
+                ['Tổng nhân sự', totalStats.totalTeamMembers],
+                ['Hiệu suất trung bình', `${totalStats.avgEfficiency}%`],
+                ['Tỷ lệ hoàn thành', `${completionRate}%`],
+            ]
+            const wsOverview = XLSX.utils.aoa_to_sheet(overviewData)
+            wsOverview['!cols'] = [{ wch: 30 }, { wch: 20 }]
+            XLSX.utils.book_append_sheet(wb, wsOverview, 'Tổng quan')
+
+            // Sheet 2: Chi tiết dự án
+            const projectData = projectsWithStats.map((p, index) => ({
+                'STT': index + 1,
+                'Tên dự án': p.tenduan,
+                'Mô tả': p.mota || '',
+                'Tiến độ (%)': p.progress,
+                'Tổng nhiệm vụ': p.totalTasks,
+                'Hoàn thành': p.completedTasks,
+                'Đang thực hiện': p.inProgressTasks,
+                'Chưa bắt đầu': p.pendingTasks,
+                'Ngày bắt đầu': p.ngayBatDau ? new Date(p.ngayBatDau).toLocaleDateString('vi-VN') : '',
+                'Ngày kết thúc': p.ngayKetThuc ? new Date(p.ngayKetThuc).toLocaleDateString('vi-VN') : '',
+                'Trạng thái': p.status,
+            }))
+            const wsProjects = XLSX.utils.json_to_sheet(projectData)
+            wsProjects['!cols'] = [
+                { wch: 5 }, { wch: 30 }, { wch: 40 }, { wch: 10 }, { wch: 12 },
+                { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 15 }
+            ]
+            XLSX.utils.book_append_sheet(wb, wsProjects, 'Chi tiết dự án')
+
+            // Sheet 3: Hiệu suất nhân sự
+            const teamData = usersWithStats.map((u, index) => ({
+                'STT': index + 1,
+                'Họ tên': u.hoten,
+                'Mã NV': u.manv,
+                'Email': u.email || '',
+                'Tổng nhiệm vụ': u.totalTasks,
+                'Hoàn thành': u.completedTasks,
+                'Đang thực hiện': u.inProgressTasks,
+                'Hiệu suất (%)': u.efficiency,
+                'Khối lượng công việc': u.workload,
+            }))
+            const wsTeam = XLSX.utils.json_to_sheet(teamData)
+            wsTeam['!cols'] = [
+                { wch: 5 }, { wch: 25 }, { wch: 12 }, { wch: 25 },
+                { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 18 }
+            ]
+            XLSX.utils.book_append_sheet(wb, wsTeam, 'Hiệu suất nhân sự')
+
+            // Save file
+            const date = new Date().toISOString().split('T')[0]
+            const time = new Date().toTimeString().slice(0, 5).replace(':', '')
+            XLSX.writeFile(wb, `Bao_cao_quan_ly_${date}_${time}.xlsx`)
+            
+            showError('Xuất file Excel thành công!')
+        } catch (error) {
+            console.error('Export Excel error:', error)
+            showError('Có lỗi khi xuất file Excel')
         }
     }
 
@@ -287,7 +426,10 @@ export default function ManagerReportsPage() {
                                 </SelectContent>
                             </Select>
 
-                            <Button className="bg-green-600 hover:bg-green-700 gap-2">
+                            <Button 
+                                onClick={handleExportExcel}
+                                className="bg-green-600 hover:bg-green-700 gap-2"
+                            >
                                 <Download className="w-4 h-4" />
                                 Xuất Excel
                             </Button>
@@ -359,98 +501,208 @@ export default function ManagerReportsPage() {
 
                         {/* Charts Section */}
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-                            {/* Project Status Distribution */}
+                            {/* Project Status Pie Chart */}
                             <Card className="p-6 bg-white shadow-lg border-slate-200">
-                                <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
+                                <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
                                     <PieChart className="w-5 h-5 text-[#003D82]" />
                                     Phân bổ trạng thái dự án
                                 </h3>
-                                <div className="space-y-4">
-                                    <div className="flex items-center justify-between p-3 rounded-lg bg-green-50 hover:bg-green-100 transition-colors">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
-                                                <CheckCircle className="w-6 h-6 text-white" />
-                                            </div>
-                                            <span className="font-medium text-slate-900">Hoàn thành</span>
-                                        </div>
-                                        <div className="text-right">
-                                            <span className="text-2xl font-bold text-green-700">{totalStats.completedProjects}</span>
-                                            <p className="text-xs text-slate-500">dự án</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50 hover:bg-blue-100 transition-colors">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
-                                                <PlayCircle className="w-6 h-6 text-white" />
-                                            </div>
-                                            <span className="font-medium text-slate-900">Đang thực hiện</span>
-                                        </div>
-                                        <div className="text-right">
-                                            <span className="text-2xl font-bold text-blue-700">{totalStats.inProgressProjects}</span>
-                                            <p className="text-xs text-slate-500">dự án</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center justify-between p-3 rounded-lg bg-red-50 hover:bg-red-100 transition-colors">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center">
-                                                <AlertTriangle className="w-6 h-6 text-white" />
-                                            </div>
-                                            <span className="font-medium text-slate-900">Trễ tiến độ</span>
-                                        </div>
-                                        <div className="text-right">
-                                            <span className="text-2xl font-bold text-red-700">{totalStats.delayedProjects}</span>
-                                            <p className="text-xs text-slate-500">dự án</p>
-                                        </div>
-                                    </div>
+                                <div className="flex items-center justify-center">
+                                    <ResponsiveContainer width="100%" height={280}>
+                                        <RechartsPie>
+                                            <Pie
+                                                data={[
+                                                    { name: 'Hoàn thành', value: totalStats.completedProjects, color: '#10b981' },
+                                                    { name: 'Đang thực hiện', value: totalStats.inProgressProjects, color: '#3b82f6' },
+                                                    { name: 'Trễ tiến độ', value: totalStats.delayedProjects, color: '#ef4444' }
+                                                ].filter(item => item.value > 0)}
+                                                cx="50%"
+                                                cy="50%"
+                                                innerRadius={70}
+                                                outerRadius={110}
+                                                paddingAngle={2}
+                                                dataKey="value"
+                                                label={false}
+                                            >
+                                                {[
+                                                    { name: 'Hoàn thành', value: totalStats.completedProjects, color: '#10b981' },
+                                                    { name: 'Đang thực hiện', value: totalStats.inProgressProjects, color: '#3b82f6' },
+                                                    { name: 'Trễ tiến độ', value: totalStats.delayedProjects, color: '#ef4444' }
+                                                ].filter(item => item.value > 0).map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                                ))}
+                                            </Pie>
+                                            <RechartsTooltip 
+                                                formatter={(value: any, name: any) => [value, name]}
+                                                contentStyle={{ 
+                                                    backgroundColor: 'white', 
+                                                    border: '1px solid #e5e7eb',
+                                                    borderRadius: '8px',
+                                                    padding: '8px 12px'
+                                                }}
+                                            />
+                                            <Legend 
+                                                verticalAlign="bottom" 
+                                                height={36}
+                                                formatter={(value: string, entry: any) => {
+                                                    const item = [
+                                                        { name: 'Hoàn thành', value: totalStats.completedProjects },
+                                                        { name: 'Đang thực hiện', value: totalStats.inProgressProjects },
+                                                        { name: 'Trễ tiến độ', value: totalStats.delayedProjects }
+                                                    ].find(i => i.name === value)
+                                                    return `${value}: ${item?.value || 0}`
+                                                }}
+                                            />
+                                        </RechartsPie>
+                                    </ResponsiveContainer>
                                 </div>
                             </Card>
 
-                            {/* Task Status Distribution */}
+                            {/* Task Status Bar Chart */}
                             <Card className="p-6 bg-white shadow-lg border-slate-200">
                                 <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
                                     <BarChart3 className="w-5 h-5 text-[#003D82]" />
                                     Phân bổ nhiệm vụ
                                 </h3>
-                                <div className="space-y-6">
-                                    <div>
-                                        <div className="flex justify-between mb-2">
-                                            <span className="text-sm font-medium text-slate-700">Hoàn thành</span>
-                                            <span className="text-sm font-bold text-green-700">{totalStats.completedTasks} / {totalStats.totalTasks}</span>
-                                        </div>
-                                        <div className="w-full bg-gray-200 rounded-full h-3">
-                                            <div
-                                                className="bg-green-500 h-3 rounded-full transition-all duration-500"
-                                                style={{ width: `${(totalStats.completedTasks / totalStats.totalTasks) * 100}%` }}
-                                            ></div>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div className="flex justify-between mb-2">
-                                            <span className="text-sm font-medium text-slate-700">Đang thực hiện</span>
-                                            <span className="text-sm font-bold text-blue-700">{totalStats.inProgressTasks} / {totalStats.totalTasks}</span>
-                                        </div>
-                                        <div className="w-full bg-gray-200 rounded-full h-3">
-                                            <div
-                                                className="bg-blue-500 h-3 rounded-full transition-all duration-500"
-                                                style={{ width: `${(totalStats.inProgressTasks / totalStats.totalTasks) * 100}%` }}
-                                            ></div>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div className="flex justify-between mb-2">
-                                            <span className="text-sm font-medium text-slate-700">Chưa bắt đầu</span>
-                                            <span className="text-sm font-bold text-gray-700">{totalStats.pendingTasks} / {totalStats.totalTasks}</span>
-                                        </div>
-                                        <div className="w-full bg-gray-200 rounded-full h-3">
-                                            <div
-                                                className="bg-gray-500 h-3 rounded-full transition-all duration-500"
-                                                style={{ width: `${(totalStats.pendingTasks / totalStats.totalTasks) * 100}%` }}
-                                            ></div>
-                                        </div>
-                                    </div>
-                                </div>
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <RechartsBar data={[
+                                        { name: 'Hoàn thành', value: totalStats.completedTasks, color: '#10b981' },
+                                        { name: 'Đang thực hiện', value: totalStats.inProgressTasks, color: '#3b82f6' },
+                                        { name: 'Chưa bắt đầu', value: totalStats.pendingTasks, color: '#6b7280' }
+                                    ]}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                        <XAxis dataKey="name" fontSize={12} />
+                                        <YAxis fontSize={12} />
+                                        <RechartsTooltip />
+                                        <Bar dataKey="value" fill="#3b82f6" radius={[8, 8, 0, 0]}>
+                                            {[
+                                                { name: 'Hoàn thành', value: totalStats.completedTasks, color: '#10b981' },
+                                                { name: 'Đang thực hiện', value: totalStats.inProgressTasks, color: '#3b82f6' },
+                                                { name: 'Chưa bắt đầu', value: totalStats.pendingTasks, color: '#6b7280' }
+                                            ].map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                            ))}
+                                        </Bar>
+                                    </RechartsBar>
+                                </ResponsiveContainer>
                             </Card>
                         </div>
+
+                        {/* Additional Charts */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                            {/* Project Progress Chart */}
+                            <Card className="p-6 bg-white shadow-lg border-slate-200">
+                                <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
+                                    <LineChart className="w-5 h-5 text-[#003D82]" />
+                                    Tiến độ dự án (Top 6)
+                                </h3>
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <RechartsBar data={projectsWithStats.slice(0, 6).map(p => ({
+                                        name: p.tenduan.substring(0, 15) + (p.tenduan.length > 15 ? '...' : ''),
+                                        progress: p.progress
+                                    }))}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                        <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} fontSize={11} />
+                                        <YAxis fontSize={12} domain={[0, 100]} />
+                                        <RechartsTooltip formatter={(value: any) => [`${value}%`, 'Tiến độ']} />
+                                        <Bar dataKey="progress" fill="#3b82f6" radius={[8, 8, 0, 0]}>
+                                            {projectsWithStats.slice(0, 6).map((entry, index) => (
+                                                <Cell 
+                                                    key={`cell-${index}`} 
+                                                    fill={entry.progress === 100 ? '#10b981' : entry.progress >= 70 ? '#3b82f6' : entry.progress >= 40 ? '#f59e0b' : '#ef4444'} 
+                                                />
+                                            ))}
+                                        </Bar>
+                                    </RechartsBar>
+                                </ResponsiveContainer>
+                            </Card>
+
+                            {/* Team Performance Radar Chart */}
+                            <Card className="p-6 bg-white shadow-lg border-slate-200">
+                                <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
+                                    <Target className="w-5 h-5 text-[#003D82]" />
+                                    Hiệu suất nhân sự (Top 5)
+                                </h3>
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <RadarChart data={usersWithStats.slice(0, 5).map(u => ({
+                                        name: u.hoten.substring(0, 10),
+                                        efficiency: u.efficiency,
+                                        workload: Math.min((u.workload / Math.max(...usersWithStats.map(x => x.workload))) * 100, 100)
+                                    }))}>
+                                        <PolarGrid stroke="#e5e7eb" />
+                                        <PolarAngleAxis dataKey="name" fontSize={12} />
+                                        <PolarRadiusAxis angle={90} domain={[0, 100]} fontSize={10} />
+                                        <Radar name="Hiệu suất" dataKey="efficiency" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.6} />
+                                        <Radar name="Khối lượng" dataKey="workload" stroke="#10b981" fill="#10b981" fillOpacity={0.6} />
+                                        <Legend />
+                                        <RechartsTooltip />
+                                    </RadarChart>
+                                </ResponsiveContainer>
+                            </Card>
+                        </div>
+
+                        {/* Weekly Trend Chart */}
+                        <Card className="p-6 bg-white shadow-lg border-slate-200 mb-8">
+                            <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
+                                <Activity className="w-5 h-5 text-[#003D82]" />
+                                Xu hướng nhiệm vụ theo dự án
+                            </h3>
+                            <ResponsiveContainer width="100%" height={300}>
+                                <AreaChart data={projectsWithStats.slice(0, 8).map(p => ({
+                                    name: p.tenduan.substring(0, 12) + (p.tenduan.length > 12 ? '...' : ''),
+                                    completed: p.completedTasks,
+                                    inProgress: p.inProgressTasks,
+                                    pending: p.pendingTasks
+                                }))}>
+                                    <defs>
+                                        <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
+                                            <stop offset="95%" stopColor="#10b981" stopOpacity={0.1}/>
+                                        </linearGradient>
+                                        <linearGradient id="colorInProgress" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                                        </linearGradient>
+                                        <linearGradient id="colorPending" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#6b7280" stopOpacity={0.8}/>
+                                            <stop offset="95%" stopColor="#6b7280" stopOpacity={0.1}/>
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} fontSize={11} />
+                                    <YAxis fontSize={12} />
+                                    <RechartsTooltip />
+                                    <Legend />
+                                    <Area 
+                                        type="monotone" 
+                                        dataKey="completed" 
+                                        stroke="#10b981" 
+                                        fillOpacity={1} 
+                                        fill="url(#colorCompleted)"
+                                        name="Hoàn thành"
+                                        stackId="1"
+                                    />
+                                    <Area 
+                                        type="monotone" 
+                                        dataKey="inProgress" 
+                                        stroke="#3b82f6" 
+                                        fillOpacity={1} 
+                                        fill="url(#colorInProgress)"
+                                        name="Đang thực hiện"
+                                        stackId="1"
+                                    />
+                                    <Area 
+                                        type="monotone" 
+                                        dataKey="pending" 
+                                        stroke="#6b7280" 
+                                        fillOpacity={1} 
+                                        fill="url(#colorPending)"
+                                        name="Chưa bắt đầu"
+                                        stackId="1"
+                                    />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </Card>
 
                         {/* Recent Projects Summary */}
                         <Card className="p-6 bg-white shadow-lg border-slate-200">
