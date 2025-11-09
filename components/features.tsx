@@ -1,29 +1,52 @@
 import { Card, CardContent } from "@/components/ui/card"
-import { CheckCircle2, Users, BarChart3, Clock } from "lucide-react"
+import { Kanban, Clock, FileText, Shield, Users, BarChart3, FolderKanban, Layers } from "lucide-react"
 
 const features = [
   {
-    icon: CheckCircle2,
-    title: "Giao việc thông minh",
+    icon: Kanban,
+    title: "Kanban Board",
     description:
-      "Giao việc cho đội ngũ một cách dễ dàng, theo dõi tiến độ thực tế, và đảm bảo mọi công việc được hoàn thành đúng hạn.",
-  },
-  {
-    icon: Users,
-    title: "Cộng tác nhóm",
-    description:
-      "Làm việc cùng nhau trong thời gian thực. Chia sẻ tệp, bình luận, và giữ mọi người trên cùng một trang.",
-  },
-  {
-    icon: BarChart3,
-    title: "Báo cáo chi tiết",
-    description:
-      "Nhận thông tin chi tiết về hiệu suất đội ngũ với báo cáo toàn diện. Đưa ra quyết định dựa trên dữ liệu.",
+      "Quản lý công việc trực quan với bảng Kanban. Kéo thả task giữa các trạng thái, theo dõi tiến độ realtime và cập nhật nhanh chóng.",
   },
   {
     icon: Clock,
-    title: "Quản lý thời gian",
-    description: "Theo dõi thời gian dự án, quản lý deadline, và tối ưu hóa quy trình làm việc của đội ngũ.",
+    title: "Worklog Tracking",
+    description:
+      "Ghi nhận thời gian làm việc chi tiết cho từng task/subtask. Phân tích hiệu suất và tối ưu hóa phân bổ nhân sự.",
+  },
+  {
+    icon: FolderKanban,
+    title: "Quản lý Dự án",
+    description:
+      "Tạo và quản lý dự án với đầy đủ thông tin: mô tả, thời gian, tiến độ, team members. Theo dõi toàn bộ vòng đời dự án.",
+  },
+  {
+    icon: Layers,
+    title: "Tasks & Subtasks",
+    description: "Phân chia công việc thành tasks và subtasks chi tiết. Gán người thực hiện, deadline, và theo dõi trạng thái từng phần.",
+  },
+  {
+    icon: Shield,
+    title: "Phân quyền chi tiết",
+    description:
+      "Hệ thống phân quyền 3 cấp: Admin, Manager, Employee. Kiểm soát chặt chẽ quyền truy cập và thao tác của từng role.",
+  },
+  {
+    icon: BarChart3,
+    title: "Báo cáo & Thống kê",
+    description:
+      "Dashboard chi tiết với charts, graphs và metrics. Xuất báo cáo Excel/PDF theo dự án, team hoặc cá nhân.",
+  },
+  {
+    icon: FileText,
+    title: "Quản lý Tài liệu",
+    description:
+      "Upload và quản lý tài liệu dự án tập trung. Lưu trữ file đính kèm, phiên bản và lịch sử thay đổi.",
+  },
+  {
+    icon: Users,
+    title: "Quản lý Nhóm",
+    description: "Tạo và quản lý nhóm làm việc. Phân chia dự án theo nhóm, theo dõi hiệu suất và cộng tác hiệu quả.",
   },
 ]
 
@@ -33,14 +56,14 @@ export function Features() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-2xl text-center mb-16">
           <h2 className="font-heading text-3xl font-bold tracking-tight text-foreground sm:text-5xl mb-4">
-            Tính năng mạnh mẽ cho đội ngũ
+            Tính năng toàn diện
           </h2>
           <p className="text-lg text-muted-foreground leading-relaxed">
-            Tất cả những gì bạn cần để quản lý giao việc hiệu quả và nâng cao năng suất.
+            Hệ thống được thiết kế để đáp ứng mọi nhu cầu quản lý dự án và công việc nội bộ của công ty.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
           {features.map((feature, index) => {
             const Icon = feature.icon
             return (

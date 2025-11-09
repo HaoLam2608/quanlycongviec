@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Menu, X } from "lucide-react"
 import { useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -14,37 +15,41 @@ export function Header() {
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <div className="flex items-center">
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-primary to-primary/80" />
+            <Link href="/" className="flex items-center space-x-3">
+              {/* Desktop horizontal logo */}
+              <div className="hidden sm:block rounded-md overflow-hidden bg-white/5 p-1">
+                <Image src="/logo_ngang_huit.jpg" alt="HUIT" width={200} height={48} priority />
+              </div>
+              {/* Mobile square logo */}
+              <div className="sm:hidden rounded-md overflow-hidden bg-white/5 p-1">
+                <Image src="/logo_cty.jpg" alt="HUIT" width={56} height={56} priority />
+              </div>
               <span className="font-heading text-xl font-bold text-foreground">HUIT Task Manager</span>
             </Link>
           </div>
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
-            <a href="#features" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
+            <a href="#features" className="text-base font-medium text-foreground hover:text-primary transition-colors">
               Tính năng
             </a>
             <a
-              href="#testimonials"
-              className="text-sm font-medium text-foreground hover:text-primary transition-colors"
+              href="#roles"
+              className="text-base font-medium text-foreground hover:text-primary transition-colors"
             >
-              Đánh giá
+              Vai trò
             </a>
-            <a href="#pricing" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
-              Giá cả
+            <a href="#stats" className="text-base font-medium text-foreground hover:text-primary transition-colors">
+              Thống kê
             </a>
-            <a href="#" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
-              Về chúng tôi
+            <a href="#support" className="text-base font-medium text-foreground hover:text-primary transition-colors">
+              Hỗ trợ
             </a>
           </nav>
 
           <div className="hidden md:flex items-center space-x-4">
-            <Button variant="ghost" size="sm" asChild>
+            <Button size="sm" className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white shadow-lg shadow-blue-500/20 text-base" asChild>
               <Link href="/login">Đăng nhập</Link>
-            </Button>
-            <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90" asChild>
-              <Link href="/signup">Bắt đầu</Link>
             </Button>
           </div>
 
@@ -59,38 +64,35 @@ export function Header() {
           <div className="md:hidden py-4 space-y-4">
             <a
               href="#features"
-              className="block text-sm font-medium text-foreground hover:text-primary transition-colors"
+              className="block text-base font-medium text-foreground hover:text-primary transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
               Tính năng
             </a>
             <a
-              href="#testimonials"
-              className="block text-sm font-medium text-foreground hover:text-primary transition-colors"
+              href="#roles"
+              className="block text-base font-medium text-foreground hover:text-primary transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
-              Đánh giá
+              Vai trò
             </a>
             <a
-              href="#pricing"
-              className="block text-sm font-medium text-foreground hover:text-primary transition-colors"
+              href="#stats"
+              className="block text-base font-medium text-foreground hover:text-primary transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
-              Giá cả
+              Thống kê
             </a>
             <a
-              href="#"
-              className="block text-sm font-medium text-foreground hover:text-primary transition-colors"
+              href="#support"
+              className="block text-base font-medium text-foreground hover:text-primary transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
-              Về chúng tôi
+              Hỗ trợ
             </a>
             <div className="flex flex-col space-y-2 pt-4">
-              <Button variant="ghost" size="sm" asChild>
+              <Button size="sm" className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white" asChild>
                 <Link href="/login">Đăng nhập</Link>
-              </Button>
-              <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90" asChild>
-                <Link href="/signup">Bắt đầu</Link>
               </Button>
             </div>
           </div>
