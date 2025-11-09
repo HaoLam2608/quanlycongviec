@@ -32,6 +32,11 @@ app.use('/settings', require('./routes/settingsRoutes'));
 app.use('/documents', (req, res, next) => { req.upload = upload; next(); }, documentRoutes);
 // member routes
 app.use('/members', require('./routes/memberRoutes'));
+// notification routes
+app.use('/notifications', require('./routes/notificationRoutes'));
+// assignment routes (propose/accept/decline)
+app.use('/assignments', require('./routes/assignmentRoutes'));
+
 
 // Health / root route
 app.get('/', (req, res) => {

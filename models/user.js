@@ -82,6 +82,13 @@ module.exports = (sequelize, DataTypes) => {
     sdt: {
       type: DataTypes.STRING
     },
+    email: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      validate: {
+        isEmail: true
+      }
+    },
     roleId: {
       type: DataTypes.INTEGER,
       allowNull: true

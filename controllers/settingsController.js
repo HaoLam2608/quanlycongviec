@@ -1,5 +1,6 @@
 const fs = require('fs').promises;
 const path = require('path');
+const emailService = require('../services/emailService');
 
 const SETTINGS_FILE = path.join(__dirname, '..', 'config', 'systemSettings.json');
 
@@ -56,9 +57,15 @@ exports.sendTestNotification = async (req, res) => {
         // Simulate: if email notification and to provided, log that we'd send email
         if (type === 'email') {
             if (!to) return res.status(400).json({ message: 'Vui lòng cung cấp địa chỉ email để test' });
-            console.log(`Simulating sending test EMAIL to ${to} using settings:`, settings.email);
-            // Integrate real mailer here in future
-            return res.json({ message: `Test email sẽ được gửi tới ${to}` });
+            console.log(`Sending test EMAIL to ${to} using settings:`, settings.email);
+
+            try {
+                await emailService.sendTestEmail(to);
+                return res.json({ message: `Test email đã được gửi tới ${to}` });
+            } catch (emailError) {
+                console.error('Error sending test email:', emailError);
+                return res.status(500).json({ message: 'Lỗi khi gửi test email', error: emailError.message });
+            }
         }
 
         // system notification

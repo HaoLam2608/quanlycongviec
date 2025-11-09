@@ -9,7 +9,7 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'taskId',
         as: 'task'
       });
-      
+
       // Subtask được thực hiện bởi một user
       Subtask.belongsTo(models.User, {
         foreignKey: 'nguoiThucHienId',
@@ -17,7 +17,7 @@ module.exports = (sequelize, DataTypes) => {
       });
     }
   }
-  
+
   Subtask.init({
     tenSubtask: {
       type: DataTypes.STRING(255),
@@ -41,9 +41,8 @@ module.exports = (sequelize, DataTypes) => {
     },
     nguoiThucHienId: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
       validate: {
-        notNull: true,
         isInt: true
       }
     },
@@ -98,6 +97,6 @@ module.exports = (sequelize, DataTypes) => {
       }
     ]
   });
-  
+
   return Subtask;
 };

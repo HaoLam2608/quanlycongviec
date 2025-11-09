@@ -9,19 +9,19 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'duanId',
         as: 'duan'
       });
-      
+
       // Task được giao bởi một user
       Task.belongsTo(models.User, {
         foreignKey: 'nguoiGiaoId',
         as: 'nguoiGiao'
       });
-      
+
       // Task được giao cho một user chính
       Task.belongsTo(models.User, {
         foreignKey: 'nguoiDuocGiaoId',
         as: 'nguoiDuocGiao'
       });
-      
+
       // Task có nhiều subtasks
       Task.hasMany(models.Subtask, {
         foreignKey: 'taskId',
@@ -29,7 +29,7 @@ module.exports = (sequelize, DataTypes) => {
       });
     }
   }
-  
+
   Task.init({
     tentask: {
       type: DataTypes.STRING(255),
@@ -130,6 +130,33 @@ module.exports = (sequelize, DataTypes) => {
       }
     ]
   });
-  
+
+  // Define associations
+  Task.associate = function (models) {
+    // Task belongs to DuAn
+    Task.belongsTo(models.DuAn, {
+      foreignKey: 'duanId',
+      as: 'duan'
+    });
+
+    // Task belongs to User (người giao)
+    Task.belongsTo(models.User, {
+      foreignKey: 'nguoiGiaoId',
+      as: 'nguoiGiao'
+    });
+
+    // Task belongs to User (người được giao)
+    Task.belongsTo(models.User, {
+      foreignKey: 'nguoiDuocGiaoId',
+      as: 'nguoiDuocGiao'
+    });
+
+    // Task has many Subtasks
+    Task.hasMany(models.Subtask, {
+      foreignKey: 'taskId',
+      as: 'subtasks'
+    });
+  };
+
   return Task;
 };

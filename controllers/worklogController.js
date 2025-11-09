@@ -76,6 +76,136 @@ const WorklogController = {
             res.status(500).json({ error: err.message });
         }
     },
+
+    // Lấy worklog của user hiện tại
+    async getMyWorklogs(req, res) {
+        try {
+            const userId = req.user.id;
+            const { date, limit = 50 } = req.query; // Optional: filter by date, limit results
+
+            const whereClause = { userId };
+            if (date) {
+                whereClause.date = date;
+            }
+
+            const queryOptions = {
+                where: whereClause,
+                limit: parseInt(limit),
+                include: [
+                    {
+                        model: User,
+                        attributes: ["id", "hoten", "manv"]
+                    },
+                    {
+                        model: Task,
+                        attributes: ["id", "tentask"],
+                        include: [
+                            {
+                                model: DuAn,
+                                as: 'duan',
+                                attributes: ["id", "tenduan"]
+                            }
+                        ]
+                    },
+                    {
+                        model: Subtask,
+                        attributes: ["id", "tenSubtask"],
+                        include: [
+                            {
+                                model: Task,
+                                as: 'task',
+                                attributes: ["id", "tentask"],
+                                include: [
+                                    {
+                                        model: DuAn,
+                                        as: 'duan',
+                                        attributes: ["id", "tenduan"]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ],
+                order: [["date", "DESC"], ["createdAt", "DESC"]],
+            };
+
+            const worklogs = await Worklog.findAll(queryOptions);
+
+            // Format data để dễ sử dụng cho frontend
+            const formattedWorklogs = worklogs.map(worklog => {
+                let taskName = '';
+                let projectName = '';
+
+                if (worklog.Subtask) {
+                    // Worklog từ subtask
+                    taskName = worklog.Subtask.tenSubtask;
+                    projectName = worklog.Subtask.task?.duan?.tenduan || 'Không có dự án';
+                } else if (worklog.Task) {
+                    // Worklog trực tiếp từ task
+                    taskName = worklog.Task.tentask;
+                    projectName = worklog.Task.duan?.tenduan || 'Không có dự án';
+                }
+
+                return {
+                    id: worklog.id,
+                    date: worklog.date,
+                    taskName,
+                    project: projectName,
+                    hours: worklog.hours,
+                    description: worklog.note || '',
+                    taskId: worklog.taskId,
+                    subtaskId: worklog.subtaskId,
+                    createdAt: worklog.createdAt,
+                    updatedAt: worklog.updatedAt
+                };
+            });
+
+            res.json({
+                message: 'Lấy danh sách worklog thành công',
+                worklogs: formattedWorklogs
+            });
+        } catch (err) {
+            console.error('Get my worklogs error:', err);
+            res.status(500).json({ error: 'Lỗi khi lấy danh sách worklog' });
+        }
+    },
+
+    // Cập nhật worklog
+    async update(req, res) {
+        try {
+            const id = req.params.id;
+            const { userId, taskId, subtaskId, hours, note, date } = req.body;
+
+            // Basic validation
+            if (!userId || (!taskId && !subtaskId) || !hours || !date) {
+                return res.status(400).json({ error: 'Thiếu các trường bắt buộc' });
+            }
+
+            const worklog = await Worklog.findByPk(id);
+            if (!worklog) return res.status(404).json({ error: 'Worklog không tồn tại' });
+
+            await worklog.update({ userId, taskId: taskId || null, subtaskId: subtaskId || null, hours, note, date });
+            res.json({ message: 'Cập nhật worklog thành công', worklog });
+        } catch (err) {
+            console.error('Update worklog error:', err);
+            res.status(500).json({ error: err.message });
+        }
+    },
+
+    // Xóa worklog
+    async destroy(req, res) {
+        try {
+            const id = req.params.id;
+            const worklog = await Worklog.findByPk(id);
+            if (!worklog) return res.status(404).json({ error: 'Worklog không tồn tại' });
+
+            await worklog.destroy();
+            res.json({ message: 'Xóa worklog thành công' });
+        } catch (err) {
+            console.error('Delete worklog error:', err);
+            res.status(500).json({ error: err.message });
+        }
+    },
 };
 
 module.exports = WorklogController;

@@ -1,4 +1,5 @@
-const { Subtask, Task, User } = require('../models');
+const { Subtask, Task, User, DuAn, Assignment, Notification, UserNotification } = require('../models');
+const emailService = require('../services/emailService');
 
 // Tạo subtask mới
 exports.createSubtask = async (req, res) => {
@@ -71,11 +72,123 @@ exports.createSubtask = async (req, res) => {
             }
         }
 
+        // If creator is assigning someone else, create Assignment + Notification
+        let assignmentCreated = null;
+        let finalAssigneeId = null;
+
+        if (nguoiThucHienId && req.user.id !== nguoiThucHienId) {
+            // Create assignment proposal instead of direct assignment
+            console.log('🔄 Creating assignment proposal for subtask creation');
+            console.log('👤 Manager ID:', req.user.id);
+            console.log('👥 Assignee ID:', nguoiThucHienId);
+            try {
+                const newSubtask = await Subtask.create({
+                    tenSubtask,
+                    mota,
+                    taskId,
+                    nguoiThucHienId: null, // No immediate assignment
+                    trangThai: 'Chưa bắt đầu',
+                    ngayBatDau,
+                    ngayKetThuc,
+                    thuTu: maxOrder + 1,
+                    ghiChu
+                });
+
+                // Create assignment proposal
+                const assignment = await Assignment.create({
+                    taskId: taskId,
+                    subtaskId: newSubtask.id,
+                    managerId: req.user.id,
+                    assigneeId: nguoiThucHienId,
+                    status: 'pending'
+                });
+                console.log('✅ Assignment created:', assignment.id);
+
+                const itemName = tenSubtask || `Subtask ${newSubtask.id}`;
+                const notif = await Notification.create({
+                    title: `Giao việc: ${itemName}`,
+                    content: `Bạn được yêu cầu nhận công việc: ${itemName}`,
+                    type: 'task',
+                    priority: 'medium',
+                    targetAudience: 'member',
+                    authorId: req.user.id,
+                    status: 'published',
+                    publishedAt: new Date()
+                });
+                console.log('📢 Notification created:', notif.id);
+
+                await UserNotification.create({
+                    userId: nguoiThucHienId,
+                    notificationId: notif.id,
+                    isRead: false,
+                    meta: { assignmentId: assignment.id }
+                });
+                console.log('🔔 UserNotification created for user:', nguoiThucHienId);
+
+                // Send email notification to assignee
+                try {
+                    const assignee = await User.findByPk(nguoiThucHienId, { attributes: ['hoten', 'manv', 'email'] });
+                    const manager = await User.findByPk(req.user.id, { attributes: ['hoten', 'manv'] });
+
+                    if (assignee && assignee.email) {
+                        await emailService.sendAssignmentNotification(
+                            assignee.email,
+                            assignee.hoten || assignee.manv,
+                            itemName,
+                            manager.hoten || manager.manv
+                        );
+                        console.log(`📧 Assignment email sent to: ${assignee.email}`);
+                    } else {
+                        console.log('📧 Assignee email not found, skipping email notification');
+                    }
+                } catch (emailError) {
+                    console.error('📧 Error sending assignment email:', emailError);
+                    // Don't fail the whole request if email fails
+                }
+
+                assignmentCreated = assignment;
+
+                // Update progress and return
+                await updateTaskProgress(taskId);
+
+                const subtaskWithDetails = await Subtask.findByPk(newSubtask.id, {
+                    include: [
+                        {
+                            model: User,
+                            as: 'nguoiThucHien',
+                            attributes: ['id', 'hoten', 'manv', 'chucvu'],
+                            required: false // Allow null nguoiThucHienId
+                        },
+                        {
+                            model: Task,
+                            as: 'task',
+                            attributes: ['id', 'tentask']
+                        }
+                    ]
+                });
+
+                return res.status(201).json({
+                    message: 'Tạo công việc nhỏ thành công (đang chờ người nhận xác nhận)',
+                    subtask: subtaskWithDetails,
+                    assignmentId: assignment.id
+                });
+
+            } catch (err) {
+                console.error('Error creating assignment during subtask creation:', err);
+                // Fall back to direct assignment if assignment creation fails
+                finalAssigneeId = nguoiThucHienId;
+            }
+        } else {
+            // Self-assignment or no assignee, proceed normally
+            finalAssigneeId = nguoiThucHienId;
+        }
+
+        // Create subtask with direct assignment (fallback or self-assignment)
         const newSubtask = await Subtask.create({
             tenSubtask,
             mota,
             taskId,
-            nguoiThucHienId,
+            nguoiThucHienId: finalAssigneeId,
             trangThai: 'Chưa bắt đầu',
             ngayBatDau,
             ngayKetThuc,
@@ -92,7 +205,8 @@ exports.createSubtask = async (req, res) => {
                 {
                     model: User,
                     as: 'nguoiThucHien',
-                    attributes: ['id', 'hoten', 'manv', 'chucvu']
+                    attributes: ['id', 'hoten', 'manv', 'chucvu'],
+                    required: false // Allow null nguoiThucHienId
                 },
                 {
                     model: Task,
@@ -182,6 +296,87 @@ exports.updateSubtask = async (req, res) => {
             }
         }
 
+        // If manager (or someone with permission) is changing the assignee (nguoiThucHienId or variants),
+        // create an Assignment + Notification instead of immediately updating subtask's assignee.
+        let assignmentCreated = null;
+
+        // Normalize incoming assignee fields (support multiple possible field names)
+        const incomingAssignee = (() => {
+            if (updateData == null) return null;
+            if (updateData.nguoiThucHienId) return Number(updateData.nguoiThucHienId);
+            if (updateData.assigneeId) return Number(updateData.assigneeId);
+            if (updateData.nguoiThucHien && typeof updateData.nguoiThucHien === 'object' && updateData.nguoiThucHien.id) return Number(updateData.nguoiThucHien.id);
+            if (typeof updateData.nguoiThucHien === 'string' && !isNaN(Number(updateData.nguoiThucHien))) return Number(updateData.nguoiThucHien);
+            return null;
+        })();
+
+        if (incomingAssignee && incomingAssignee !== subtask.nguoiThucHienId) {
+            // If the updater is assigning someone else (not self), propose assignment
+            if (req.user.id !== incomingAssignee) {
+                console.log('🔄 Creating assignment proposal for subtask update');
+                console.log('👤 Manager ID:', req.user.id);
+                console.log('👥 Assignee ID:', incomingAssignee);
+                try {
+                    const assignment = await Assignment.create({
+                        taskId: subtask.taskId,
+                        subtaskId: subtask.id,
+                        managerId: req.user.id,
+                        assigneeId: incomingAssignee,
+                        status: 'pending'
+                    });
+
+                    const itemName = subtask.tenSubtask || `Subtask ${subtask.id}`;
+                    const notif = await Notification.create({
+                        title: `Giao việc: ${itemName}`,
+                        content: `Bạn được yêu cầu nhận công việc: ${itemName}`,
+                        type: 'task',
+                        priority: 'medium',
+                        targetAudience: 'member',
+                        authorId: req.user.id,
+                        status: 'published',
+                        publishedAt: new Date()
+                    });
+
+                    await UserNotification.create({
+                        userId: incomingAssignee,
+                        notificationId: notif.id,
+                        isRead: false,
+                        meta: { assignmentId: assignment.id }
+                    });
+
+                    // Send email notification to assignee
+                    try {
+                        const assignee = await User.findByPk(incomingAssignee, { attributes: ['hoten', 'manv', 'email'] });
+                        const manager = await User.findByPk(req.user.id, { attributes: ['hoten', 'manv'] });
+
+                        if (assignee && assignee.email) {
+                            await emailService.sendAssignmentNotification(
+                                assignee.email,
+                                assignee.hoten || assignee.manv,
+                                itemName,
+                                manager.hoten || manager.manv
+                            );
+                            console.log(`📧 Assignment email sent to: ${assignee.email}`);
+                        } else {
+                            console.log('📧 Assignee email not found, skipping email notification');
+                        }
+                    } catch (emailError) {
+                        console.error('📧 Error sending assignment email:', emailError);
+                        // Don't fail the whole request if email fails
+                    }
+
+                    // prevent immediate assignment — member must accept
+                    delete updateData.nguoiThucHienId;
+                    delete updateData.assigneeId;
+                    delete updateData.nguoiThucHien;
+                    assignmentCreated = assignment;
+                } catch (err) {
+                    console.error('Error creating assignment/notification during subtask update:', err);
+                    // continue — do not block the subtask update for non-critical failures
+                }
+            }
+        }
+
         await subtask.update(updateData);
 
         // Lấy thông tin đầy đủ sau khi cập nhật
@@ -198,7 +393,8 @@ exports.updateSubtask = async (req, res) => {
 
         res.json({
             message: 'Cập nhật công việc nhỏ thành công',
-            subtask: updatedSubtask
+            subtask: updatedSubtask,
+            assignmentId: assignmentCreated ? assignmentCreated.id : null
         });
     } catch (error) {
         console.error('Update subtask error:', error);
@@ -327,6 +523,51 @@ async function reorderSubtasks(taskId) {
         console.error('Reorder subtasks error:', error);
     }
 }
+
+// Lấy danh sách subtasks của user hiện tại với thông tin task và dự án
+exports.getMySubtasks = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const subtasks = await Subtask.findAll({
+            where: { nguoiThucHienId: userId },
+            include: [
+                {
+                    model: Task,
+                    as: 'task',
+                    attributes: ['id', 'tentask', 'duanId'],
+                    include: [
+                        {
+                            model: DuAn,
+                            as: 'duan',
+                            attributes: ['id', 'tenduan']
+                        }
+                    ]
+                }
+            ],
+            order: [['createdAt', 'DESC']]
+        });
+
+        // Format dữ liệu để dễ sử dụng cho frontend
+        const formattedSubtasks = subtasks.map(subtask => ({
+            id: subtask.id,
+            tenSubtask: subtask.tenSubtask,
+            trangThai: subtask.trangThai,
+            taskId: subtask.task.id,
+            tentask: subtask.task.tentask,
+            duanId: subtask.task.duan?.id || null,
+            tenduan: subtask.task.duan?.tenduan || null
+        }));
+
+        res.json({
+            message: 'Lấy danh sách subtasks thành công',
+            subtasks: formattedSubtasks
+        });
+    } catch (error) {
+        console.error('Get my subtasks error:', error);
+        res.status(500).json({ error: 'Lỗi khi lấy danh sách subtasks của bạn' });
+    }
+};
 
 // Helper function để cập nhật progress của task
 async function updateTaskProgress(taskId) {

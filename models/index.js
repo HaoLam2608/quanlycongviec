@@ -40,6 +40,14 @@ db.GroupProject = GroupProject;
 const Worklog = require("./worklog")(sequelize, Sequelize.DataTypes);
 db.Worklog = Worklog;
 
+// Thêm Assignment vào db
+const Assignment = require("./assignment")(sequelize, Sequelize.DataTypes);
+db.Assignment = Assignment;
+
+// Thêm UserNotification vào db
+const UserNotification = require("./usernotification")(sequelize, Sequelize.DataTypes);
+db.UserNotification = UserNotification;
+
 // Thiết lập association nhiều-nhiều giữa Group và DuAn qua GroupProject
 if (db.Group && db.DuAn) {
   db.Group.belongsToMany(db.DuAn, {
