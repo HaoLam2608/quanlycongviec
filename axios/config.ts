@@ -7,7 +7,7 @@ const api = axios.create({
   },
 });
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("accessToken");
+  const token = typeof window !== 'undefined' ? localStorage.getItem("accessToken") : null;
   if (token) {
     config.headers["Authorization"] = `Bearer ${token}`;
   }
@@ -27,10 +27,11 @@ api.interceptors.response.use(
     if (status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
-        const refreshToken = localStorage.getItem("refreshToken");
+        const refreshToken = typeof window !== 'undefined' ? localStorage.getItem("refreshToken") : null;
         if (!refreshToken) throw new Error('Missing refresh token');
         const response = await axios.post("http://localhost:5000/auth/refresh", { refreshToken });
         const newAccessToken = response.data.accessToken;
+        // store new access token under the canonical key used by the app
         localStorage.setItem("accessToken", newAccessToken);
         originalRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
         return api(originalRequest);
@@ -38,13 +39,13 @@ api.interceptors.response.use(
         // Only remove authentication-related keys (avoid wiping other app data)
         try {
           localStorage.removeItem('accessToken');
-          localStorage.removeItem('accesstoken'); // Remove old key for safety
           localStorage.removeItem('refreshToken');
           localStorage.removeItem('manv');
           localStorage.removeItem('hoten');
           localStorage.removeItem('role');
           localStorage.removeItem('avatar');
           localStorage.removeItem('userId');
+          // keep 'token' removal for backward compatibility if present
           localStorage.removeItem('token');
         } catch (e) {
           // ignore storage errors

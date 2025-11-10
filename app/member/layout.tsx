@@ -59,8 +59,8 @@ const navigation = [
 
 export default function MemberLayout({ children }: MemberLayoutProps) {
     const [sidebarOpen, setSidebarOpen] = useState(false)
-    const [isLoggingOut, setIsLoggingOut] = useState(false)
     const [currentUser, setCurrentUser] = useState<any>(null)
+    const [isLoggingOut, setIsLoggingOut] = useState(false)
     const pathname = usePathname()
     const { showSuccess } = useToastContext()
     const router = useRouter()
@@ -107,8 +107,9 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
             }
 
             // Clear all authentication data
+            // remove canonical key and any legacy variants
             localStorage.removeItem('accessToken')
-            localStorage.removeItem('accessToken')
+            localStorage.removeItem('accesstoken')
             localStorage.removeItem('token')
             localStorage.removeItem('refreshToken')
             localStorage.removeItem('userId')

@@ -69,12 +69,47 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
     const fetchNotifications = async () => {
         try {
             setLoading(true)
+            console.log('🔔 Fetching notifications...')
+            console.log('👤 Current user:', {
+                userId: localStorage.getItem('userId'),
+                manv: localStorage.getItem('manv'),
+                hoten: localStorage.getItem('hoten'),
+                role: localStorage.getItem('role')
+            })
             const response = await notificationUserAPI.getMyNotifications({ limit: 20 })
+            console.log('📥 API Response:', response)
             if (response.success) {
+                console.log('📋 Total notifications:', response.data.length)
+                console.log('📊 Notifications data:', response.data)
+
+                // Log each notification in detail
+                response.data.forEach((n: Notification, index: number) => {
+                    console.log(`Notification ${index + 1}:`, {
+                        id: n.id,
+                        title: n.title,
+                        type: n.type,
+                        userMeta: n.userMeta,
+                        hasUserMeta: !!n.userMeta,
+                        hasAssignmentId: !!(n.userMeta as any)?.assignmentId
+                    })
+                })
+
                 setNotifications(response.data)
+
+                // Check for assignment notifications
+                const assignments = response.data.filter((n: Notification) => n.userMeta?.assignmentId)
+                console.log('🎯 Assignment notifications:', assignments.length)
+                if (assignments.length > 0) {
+                    console.log('Assignment details:', assignments.map((a: Notification) => ({
+                        id: a.id,
+                        title: a.title,
+                        assignmentId: a.userMeta?.assignmentId,
+                        isRead: a.isRead
+                    })))
+                }
             }
         } catch (error) {
-            console.error('Error fetching notifications:', error)
+            console.error('❌ Error fetching notifications:', error)
         } finally {
             setLoading(false)
         }
@@ -90,6 +125,11 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
     // Separate notifications into general and assignments
     const assignmentNotifications = notifications.filter(n => n.userMeta?.assignmentId)
     const generalNotifications = notifications.filter(n => !n.userMeta?.assignmentId)
+
+    console.log('🔍 Filter results:')
+    console.log('  - Total notifications:', notifications.length)
+    console.log('  - Assignment notifications:', assignmentNotifications.length)
+    console.log('  - General notifications:', generalNotifications.length)
 
     const activeNotifications = activeTab === 'assignments' ? assignmentNotifications : generalNotifications
     const generalUnreadCount = generalNotifications.filter(n => !n.isRead).length
