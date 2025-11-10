@@ -527,6 +527,7 @@ async function reorderSubtasks(taskId) {
 // Lấy danh sách subtasks của user hiện tại với thông tin task và dự án
 exports.getMySubtasks = async (req, res) => {
     try {
+        console.log('🐛 getMySubtasks called by user:', req.user);
         const userId = req.user.id;
 
         const subtasks = await Subtask.findAll({
