@@ -1,4 +1,4 @@
-const { Notification, User } = require('../models');
+const { Notification, User, UserNotification } = require('../models');
 const { Op } = require('sequelize');
 
 // Get all notifications for admin
@@ -64,7 +64,22 @@ exports.getAllNotifications = async (req, res) => {
 exports.getUserNotifications = async (req, res) => {
     try {
         const userId = req.user.id;
-        const userRole = req.user.role;
+
+        // Load user with role to get role name
+        const userWithRole = await User.findByPk(userId, {
+            include: [{
+                model: require('../models').Role,
+                as: 'role',
+                attributes: ['name']
+            }]
+        });
+
+        const userRole = userWithRole?.role?.name || 'member'; // default to member if no role
+
+        // Map employee role to member for notification targeting
+        const mappedRole = userRole === 'employee' ? 'member' : userRole;
+        console.log(`🔔 getUserNotifications for user ${userId}, role: ${userRole}, mapped: ${mappedRole}`);
+
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
         const offset = (page - 1) * limit;
@@ -75,7 +90,7 @@ exports.getUserNotifications = async (req, res) => {
                 status: 'published',
                 [Op.or]: [
                     { targetAudience: { [Op.like]: '%all%' } },
-                    { targetAudience: { [Op.like]: `%${userRole}%` } }
+                    { targetAudience: { [Op.like]: `%${mappedRole}%` } }
                 ]
             },
             include: [{
@@ -90,7 +105,7 @@ exports.getUserNotifications = async (req, res) => {
         const userNotifs = await Notification.findAll({
             include: [
                 {
-                    model: require('../models').UserNotification,
+                    model: UserNotification,
                     as: 'UserNotifications',
                     where: { userId },
                     required: true,
@@ -112,12 +127,31 @@ exports.getUserNotifications = async (req, res) => {
         const userMapped = userNotifs.map(n => {
             const u = n.dataValues;
             const userNotif = (n.UserNotifications && n.UserNotifications[0]) || null;
+            const userNotifData = userNotif?.dataValues || userNotif;
+
+            console.log('🔍 Processing notification:', {
+                id: n.id,
+                title: u.title,
+                userNotif: userNotifData,
+                meta: userNotifData?.meta
+            });
+
             return {
                 ...u,
-                userMeta: userNotif ? userNotif.meta : null,
-                isRead: userNotif ? userNotif.isRead : false
+                userMeta: userNotifData?.meta || null,
+                isRead: userNotifData?.isRead || false
             };
         });
+
+        console.log(`📊 User-specific notifications: ${userMapped.length}`);
+        if (userMapped.length > 0) {
+            console.log('User notifications details:', userMapped.map(n => ({
+                id: n.id,
+                title: n.title,
+                userMeta: n.userMeta,
+                isRead: n.isRead
+            })));
+        }
 
         // Map role-based notifications to include default isRead: false
         const roleMapped = roleNotifications.map(n => ({
@@ -125,6 +159,8 @@ exports.getUserNotifications = async (req, res) => {
             isRead: false, // Role-based notifications are never marked as read
             userMeta: null
         }));
+
+        console.log(`📊 Role-based notifications: ${roleMapped.length}`);
 
         // Merge and dedupe by id, prioritizing user-specific over role-based
         const combined = [...roleMapped, ...userMapped];
@@ -143,8 +179,20 @@ exports.getUserNotifications = async (req, res) => {
 
         const allNotifications = Array.from(mapById.values()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
+        console.log(`📦 Total merged notifications: ${allNotifications.length}`);
+        const assignmentCount = allNotifications.filter(n => n.userMeta?.assignmentId).length;
+        console.log(`🎯 Assignment notifications in response: ${assignmentCount}`);
+
         // Pagination
         const paged = allNotifications.slice(offset, offset + limit);
+
+        console.log(`📄 Sending ${paged.length} notifications (page ${page})`);
+        console.log('📋 Detailed response data:');
+        paged.forEach((n, idx) => {
+            console.log(`  [${idx + 1}] ID: ${n.id}, Title: "${n.title}"`);
+            console.log(`      userMeta: ${JSON.stringify(n.userMeta)}`);
+            console.log(`      isRead: ${n.isRead}`);
+        });
 
         res.json({
             success: true,

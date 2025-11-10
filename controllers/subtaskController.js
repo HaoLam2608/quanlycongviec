@@ -72,28 +72,36 @@ exports.createSubtask = async (req, res) => {
             }
         }
 
-        // If creator is assigning someone else, create Assignment + Notification
+        // Determine initial assignee based on assignment type
+        let initialAssigneeId = null;
         let assignmentCreated = null;
-        let finalAssigneeId = null;
 
+        // If assigning to someone else, don't set assignee yet (pending acceptance)
+        // If self-assigning or no assignee, set it now
+        if (!nguoiThucHienId || req.user.id === nguoiThucHienId) {
+            initialAssigneeId = nguoiThucHienId;
+        }
+
+        // Create subtask
+        const newSubtask = await Subtask.create({
+            tenSubtask,
+            mota,
+            taskId,
+            nguoiThucHienId: initialAssigneeId,
+            trangThai: 'Chưa bắt đầu',
+            ngayBatDau,
+            ngayKetThuc,
+            thuTu: maxOrder + 1,
+            ghiChu
+        });
+
+        // If creator is assigning someone else (not themselves), create Assignment + Notification
         if (nguoiThucHienId && req.user.id !== nguoiThucHienId) {
-            // Create assignment proposal instead of direct assignment
             console.log('🔄 Creating assignment proposal for subtask creation');
             console.log('👤 Manager ID:', req.user.id);
             console.log('👥 Assignee ID:', nguoiThucHienId);
-            try {
-                const newSubtask = await Subtask.create({
-                    tenSubtask,
-                    mota,
-                    taskId,
-                    nguoiThucHienId: null, // No immediate assignment
-                    trangThai: 'Chưa bắt đầu',
-                    ngayBatDau,
-                    ngayKetThuc,
-                    thuTu: maxOrder + 1,
-                    ghiChu
-                });
 
+            try {
                 // Create assignment proposal
                 const assignment = await Assignment.create({
                     taskId: taskId,
@@ -148,65 +156,26 @@ exports.createSubtask = async (req, res) => {
 
                 assignmentCreated = assignment;
 
-                // Update progress and return
-                await updateTaskProgress(taskId);
-
-                const subtaskWithDetails = await Subtask.findByPk(newSubtask.id, {
-                    include: [
-                        {
-                            model: User,
-                            as: 'nguoiThucHien',
-                            attributes: ['id', 'hoten', 'manv', 'chucvu'],
-                            required: false // Allow null nguoiThucHienId
-                        },
-                        {
-                            model: Task,
-                            as: 'task',
-                            attributes: ['id', 'tentask']
-                        }
-                    ]
-                });
-
-                return res.status(201).json({
-                    message: 'Tạo công việc nhỏ thành công (đang chờ người nhận xác nhận)',
-                    subtask: subtaskWithDetails,
-                    assignmentId: assignment.id
-                });
-
             } catch (err) {
-                console.error('Error creating assignment during subtask creation:', err);
-                // Fall back to direct assignment if assignment creation fails
-                finalAssigneeId = nguoiThucHienId;
+                console.error('❌ Error creating assignment during subtask creation:', err);
+                // If assignment creation fails, update subtask to assign directly
+                await newSubtask.update({ nguoiThucHienId: nguoiThucHienId });
+                console.log('⚠️ Fallback: Assigned directly to user', nguoiThucHienId);
             }
-        } else {
-            // Self-assignment or no assignee, proceed normally
-            finalAssigneeId = nguoiThucHienId;
         }
+        // Note: Self-assignment is already handled by setting initialAssigneeId
 
-        // Create subtask with direct assignment (fallback or self-assignment)
-        const newSubtask = await Subtask.create({
-            tenSubtask,
-            mota,
-            taskId,
-            nguoiThucHienId: finalAssigneeId,
-            trangThai: 'Chưa bắt đầu',
-            ngayBatDau,
-            ngayKetThuc,
-            thuTu: maxOrder + 1,
-            ghiChu
-        });
-
-        // Cập nhật progress của task chính
+        // Update task progress
         await updateTaskProgress(taskId);
 
-        // Lấy thông tin đầy đủ của subtask vừa tạo
+        // Get subtask with details
         const subtaskWithDetails = await Subtask.findByPk(newSubtask.id, {
             include: [
                 {
                     model: User,
                     as: 'nguoiThucHien',
                     attributes: ['id', 'hoten', 'manv', 'chucvu'],
-                    required: false // Allow null nguoiThucHienId
+                    required: false
                 },
                 {
                     model: Task,
@@ -216,10 +185,21 @@ exports.createSubtask = async (req, res) => {
             ]
         });
 
-        res.status(201).json({
-            message: 'Tạo công việc nhỏ thành công',
+        // Return response
+        const responseMessage = assignmentCreated
+            ? 'Tạo công việc nhỏ thành công (đang chờ người nhận xác nhận)'
+            : 'Tạo công việc nhỏ thành công';
+
+        const responseData = {
+            message: responseMessage,
             subtask: subtaskWithDetails
-        });
+        };
+
+        if (assignmentCreated) {
+            responseData.assignmentId = assignmentCreated.id;
+        }
+
+        res.status(201).json(responseData);
     } catch (error) {
         console.error('Create subtask error:', error);
         // Include error details to aid debugging (non-sensitive)
