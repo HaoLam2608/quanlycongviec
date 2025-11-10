@@ -55,39 +55,56 @@ exports.createGroup = async (req, res) => {
 
         // Validation cho leader nếu có
         if (leaderId) {
-            // Kiểm tra leader đã là leader của nhóm khác chưa
-            const existingLeaderGroup = await Group.findOne({ where: { leaderId } });
-            if (existingLeaderGroup) {
+            // Kiểm tra leader đã là leader của nhóm ĐANG HOẠT ĐỘNG (không phải closed) chưa
+            const allLeaderGroups = await Group.findAll({ where: { leaderId } });
+            const activeLeaderGroup = allLeaderGroups.find(g => g.status !== 'closed');
+            
+            if (activeLeaderGroup) {
                 return res.status(400).json({
-                    message: `Người này đã là nhóm trưởng của nhóm "${existingLeaderGroup.name}"`
+                    message: `Người này đã là nhóm trưởng của nhóm "${activeLeaderGroup.name}"`
                 });
             }
 
-            // Kiểm tra leader đã là thành viên của nhóm khác chưa
+            // Kiểm tra leader đã là thành viên của nhóm ĐANG HOẠT ĐỘNG khác chưa
             const existingMembership = await GroupMember.findOne({ where: { userId: leaderId } });
             if (existingMembership) {
                 const memberGroup = await Group.findByPk(existingMembership.groupId);
-                return res.status(400).json({
-                    message: `Người này đã là thành viên của nhóm "${memberGroup.name}"`
-                });
+                // Chỉ báo lỗi nếu nhóm đó không phải closed
+                if (memberGroup && memberGroup.status !== 'closed') {
+                    return res.status(400).json({
+                        message: `Người này đã là thành viên của nhóm "${memberGroup.name}"`
+                    });
+                }
             }
         }
 
         // Validation cho members nếu có
         if (Array.isArray(memberIds) && memberIds.length) {
             for (const userId of memberIds) {
-                // Kiểm tra user đã là leader của nhóm khác chưa
-                const existingLeaderGroup = await Group.findOne({ where: { leaderId: userId } });
-                if (existingLeaderGroup) {
+                // Kiểm tra user đã là leader của nhóm ĐANG HOẠT ĐỘNG khác chưa
+                const allLeaderGroups = await Group.findAll({ where: { leaderId: userId } });
+                const activeLeaderGroup = allLeaderGroups.find(g => g.status !== 'closed');
+                
+                if (activeLeaderGroup) {
                     const user = await User.findByPk(userId);
                     return res.status(400).json({
-                        message: `${user.hoten} đã là nhóm trưởng của nhóm "${existingLeaderGroup.name}"`
+                        message: `${user.hoten} đã là nhóm trưởng của nhóm "${activeLeaderGroup.name}"`
                     });
                 }
 
-                // Kiểm tra user đã tham gia bao nhiêu nhóm
-                const membershipCount = await GroupMember.count({ where: { userId } });
-                if (membershipCount >= 2) {
+                // Kiểm tra user đã tham gia bao nhiêu nhóm ĐANG HOẠT ĐỘNG
+                // Lấy tất cả membership của user
+                const memberships = await GroupMember.findAll({ where: { userId } });
+                // Đếm số nhóm active
+                let activeGroupCount = 0;
+                for (const membership of memberships) {
+                    const group = await Group.findByPk(membership.groupId);
+                    if (group && group.status !== 'closed') {
+                        activeGroupCount++;
+                    }
+                }
+                
+                if (activeGroupCount >= 2) {
                     const user = await User.findByPk(userId);
                     return res.status(400).json({
                         message: `${user.hoten} đã tham gia tối đa 2 nhóm`
@@ -268,18 +285,28 @@ exports.addMembers = async (req, res) => {
 
         // Validation cho từng member
         for (const userId of memberIds) {
-            // Kiểm tra user đã là leader của nhóm khác chưa
-            const existingLeaderGroup = await Group.findOne({ where: { leaderId: userId } });
-            if (existingLeaderGroup) {
+            // Kiểm tra user đã là leader của nhóm ĐANG HOẠT ĐỘNG khác chưa
+            const allLeaderGroups = await Group.findAll({ where: { leaderId: userId } });
+            const activeLeaderGroup = allLeaderGroups.find(g => g.status !== 'closed');
+            
+            if (activeLeaderGroup) {
                 const user = await User.findByPk(userId);
                 return res.status(400).json({
-                    message: `${user.hoten} đã là nhóm trưởng của nhóm "${existingLeaderGroup.name}"`
+                    message: `${user.hoten} đã là nhóm trưởng của nhóm "${activeLeaderGroup.name}"`
                 });
             }
 
-            // Kiểm tra user đã tham gia bao nhiêu nhóm
-            const membershipCount = await GroupMember.count({ where: { userId } });
-            if (membershipCount >= 2) {
+            // Kiểm tra user đã tham gia bao nhiêu nhóm ĐANG HOẠT ĐỘNG
+            const memberships = await GroupMember.findAll({ where: { userId } });
+            let activeGroupCount = 0;
+            for (const membership of memberships) {
+                const memberGroup = await Group.findByPk(membership.groupId);
+                if (memberGroup && memberGroup.status !== 'closed') {
+                    activeGroupCount++;
+                }
+            }
+            
+            if (activeGroupCount >= 2) {
                 const user = await User.findByPk(userId);
                 return res.status(400).json({
                     message: `${user.hoten} đã tham gia tối đa 2 nhóm`
@@ -306,6 +333,33 @@ exports.removeMember = async (req, res) => {
         await gm.destroy();
         res.json({ message: 'Đã xóa thành viên khỏi nhóm' });
     } catch (e) { res.status(500).json({ message: 'Lỗi server' }); }
+};
+
+// Xóa nhóm khỏi dự án
+exports.removeGroupFromProject = async (req, res) => {
+    try {
+        const { groupId, projectId } = req.body;
+        if (!groupId || !projectId) return res.status(400).json({ message: 'Thiếu groupId hoặc projectId' });
+
+        const { GroupProject } = require('../models');
+        
+        // Tìm bản ghi group_projects
+        const groupProject = await GroupProject.findOne({
+            where: { groupId, projectId, status: 'active' }
+        });
+
+        if (!groupProject) {
+            return res.status(404).json({ message: 'Nhóm không tham gia dự án này hoặc đã bị xóa' });
+        }
+
+        // Xóa bản ghi
+        await groupProject.destroy();
+        
+        res.json({ message: 'Đã xóa nhóm khỏi dự án thành công' });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ message: 'Lỗi server khi xóa nhóm khỏi dự án' });
+    }
 };
 
 // Complete project for group

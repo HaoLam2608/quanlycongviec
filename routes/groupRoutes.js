@@ -11,6 +11,9 @@ router.patch('/:id/close', authenticateToken, checkPermission('groups', 'update'
 // Thêm nhóm vào dự án (group_projects)
 router.post('/add-to-project', authenticateToken, checkPermission('groups', 'update'), groupController.addGroupToProject);
 
+// Xóa nhóm khỏi dự án (group_projects)
+router.post('/remove-from-project', authenticateToken, checkPermission('groups', 'update'), groupController.removeGroupFromProject);
+
 // CRUD groups
 router.get('/', authenticateToken, checkPermission('groups', 'read'), groupController.getGroups);
 router.get('/:id', authenticateToken, checkPermission('groups', 'read'), groupController.getGroup);
