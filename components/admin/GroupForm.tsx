@@ -250,18 +250,33 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
             setRegularEmployees(userData.users.filter((u: any) => u.role?.name === 'employee').map((u: any) => ({ id: u.id, hoten: u.hoten, manv: u.manv, chucvu: u.chucvu, role: u.role })));
             // Lọc chỉ dự án chua_bat_dau hoặc dang_chay
             setProjects((projectRes.data || []).filter((p: any) => p.status === 'chua_bat_dau' || p.status === 'dang_chay'));
-            // Đếm số nhóm mỗi user đang tham gia (thành viên)
+            // Đếm số nhóm mỗi user đang tham gia (thành viên) - CHỈ ĐẾM NHÓM ACTIVE
             const groupCounts: { [userId: number]: number } = {};
-            // Đếm số nhóm mỗi user đang là leader
+            // Đếm số nhóm mỗi user đang là leader - CHỈ ĐẾM NHÓM ACTIVE
             const leaderCounts: { [userId: number]: number } = {};
+            
+            console.log('🔍 [GroupForm] Tất cả nhóm:', groupRes.data.groups);
+            
             (groupRes.data.groups || []).forEach((g: any) => {
-                (g.members || []).forEach((m: any) => {
-                    groupCounts[m.id] = (groupCounts[m.id] || 0) + 1;
-                });
-                if (g.leaderId) {
-                    leaderCounts[g.leaderId] = (leaderCounts[g.leaderId] || 0) + 1;
+                console.log(`📋 Nhóm "${g.name}" (ID: ${g.id}) - Status: ${g.status || 'undefined'} - Leader ID: ${g.leaderId}`);
+                
+                // Chỉ đếm các nhóm KHÔNG phải closed (active hoặc không có status)
+                if (g.status !== 'closed') {
+                    console.log(`✅ Nhóm "${g.name}" ĐƯỢC ĐẾM (không phải closed)`);
+                    (g.members || []).forEach((m: any) => {
+                        groupCounts[m.id] = (groupCounts[m.id] || 0) + 1;
+                    });
+                    if (g.leaderId) {
+                        leaderCounts[g.leaderId] = (leaderCounts[g.leaderId] || 0) + 1;
+                    }
+                } else {
+                    console.log(`❌ Nhóm "${g.name}" BỊ BỎ QUA (status = closed)`);
                 }
             });
+            
+            console.log('📊 [GroupForm] Số nhóm mỗi thành viên đang tham gia:', groupCounts);
+            console.log('👔 [GroupForm] Số nhóm mỗi leader đang quản lý:', leaderCounts);
+            
             setUserGroupCounts(groupCounts);
             setLeaderGroupCounts(leaderCounts);
         } catch (e: any) {
@@ -360,19 +375,24 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
                                 {showLeaderDropdown && (
                                     <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                                         {teamLeaders.map(l => {
-                                            const isOver = (leaderGroupCounts[l.id] || 0) >= 1;
+                                            const leaderCount = leaderGroupCounts[l.id] || 0;
+                                            const isOver = leaderCount >= 1;
+                                            console.log(`👤 Leader ${l.hoten} (ID: ${l.id}) - Số nhóm đang quản lý: ${leaderCount} - Bị disable: ${isOver}`);
                                             return (
                                                 <button
                                                     key={l.id}
                                                     type="button"
                                                     disabled={isOver}
                                                     onClick={() => {
-                                                        if (!isOver) setFormData(prev => ({ ...prev, leaderId: String(l.id) }));
+                                                        if (!isOver) {
+                                                            console.log(`✅ Chọn leader: ${l.hoten} (ID: ${l.id})`);
+                                                            setFormData(prev => ({ ...prev, leaderId: String(l.id) }));
+                                                        }
                                                         setShowLeaderDropdown(false);
                                                     }}
-                                                    className={`w-full px-4 py-2 text-left text-sm ${isOver ? 'opacity-60 cursor-not-allowed' : 'hover:bg-blue-50'}`}
+                                                    className={`w-full px-4 py-2 text-left text-sm ${isOver ? 'opacity-60 cursor-not-allowed bg-gray-100' : 'hover:bg-blue-50'}`}
                                                 >
-                                                    {l.hoten} {isOver && <span className="text-xs text-red-500">(Đã là trưởng nhóm)</span>}
+                                                    {l.hoten} ({leaderCount} nhóm) {isOver && <span className="text-xs text-red-500 ml-2">❌ Đã là trưởng nhóm</span>}
                                                 </button>
                                             );
                                         })}

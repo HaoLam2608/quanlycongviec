@@ -206,6 +206,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                     onClick={() => setIsOpen(!isOpen)}
                     className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
                     disabled={loading}
+                    id="notification-bell-button"
                 >
                     <Bell className="w-5 h-5" />
                     {(generalUnreadCount + assignmentUnreadCount) > 0 && (
@@ -216,23 +217,27 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                 </button>
 
                 {isOpen && (
-                    <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border z-50 max-h-96 overflow-hidden">
-                        <div className="p-4 border-b bg-gray-50">
+                    <div className="fixed right-4 top-16 w-96 bg-white rounded-xl shadow-2xl border z-[9999] max-h-[70vh] overflow-hidden ring-1 ring-black/5">
+                        <div className="p-3.5 border-b bg-white/60 backdrop-blur-sm">
                             <div className="flex items-center justify-between">
-                                <h3 className="font-semibold text-gray-900">Thông báo</h3>
+                                <div className="flex items-center gap-3">
+                                    <h3 className="font-semibold text-gray-900">Thông báo</h3>
+                                    <span className="text-xs text-gray-500">{unreadCount} chưa đọc</span>
+                                </div>
                                 <div className="flex items-center gap-2">
                                     {(activeTab === 'general' ? generalUnreadCount : assignmentUnreadCount) > 0 && (
                                         <button
                                             onClick={markAllAsRead}
-                                            className="text-xs text-blue-600 hover:text-blue-800"
+                                            className="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded-md border border-blue-100 hover:bg-blue-100"
                                             disabled={loading}
                                         >
-                                            Đánh dấu tất cả đã đọc
+                                            Đánh dấu đã đọc
                                         </button>
                                     )}
                                     <button
                                         onClick={() => setIsOpen(false)}
-                                        className="text-gray-400 hover:text-gray-600"
+                                        aria-label="Đóng thông báo"
+                                        className="text-gray-400 hover:text-gray-600 p-1 rounded"
                                     >
                                         <X className="w-4 h-4" />
                                     </button>
@@ -240,12 +245,12 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                             </div>
 
                             {/* Tab Navigation */}
-                            <div className="flex border-b">
+                            <div className="mt-3 flex rounded-md overflow-hidden bg-gray-50">
                                 <button
                                     onClick={() => setActiveTab('general')}
-                                    className={`flex-1 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'general'
-                                        ? 'border-blue-500 text-blue-600 bg-blue-50'
-                                        : 'border-transparent text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                                    className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'general'
+                                        ? 'bg-white text-blue-600'
+                                        : 'text-gray-600 hover:bg-gray-100'
                                         }`}
                                 >
                                     Thông báo chung
@@ -257,9 +262,9 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                                 </button>
                                 <button
                                     onClick={() => setActiveTab('assignments')}
-                                    className={`flex-1 px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'assignments'
-                                        ? 'border-blue-500 text-blue-600 bg-blue-50'
-                                        : 'border-transparent text-gray-600 hover:text-gray-800 hover:bg-gray-50'
+                                    className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'assignments'
+                                        ? 'bg-white text-blue-600'
+                                        : 'text-gray-600 hover:bg-gray-100'
                                         }`}
                                 >
                                     Thông báo giao việc
@@ -272,21 +277,17 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                             </div>
                         </div>
 
-                        <div className="max-h-80 overflow-y-auto">
+                        <div className="max-h-[55vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200">
                             {loading ? (
                                 <div className="p-6 text-center text-gray-500">
-                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
+                                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-3"></div>
                                     <p>Đang tải thông báo...</p>
                                 </div>
                             ) : (activeTab === 'general' ? generalNotifications : assignmentNotifications).length === 0 ? (
-                                <div className="p-6 text-center text-gray-500">
-                                    <Bell className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                                    <p>
-                                        {activeTab === 'general'
-                                            ? 'Không có thông báo chung nào'
-                                            : 'Không có thông báo giao việc nào'
-                                        }
-                                    </p>
+                                <div className="p-8 text-center text-gray-500">
+                                    <Bell className="w-10 h-10 mx-auto mb-3 text-gray-300" />
+                                    <p className="font-medium text-gray-700">Không có thông báo</p>
+                                    <p className="text-sm text-gray-500 mt-1">Bạn sẽ nhận được thông báo khi có hoạt động liên quan.</p>
                                 </div>
                             ) : (
                                 <div className="divide-y">
@@ -296,36 +297,23 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                                             <div
                                                 key={notification.id}
                                                 onClick={() => handleNotificationClick(notification)}
-                                                className={`p-3 cursor-pointer hover:bg-gray-50 transition-colors border-l-4 ${!isRead ? 'bg-blue-50' : 'bg-white'
-                                                    } ${getTypeColor(notification.type)}`}
+                                                className={`flex gap-3 px-4 py-3 items-start hover:bg-gray-50 cursor-pointer transition-colors ${!isRead ? 'bg-blue-50' : 'bg-white'}`}
                                             >
-                                                <div className="flex items-start gap-3">
-                                                    {getNotificationIcon(notification.type)}
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-2 mb-1">
-                                                            <span className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full">
-                                                                {getTypeLabel(notification.type)}
-                                                            </span>
-                                                            {!isRead && (
-                                                                <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-                                                            )}
+                                                <div className="flex-shrink-0">
+                                                    <div className={`w-10 h-10 rounded-md flex items-center justify-center ${notification.type === 'system' ? 'bg-blue-50 text-blue-600' : notification.type === 'project' ? 'bg-green-50 text-green-600' : notification.type === 'task' ? 'bg-orange-50 text-orange-600' : 'bg-purple-50 text-purple-600'}`}>
+                                                        {getNotificationIcon(notification.type)}
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div className="min-w-0">
+                                                            <p className="text-sm font-medium text-gray-900 truncate">{notification.title}</p>
+                                                            <p className="text-xs text-gray-600 mt-1 line-clamp-2">{notification.content}</p>
                                                         </div>
-                                                        <p className="font-medium text-sm text-gray-900 mb-1">
-                                                            {notification.title}
-                                                        </p>
-                                                        <p className="text-xs text-gray-600 line-clamp-2">
-                                                            {notification.content}
-                                                        </p>
-                                                        <div className="flex items-center justify-between mt-2">
-                                                            <span className="text-xs text-gray-500">
-                                                                {formatDistanceToNow(new Date(notification.createdAt), {
-                                                                    addSuffix: true,
-                                                                    locale: vi
-                                                                })}
-                                                            </span>
-                                                            <span className="text-xs text-gray-500">
-                                                                {notification.author?.hoten || notification.author?.manv || 'System'}
-                                                            </span>
+                                                        <div className="text-right flex-shrink-0">
+                                                            <div className="text-xs text-gray-400">{formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true, locale: vi })}</div>
+                                                            <div className="text-xs text-gray-400 mt-1">{notification.author?.hoten || notification.author?.manv || 'System'}</div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -355,8 +343,8 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
 
             {/* Notification Detail Modal */}
             {selectedNotification && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg max-w-md w-full max-h-[80vh] overflow-y-auto">
+                <div className="fixed inset-0 bg-black/10 flex items-center justify-center z-[9999] p-4">
+                    <div className="bg-white rounded-lg max-w-md w-full max-h-[80vh] overflow-y-auto shadow-2xl ring-1 ring-black/10">
                         <div className="p-6">
                             <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-2">
@@ -478,7 +466,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
             {/* Click outside to close */}
             {isOpen && (
                 <div
-                    className="fixed inset-0 z-40"
+                    className="fixed inset-0 z-[9998]"
                     onClick={() => setIsOpen(false)}
                 />
             )}

@@ -180,7 +180,9 @@ export const groupAPI = {
   addMembers: (id: number, memberIds: number[]) => api.post(`/groups/${id}/members`, { memberIds }),
   removeMember: (id: number, userId: number) => api.delete(`/groups/${id}/members/${userId}`),
   // Thêm nhóm vào dự án (qua group_projects)
-  addGroupToProject: (groupId: number, projectId: number) => api.post('/groups/add-to-project', { groupId, projectId })
+  addGroupToProject: (groupId: number, projectId: number) => api.post('/groups/add-to-project', { groupId, projectId }),
+  // Xóa nhóm khỏi dự án (qua group_projects)
+  removeGroupFromProject: (groupId: number, projectId: number) => api.post('/groups/remove-from-project', { groupId, projectId })
 };
 
 // Đóng nhóm

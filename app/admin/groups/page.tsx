@@ -131,135 +131,147 @@ export default function GroupsPage() {
                 </div>
             )}
 
-            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-lg shadow-black/5">
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="bg-gradient-to-r from-slate-50 to-gray-50 border-b border-gray-200">
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 tracking-wide">Nhóm</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 tracking-wide">Dự án</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 tracking-wide">Leader</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 tracking-wide">Thành viên</th>
-                                <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900 tracking-wide">Hành động</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {loading ? (
-                                // Skeleton loading state
-                                <>
-                                    {[1, 2, 3, 4, 5].map(i => (
-                                        <tr key={i}>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse"></div>
-                                                    <div>
-                                                        <div className="h-5 bg-gray-200 rounded w-32 mb-2 animate-pulse"></div>
-                                                        <div className="h-3 bg-gray-200 rounded w-48 animate-pulse"></div>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="h-6 bg-gray-200 rounded-full w-28 animate-pulse"></div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="h-4 bg-gray-200 rounded w-24 animate-pulse"></div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <div className="w-9 h-9 bg-gray-200 rounded-lg animate-pulse"></div>
-                                                    <div className="w-9 h-9 bg-gray-200 rounded-lg animate-pulse"></div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </>
-                            ) : groups.length === 0 ? (
-                                <tr>
-                                    <td colSpan={5} className="px-6 py-12 text-center">
-                                        <div className="flex flex-col items-center justify-center space-y-3">
-                                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-                                                <Users className="w-8 h-8 text-gray-400" />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-sm font-medium text-gray-900">Chưa có nhóm</h3>
-                                                <p className="text-xs text-gray-500 mt-1">Tạo nhóm đầu tiên để bắt đầu</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ) : groups.map(g => (
-                                <tr key={g.id} className="hover:bg-slate-50/50 transition-all duration-150 group">
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center space-x-2">
-                                            <div className="w-8 h-8 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                <Users className="w-4 h-4 text-indigo-600" />
-                                            </div>
-                                            <div className="min-w-0">
-                                                <div className="font-semibold text-gray-900 text-sm truncate" title={g.description || g.name}>
-                                                    <a href={`/admin/groups/${g.id}`} className="hover:underline text-blue-700">{g.name}</a>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="text-sm font-medium text-gray-900 space-y-1">
-                                            {Array.isArray(g.groupProjects) && g.groupProjects.filter(gp => gp.status === 'active').length > 0 ? (
-                                                g.groupProjects.filter(gp => gp.status === 'active').map((gp) => (
-                                                    <div key={gp.id} className="flex items-center gap-2">
-                                                        <span className="truncate max-w-[160px]" title={projects.find(p => p.id === gp.projectId)?.tenduan || `Dự án #${gp.projectId}`}>{projects.find(p => p.id === gp.projectId)?.tenduan || `Dự án #${gp.projectId}`}</span>
-                                                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-700 border border-green-200">Đang tham gia</span>
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <span className="text-gray-400 italic">Chưa gán dự án</span>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center space-x-2">
-                                            <div className="w-7 h-7 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                                <span className="text-xs font-semibold text-indigo-700">
-                                                    {g.leader?.hoten ? g.leader.hoten.charAt(0).toUpperCase() : '?'}
-                                                </span>
-                                            </div>
-                                            <span className="text-sm text-gray-700 truncate">
-                                                {g.leader?.hoten || <span className="text-gray-400 italic">Chưa có leader</span>}
-                                            </span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                            {g.members?.length || 0} thành viên
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center justify-end space-x-2">
-                                            {g.status !== 'closed' ? (
-                                                <button
-                                                    onClick={() => handleEdit(g)}
-                                                    className="p-2.5 hover:bg-blue-100 rounded-lg text-blue-600 hover:text-blue-700 transition-all duration-150 hover:scale-110 border border-blue-200 hover:border-blue-300"
-                                                    title="Chỉnh sửa nhóm"
-                                                >
-                                                    <Edit size={16} />
-                                                </button>
-                                            ) : (
-                                                <span title="Nhóm đã đóng" className="p-2.5 rounded-lg text-gray-400 border border-gray-200 bg-gray-50 flex items-center justify-center">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 17a2 2 0 100-4 2 2 0 000 4zm6-6V9a6 6 0 10-12 0v2a2 2 0 00-2 2v7a2 2 0 002 2h12a2 2 0 002-2v-7a2 2 0 00-2-2zm-2 0H8V9a4 4 0 118 0v2z" />
-                                                    </svg>
-                                                </span>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+            {loading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {[1, 2, 3, 4, 5, 6].map(i => (
+                        <div key={i} className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+                            <div className="flex items-start justify-between mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 rounded-xl bg-gray-200 animate-pulse"></div>
+                                    <div>
+                                        <div className="h-5 bg-gray-200 rounded w-32 mb-2 animate-pulse"></div>
+                                        <div className="h-3 bg-gray-200 rounded w-24 animate-pulse"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="h-4 bg-gray-200 rounded w-full animate-pulse"></div>
+                                <div className="h-4 bg-gray-200 rounded w-2/3 animate-pulse"></div>
+                            </div>
+                        </div>
+                    ))}
                 </div>
-            </div>
+            ) : groups.length === 0 ? (
+                <div className="bg-white border-2 border-dashed border-gray-300 rounded-2xl p-16 text-center">
+                    <div className="flex flex-col items-center justify-center space-y-4">
+                        <div className="w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center">
+                            <Users className="w-10 h-10 text-indigo-500" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-1">Chưa có nhóm</h3>
+                            <p className="text-sm text-gray-500">Tạo nhóm đầu tiên để bắt đầu quản lý dự án</p>
+                        </div>
+                        <button
+                            onClick={() => { setEditGroup(null); setOpenModal(true); }}
+                            className="px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl font-semibold shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 hover:scale-105 transition-all flex items-center gap-2 text-sm mt-2"
+                        >
+                            <Plus size={18} />
+                            <span>Tạo nhóm đầu tiên</span>
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {groups.map(g => (
+                        <div key={g.id} className="group bg-white border border-gray-200 rounded-2xl p-6 hover:shadow-xl hover:border-indigo-300 transition-all duration-300 hover:-translate-y-1 shadow-sm relative overflow-hidden">
+                            {/* Status Badge */}
+                            {g.status === 'closed' && (
+                                <div className="absolute top-0 right-0 bg-gradient-to-bl from-gray-500 to-gray-600 text-white px-4 py-1 rounded-bl-xl text-xs font-bold shadow-lg">
+                                    Đã đóng
+                                </div>
+                            )}
+                            
+                            {/* Header */}
+                            <div className="flex items-start gap-4 mb-4">
+                                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 group-hover:scale-110 transition-transform duration-300">
+                                    <Users className="w-7 h-7 text-white" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <a href={`/admin/groups/${g.id}`} className="text-xl font-bold text-gray-900 hover:text-indigo-600 transition-colors line-clamp-1 block mb-1">
+                                        {g.name}
+                                    </a>
+                                    <p className="text-xs text-gray-500 line-clamp-2">{g.description || 'Không có mô tả'}</p>
+                                </div>
+                            </div>
+
+                            {/* Projects */}
+                            <div className="mb-4 pb-4 border-b border-gray-100">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <FolderKanban className="w-4 h-4 text-indigo-500" />
+                                    <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Dự án</span>
+                                </div>
+                                <div className="space-y-2">
+                                    {Array.isArray(g.groupProjects) && g.groupProjects.filter(gp => gp.status === 'active').length > 0 ? (
+                                        g.groupProjects.filter(gp => gp.status === 'active').slice(0, 2).map((gp) => (
+                                            <div key={gp.id} className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg px-3 py-2 border border-green-200">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                                                    <span className="text-sm font-medium text-gray-900 truncate flex-1" title={projects.find(p => p.id === gp.projectId)?.tenduan || `Dự án #${gp.projectId}`}>
+                                                        {projects.find(p => p.id === gp.projectId)?.tenduan || `Dự án #${gp.projectId}`}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="text-sm text-gray-400 italic py-1">Chưa tham gia dự án</div>
+                                    )}
+                                    {Array.isArray(g.groupProjects) && g.groupProjects.filter(gp => gp.status === 'active').length > 2 && (
+                                        <div className="text-xs text-indigo-600 font-medium">
+                                            +{g.groupProjects.filter(gp => gp.status === 'active').length - 2} dự án khác
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Leader & Members */}
+                            <div className="space-y-3 mb-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md">
+                                        <span className="text-sm font-bold text-white">
+                                            {g.leader?.hoten ? g.leader.hoten.charAt(0).toUpperCase() : '?'}
+                                        </span>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-xs text-gray-500 uppercase tracking-wide font-semibold">Leader</div>
+                                        <div className="text-sm font-semibold text-gray-900 truncate">
+                                            {g.leader?.hoten || <span className="text-gray-400 italic">Chưa có leader</span>}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Users className="w-4 h-4 text-purple-500" />
+                                        <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Thành viên</span>
+                                    </div>
+                                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 border border-indigo-200">
+                                        {g.members?.length || 0} người
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex items-center gap-2 pt-4 border-t border-gray-100">
+                                <a 
+                                    href={`/admin/groups/${g.id}`}
+                                    className="flex-1 px-4 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl font-semibold text-sm text-center hover:shadow-lg hover:shadow-indigo-500/30 transition-all hover:scale-105"
+                                >
+                                    Xem chi tiết
+                                </a>
+                                {g.status !== 'closed' && (
+                                    <button
+                                        onClick={() => handleEdit(g)}
+                                        className="px-4 py-2.5 bg-white border-2 border-indigo-200 text-indigo-600 rounded-xl font-semibold text-sm hover:bg-indigo-50 hover:border-indigo-300 transition-all hover:scale-105 flex items-center gap-2"
+                                        title="Chỉnh sửa nhóm"
+                                    >
+                                        <Edit size={16} />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             <GroupForm isOpen={openModal} onClose={() => setOpenModal(false)} onSuccess={loadGroups} editGroup={editGroup || undefined} />
         </div>

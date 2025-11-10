@@ -8,6 +8,17 @@ import Modal from "@/components/admin/Modal"
 import { createProject, fetchProjects, fetchUsers } from "@/axios/api"
 
 export default function ProjectsPage() {
+    const formatDate = (value: any) => {
+        if (!value) return "—"
+        try {
+            const d = new Date(value)
+            if (isNaN(d.getTime())) return "—"
+            return d.toLocaleDateString("vi-VN")
+        } catch (e) {
+            return "—"
+        }
+    }
+
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
     const [formData, setFormData] = useState({
         name: "",
@@ -150,6 +161,16 @@ export default function ProjectsPage() {
                                                 {project.nguoiDamNhan?.hoten || "Chưa phân công"}
                                             </span>
                                         </p>
+                                        <div className="mt-3 flex items-center gap-4 text-sm text-muted-foreground">
+                                            <div className="flex items-center gap-2">
+                                                <Clock size={14} />
+                                                <span>Bắt đầu: <span className="font-medium text-foreground">{formatDate(project.ngaybatdau)}</span></span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Clock size={14} />
+                                                <span>Kết thúc: <span className="font-medium text-foreground">{formatDate(project.ngayketthuc)}</span></span>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div className="p-2 rounded-lg bg-secondary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                                         <ArrowRight size={20} />
