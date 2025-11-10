@@ -53,7 +53,8 @@ module.exports = {
     },
 
     down: async (queryInterface, Sequelize) => {
-        await queryInterface.dropTable('Assignments');
-        await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_Assignments_status";');
+    await queryInterface.dropTable('Assignments');
+    // Dòng dưới chỉ dùng cho PostgreSQL, MySQL không cần:
+    // await queryInterface.sequelize.query('DROP TYPE IF EXISTS "enum_Assignments_status";');
     }
 };
