@@ -68,7 +68,7 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
     // Load user info from localStorage
     useEffect(() => {
         const loadUserInfo = () => {
-            const token = localStorage.getItem('accesstoken')
+            const token = localStorage.getItem('accessToken')
             const userId = localStorage.getItem('userId')
             const hoten = localStorage.getItem('hoten')
             const manv = localStorage.getItem('manv')
@@ -94,7 +94,8 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
 
     const handleLogout = async () => {
         // Confirm logout
-        if (confirm('Bạn có chắc muốn đăng xuất?')) {
+        const confirmed = await showConfirm('Bạn có chắc muốn đăng xuất?')
+        if (confirmed) {
             setIsLoggingOut(true)
 
             try {
@@ -106,15 +107,20 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
             }
 
             // Clear all authentication data
-            localStorage.removeItem('accesstoken')
+            localStorage.removeItem('accessToken')
+            localStorage.removeItem('accessToken')
+            localStorage.removeItem('token')
             localStorage.removeItem('refreshToken')
             localStorage.removeItem('userId')
             localStorage.removeItem('hoten')
             localStorage.removeItem('manv')
             localStorage.removeItem('role')
+            localStorage.removeItem('avatar')
 
             // Clear sessionStorage as well
             sessionStorage.clear()
+
+            showSuccess('Đăng xuất thành công!')
 
             // Redirect to login page
             router.push('/')
@@ -288,30 +294,14 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                         </div>
 
                         {/* Logout */}
-                        <button onClick={async () => {
-                            const confirmed = await showConfirm("Bạn có chắc chắn muốn đăng xuất?")
-                            if (confirmed) {
-                                localStorage.removeItem("accessToken")
-                                localStorage.removeItem("token")
-                                localStorage.removeItem("refreshToken")
-                                localStorage.removeItem("manv")
-                                localStorage.removeItem("userId")
-                                localStorage.removeItem("hoten")
-                                localStorage.removeItem("role")
-                                localStorage.removeItem("avatar")
-                                showSuccess("Đăng xuất thành công!")
-                                router.push("/")
-                            }
-                        }} className="p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
-                            <LogOut className="h-5 w-5" />
-                            <button
-                                onClick={handleLogout}
-                                disabled={isLoggingOut}
-                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors disabled:opacity-50"
-                                title="Đăng xuất"
-                            >
-                                <LogOut className={`h-5 w-5 ${isLoggingOut ? 'animate-spin' : ''}`} />
-                            </button>
+                        <button
+                            onClick={handleLogout}
+                            disabled={isLoggingOut}
+                            className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors disabled:opacity-50"
+                            title="Đăng xuất"
+                        >
+                            <LogOut className={`h-5 w-5 ${isLoggingOut ? 'animate-spin' : ''}`} />
+                        </button>
                     </div>
                 </div>
 

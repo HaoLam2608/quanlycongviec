@@ -55,7 +55,7 @@ export default function ProjectReportsPage() {
         <ArrowLeft className="w-4 h-4 mr-2" />
         Quay lại dự án
       </Link>
-      
+
       <ProjectReports duanId={Number(projectId)} duanName={project.tenduan} />
     </div>
   )

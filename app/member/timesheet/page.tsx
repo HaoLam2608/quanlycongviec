@@ -95,7 +95,7 @@ export default function TimesheetPage() {
 
     const loadCurrentUser = async () => {
         // Load from individual localStorage fields (matching login format)
-        const accessToken = localStorage.getItem('accesstoken')
+        const accessToken = localStorage.getItem('accessToken')
         const userId = localStorage.getItem('userId')
         const hoten = localStorage.getItem('hoten')
         const manv = localStorage.getItem('manv')

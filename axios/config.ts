@@ -7,7 +7,7 @@ const api = axios.create({
   },
 });
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("accesstoken");
+  const token = localStorage.getItem("accessToken");
   if (token) {
     config.headers["Authorization"] = `Bearer ${token}`;
   }
@@ -31,13 +31,14 @@ api.interceptors.response.use(
         if (!refreshToken) throw new Error('Missing refresh token');
         const response = await axios.post("http://localhost:5000/auth/refresh", { refreshToken });
         const newAccessToken = response.data.accessToken;
-        localStorage.setItem("accesstoken", newAccessToken);
+        localStorage.setItem("accessToken", newAccessToken);
         originalRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
         // Only remove authentication-related keys (avoid wiping other app data)
         try {
           localStorage.removeItem('accessToken');
+          localStorage.removeItem('accesstoken'); // Remove old key for safety
           localStorage.removeItem('refreshToken');
           localStorage.removeItem('manv');
           localStorage.removeItem('hoten');
