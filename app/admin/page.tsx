@@ -297,23 +297,7 @@ export default function AdminDashboard() {
                             </div>
                         </div>
 
-                        {/* Progress Bar */}
-                        <div>
-                            <div className="flex justify-between mb-2">
-                                <span className="text-sm font-medium text-slate-700">Tỷ lệ hoàn thành</span>
-                                <span className="text-sm font-bold text-blue-600">{projectStats.completionRate}%</span>
-                            </div>
-                            <div className="w-full bg-slate-200 rounded-full h-4 overflow-hidden">
-                                <div
-                                    className="bg-gradient-to-r from-blue-500 to-green-500 h-4 rounded-full transition-all duration-1000 flex items-center justify-end pr-2"
-                                    style={{ width: `${projectStats.completionRate}%` }}
-                                >
-                                    {projectStats.completionRate > 10 && (
-                                        <span className="text-xs font-bold text-white">{projectStats.completionRate}%</span>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
+                        {/* Progress Bar removed as requested */}
                     </div>
 
                     {/* Quick Stats */}
@@ -337,12 +321,6 @@ export default function AdminDashboard() {
                                 <div className="flex items-center justify-between">
                                     <span className="text-sm font-medium">Dự án đang chạy</span>
                                     <span className="text-2xl font-bold">{projectStats.active}</span>
-                                </div>
-                            </div>
-                            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm font-medium">Tỷ lệ thành công</span>
-                                    <span className="text-2xl font-bold">{projectStats.completionRate}%</span>
                                 </div>
                             </div>
                         </div>

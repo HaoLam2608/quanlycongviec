@@ -461,6 +461,22 @@ export default function ProjectDetailPage() {
         }
     };
 
+    // Xóa nhóm khỏi dự án
+    const handleRemoveGroupFromProject = async (groupId: number) => {
+        const confirmed = await showConfirm('Bạn có chắc chắn muốn xóa nhóm này khỏi dự án?');
+        if (!confirmed) return;
+        
+        try {
+            await groupAPI.removeGroupFromProject(groupId, Number(id));
+            await loadProjectGroups();
+            showSuccess("Đã xóa nhóm khỏi dự án thành công!");
+        } catch (err: any) {
+            console.error("Lỗi xóa nhóm:", err);
+            const errorMessage = err.response?.data?.message || "Có lỗi khi xóa nhóm khỏi dự án";
+            showError(errorMessage);
+        }
+    };
+
 
     // const allMembers = projectGroups.flatMap((group) => group.members || [])
 
@@ -1196,32 +1212,33 @@ export default function ProjectDetailPage() {
                                                     </div>
                                                 </div>
                                                 <div className="flex gap-2">
-                                                    {project?.status === 'hoan_thanh' ? (
+                                                    {/* Nút xóa nhóm khỏi dự án */}
+                                                    {(project?.status === 'chua_bat_dau' || project?.status === 'dang_chay') ? (
                                                         <button
-                                                            onClick={async () => {
-                                                                const confirmed = await showConfirm('Bạn có chắc muốn rời khỏi dự án đã hoàn thành này?');
-                                                                if (confirmed) {
-                                                                    try {
-                                                                        await groupAPI.updateGroup(group.id, { duanId: undefined });
-                                                                        await loadProjectGroups();
-                                                                    } catch (err: any) {
-                                                                        showError(err.message || 'Có lỗi khi rời dự án');
-                                                                    }
-                                                                }
-                                                            }}
-                                                            className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium hover:bg-green-200 transition-all"
+                                                            onClick={() => handleRemoveGroupFromProject(group.id)}
+                                                            className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-semibold hover:bg-red-600 transition-all flex items-center gap-2 shadow-md hover:shadow-lg"
                                                         >
-                                                            Rời dự án (Đã hoàn thành)
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                            </svg>
+                                                            Xóa khỏi dự án
                                                         </button>
-                                                    ) : project?.status === 'dong' ? (
-                                                        <div className="px-3 py-1.5 bg-gray-200 text-gray-500 rounded-lg text-sm font-medium">
-                                                            Đã hoàn thành
-                                                        </div>
+                                                    ) : project?.status === 'da_hoan_thanh' ? (
+                                                        <button
+                                                            onClick={() => handleRemoveGroupFromProject(group.id)}
+                                                            className="px-4 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-semibold hover:bg-green-200 transition-all flex items-center gap-2"
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                            </svg>
+                                                            Xóa khỏi dự án (Đã hoàn thành)
+                                                        </button>
                                                     ) : (
-                                                        <div className="px-3 py-1.5 bg-yellow-100 text-yellow-700 rounded-lg text-sm font-medium">
-                                                            {Array.isArray(group.groupProjects) && group.groupProjects.some((gp: any) => gp.projectId === Number(id) && gp.status === 'completed')
-                                                                ? 'Đã hoàn thành'
-                                                                : 'Chỉ được rời khi dự án hoàn thành'}
+                                                        <div className="px-4 py-2 bg-gray-100 text-gray-500 rounded-lg text-sm font-medium flex items-center gap-2">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                                            </svg>
+                                                            Dự án đã đóng
                                                         </div>
                                                     )}
                                                 </div>

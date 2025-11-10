@@ -183,17 +183,24 @@ export default function UsersPage() {
                                     >
                                         <td className="p-4">
                                             <div className="flex items-center gap-3">
-                                                                                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-md shadow-blue-500/20 overflow-hidden">
-                                                                                                                                                        {user.avatarUrl && typeof user.avatarUrl === 'string' && user.avatarUrl.startsWith('/users/') ? (
-                                                                                                                                                            <img
-                                                                                                                                                                src={`http://localhost:5000${user.avatarUrl}`}
-                                                                                                                                                                alt={user.hoten}
-                                                                                                                                                                className="object-cover w-full h-full"
-                                                                                                                                                            />
-                                                                                                                                                        ) : (
-                                                                                                                                                            user.hoten.charAt(0).toUpperCase()
-                                                                                                                                                        )}
-                                                                                                </div>
+                                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-md shadow-blue-500/20 overflow-hidden">
+                                                    {user.avatarUrl && typeof user.avatarUrl === 'string' && user.avatarUrl.startsWith('/users/') ? (
+                                                        <img
+                                                            src={`http://localhost:5000${user.avatarUrl}`}
+                                                            alt={user.hoten}
+                                                            className="object-cover w-full h-full"
+                                                            onError={(e) => {
+                                                                e.currentTarget.src = '/placeholder-user.jpg';
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <img
+                                                            src="/placeholder-user.jpg"
+                                                            alt={user.hoten}
+                                                            className="object-cover w-full h-full"
+                                                        />
+                                                    )}
+                                                </div>
                                                 <div>
                                                     <div className="font-medium text-foreground">{user.hoten}</div>
                                                     <div className="text-sm text-muted-foreground">{user.manv}</div>
