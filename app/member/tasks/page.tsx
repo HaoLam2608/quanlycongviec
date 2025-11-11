@@ -19,6 +19,11 @@ import {
 } from "lucide-react"
 import { getMemberTasks, updateMemberTaskStatus, updateMemberSubtaskStatus } from "@/axios/api"
 import { useToastContext } from '@/components/providers/toast-provider'
+import Modal from "@/components/admin/Modal"
+import WorklogTask from "@/components/worklog-task"
+import WorklogSubtask from "@/components/worklog-subtask"
+import CommentTask from "@/components/comment-task"
+import CommentSubtask from "@/components/comment-subtask"
 
 interface Task {
     id: number
@@ -525,110 +530,105 @@ export default function MyTasksPage() {
                 </div>
 
                 {/* Task Detail Modal */}
-                {isDetailModalOpen && selectedTask && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                            <div className="p-6 border-b border-gray-200">
-                                <div className="flex items-center justify-between">
-                                    <h2 className="text-xl font-bold text-gray-900">Chi tiết công việc</h2>
-                                    <button
-                                        onClick={() => setIsDetailModalOpen(false)}
-                                        className="text-gray-400 hover:text-gray-600"
-                                    >
-                                        ✕
-                                    </button>
+                <Modal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} title="Chi tiết công việc">
+                    {selectedTask && (
+                        <div className="space-y-6">
+                            <div>
+                                <h3 className="text-lg font-semibold text-foreground mb-2">
+                                    {selectedTask.type === 'subtask' ? '• ' : ''}{selectedTask.title}
+                                </h3>
+                                {selectedTask.description && (
+                                    <p className="text-muted-foreground">{selectedTask.description}</p>
+                                )}
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-sm font-medium text-muted-foreground">Trạng thái</label>
+                                    <span className={`inline-block mt-1 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(selectedTask.status)}`}>
+                                        {selectedTask.status}
+                                    </span>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-muted-foreground">Độ ưu tiên</label>
+                                    <span className={`inline-block mt-1 px-3 py-1 rounded-full text-sm font-medium ${getPriorityColor(selectedTask.priority)}`}>
+                                        {getPriorityLabel(selectedTask.priority)}
+                                    </span>
                                 </div>
                             </div>
 
-                            <div className="p-6 space-y-6">
+                            <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                                        {selectedTask.type === 'subtask' ? '• ' : ''}{selectedTask.title}
-                                    </h3>
-                                    {selectedTask.description && (
-                                        <p className="text-gray-600">{selectedTask.description}</p>
-                                    )}
+                                    <label className="text-sm font-medium text-muted-foreground">Ngày bắt đầu</label>
+                                    <p className="mt-1 text-foreground">
+                                        {selectedTask.startDate ? new Date(selectedTask.startDate).toLocaleDateString('vi-VN') : 'Chưa xác định'}
+                                    </p>
                                 </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="text-sm font-medium text-gray-700">Trạng thái</label>
-                                        <span className={`inline-block mt-1 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(selectedTask.status)}`}>
-                                            {selectedTask.status}
-                                        </span>
-                                    </div>
-                                    <div>
-                                        <label className="text-sm font-medium text-gray-700">Độ ưu tiên</label>
-                                        <span className={`inline-block mt-1 px-3 py-1 rounded-full text-sm font-medium ${getPriorityColor(selectedTask.priority)}`}>
-                                            {getPriorityLabel(selectedTask.priority)}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="text-sm font-medium text-gray-700">Ngày bắt đầu</label>
-                                        <p className="mt-1 text-gray-900">
-                                            {selectedTask.startDate ? new Date(selectedTask.startDate).toLocaleDateString('vi-VN') : 'Chưa xác định'}
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <label className="text-sm font-medium text-gray-700">Deadline</label>
-                                        <p className="mt-1 text-gray-900">
-                                            {selectedTask.deadline ? new Date(selectedTask.deadline).toLocaleDateString('vi-VN') : 'Chưa xác định'}
-                                        </p>
-                                    </div>
-                                </div>
-
                                 <div>
-                                    <label className="text-sm font-medium text-gray-700">Dự án</label>
-                                    <p className="mt-1 text-gray-900">{selectedTask.project}</p>
+                                    <label className="text-sm font-medium text-muted-foreground">Deadline</label>
+                                    <p className="mt-1 text-foreground">
+                                        {selectedTask.deadline ? new Date(selectedTask.deadline).toLocaleDateString('vi-VN') : 'Chưa xác định'}
+                                    </p>
                                 </div>
+                            </div>
 
-                                {selectedTask.assignedBy && (
-                                    <div>
-                                        <label className="text-sm font-medium text-gray-700">Được giao bởi</label>
-                                        <p className="mt-1 text-gray-900">{selectedTask.assignedBy}</p>
-                                    </div>
-                                )}
+                            <div>
+                                <label className="text-sm font-medium text-muted-foreground">Dự án</label>
+                                <p className="mt-1 text-foreground">{selectedTask.project}</p>
+                            </div>
 
-                                {selectedTask.progress !== undefined && (
-                                    <div>
-                                        <label className="text-sm font-medium text-gray-700">Tiến độ</label>
-                                        <div className="mt-2">
-                                            <div className="flex items-center justify-between mb-1">
-                                                <span className="text-sm text-gray-600">Hoàn thành</span>
-                                                <span className="text-sm font-medium text-gray-900">{selectedTask.progress}%</span>
-                                            </div>
-                                            <div className="w-full bg-gray-200 rounded-full h-3">
-                                                <div
-                                                    className="bg-blue-600 h-3 rounded-full transition-all duration-300"
-                                                    style={{ width: `${selectedTask.progress}%` }}
-                                                />
+                            {selectedTask.assignedBy && (
+                                <div>
+                                    <label className="text-sm font-medium text-muted-foreground">Được giao bởi</label>
+                                    <p className="mt-1 text-foreground">{selectedTask.assignedBy}</p>
+                                </div>
+                            )}
+
+                            {selectedTask.progress !== undefined && (
+                                <div>
+                                    <label className="text-sm font-medium text-muted-foreground">Tiến độ</label>
+                                    <div className="mt-2">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-sm text-muted-foreground">Hoàn thành</span>
+                                            <span className="text-sm font-medium text-foreground">{selectedTask.progress}%</span>
+                                        </div>
+                                        <div className="w-full bg-gray-200 rounded-full h-3">
+                                            <div
+                                                className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                                                style={{ width: `${selectedTask.progress}%` }}
+                                            />
                                             </div>
                                         </div>
                                     </div>
                                 )}
 
-                                {/* Action Buttons */}
-                                <div className="flex gap-3 pt-4 border-t border-gray-200">
-                                    <button className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2">
-                                        <MessageSquare className="w-4 h-4" />
-                                        Thêm comment
-                                    </button>
-                                    <button className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
-                                        <Paperclip className="w-4 h-4" />
-                                        Đính kèm file
-                                    </button>
-                                    <button className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2">
-                                        <Clock className="w-4 h-4" />
-                                        Log thời gian
+                                {/* Worklog và Comments */}
+                                <div className="pt-4 border-t border-gray-200 space-y-4">
+                                    {selectedTask.type === 'subtask' && selectedTask.id ? (
+                                        <>
+                                            <WorklogSubtask subtaskId={selectedTask.id} />
+                                            <CommentSubtask subtaskId={selectedTask.id} />
+                                        </>
+                                    ) : selectedTask.id ? (
+                                        <>
+                                            <WorklogTask taskId={selectedTask.id} />
+                                            <CommentTask taskId={selectedTask.id} />
+                                        </>
+                                    ) : null}
+                                </div>
+
+                                {/* Action Buttons - có thể bỏ vì đã có Worklog và Comment components */}
+                                <div className="flex justify-end pt-4 border-t border-gray-200">
+                                    <button
+                                        onClick={() => setIsDetailModalOpen(false)}
+                                        className="px-6 py-3 bg-secondary text-foreground rounded-xl font-semibold hover:bg-secondary/80 transition-all"
+                                    >
+                                        Đóng
                                     </button>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                )}
+                        )}
+                    </Modal>
             </div>
         </div>
     )

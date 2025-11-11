@@ -43,6 +43,8 @@ import { getGroups, groupAPI } from "@/axios/adminApi"
 import { useRef } from "react"
 import WorklogSubtask from "@/components/worklog-subtask"
 import WorklogTask from "@/components/worklog-task"
+import CommentTask from "@/components/comment-task"
+import CommentSubtask from "@/components/comment-subtask"
 import TimelineInline from "./timeline/page"
 import ProjectCalendarPage from "./calendar/page"
 import ProjectReportsAdvanced from "@/components/project-reports-advanced"
@@ -1118,7 +1120,10 @@ export default function ProjectDetailPage() {
                                                 expandedWorklogTaskId === task.id && (
                                                     <tr key={`${task.id}-worklog`} className="bg-slate-50 border-b border-border">
                                                         <td colSpan={8} className="p-0">
-                                                            <WorklogTask taskId={task.id} />
+                                                            <div className="space-y-4 p-4">
+                                                                <WorklogTask taskId={task.id} />
+                                                                <CommentTask taskId={task.id} />
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 )
@@ -1657,9 +1662,10 @@ export default function ProjectDetailPage() {
                                                 </button>
                                             </div>
 
-                                            {/* Worklog cho subtask */}
-                                            <div className="mt-6">
+                                            {/* Worklog và Comments cho subtask */}
+                                            <div className="mt-6 space-y-4">
                                                 <WorklogSubtask subtaskId={subtask.id} />
+                                                <CommentSubtask subtaskId={subtask.id} />
                                             </div>
                                         </div>
                                     ))
@@ -1675,8 +1681,11 @@ export default function ProjectDetailPage() {
                             </div>
                         </div>
 
-                        {/* Tổng hợp Worklog cho Task */}
-                        <WorklogTask taskId={selectedTask.id} />
+                        {/* Tổng hợp Worklog và Comments cho Task */}
+                        <div className="space-y-4">
+                            <WorklogTask taskId={selectedTask.id} />
+                            <CommentTask taskId={selectedTask.id} />
+                        </div>
 
                         <div className="flex justify-end pt-4">
                             <button
