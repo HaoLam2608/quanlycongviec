@@ -13,10 +13,12 @@ exports.createSubtask = async (req, res) => {
             return res.status(404).json({ error: 'Không tìm thấy công việc chính' });
         }
 
-        // Kiểm tra user thực hiện có tồn tại không
-        const executor = await User.findByPk(nguoiThucHienId);
-        if (!executor) {
-            return res.status(404).json({ error: 'Không tìm thấy người thực hiện' });
+        // Kiểm tra user thực hiện có tồn tại không (chỉ khi client cung cấp nguoiThucHienId)
+        if (nguoiThucHienId) {
+            const executor = await User.findByPk(nguoiThucHienId);
+            if (!executor) {
+                return res.status(404).json({ error: 'Không tìm thấy người thực hiện' });
+            }
         }
 
         // Tự động tính thứ tự cho subtask mới
@@ -76,18 +78,41 @@ exports.createSubtask = async (req, res) => {
         let initialAssigneeId = null;
         let assignmentCreated = null;
 
-        // If assigning to someone else, don't set assignee yet (pending acceptance)
-        // If self-assigning or no assignee, set it now
-        if (!nguoiThucHienId || req.user.id === nguoiThucHienId) {
-            initialAssigneeId = nguoiThucHienId;
+        // If client did not provide an assignee, default to self-assign (creator)
+        if (!nguoiThucHienId) {
+            initialAssigneeId = req.user.id;
+        } else {
+            // If assigning to self, set assignee immediately
+            if (req.user.id === nguoiThucHienId) {
+                initialAssigneeId = nguoiThucHienId;
+            }
+            // If assigning to someone else, leave initialAssigneeId null (will create an Assignment)
         }
 
-        // Create subtask
+        // Ensure req.user exists (authentication)
+        if (!req.user) {
+            return res.status(401).json({ error: 'Unauthenticated' });
+        }
+
+        // Debug logging to help track why nguoiThucHienId might be null
+        console.log('Creating subtask with payload:', {
+            tenSubtask,
+            mota,
+            taskId,
+            incomingNguoiThucHienId: nguoiThucHienId,
+            initialAssigneeId,
+            reqUserId: req.user && req.user.id
+        });
+
+        // Ensure we never insert a NULL into nguoiThucHienId when DB still enforces NOT NULL.
+        // Prefer initialAssigneeId when set; otherwise fallback to creator (self-assign).
+        const safeAssigneeId = initialAssigneeId != null ? initialAssigneeId : (req.user && req.user.id ? req.user.id : null);
+
         const newSubtask = await Subtask.create({
             tenSubtask,
             mota,
             taskId,
-            nguoiThucHienId: initialAssigneeId,
+            nguoiThucHienId: safeAssigneeId,
             trangThai: 'Chưa bắt đầu',
             ngayBatDau,
             ngayKetThuc,
@@ -168,7 +193,7 @@ exports.createSubtask = async (req, res) => {
         // Update task progress
         await updateTaskProgress(taskId);
 
-        // Get subtask with details
+        // Get subtask with details including pending assignment info
         const subtaskWithDetails = await Subtask.findByPk(newSubtask.id, {
             include: [
                 {
@@ -181,6 +206,19 @@ exports.createSubtask = async (req, res) => {
                     model: Task,
                     as: 'task',
                     attributes: ['id', 'tentask']
+                },
+                {
+                    model: Assignment,
+                    as: 'assignments',
+                    where: { status: 'pending' },
+                    required: false,
+                    include: [
+                        {
+                            model: User,
+                            as: 'assignee',
+                            attributes: ['id', 'hoten', 'manv']
+                        }
+                    ]
                 }
             ]
         });
@@ -220,11 +258,27 @@ exports.getSubtasksByTask = async (req, res) => {
 
         const subtasks = await Subtask.findAll({
             where: { taskId },
-            include: [{
-                model: User,
-                as: 'nguoiThucHien',
-                attributes: ['id', 'hoten', 'manv', 'chucvu']
-            }],
+            include: [
+                {
+                    model: User,
+                    as: 'nguoiThucHien',
+                    attributes: ['id', 'hoten', 'manv', 'chucvu'],
+                    required: false
+                },
+                {
+                    model: Assignment,
+                    as: 'assignments',
+                    where: { status: 'pending' },
+                    required: false,
+                    include: [
+                        {
+                            model: User,
+                            as: 'assignee',
+                            attributes: ['id', 'hoten', 'manv']
+                        }
+                    ]
+                }
+            ],
             order: [['thuTu', 'ASC']]
         });
 

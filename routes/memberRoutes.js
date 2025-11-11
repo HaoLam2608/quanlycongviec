@@ -7,7 +7,9 @@ const {
     getUpcomingTasks,
     getRecentActivities,
     getMemberTasks,
-    getMemberProjects
+    getMemberProjects,
+    updateMemberTaskStatus,
+    updateMemberSubtaskStatus
 } = require('../controllers/memberController');
 
 // Apply authentication middleware to all routes
@@ -31,6 +33,12 @@ router.get('/activities/recent', getRecentActivities);
 
 // Task management endpoints
 router.get('/tasks', getMemberTasks);
+
+// Update task status (for members)
+router.patch('/tasks/:taskId/status', updateMemberTaskStatus);
+
+// Update subtask status (for members)
+router.patch('/tasks/:taskId/subtasks/:subtaskId/status', updateMemberSubtaskStatus);
 
 // Project endpoints
 router.get('/projects', getMemberProjects);

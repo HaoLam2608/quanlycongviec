@@ -15,6 +15,12 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'nguoiThucHienId',
         as: 'nguoiThucHien'
       });
+
+      // Subtask có thể có assignment đang chờ
+      Subtask.hasMany(models.Assignment, {
+        foreignKey: 'subtaskId',
+        as: 'assignments'
+      });
     }
   }
 
@@ -47,10 +53,10 @@ module.exports = (sequelize, DataTypes) => {
       }
     },
     trangThai: {
-      type: DataTypes.ENUM('Chưa bắt đầu', 'Đang chạy', 'Hoàn thành'),
+      type: DataTypes.ENUM('Chưa bắt đầu', 'Đang chạy', 'Chờ xác nhận hoàn thành', 'Hoàn thành'),
       defaultValue: 'Chưa bắt đầu',
       validate: {
-        isIn: [['Chưa bắt đầu', 'Đang chạy', 'Hoàn thành']]
+        isIn: [['Chưa bắt đầu', 'Đang chạy', 'Chờ xác nhận hoàn thành', 'Hoàn thành']]
       }
     },
     ngayBatDau: {

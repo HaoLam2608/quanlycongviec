@@ -39,6 +39,8 @@ app.use('/members', require('./routes/memberRoutes'));
 app.use('/notifications', require('./routes/notificationRoutes'));
 // assignment routes (propose/accept/decline)
 app.use('/assignments', require('./routes/assignmentRoutes'));
+// approval routes (for task/subtask completion approval)
+app.use('/approvals', require('./routes/approvalRoutes'));
 
 
 // Health / root route

@@ -622,11 +622,107 @@ const getMemberProjects = async (req, res) => {
     }
 };
 
+// Update task status for members (with approval workflow)
+const updateMemberTaskStatus = async (req, res) => {
+    try {
+        const { taskId } = req.params;
+        const { status } = req.body;
+        const userId = req.user.id;
+
+        const task = await Task.findByPk(taskId);
+        if (!task) {
+            return res.status(404).json({ message: 'Không tìm thấy công việc' });
+        }
+
+        // Check if user is assigned to this task
+        if (task.nguoiDuocGiaoId !== userId) {
+            return res.status(403).json({ message: 'Bạn không có quyền cập nhật công việc này' });
+        }
+
+        // If member tries to complete task, set to pending approval instead
+        if (status === 'Hoàn thành') {
+            task.trangThai = 'Chờ xác nhận hoàn thành';
+            task.requestedCompletionAt = new Date();
+            await task.save();
+            
+            return res.json({ 
+                message: 'Đã gửi yêu cầu xác nhận hoàn thành. Chờ quản lý duyệt.',
+                task 
+            });
+        }
+
+        // Allow other status changes
+        task.trangThai = status;
+        if (status === 'Đang chạy' && !task.ngayBatDau) {
+            task.ngayBatDau = new Date();
+        }
+        await task.save();
+
+        res.json({ message: 'Cập nhật trạng thái thành công', task });
+    } catch (error) {
+        console.error('Update task status error:', error);
+        res.status(500).json({ message: 'Lỗi cập nhật trạng thái' });
+    }
+};
+
+// Update subtask status for members (with approval workflow)
+const updateMemberSubtaskStatus = async (req, res) => {
+    try {
+        const { taskId, subtaskId } = req.params;
+        const { status } = req.body;
+        const userId = req.user.id;
+
+        const subtask = await Subtask.findByPk(subtaskId, {
+            include: [{
+                model: Task,
+                as: 'task',
+                attributes: ['id', 'nguoiGiaoId', 'nguoiDuocGiaoId']
+            }]
+        });
+
+        if (!subtask) {
+            return res.status(404).json({ message: 'Không tìm thấy công việc con' });
+        }
+
+        // Check if user is assigned to this subtask or parent task
+        if (subtask.nguoiThucHienId !== userId && 
+            subtask.task.nguoiDuocGiaoId !== userId) {
+            return res.status(403).json({ message: 'Bạn không có quyền cập nhật công việc con này' });
+        }
+
+        // If member tries to complete subtask, set to pending approval instead
+        if (status === 'Hoàn thành') {
+            subtask.trangThai = 'Chờ xác nhận hoàn thành';
+            subtask.requestedCompletionAt = new Date();
+            await subtask.save();
+            
+            return res.json({ 
+                message: 'Đã gửi yêu cầu xác nhận hoàn thành. Chờ quản lý duyệt.',
+                subtask 
+            });
+        }
+
+        // Allow other status changes
+        subtask.trangThai = status;
+        if (status === 'Đang chạy' && !subtask.ngayBatDau) {
+            subtask.ngayBatDau = new Date();
+        }
+        await subtask.save();
+
+        res.json({ message: 'Cập nhật trạng thái thành công', subtask });
+    } catch (error) {
+        console.error('Update subtask status error:', error);
+        res.status(500).json({ message: 'Lỗi cập nhật trạng thái' });
+    }
+};
+
 module.exports = {
     getMemberStats,
     getTodayTasks,
     getUpcomingTasks,
     getRecentActivities,
     getMemberTasks,
-    getMemberProjects
+    getMemberProjects,
+    updateMemberTaskStatus,
+    updateMemberSubtaskStatus
 };

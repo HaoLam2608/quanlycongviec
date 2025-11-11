@@ -71,10 +71,10 @@ exports.login = async (req, res) => {
             message: "Đăng nhập thành công",
             accessToken: accessToken,
             refreshToken,
-            userId: user.id, // <--- THÊM DÒNG NÀY
+            userId: user.id,
             manv: user.manv,
             hoten: user.hoten,
-
+            avatar: user.avatar,
             chucvu: user.chucvu,
             role: user.role?.name || 'employee',
             permissions: user.role?.permissions || []

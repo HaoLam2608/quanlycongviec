@@ -84,10 +84,10 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true
     },
     trangThai: {
-      type: DataTypes.ENUM('Chưa bắt đầu', 'Đang chạy', 'Hoàn thành'),
+      type: DataTypes.ENUM('Chưa bắt đầu', 'Đang chạy', 'Chờ xác nhận hoàn thành', 'Hoàn thành'),
       defaultValue: 'Chưa bắt đầu',
       validate: {
-        isIn: [['Chưa bắt đầu', 'Đang chạy', 'Hoàn thành']]
+        isIn: [['Chưa bắt đầu', 'Đang chạy', 'Chờ xác nhận hoàn thành', 'Hoàn thành']]
       }
     },
     mucDoUuTien: {

@@ -1,4 +1,4 @@
-const { Task, Subtask, User, DuAn } = require('../models');
+const { Task, Subtask, User, DuAn, Assignment } = require('../models');
 const { Op } = require('sequelize');
 
 // Lấy tasks theo Kanban view (nhóm theo trạng thái)
@@ -25,11 +25,27 @@ exports.getKanbanTasks = async (req, res) => {
                 {
                     model: Subtask,
                     as: 'subtasks',
-                    include: [{
-                        model: User,
-                        as: 'nguoiThucHien',
-                        attributes: ['id', 'hoten', 'manv', 'email']
-                    }]
+                    include: [
+                        {
+                            model: User,
+                            as: 'nguoiThucHien',
+                            attributes: ['id', 'hoten', 'manv', 'email'],
+                            required: false
+                        },
+                        {
+                            model: Assignment,
+                            as: 'assignments',
+                            where: { status: 'pending' },
+                            required: false,
+                            include: [
+                                {
+                                    model: User,
+                                    as: 'assignee',
+                                    attributes: ['id', 'hoten', 'manv']
+                                }
+                            ]
+                        }
+                    ]
                 }
             ],
             order: [['createdAt', 'DESC']]
@@ -106,11 +122,27 @@ exports.getTasksByProject = async (req, res) => {
                 {
                     model: Subtask,
                     as: 'subtasks',
-                    include: [{
-                        model: User,
-                        as: 'nguoiThucHien',
-                        attributes: ['id', 'hoten', 'manv']
-                    }]
+                    include: [
+                        {
+                            model: User,
+                            as: 'nguoiThucHien',
+                            attributes: ['id', 'hoten', 'manv'],
+                            required: false
+                        },
+                        {
+                            model: Assignment,
+                            as: 'assignments',
+                            where: { status: 'pending' },
+                            required: false,
+                            include: [
+                                {
+                                    model: User,
+                                    as: 'assignee',
+                                    attributes: ['id', 'hoten', 'manv']
+                                }
+                            ]
+                        }
+                    ]
                 }
             ],
             limit: parseInt(limit),
@@ -500,29 +532,71 @@ exports.updateTaskStatus = async (req, res) => {
     try {
         const { id } = req.params;
         const { trangThai } = req.body;
+        const userId = req.user.id;
+        const userRole = req.user.role?.name || req.user.chucvu;
 
         // Validate trạng thái
-        const validStatuses = ['Chưa bắt đầu', 'Đang chạy', 'Hoàn thành'];
+        const validStatuses = ['Chưa bắt đầu', 'Đang chạy', 'Hoàn thành', 'Chờ xác nhận hoàn thành'];
         if (!validStatuses.includes(trangThai)) {
             return res.status(400).json({ error: 'Trạng thái không hợp lệ' });
         }
 
-        const task = await Task.findByPk(id);
+        const task = await Task.findByPk(id, {
+            include: [
+                { model: User, as: 'nguoiGiao', attributes: ['id', 'hoten', 'manv'] }
+            ]
+        });
         if (!task) {
             return res.status(404).json({ error: 'Không tìm thấy công việc' });
         }
 
-        // Cập nhật trạng thái
-        const updateData = { trangThai };
-        
-        // Tự động cập nhật các trường liên quan
-        if (trangThai === 'Đang chạy' && !task.ngayBatDau) {
-            updateData.ngayBatDau = new Date();
-        }
-        
-        if (trangThai === 'Hoàn thành') {
-            updateData.ngayHoanThanh = new Date();
-            updateData.tienDo = 100;
+        // Logic xử lý theo role và trạng thái
+        let finalStatus = trangThai;
+        const updateData = { trangThai: finalStatus };
+
+        // Nếu là member/employee và muốn đánh dấu "Hoàn thành"
+        if (trangThai === 'Hoàn thành' && userRole === 'employee' && task.nguoiDuocGiaoId === userId) {
+            // Chuyển thành "Chờ xác nhận hoàn thành" thay vì "Hoàn thành" ngay
+            finalStatus = 'Chờ xác nhận hoàn thành';
+            updateData.trangThai = finalStatus;
+            
+            // Tạo thông báo cho manager/admin
+            const { Notification, UserNotification } = require('../models');
+            
+            // Tìm manager/admin để gửi thông báo (người giao task)
+            const notification = await Notification.create({
+                title: `Yêu cầu phê duyệt hoàn thành: "${task.tentask}"`,
+                content: `${req.user.hoten || req.user.manv} đã đánh dấu công việc "${task.tentask}" là hoàn thành và yêu cầu phê duyệt.`,
+                type: 'task',
+                priority: 'medium',
+                status: 'published',
+                targetAudience: 'specific',
+                authorId: userId,
+                publishedAt: new Date()
+            });
+
+            // Gửi cho người giao task
+            await UserNotification.create({
+                userId: task.nguoiGiaoId,
+                notificationId: notification.id,
+                isRead: false
+            });
+
+        } else {
+            // Admin/Manager có thể đặt trạng thái trực tiếp
+            // Tự động cập nhật các trường liên quan
+            if (trangThai === 'Đang chạy' && !task.ngayBatDau) {
+                updateData.ngayBatDau = new Date();
+            }
+            
+            if (trangThai === 'Hoàn thành') {
+                updateData.ngayHoanThanh = new Date();
+                updateData.tienDo = 100;
+                if (['admin', 'manager'].includes(userRole)) {
+                    updateData.approvedBy = userId;
+                    updateData.approvalDate = new Date();
+                }
+            }
         }
 
         await task.update(updateData);
@@ -541,6 +615,11 @@ exports.updateTaskStatus = async (req, res) => {
                     attributes: ['id', 'hoten', 'manv']
                 },
                 {
+                    model: User,
+                    as: 'approver',
+                    attributes: ['id', 'hoten', 'manv']
+                },
+                {
                     model: Subtask,
                     as: 'subtasks',
                     include: [{
@@ -552,8 +631,12 @@ exports.updateTaskStatus = async (req, res) => {
             ]
         });
 
+        const message = finalStatus === 'Chờ xác nhận hoàn thành' 
+            ? 'Đã gửi yêu cầu xác nhận hoàn thành'
+            : 'Cập nhật trạng thái thành công';
+
         res.json({
-            message: 'Cập nhật trạng thái thành công',
+            message,
             task: updatedTask
         });
     } catch (error) {
