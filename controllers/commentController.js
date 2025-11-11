@@ -10,7 +10,7 @@ const {
   Assignment,
   DuAn,
   Group,
-  GroupProjectHistory
+  GroupProject
 } = require('../models');
 const path = require('path');
 const fs = require('fs');
@@ -447,19 +447,18 @@ const getMentionableUsers = async (req, res) => {
             as: 'duan',
             include: [
               {
-                model: GroupProjectHistory,
-                as: 'groupProjectHistories',
+                model: GroupProject,
+                as: 'groupProjects',
                 include: [
                   {
                     model: Group,
                     as: 'group',
                     include: [
                       {
-                        model: GroupMember,
+                        model: User,
                         as: 'members',
-                        include: [
-                          { model: User, as: 'user', attributes: ['id', 'manv', 'hoten', 'email'] }
-                        ]
+                        attributes: ['id', 'manv', 'hoten', 'email'],
+                        through: { attributes: [] } // Don't include join table attributes
                       }
                     ]
                   }
@@ -476,13 +475,12 @@ const getMentionableUsers = async (req, res) => {
         if (task.nguoiDuocGiao) userMap.set(task.nguoiDuocGiao.id, task.nguoiDuocGiao);
         
         // Add all group members from the project
-        if (task.duan && task.duan.groupProjectHistories) {
-          task.duan.groupProjectHistories.forEach(gph => {
-            if (gph.group && gph.group.members) {
-              gph.group.members.forEach(member => {
-                if (member.user) {
-                  userMap.set(member.user.id, member.user);
-                }
+        if (task.duan && task.duan.groupProjects) {
+          task.duan.groupProjects.forEach(gp => {
+            if (gp.group && gp.group.members) {
+              gp.group.members.forEach(member => {
+                // member is directly a User object due to belongsToMany
+                userMap.set(member.id, member);
               });
             }
           });
@@ -527,19 +525,18 @@ const getMentionableUsers = async (req, res) => {
                 as: 'duan',
                 include: [
                   {
-                    model: GroupProjectHistory,
-                    as: 'groupProjectHistories',
+                    model: GroupProject,
+                    as: 'groupProjects',
                     include: [
                       {
                         model: Group,
                         as: 'group',
                         include: [
                           {
-                            model: GroupMember,
+                            model: User,
                             as: 'members',
-                            include: [
-                              { model: User, as: 'user', attributes: ['id', 'manv', 'hoten', 'email'] }
-                            ]
+                            attributes: ['id', 'manv', 'hoten', 'email'],
+                            through: { attributes: [] }
                           }
                         ]
                       }
@@ -555,13 +552,12 @@ const getMentionableUsers = async (req, res) => {
             if (task.nguoiDuocGiao) userMap.set(task.nguoiDuocGiao.id, task.nguoiDuocGiao);
             
             // Add group members
-            if (task.duan && task.duan.groupProjectHistories) {
-              task.duan.groupProjectHistories.forEach(gph => {
-                if (gph.group && gph.group.members) {
-                  gph.group.members.forEach(member => {
-                    if (member.user) {
-                      userMap.set(member.user.id, member.user);
-                    }
+            if (task.duan && task.duan.groupProjects) {
+              task.duan.groupProjects.forEach(gp => {
+                if (gp.group && gp.group.members) {
+                  gp.group.members.forEach(member => {
+                    // member is directly a User object due to belongsToMany
+                    userMap.set(member.id, member);
                   });
                 }
               });
