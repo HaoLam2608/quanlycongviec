@@ -6,7 +6,6 @@ import {
     AlertTriangle, Target, ArrowUp, ArrowDown, RefreshCw, ChevronRight,
     CheckCircle2, Timer, Flame
 } from "lucide-react"
-import { getDashboardStats } from "@/axios/adminApi"
 import { fetchProjects, getTasksByProject, fetchProjectsByManager } from "@/axios/api"
 
 // Loading Skeleton Components
@@ -89,27 +88,24 @@ export default function PMDashboard() {
     const [urgentTasks, setUrgentTasks] = useState<any[]>([])
 
     useEffect(() => {
-        loadStats()
-        loadProjectsAndTasks()
+        // Add small delay to ensure token is properly set after login
+        const timer = setTimeout(() => {
+            loadStats()
+            loadProjectsAndTasks()
+        }, 500)
+        
+        return () => clearTimeout(timer)
     }, [])
 
     const loadStats = async () => {
+        // Stats will be calculated from projects and tasks data
+        // No longer calling admin API endpoint
         setLoading(true)
         try {
-            const res = await getDashboardStats()
-            console.log('✅ Dashboard stats response:', res)
-            const data = res.stats || res
-
-            const rawActs = res.recentActivities || []
-            const mapped = rawActs.map((u: any) => {
-                const name = u.hoten || u.manv || u.name || u.username || ""
-                const action = u.action || "cập nhật nhiệm vụ"
-                const project = u.duanName || u.project || ""
-                const time = u.updatedAt ? timeAgo(new Date(u.updatedAt)) : ""
-                return { user: name || "—", action, project, time }
-            })
-
-            setRecentActivities(mapped)
+            // Set some mock recent activities or fetch from a manager-specific endpoint if available
+            setRecentActivities([
+                { user: "Hệ thống", action: "đã cập nhật dashboard", project: "", time: "vừa xong" }
+            ])
         } catch (error: any) {
             console.error("Load stats error:", error)
         } finally {
@@ -196,16 +192,24 @@ export default function PMDashboard() {
             // Get current user info from localStorage
             const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null
             const manv = typeof window !== 'undefined' ? localStorage.getItem('manv') : null
+            const role = typeof window !== 'undefined' ? localStorage.getItem('role') : null
+            const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
             
-            console.log('👤 Current user:', { userId, manv })
+            // Verify we have manager/admin role
+            if (!role || !['manager', 'admin'].includes(role)) {
+                console.error('❌ Invalid role for manager dashboard:', role)
+                return
+            }
             
             // Fetch projects managed by current user
             let projectsRes
             if (userId) {
+                console.log('📡 Fetching projects for manager ID:', userId)
                 projectsRes = await fetchProjectsByManager(userId)
                 console.log('✅ Projects by manager response:', projectsRes)
             } else {
                 // Fallback to all projects if userId not found
+                console.log('📡 Fallback: fetching all projects')
                 projectsRes = await fetchProjects()
             }
             

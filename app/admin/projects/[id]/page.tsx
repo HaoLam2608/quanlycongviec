@@ -1554,12 +1554,30 @@ export default function ProjectDetailPage() {
 
                                                     {/* Người thực hiện */}
                                                     <div className="flex items-center gap-3 mt-3">
-                                                        <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-md">
-                                                            {subtask.nguoiThucHien?.hoten?.charAt(0) || "?"}
-                                                        </div>
-                                                        <span className="text-gray-600 font-medium">
-                                                            {subtask.nguoiThucHien?.hoten || "Chưa phân công"}
-                                                        </span>
+                                                        {subtask.assignments && subtask.assignments.length > 0 && subtask.assignments[0].status === 'pending' ? (
+                                                            <>
+                                                                <div className="w-8 h-8 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-md animate-pulse">
+                                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                                    </svg>
+                                                                </div>
+                                                                <div>
+                                                                    <span className="text-orange-600 font-semibold">Đang chờ xác nhận</span>
+                                                                    <div className="text-xs text-gray-500">
+                                                                        Đã gửi đến: {subtask.assignments[0].assignee?.hoten || subtask.assignments[0].assignee?.manv}
+                                                                    </div>
+                                                                </div>
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-md">
+                                                                    {subtask.nguoiThucHien?.hoten?.charAt(0) || "?"}
+                                                                </div>
+                                                                <span className="text-gray-600 font-medium">
+                                                                    {subtask.nguoiThucHien?.hoten || "Chưa phân công"}
+                                                                </span>
+                                                            </>
+                                                        )}
                                                     </div>
                                                     <div className="text-xs text-muted-foreground mt-2">
                                                         <div>Ngày bắt đầu: {subtask.ngayBatDau ? new Date(subtask.ngayBatDau).toLocaleDateString('vi-VN') : '—'}</div>

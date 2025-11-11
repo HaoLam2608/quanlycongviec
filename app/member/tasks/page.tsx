@@ -18,6 +18,7 @@ import {
     Paperclip
 } from "lucide-react"
 import { getMemberTasks, updateMemberTaskStatus, updateMemberSubtaskStatus } from "@/axios/api"
+import { useToastContext } from '@/components/providers/toast-provider'
 
 interface Task {
     id: number
@@ -56,6 +57,7 @@ interface Subtask {
 }
 
 export default function MyTasksPage() {
+    const { showSuccess, showError } = useToastContext()
     const [tasks, setTasks] = useState<Task[]>([])
     const [subtasks, setSubtasks] = useState<Subtask[]>([])
     const [loading, setLoading] = useState(true)
@@ -106,6 +108,7 @@ export default function MyTasksPage() {
         switch (status) {
             case "Hoàn thành": return "text-green-600 bg-green-100"
             case "Đang chạy": return "text-blue-600 bg-blue-100"
+            case "Chờ xác nhận hoàn thành": return "text-yellow-600 bg-yellow-100"
             case "Chưa bắt đầu": return "text-gray-600 bg-gray-100"
             default: return "text-gray-600 bg-gray-100"
         }
@@ -152,7 +155,7 @@ export default function MyTasksPage() {
             projectId: task.duan?.id,
             type: 'task' as const,
             assignedBy: task.nguoiGiao?.hoten,
-            progress: task.trangThai === 'Hoàn thành' ? 100 : task.trangThai === 'Đang chạy' ? 50 : 0
+            progress: task.trangThai === 'Hoàn thành' ? 100 : task.trangThai === 'Chờ xác nhận hoàn thành' ? 90 : task.trangThai === 'Đang chạy' ? 50 : 0
         })),
         ...subtasks.map(subtask => ({
             id: subtask.id,
@@ -165,7 +168,7 @@ export default function MyTasksPage() {
             projectId: subtask.task?.duan?.id,
             type: 'subtask' as const,
             parentTask: subtask.task?.tentask,
-            progress: subtask.trangThai === 'Hoàn thành' ? 100 : subtask.trangThai === 'Đang chạy' ? 50 : 0
+            progress: subtask.trangThai === 'Hoàn thành' ? 100 : subtask.trangThai === 'Chờ xác nhận hoàn thành' ? 90 : subtask.trangThai === 'Đang chạy' ? 50 : 0
         }))
     ]
 
@@ -197,25 +200,50 @@ export default function MyTasksPage() {
     const updateTaskStatus = async (taskId: number, newStatus: string, type: 'task' | 'subtask') => {
         try {
             if (type === 'task') {
-                await updateMemberTaskStatus(taskId, newStatus)
+                const response = await updateMemberTaskStatus(taskId, newStatus)
+                // Backend returns actual status (may be "Chờ xác nhận hoàn thành" instead of "Hoàn thành")
+                const actualStatus = response.task?.trangThai || (newStatus === 'Hoàn thành' ? 'Chờ xác nhận hoàn thành' : newStatus)
+                
                 setTasks(tasks.map(task =>
                     task.id === taskId
-                        ? { ...task, trangThai: newStatus }
+                        ? { ...task, trangThai: actualStatus }
                         : task
                 ))
+                
+                // Show success message
+                if (actualStatus === 'Chờ xác nhận hoàn thành') {
+                    showSuccess('Đã gửi yêu cầu xác nhận hoàn thành. Chờ quản lý phê duyệt.')
+                } else if (newStatus === 'Đang chạy') {
+                    showSuccess('Đã bắt đầu công việc')
+                } else {
+                    showSuccess('Cập nhật trạng thái thành công')
+                }
             } else {
                 const task = subtasks.find(st => st.id === taskId)
                 if (task?.task) {
-                    await updateMemberSubtaskStatus(task.task.id, taskId, newStatus)
+                    const response = await updateMemberSubtaskStatus(task.task.id, taskId, newStatus)
+                    // Backend returns actual status (may be "Chờ xác nhận hoàn thành" instead of "Hoàn thành")
+                    const actualStatus = response.subtask?.trangThai || (newStatus === 'Hoàn thành' ? 'Chờ xác nhận hoàn thành' : newStatus)
+                    
                     setSubtasks(subtasks.map(subtask =>
                         subtask.id === taskId
-                            ? { ...subtask, trangThai: newStatus }
+                            ? { ...subtask, trangThai: actualStatus }
                             : subtask
                     ))
+                    
+                    // Show success message
+                    if (actualStatus === 'Chờ xác nhận hoàn thành') {
+                        showSuccess('Đã gửi yêu cầu xác nhận hoàn thành. Chờ quản lý phê duyệt.')
+                    } else if (newStatus === 'Đang chạy') {
+                        showSuccess('Đã bắt đầu công việc')
+                    } else {
+                        showSuccess('Cập nhật trạng thái thành công')
+                    }
                 }
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error updating status:', error)
+            showError(error.response?.data?.message || 'Không thể cập nhật trạng thái')
         }
     }
 
@@ -329,6 +357,7 @@ export default function MyTasksPage() {
                             <option value="all">Tất cả trạng thái</option>
                             <option value="Chưa bắt đầu">Chưa bắt đầu</option>
                             <option value="Đang chạy">Đang chạy</option>
+                            <option value="Chờ xác nhận hoàn thành">Chờ xác nhận</option>
                             <option value="Hoàn thành">Hoàn thành</option>
                         </select>
 
@@ -469,6 +498,12 @@ export default function MyTasksPage() {
                                                     Hoàn thành
                                                 </button>
                                             </>
+                                        )}
+                                        {task.status === "Chờ xác nhận hoàn thành" && (
+                                            <div className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-lg text-sm flex items-center gap-1">
+                                                <Clock className="w-4 h-4" />
+                                                Chờ phê duyệt
+                                            </div>
                                         )}
 
                                         {/* Task Details Button */}

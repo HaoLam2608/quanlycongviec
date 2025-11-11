@@ -67,8 +67,13 @@ export default function AdminDashboard() {
     })
 
     useEffect(() => {
-        loadStats()
-        loadProjects()
+        // Add delay to ensure token is properly set after login
+        const timer = setTimeout(() => {
+            loadStats()
+            loadProjects()
+        }, 1000) // Increased delay to ensure token is ready
+        
+        return () => clearTimeout(timer)
     }, [])
 
     const loadProjects = async () => {
@@ -92,6 +97,14 @@ export default function AdminDashboard() {
     const loadStats = async () => {
         setLoading(true)
         try {
+            const role = typeof window !== 'undefined' ? localStorage.getItem('role') : null
+            
+            // Verify we have admin role
+            if (role !== 'admin') {
+                setLoading(false)
+                return
+            }
+            
             const res = await getDashboardStats()
             const data = res.stats || res
 
@@ -233,7 +246,7 @@ export default function AdminDashboard() {
                                     {/* Background decoration */}
                                     <div className={`absolute top-0 right-0 w-32 h-32 ${stat.bgColor} rounded-full blur-3xl opacity-20 group-hover:opacity-30 transition-opacity`}></div>
                                     
-                                    <div className="relative z-10">
+                                    <div className="relative">
                                         <div className="flex items-start justify-between mb-4">
                                             <div
                                                 className={`w-14 h-14 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-transform`}

@@ -8,6 +8,7 @@ import { Home, FolderKanban, CheckSquare, Users, BarChart3, Settings, LogOut, Be
 import AuthGuard from "@/components/auth/AuthGuard"
 import { useToastContext } from "@/components/providers/toast-provider"
 import NotificationBell from "@/components/NotificationBell"
+import ApprovalCountBadge from "@/components/ApprovalCountBadge"
 
 import { showConfirm } from '@/lib/notifications'
 import Image from "next/image"
@@ -22,6 +23,7 @@ const menuCategories = [
         items: [
             { name: "Dự án", href: "/manager/projects", icon: FolderKanban },
             { name: "Nhiệm vụ", href: "/manager/tasks", icon: CheckSquare },
+            { name: "Phê duyệt", href: "/manager/approvals", icon: CheckSquare },
             { name: "Nhân sự", href: "/manager/groups", icon: Users },
         ],
     },
@@ -145,7 +147,8 @@ export default function PMLayout({ children }: { children: React.ReactNode }) {
                                                         className={`${isActive ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'
                                                             } mr-4 flex-shrink-0 h-6 w-6`}
                                                     />
-                                                    {item.name}
+                                                    <span className="flex-1">{item.name}</span>
+                                                    {item.name === "Phê duyệt" && <ApprovalCountBadge />}
                                                 </Link>
                                             )
                                         })}
@@ -194,7 +197,8 @@ export default function PMLayout({ children }: { children: React.ReactNode }) {
                                                         className={`${isActive ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'
                                                             } mr-3 flex-shrink-0 h-5 w-5`}
                                                     />
-                                                    {item.name}
+                                                    <span className="flex-1">{item.name}</span>
+                                                    {item.name === "Phê duyệt" && <ApprovalCountBadge />}
                                                 </Link>
                                             )
                                         })}

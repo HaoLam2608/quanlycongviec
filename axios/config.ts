@@ -71,14 +71,64 @@ api.interceptors.response.use(
 
     // 403: lỗi phân quyền thực sự (RBAC) - chuyển tới trang 403
     if (status === 403) {
-      console.warn('Permission denied:', message);
+      const url = err?.config?.url || ''
+      const currentRole = localStorage.getItem('role')
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname : ''
+      
+      // Log detailed 403 info for debugging
+      console.error('🚨 403 FORBIDDEN - API Call Failed:', {
+        api: url,
+        method: err?.config?.method?.toUpperCase(),
+        currentRole,
+        currentPath,
+        message,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Check if this is from notifications endpoint - don't redirect
+      if (url.includes('/notifications/')) {
+        console.warn('⚠️ Notifications permission denied - will not redirect to 403')
+        return Promise.reject(err);
+      }
+      
+      // Don't redirect to 403 if on public pages (landing, login, signup)
+      const publicPaths = ['/', '/login', '/signup', '/forgot-password']
+      if (publicPaths.includes(currentPath)) {
+        console.warn('⚠️ 403 on public page - will not redirect, just rejecting request')
+        return Promise.reject(err);
+      }
+      
+      // Don't redirect if we're in the middle of login process (within 2 seconds of login)
+      const lastLogin = localStorage.getItem('lastLoginTime')
+      if (lastLogin) {
+        const timeSinceLogin = Date.now() - parseInt(lastLogin)
+        if (timeSinceLogin < 2000) {
+          console.warn('⚠️ 403 during login process - will not redirect, waiting for auth to settle')
+          return Promise.reject(err);
+        }
+      }
+      
+      console.warn('🚫 403 Error - Redirecting to /403 page')
+      
       try {
         // diagnostic: record permission-denied event
         try {
-          localStorage.setItem('lastAuthEvent', JSON.stringify({ time: new Date().toISOString(), type: 'permissionDenied', message }))
+          localStorage.setItem('lastAuthEvent', JSON.stringify({ 
+            time: new Date().toISOString(), 
+            type: 'permissionDenied', 
+            message,
+            url,
+            currentRole,
+            currentPath
+          }))
         } catch (e) { /* ignore */ }
-        // redirect to 403 page (still a hard redirect for now)
-        if (typeof window !== 'undefined') window.location.href = '/403';
+        
+        // Redirect to 403 page
+        setTimeout(() => {
+          if (typeof window !== 'undefined') {
+            window.location.href = '/403'
+          }
+        }, 100)
       } catch (e) {
         /* ignore */
       }

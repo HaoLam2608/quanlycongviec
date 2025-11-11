@@ -9,6 +9,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { loginUser } from "@/axios/api"
 import { getUsers } from "@/axios/adminApi"
+import { clearAllAuthData, debugAuth } from "@/lib/authDebug"
 import { User, Lock, Eye, EyeOff, LogIn, AlertCircle, CheckCircle2, Loader2 } from "lucide-react"
 
 export function LoginForm() {
@@ -24,6 +25,9 @@ export function LoginForm() {
     setLoading(true)
     setMessage("")
     try {
+      // Clear any existing auth data before login
+      clearAllAuthData()
+      
       const res = await loginUser({ manv, password })
       setMessage(res.message || "Đăng nhập thành công!")
 
@@ -33,24 +37,30 @@ export function LoginForm() {
       localStorage.setItem("userId", res.userId)
       localStorage.setItem("hoten", res.hoten)
       localStorage.setItem("role", res.role)
+      localStorage.setItem("lastLoginTime", Date.now().toString())
 
-      // Lấy thông tin user từ API để lấy avatar
-      try {
-        const userRes = await getUsers({ search: res.manv })
-        const users = userRes.users || userRes.rows || userRes
-        const user = Array.isArray(users) ? users[0] : users
-        if (user && user.avatar) {
-          localStorage.setItem("avatar", user.avatar)
-        }
-      } catch (err) {
-        console.error("Failed to load avatar:", err)
+      // Set avatar from login response if available
+      if (res.avatar) {
+        localStorage.setItem("avatar", res.avatar)
       }
 
+      // Don't fetch additional user info here - causes 403 for non-admin roles
+      // Avatar will be loaded by each dashboard if needed with proper permissions
+
+      // Delay to ensure localStorage is committed before redirect
+      // This prevents race condition where components load before auth data is ready
+      await new Promise(resolve => setTimeout(resolve, 200))
+
+      // Redirect to role-based dashboard
       if (res.role === "admin") {
         router.push("/admin")
       }
       else if (res.role === "manager") {
         router.push("/manager")
+      }
+      else if (res.role === "teamleader") {
+        // Teamleader uses employee interface (member page)
+        router.push("/member")
       }
       else if (res.role === "employee") {
         router.push("/member")
@@ -197,7 +207,7 @@ export function LoginForm() {
           </div>
         )}
 
-        {/* Sign up link */}
+        {/* Sign up link
         <div className="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
           <p className="text-center text-sm text-slate-600 dark:text-slate-400">
             Chưa có tài khoản?{" "}
@@ -208,7 +218,7 @@ export function LoginForm() {
               Đăng ký ngay
             </Link>
           </p>
-        </div>
+        </div> */}
 
         {/* Quick login hint */}
         <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl">

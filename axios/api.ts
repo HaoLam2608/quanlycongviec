@@ -474,8 +474,8 @@ export const getMemberTasks = async (filters?: {
 
 export const updateMemberTaskStatus = async (taskId: number, status: string) => {
   try {
-    // Backend expects body field `trangThai`
-    const res = await api.patch(`/tasks/${taskId}/status`, { trangThai: status });
+    // Use member-specific endpoint with approval workflow
+    const res = await api.patch(`/members/tasks/${taskId}/status`, { trangThai: status });
     return res.data;
   } catch (err: any) {
     throw err.response?.data || { message: "Không thể cập nhật trạng thái" };
@@ -484,8 +484,8 @@ export const updateMemberTaskStatus = async (taskId: number, status: string) => 
 
 export const updateMemberSubtaskStatus = async (taskId: number, subtaskId: number, status: string) => {
   try {
-    // There is no /status route for subtask; backend expects PUT /tasks/:taskId/subtasks/:id with { trangThai }
-    const res = await api.put(`/tasks/${taskId}/subtasks/${subtaskId}`, { trangThai: status });
+    // Use member-specific endpoint with approval workflow  
+    const res = await api.patch(`/members/tasks/${taskId}/subtasks/${subtaskId}/status`, { trangThai: status });
     return res.data;
   } catch (err: any) {
     throw err.response?.data || { message: "Không thể cập nhật trạng thái subtask" };
@@ -503,44 +503,22 @@ export const getMemberProjects = async () => {
 
 // Public stats for homepage (no auth required)
 export const getPublicStats = async () => {
-  try {
-    // Gọi các API để lấy stats tổng hợp
-    const [projectsRes, usersRes] = await Promise.allSettled([
-      api.get('/duan/getAll'),
-      api.get('/users')
-    ]);
-
-    const projects = projectsRes.status === 'fulfilled' ? projectsRes.value.data : [];
-    const usersData = usersRes.status === 'fulfilled' ? usersRes.value.data : {};
-    const users = Array.isArray(usersData) ? usersData : (usersData.users || []);
-
-    // Đếm số tasks từ tất cả projects (nếu có thông tin tasks)
-    let totalTasks = 0;
-    if (Array.isArray(projects)) {
-      // Nếu mỗi project có trường tasks array, đếm
-      projects.forEach((p: any) => {
-        if (p.tasks && Array.isArray(p.tasks)) {
-          totalTasks += p.tasks.length;
-        }
+  // Landing page should not call protected APIs
+  // Return demo/mock data for public display
+  // If you need real stats, create a public endpoint in backend without auth
+  return new Promise<{
+    totalProjects: number;
+    totalUsers: number;
+    totalTasks: number;
+    activeProjects: number;
+  }>((resolve) => {
+    setTimeout(() => {
+      resolve({
+        totalProjects: 50,
+        totalUsers: 100,
+        totalTasks: 250,
+        activeProjects: 35,
       });
-    }
-
-    return {
-      totalProjects: Array.isArray(projects) ? projects.length : 0,
-      totalUsers: Array.isArray(users) ? users.length : 0,
-      totalTasks: totalTasks,
-      activeProjects: Array.isArray(projects) 
-        ? projects.filter((p: any) => p.status === 'dang_thuc_hien' || p.status === 'active').length 
-        : 0,
-    };
-  } catch (err: any) {
-    console.error('Error fetching public stats:', err);
-    // Return fallback data
-    return {
-      totalProjects: 0,
-      totalUsers: 0,
-      totalTasks: 0,
-      activeProjects: 0,
-    };
-  }
+    }, 500);
+  });
 };

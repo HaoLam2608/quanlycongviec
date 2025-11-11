@@ -69,54 +69,41 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
     const fetchNotifications = async () => {
         try {
             setLoading(true)
-            console.log('🔔 Fetching notifications...')
-            console.log('👤 Current user:', {
-                userId: localStorage.getItem('userId'),
-                manv: localStorage.getItem('manv'),
-                hoten: localStorage.getItem('hoten'),
-                role: localStorage.getItem('role')
-            })
             const response = await notificationUserAPI.getMyNotifications({ limit: 20 })
-            console.log('📥 API Response:', response)
             if (response.success) {
-                console.log('📋 Total notifications:', response.data.length)
-                console.log('📊 Notifications data:', response.data)
-
-                // Log each notification in detail
-                response.data.forEach((n: Notification, index: number) => {
-                    console.log(`Notification ${index + 1}:`, {
-                        id: n.id,
-                        title: n.title,
-                        type: n.type,
-                        userMeta: n.userMeta,
-                        hasUserMeta: !!n.userMeta,
-                        hasAssignmentId: !!(n.userMeta as any)?.assignmentId
-                    })
-                })
-
                 setNotifications(response.data)
-
-                // Check for assignment notifications
-                const assignments = response.data.filter((n: Notification) => n.userMeta?.assignmentId)
-                console.log('🎯 Assignment notifications:', assignments.length)
-                if (assignments.length > 0) {
-                    console.log('Assignment details:', assignments.map((a: Notification) => ({
-                        id: a.id,
-                        title: a.title,
-                        assignmentId: a.userMeta?.assignmentId,
-                        isRead: a.isRead
-                    })))
-                }
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('❌ Error fetching notifications:', error)
+            // Gracefully handle errors without crashing the app
+            // If it's a network error or 403/401, just set empty notifications
+            if (error?.response?.status === 403) {
+                console.warn('⚠️ Permission denied for notifications - user may not have access')
+            } else if (error?.response?.status === 401) {
+                console.warn('⚠️ Authentication failed for notifications - token may be invalid')
+            } else if (error?.code === 'ECONNREFUSED' || error?.message?.includes('Network Error')) {
+                console.warn('⚠️ Backend server not running - notifications unavailable')
+            }
+            setNotifications([]) // Set empty array instead of keeping undefined
         } finally {
             setLoading(false)
         }
     }
 
     useEffect(() => {
-        fetchNotifications()
+        // Add delay to ensure token is set after login redirect
+        const timer = setTimeout(() => {
+            // Check if user is authenticated before fetching
+            const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
+            if (token) {
+                fetchNotifications()
+            } else {
+                console.warn('⚠️ No token found, skipping notification fetch')
+                setLoading(false)
+            }
+        }, 1200) // Increased delay to ensure token is ready
+        
+        return () => clearTimeout(timer)
     }, [])
 
     // Calculate unread count using isRead from server
@@ -125,11 +112,6 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
     // Separate notifications into general and assignments
     const assignmentNotifications = notifications.filter(n => n.userMeta?.assignmentId)
     const generalNotifications = notifications.filter(n => !n.userMeta?.assignmentId)
-
-    console.log('🔍 Filter results:')
-    console.log('  - Total notifications:', notifications.length)
-    console.log('  - Assignment notifications:', assignmentNotifications.length)
-    console.log('  - General notifications:', generalNotifications.length)
 
     const activeNotifications = activeTab === 'assignments' ? assignmentNotifications : generalNotifications
     const generalUnreadCount = generalNotifications.filter(n => !n.isRead).length
