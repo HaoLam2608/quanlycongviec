@@ -14,6 +14,7 @@ interface CommentTaskProps {
 }
 
 export default function CommentTask({ taskId }: CommentTaskProps) {
+  console.log('CommentTask component - taskId:', taskId);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);

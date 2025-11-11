@@ -33,6 +33,7 @@ export default function MentionTextarea({
   // Fetch mentionable users
   useEffect(() => {
     const fetchUsers = async () => {
+      console.log('useEffect triggered - checking taskId/subtaskId:', { taskId, subtaskId });
       if (taskId || subtaskId) {
         try {
           console.log('Fetching mentionable users for:', { taskId, subtaskId });
@@ -42,6 +43,8 @@ export default function MentionTextarea({
         } catch (error) {
           console.error("Error fetching mentionable users:", error);
         }
+      } else {
+        console.log('No taskId or subtaskId provided');
       }
     };
     fetchUsers();
