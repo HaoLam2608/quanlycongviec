@@ -20,6 +20,7 @@ import {
     FileText,
 } from "lucide-react"
 import { FolderKanban } from "lucide-react"
+import { KanbanBoard } from '@/components/kanban/KanbanBoard'
 import Modal from "@/components/admin/Modal"
 import { useToastContext } from "@/components/providers/toast-provider"
 import { showConfirm, showSuccess, showError, showWarning } from "@/lib/notifications"
@@ -40,6 +41,7 @@ import {
 import { getGroups, groupAPI } from "@/axios/adminApi"
 import { useRef } from "react"
 import TimelineInline from "./timeline/page"
+import ProjectCalendarPage from "./calendar/page"
 import WorklogTask from "@/components/worklog-task"
 import WorklogSubtask from "@/components/worklog-subtask"
 import CommentTask from "@/components/comment-task"
@@ -172,7 +174,7 @@ export default function ProjectDetailPage() {
     useEffect(() => { setMounted(true); }, []);
     const { id } = useParams()
     const { showSuccess, showError, showWarning } = useToastContext()
-    const [activeTab, setActiveTab] = useState<"tasks" | "teams" | "documents" | "timeline" | "reports">("tasks")
+    const [activeTab, setActiveTab] = useState<"tasks" | "teams" | "documents" | "timeline" | "calendar" | "kanban" | "reports">("tasks")
     const [isAddTaskModalOpen, setIsAddTaskModalOpen] = useState(false)
     const [isTaskDetailModalOpen, setIsTaskDetailModalOpen] = useState(false)
     const [isAddSubtaskModalOpen, setIsAddSubtaskModalOpen] = useState(false)
@@ -764,6 +766,22 @@ export default function ProjectDetailPage() {
                         Timeline
                     </button>
                     <button
+                        onClick={() => { setActiveTab("calendar"); }}
+                        className={`flex-1 px-6 py-4 font-semibold transition-all flex items-center justify-center gap-2 ${activeTab === "calendar" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"
+                            }`}
+                    >
+                        <Calendar size={20} />
+                        Calendar
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("kanban")}
+                        className={`flex-1 px-6 py-4 font-semibold transition-all flex items-center justify-center gap-2 ${activeTab === "kanban" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"
+                            }`}
+                    >
+                        <FolderKanban size={20} />
+                        Kanban
+                    </button>
+                    <button
                         onClick={() => setActiveTab("documents")}
                         className={`flex-1 px-6 py-4 font-semibold transition-all flex items-center justify-center gap-2 ${activeTab === "documents" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-secondary"
                             }`}
@@ -1036,6 +1054,33 @@ export default function ProjectDetailPage() {
                                     ))}
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {activeTab === "timeline" && (
+                        <div>
+                            {/* Inline timeline component */}
+                            <TimelineInline params={{ id: String(id) }} />
+                        </div>
+                    )}
+
+                    {activeTab === "calendar" && (
+                        <div>
+                            {/* Inline calendar component */}
+                            <ProjectCalendarPage params={{ id: String(id) }} />
+                        </div>
+                    )}
+
+                    {activeTab === "kanban" && (
+                        <div>
+                            <KanbanBoard 
+                                projectId={Array.isArray(id) ? id[0] : id} 
+                                onTaskClick={(task) => {
+                                    setSelectedTask(task);
+                                    setIsTaskDetailModalOpen(true);
+                                }}
+                                isSubtaskView={false}
+                            />
                         </div>
                     )}
 

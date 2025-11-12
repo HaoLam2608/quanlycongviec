@@ -146,7 +146,7 @@ export default function MyTasksPage() {
         return diffDays
     }
 
-    // Combine tasks and subtasks for display
+    // Combine tasks and subtasks for display and include createdAt if present
     const allItems = [
         ...tasks.map(task => ({
             id: task.id,
@@ -160,7 +160,8 @@ export default function MyTasksPage() {
             projectId: task.duan?.id,
             type: 'task' as const,
             assignedBy: task.nguoiGiao?.hoten,
-            progress: task.trangThai === 'Hoàn thành' ? 100 : task.trangThai === 'Chờ xác nhận hoàn thành' ? 90 : task.trangThai === 'Đang chạy' ? 50 : 0
+            progress: task.trangThai === 'Hoàn thành' ? 100 : task.trangThai === 'Chờ xác nhận hoàn thành' ? 90 : task.trangThai === 'Đang chạy' ? 50 : 0,
+            createdAt: (task as any).createdAt || null
         })),
         ...subtasks.map(subtask => ({
             id: subtask.id,
@@ -173,11 +174,25 @@ export default function MyTasksPage() {
             projectId: subtask.task?.duan?.id,
             type: 'subtask' as const,
             parentTask: subtask.task?.tentask,
-            progress: subtask.trangThai === 'Hoàn thành' ? 100 : subtask.trangThai === 'Chờ xác nhận hoàn thành' ? 90 : subtask.trangThai === 'Đang chạy' ? 50 : 0
+            progress: subtask.trangThai === 'Hoàn thành' ? 100 : subtask.trangThai === 'Chờ xác nhận hoàn thành' ? 90 : subtask.trangThai === 'Đang chạy' ? 50 : 0,
+            createdAt: (subtask as any).createdAt || null
         }))
     ]
 
-    const filteredTasks = allItems.filter(task => {
+    // Sort items newest-first. Prefer createdAt if available, otherwise fall back to id descending.
+    const sortedItems = allItems.slice().sort((a, b) => {
+        const aDate = a.createdAt ? new Date(a.createdAt).getTime() : null
+        const bDate = b.createdAt ? new Date(b.createdAt).getTime() : null
+
+        if (aDate && bDate) return bDate - aDate
+        if (aDate && !bDate) return -1
+        if (!aDate && bDate) return 1
+
+        // fallback to id (assumes higher id == newer)
+        return (b.id || 0) - (a.id || 0)
+    })
+
+    const filteredTasks = sortedItems.filter(task => {
         const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
             task.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             task.project.toLowerCase().includes(searchTerm.toLowerCase())
