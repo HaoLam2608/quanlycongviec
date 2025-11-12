@@ -30,7 +30,7 @@ const getPendingApprovals = async (req, res) => {
                         },
                         {
                             model: DuAn,
-                            as: 'duAn',
+                            as: 'duan',
                             attributes: ['id', 'tenduan'],
                             required: false
                         }
@@ -57,12 +57,12 @@ const getPendingApprovals = async (req, res) => {
                         {
                             model: Task,
                             as: 'task',
-                            attributes: ['id', 'tenCongViec'],
+                            attributes: ['id', 'tentask'],
                             required: false,
                             include: [
                                 {
                                     model: DuAn,
-                                    as: 'duAn',
+                                    as: 'duan',
                                     attributes: ['id', 'tenduan'],
                                     required: false
                                 }

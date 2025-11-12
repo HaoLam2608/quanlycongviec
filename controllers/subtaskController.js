@@ -454,11 +454,29 @@ exports.deleteSubtask = async (req, res) => {
         }
 
         // Kiểm tra quyền xóa (người giao task hoặc người được giao task chính)
-        const canDelete = subtask.task.nguoiGiaoId === req.user.id ||
+        const canDeleteOwner = subtask.task.nguoiGiaoId === req.user.id ||
             subtask.task.nguoiDuocGiaoId === req.user.id;
 
-        if (!canDelete) {
-            return res.status(403).json({ error: 'Không có quyền xóa công việc nhỏ này' });
+        if (!canDeleteOwner) {
+            // Nếu không phải owner, kiểm tra role permission (ví dụ: manager có tasks:delete)
+            try {
+                const { Role, Permission } = require('../models');
+                const user = await User.findByPk(req.user.id, {
+                    include: [{
+                        model: Role,
+                        as: 'role',
+                        include: [{ model: Permission, as: 'permissions' }]
+                    }]
+                });
+
+                const hasDeletePermission = user?.role?.permissions?.some(p => p.name === 'tasks:delete');
+                if (!hasDeletePermission) {
+                    return res.status(403).json({ error: 'Không có quyền xóa công việc nhỏ này' });
+                }
+            } catch (err) {
+                console.error('Error checking delete permission for subtask:', err);
+                return res.status(500).json({ error: 'Lỗi khi kiểm tra quyền' });
+            }
         }
 
         const taskId = subtask.taskId;

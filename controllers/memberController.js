@@ -626,25 +626,50 @@ const getMemberProjects = async (req, res) => {
 const updateMemberTaskStatus = async (req, res) => {
     try {
         const { taskId } = req.params;
-        const { status } = req.body;
+        // Accept either `status` (API canonical) or `trangThai` (frontend payload)
+        const status = req.body.status || req.body.trangThai;
         const userId = req.user.id;
+
+        console.log('🔍 [updateMemberTaskStatus] Request:', {
+            taskId,
+            status,
+            userId,
+            userInfo: { id: req.user.id, manv: req.user.manv, hoten: req.user.hoten }
+        });
 
         const task = await Task.findByPk(taskId);
         if (!task) {
+            console.log('❌ Task not found:', taskId);
             return res.status(404).json({ message: 'Không tìm thấy công việc' });
         }
 
+        console.log('📋 Task info:', {
+            id: task.id,
+            tentask: task.tentask,
+            nguoiDuocGiaoId: task.nguoiDuocGiaoId,
+            nguoiGiaoId: task.nguoiGiaoId,
+            trangThaiHienTai: task.trangThai
+        });
+
         // Check if user is assigned to this task
         if (task.nguoiDuocGiaoId !== userId) {
+            console.log('❌ Permission denied: user is not assigned to this task');
+            console.log('   nguoiDuocGiaoId:', task.nguoiDuocGiaoId, '!== userId:', userId);
             return res.status(403).json({ message: 'Bạn không có quyền cập nhật công việc này' });
         }
 
+        console.log('✅ Permission check passed');
+
+        console.log('✅ Permission check passed');
+
         // If member tries to complete task, set to pending approval instead
         if (status === 'Hoàn thành') {
+            console.log('🔄 Status change: Hoàn thành -> Chờ xác nhận hoàn thành');
             task.trangThai = 'Chờ xác nhận hoàn thành';
             task.requestedCompletionAt = new Date();
             await task.save();
             
+            console.log('✅ Task saved with pending approval status');
             return res.json({ 
                 message: 'Đã gửi yêu cầu xác nhận hoàn thành. Chờ quản lý duyệt.',
                 task 
@@ -652,12 +677,15 @@ const updateMemberTaskStatus = async (req, res) => {
         }
 
         // Allow other status changes
+        console.log('🔄 Changing task status to:', status);
         task.trangThai = status;
         if (status === 'Đang chạy' && !task.ngayBatDau) {
+            console.log('📅 Setting ngayBatDau to now');
             task.ngayBatDau = new Date();
         }
         await task.save();
 
+        console.log('✅ Task status updated successfully');
         res.json({ message: 'Cập nhật trạng thái thành công', task });
     } catch (error) {
         console.error('Update task status error:', error);
@@ -669,8 +697,17 @@ const updateMemberTaskStatus = async (req, res) => {
 const updateMemberSubtaskStatus = async (req, res) => {
     try {
         const { taskId, subtaskId } = req.params;
-        const { status } = req.body;
+        // Accept either `status` (API canonical) or `trangThai` (frontend payload)
+        const status = req.body.status || req.body.trangThai;
         const userId = req.user.id;
+
+        console.log('🔍 [updateMemberSubtaskStatus] Request:', {
+            taskId,
+            subtaskId,
+            status,
+            userId,
+            userInfo: { id: req.user.id, manv: req.user.manv, hoten: req.user.hoten }
+        });
 
         const subtask = await Subtask.findByPk(subtaskId, {
             include: [{
@@ -681,21 +718,41 @@ const updateMemberSubtaskStatus = async (req, res) => {
         });
 
         if (!subtask) {
+            console.log('❌ Subtask not found:', subtaskId);
             return res.status(404).json({ message: 'Không tìm thấy công việc con' });
         }
+
+        console.log('📋 Subtask info:', {
+            id: subtask.id,
+            tenSubtask: subtask.tenSubtask,
+            nguoiThucHienId: subtask.nguoiThucHienId,
+            parentTask: {
+                id: subtask.task?.id,
+                nguoiDuocGiaoId: subtask.task?.nguoiDuocGiaoId,
+                nguoiGiaoId: subtask.task?.nguoiGiaoId
+            },
+            trangThaiHienTai: subtask.trangThai
+        });
 
         // Check if user is assigned to this subtask or parent task
         if (subtask.nguoiThucHienId !== userId && 
             subtask.task.nguoiDuocGiaoId !== userId) {
+            console.log('❌ Permission denied: user is not assigned to this subtask or parent task');
             return res.status(403).json({ message: 'Bạn không có quyền cập nhật công việc con này' });
         }
 
+        console.log('✅ Permission check passed');
+
+        console.log('✅ Permission check passed');
+
         // If member tries to complete subtask, set to pending approval instead
         if (status === 'Hoàn thành') {
+            console.log('🔄 Status change: Hoàn thành -> Chờ xác nhận hoàn thành');
             subtask.trangThai = 'Chờ xác nhận hoàn thành';
             subtask.requestedCompletionAt = new Date();
             await subtask.save();
             
+            console.log('✅ Subtask saved with pending approval status');
             return res.json({ 
                 message: 'Đã gửi yêu cầu xác nhận hoàn thành. Chờ quản lý duyệt.',
                 subtask 
@@ -703,12 +760,15 @@ const updateMemberSubtaskStatus = async (req, res) => {
         }
 
         // Allow other status changes
+        console.log('🔄 Changing subtask status to:', status);
         subtask.trangThai = status;
         if (status === 'Đang chạy' && !subtask.ngayBatDau) {
+            console.log('📅 Setting ngayBatDau to now');
             subtask.ngayBatDau = new Date();
         }
         await subtask.save();
 
+        console.log('✅ Subtask status updated successfully');
         res.json({ message: 'Cập nhật trạng thái thành công', subtask });
     } catch (error) {
         console.error('Update subtask status error:', error);
