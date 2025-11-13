@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     Alert,
     Dimensions,
@@ -13,7 +13,10 @@ import {
     TextInput,
     TouchableOpacity,
     View,
+    Animated,
+    StatusBar,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { loginUser } from '../src/axios/api';
 
 const { width, height } = Dimensions.get('window');
@@ -22,6 +25,25 @@ export default function LoginScreen() {
     const [manv, setManv] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+    
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const slideAnim = useRef(new Animated.Value(30)).current;
+
+    useEffect(() => {
+        Animated.parallel([
+            Animated.timing(fadeAnim, {
+                toValue: 1,
+                duration: 800,
+                useNativeDriver: true,
+            }),
+            Animated.timing(slideAnim, {
+                toValue: 0,
+                duration: 600,
+                useNativeDriver: true,
+            }),
+        ]).start();
+    }, []);
 
     const handleLogin = async () => {
         if (!manv.trim() || !password.trim()) {
@@ -36,19 +58,31 @@ export default function LoginScreen() {
             // Lưu thông tin đăng nhập vào AsyncStorage
             if (response.accessToken) {
                 try {
+                    // Tạo user object từ response
+                    const userObject = {
+                        id: response.userId,
+                        manv: response.manv || manv,
+                        hoten: response.hoten || '',
+                        role: response.role || '',
+                        chucvu: response.chucvu || '',
+                        avatar: response.avatar || null
+                    };
+
                     await AsyncStorage.multiSet([
                         ['accessToken', response.accessToken],
                         ['refreshToken', response.refreshToken || ''],
-                        ['manv', response.user?.manv || manv],
-                        ['hoten', response.user?.hoten || ''],
-                        ['role', response.user?.role || ''],
-                        ['userId', String(response.user?.id || '')],
+                        ['user', JSON.stringify(userObject)], // Lưu user object đã construct
+                        ['manv', userObject.manv],
+                        ['hoten', userObject.hoten],
+                        ['role', userObject.role],
+                        ['userId', String(userObject.id)],
                     ]);
 
-                    console.log('Đăng nhập thành công:', response);
+                    console.log('✅ Đăng nhập thành công:', response);
+                    console.log('👤 User object đã lưu:', userObject);
 
                     // Điều hướng theo role
-                    const userRole = response.user?.role || response.role;
+                    const userRole = response.role;
                     switch (userRole) {
                         case 'admin':
                             router.replace('/(admin)/' as any);
@@ -113,74 +147,118 @@ export default function LoginScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.keyboardAvoid}
+            <StatusBar barStyle="light-content" backgroundColor="#667eea" />
+            <LinearGradient
+                colors={['#667eea', '#764ba2']}
+                style={styles.gradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
             >
-                <ScrollView contentContainerStyle={styles.scrollContainer}>
-                    {/* Header */}
-                    <View style={styles.header}>
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={styles.keyboardAvoid}
+                >
+                    <ScrollView 
+                        contentContainerStyle={styles.scrollContainer}
+                        showsVerticalScrollIndicator={false}
+                    >
+                        {/* Back Button */}
                         <TouchableOpacity style={styles.backButton} onPress={goBack}>
                             <Text style={styles.backButtonText}>←</Text>
                         </TouchableOpacity>
-                        <View style={styles.logoContainer}>
-                            <View style={styles.logoCircle}>
-                                <Text style={styles.logoText}>QL</Text>
-                            </View>
-                            <Text style={styles.welcomeText}>Chào mừng trở lại!</Text>
-                            <Text style={styles.subText}>Đăng nhập để tiếp tục</Text>
-                        </View>
-                    </View>
 
-                    {/* Form */}
-                    <View style={styles.formContainer}>
-                        <View style={styles.inputContainer}>
-                            <Text style={styles.inputLabel}>Mã nhân viên</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Nhập mã nhân viên"
-                                placeholderTextColor="#999"
-                                value={manv}
-                                onChangeText={setManv}
-                                autoCapitalize="none"
-                                autoCorrect={false}
-                            />
-                        </View>
-
-                        <View style={styles.inputContainer}>
-                            <Text style={styles.inputLabel}>Mật khẩu</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Nhập mật khẩu"
-                                placeholderTextColor="#999"
-                                value={password}
-                                onChangeText={setPassword}
-                                secureTextEntry
-                                autoCapitalize="none"
-                                autoCorrect={false}
-                            />
-                        </View>
-
-                        <TouchableOpacity
-                            style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
-                            onPress={handleLogin}
-                            disabled={isLoading}
-                            activeOpacity={0.8}
+                        <Animated.View 
+                            style={[
+                                styles.content,
+                                {
+                                    opacity: fadeAnim,
+                                    transform: [{ translateY: slideAnim }]
+                                }
+                            ]}
                         >
-                            <Text style={styles.loginButtonText}>
-                                {isLoading ? 'Đang đăng nhập...' : 'Đăng Nhập'}
-                            </Text>
-                        </TouchableOpacity>
+                            {/* Header */}
+                            <View style={styles.header}>
+                                <View style={styles.logoContainer}>
+                                    <View style={styles.logoCircle}>
+                                        <Text style={styles.logoIcon}>👤</Text>
+                                    </View>
+                                </View>
+                                <Text style={styles.welcomeText}>Xin chào!</Text>
+                                <Text style={styles.subText}>Đăng nhập để tiếp tục</Text>
+                            </View>
 
-                        <View style={styles.registerContainer}>
-                            <Text style={styles.registerText}>Chưa có tài khoản? </Text>
-                            <TouchableOpacity onPress={navigateToRegister}>
-                                <Text style={styles.registerLink}>Đăng ký ngay</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </ScrollView>
-            </KeyboardAvoidingView>
+                            {/* Form */}
+                            <View style={styles.formContainer}>
+                                <View style={styles.inputWrapper}>
+                                    <Text style={styles.inputLabel}>Mã nhân viên</Text>
+                                    <View style={styles.inputContainer}>
+                                        <Text style={styles.inputIcon}>👨‍💼</Text>
+                                        <TextInput
+                                            style={styles.input}
+                                            placeholder="Nhập mã nhân viên"
+                                            placeholderTextColor="rgba(102, 126, 234, 0.5)"
+                                            value={manv}
+                                            onChangeText={setManv}
+                                            autoCapitalize="none"
+                                            editable={!isLoading}
+                                        />
+                                    </View>
+                                </View>
+
+                                <View style={styles.inputWrapper}>
+                                    <Text style={styles.inputLabel}>Mật khẩu</Text>
+                                    <View style={styles.inputContainer}>
+                                        <Text style={styles.inputIcon}>🔒</Text>
+                                        <TextInput
+                                            style={styles.input}
+                                            placeholder="Nhập mật khẩu"
+                                            placeholderTextColor="rgba(102, 126, 234, 0.5)"
+                                            value={password}
+                                            onChangeText={setPassword}
+                                            secureTextEntry={!showPassword}
+                                            autoCapitalize="none"
+                                            editable={!isLoading}
+                                        />
+                                        <TouchableOpacity 
+                                            onPress={() => setShowPassword(!showPassword)}
+                                            style={styles.eyeButton}
+                                        >
+                                            <Text style={styles.eyeIcon}>
+                                                {showPassword ? '👁️' : '👁️‍🗨️'}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+
+                                <TouchableOpacity
+                                    style={styles.loginButton}
+                                    onPress={handleLogin}
+                                    disabled={isLoading}
+                                    activeOpacity={0.9}
+                                >
+                                    <Text style={styles.loginButtonText}>
+                                        {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+                                    </Text>
+                                </TouchableOpacity>
+
+                                <TouchableOpacity
+                                    style={styles.registerLink}
+                                    onPress={navigateToRegister}
+                                    disabled={isLoading}
+                                >
+                                    <Text style={styles.registerText}>
+                                        Chưa có tài khoản? <Text style={styles.registerTextBold}>Đăng ký ngay</Text>
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        </Animated.View>
+                    </ScrollView>
+                </KeyboardAvoidingView>
+
+                {/* Decorative circles */}
+                <View style={styles.circle1} />
+                <View style={styles.circle2} />
+            </LinearGradient>
         </SafeAreaView>
     );
 }
@@ -188,132 +266,161 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f8f9fa',
+    },
+    gradient: {
+        flex: 1,
     },
     keyboardAvoid: {
         flex: 1,
     },
     scrollContainer: {
         flexGrow: 1,
-        justifyContent: 'center',
-        paddingHorizontal: 30,
-    },
-    header: {
-        alignItems: 'center',
-        marginBottom: 50,
+        paddingHorizontal: 24,
+        paddingVertical: 40,
     },
     backButton: {
-        position: 'absolute',
-        left: -20,
-        top: 20,
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#667eea',
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
         justifyContent: 'center',
         alignItems: 'center',
+        marginBottom: 20,
     },
     backButtonText: {
         fontSize: 24,
-        color: '#fff',
+        color: '#ffffff',
         fontWeight: 'bold',
+    },
+    content: {
+        flex: 1,
+    },
+    header: {
+        alignItems: 'center',
+        marginBottom: 40,
     },
     logoContainer: {
         alignItems: 'center',
-        marginTop: 40,
+        marginBottom: 20,
     },
     logoCircle: {
         width: 100,
         height: 100,
         borderRadius: 50,
-        backgroundColor: '#667eea',
+        backgroundColor: 'rgba(255, 255, 255, 0.25)',
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 20,
-        shadowColor: '#667eea',
-        shadowOffset: {
-            width: 0,
-            height: 4,
-        },
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
-        elevation: 8,
+        elevation: 6,
     },
-    logoText: {
-        fontSize: 40,
-        fontWeight: 'bold',
-        color: '#fff',
+    logoIcon: {
+        fontSize: 48,
     },
     welcomeText: {
-        fontSize: 28,
+        fontSize: 32,
         fontWeight: 'bold',
-        color: '#333',
+        color: '#ffffff',
         marginBottom: 8,
     },
     subText: {
         fontSize: 16,
-        color: '#666',
+        color: 'rgba(255, 255, 255, 0.85)',
     },
     formContainer: {
-        width: '100%',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        borderRadius: 24,
+        padding: 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 16,
+        elevation: 8,
     },
-    inputContainer: {
+    inputWrapper: {
         marginBottom: 20,
     },
     inputLabel: {
-        fontSize: 16,
+        fontSize: 14,
         fontWeight: '600',
-        color: '#333',
+        color: '#667eea',
         marginBottom: 8,
+        marginLeft: 4,
+    },
+    inputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f8f9ff',
+        borderRadius: 16,
+        paddingHorizontal: 16,
+        borderWidth: 2,
+        borderColor: '#e8ebf7',
+    },
+    inputIcon: {
+        fontSize: 20,
+        marginRight: 12,
     },
     input: {
-        height: 50,
-        borderWidth: 1.5,
-        borderColor: '#e1e5e9',
-        borderRadius: 12,
-        paddingHorizontal: 16,
+        flex: 1,
+        height: 56,
         fontSize: 16,
-        backgroundColor: '#fff',
-        color: '#333',
+        color: '#667eea',
+        fontWeight: '500',
+    },
+    eyeButton: {
+        padding: 8,
+    },
+    eyeIcon: {
+        fontSize: 20,
     },
     loginButton: {
-        height: 55,
         backgroundColor: '#667eea',
-        borderRadius: 12,
-        justifyContent: 'center',
+        borderRadius: 16,
+        paddingVertical: 18,
         alignItems: 'center',
-        marginTop: 20,
+        marginTop: 8,
         shadowColor: '#667eea',
-        shadowOffset: {
-            width: 0,
-            height: 4,
-        },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 8,
-    },
-    loginButtonDisabled: {
-        backgroundColor: '#ccc',
-        shadowOpacity: 0,
-        elevation: 0,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.4,
+        shadowRadius: 12,
+        elevation: 6,
     },
     loginButtonText: {
         fontSize: 18,
         fontWeight: 'bold',
-        color: '#fff',
-    },
-    registerContainer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        marginTop: 30,
-    },
-    registerText: {
-        fontSize: 16,
-        color: '#666',
+        color: '#ffffff',
+        letterSpacing: 0.5,
     },
     registerLink: {
-        fontSize: 16,
+        marginTop: 20,
+        alignItems: 'center',
+    },
+    registerText: {
+        fontSize: 14,
+        color: '#6b7280',
+    },
+    registerTextBold: {
+        fontWeight: 'bold',
         color: '#667eea',
-        fontWeight: '600',
+    },
+    circle1: {
+        position: 'absolute',
+        width: 200,
+        height: 200,
+        borderRadius: 100,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        top: -50,
+        right: -50,
+    },
+    circle2: {
+        position: 'absolute',
+        width: 150,
+        height: 150,
+        borderRadius: 75,
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        bottom: -30,
+        left: -40,
     },
 });

@@ -1,0 +1,6 @@
+# Thay đường dẫn nếu SDK ở nơi khác
+$env:PATH += ';C:\Users\tuyen\AppData\Local\Android\Sdk\platform-tools'
+
+# Kiểm tra
+adb --version
+adb devices
