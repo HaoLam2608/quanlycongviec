@@ -53,6 +53,9 @@ app.use('/tasks', taskRoutes);
 app.use('/worklogs', require('./routes/worklogRoutes'));
 app.use('/reports', require('./routes/reportRoutes'));
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running at http://localhost:${PORT}`);
+    console.log(`📱 Mobile (Android Emulator): http://10.0.2.2:${PORT}`);
+    console.log(`📱 Mobile (iOS Simulator): http://localhost:${PORT}`);
+    console.log(`📱 Mobile (Real Device): http://<YOUR_IP>:${PORT}`);
 });

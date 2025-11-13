@@ -103,6 +103,8 @@ exports.getKanbanTasks = async (req, res) => {
 exports.getTasksByProject = async (req, res) => {
     try {
         const { projectId } = req.params;
+        console.log('🔍 Backend: getTasksByProject called for projectId:', projectId);
+        
         const { page = 1, limit = 10 } = req.query;
         const offset = (page - 1) * limit;
 
@@ -171,6 +173,8 @@ exports.getTasksByProject = async (req, res) => {
                 pages: Math.ceil(tasks.count / limit)
             }
         });
+        
+        console.log(`✅ Backend: Returned ${tasksWithProgress.length} tasks for project ${projectId}`);
     } catch (error) {
         console.error('Get tasks error:', error);
         res.status(500).json({ error: 'Lỗi khi lấy danh sách công việc' });

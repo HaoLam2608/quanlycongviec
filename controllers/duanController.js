@@ -37,6 +37,8 @@ exports.getAllDuAn = async (req, res) => {
 exports.getDuAnByManagerId = async (req, res) => {
     try {
         const { managerId } = req.params;
+        console.log('🔍 getDuAnByManagerId called with:', managerId);
+        
         if (!managerId) return res.status(400).json({ message: 'managerId is required' });
 
         let whereClause = {};
@@ -44,9 +46,11 @@ exports.getDuAnByManagerId = async (req, res) => {
         // Nếu managerId là số nguyên thuần (id), tìm theo userId
         if (/^\d+$/.test(String(managerId))) {
             whereClause.userId = Number(managerId);
+            console.log('📋 Searching by userId:', whereClause);
         } else {
             // Nếu không phải số, cố gắng tìm user theo manv rồi lấy id
             const managerUser = await User.findOne({ where: { manv: managerId }, attributes: ['id'] });
+            console.log('👤 Manager user found:', managerUser);
             if (!managerUser) return res.json([]);
             whereClause.userId = managerUser.id;
         }
