@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
     SafeAreaView, StyleSheet, Text, View, ScrollView, TouchableOpacity,
-    ActivityIndicator, Alert, RefreshControl,
+    ActivityIndicator, Alert, RefreshControl, TextInput, Modal, Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { getTaskById } from '@/src/axios/api';
+import { getTaskById, getWorklogs, updateTask } from '@/src/axios/api';
+import api from '@/src/axios/config';
 import { PageHeader } from '../../components/ui/PageHeader';
 
 interface Task {
@@ -43,6 +44,25 @@ export default function TaskDetail() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [task, setTask] = useState<Task | null>(null);
+    const [comments, setComments] = useState<any[]>([]);
+    const [commentsLoading, setCommentsLoading] = useState(false);
+    const [newComment, setNewComment] = useState('');
+    const [postingComment, setPostingComment] = useState(false);
+
+    const [logs, setLogs] = useState<any[]>([]);
+    const [logsLoading, setLogsLoading] = useState(false);
+    const [logText, setLogText] = useState('');
+    const [postingLog, setPostingLog] = useState(false);
+
+    // Edit task modal state
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editTitle, setEditTitle] = useState('');
+    const [editDesc, setEditDesc] = useState('');
+    const [editStart, setEditStart] = useState('');
+    const [editEnd, setEditEnd] = useState('');
+    const [editPriority, setEditPriority] = useState<string>('medium');
+    const [editNotes, setEditNotes] = useState('');
+    const [updatingTask, setUpdatingTask] = useState(false);
 
     useEffect(() => {
         if (taskId) {
@@ -55,12 +75,73 @@ export default function TaskDetail() {
             setLoading(true);
             const taskData = await getTaskById(taskId);
             setTask(taskData);
+            // fetch related comments & logs
+            fetchComments();
+            fetchLogs();
         } catch (error) {
             console.error('Error loading task:', error);
             Alert.alert('Lỗi', 'Không thể tải thông tin công việc');
         } finally {
             setLoading(false);
             setRefreshing(false);
+        }
+    };
+
+    const fetchComments = async () => {
+        try {
+            setCommentsLoading(true);
+            const res = await api.get(`/comments/task/${taskId}`);
+            const data = res.data || res;
+            const arr = Array.isArray(data) ? data : (data.comments || data.data || []);
+            setComments(arr);
+        } catch (err) {
+            console.error('Error loading comments', err);
+        } finally {
+            setCommentsLoading(false);
+        }
+    };
+
+    const fetchLogs = async () => {
+        try {
+            setLogsLoading(true);
+            const res = await getWorklogs({ taskId: Number(taskId) });
+            const data = res || [];
+            const arr = Array.isArray(data) ? data : (data.worklogs || data.data || []);
+            setLogs(arr);
+        } catch (err) {
+            console.error('Error loading logs', err);
+        } finally {
+            setLogsLoading(false);
+        }
+    };
+
+    const handlePostComment = async () => {
+        if (!newComment.trim()) return;
+        try {
+            setPostingComment(true);
+            await api.post('/comments', { taskId: Number(taskId), content: newComment.trim() });
+            setNewComment('');
+            await fetchComments();
+        } catch (err) {
+            console.error('Error posting comment', err);
+            Alert.alert('Lỗi', 'Không thể gửi bình luận');
+        } finally {
+            setPostingComment(false);
+        }
+    };
+
+    const handlePostLog = async () => {
+        if (!logText.trim()) return;
+        try {
+            setPostingLog(true);
+            await api.post('/worklogs', { taskId: Number(taskId), hours: 0, note: logText.trim(), date: new Date().toISOString() });
+            setLogText('');
+            await fetchLogs();
+        } catch (err) {
+            console.error('Error posting log', err);
+            Alert.alert('Lỗi', 'Không thể gửi nhật ký');
+        } finally {
+            setPostingLog(false);
         }
     };
 
@@ -94,6 +175,61 @@ export default function TaskDetail() {
             case 'medium': return 'Trung bình';
             case 'low': return 'Thấp';
             default: return priority;
+        }
+    };
+
+    const openEditModal = () => {
+        if (!task) return;
+        setEditTitle(task.tentask || '');
+        setEditDesc(task.mota || '');
+        setEditStart(task.ngayBatDau || '');
+        setEditEnd(task.ngayKetThuc || '');
+        setEditPriority(task.mucDoUuTien || 'medium');
+        setEditNotes(task.ghiChu || '');
+        setShowEditModal(true);
+    };
+
+    const mapPriorityLabelToValue = (label: string) => {
+        switch (label) {
+            case 'Cao': return 'high';
+            case 'Trung bình': return 'medium';
+            case 'Thấp': return 'low';
+            default: return label;
+        }
+    };
+
+    const handleUpdateTask = async () => {
+        if (!task) return;
+        if (!editTitle.trim()) return Alert.alert('Lỗi', 'Vui lòng nhập tiêu đề');
+        // validate dates if provided
+        if (editStart && editEnd) {
+            const s = new Date(editStart);
+            const e = new Date(editEnd);
+            if (isNaN(s.getTime()) || isNaN(e.getTime()) || s > e) return Alert.alert('Lỗi', 'Ngày bắt đầu phải trước hoặc bằng ngày kết thúc');
+        }
+        try {
+            setUpdatingTask(true);
+            const payload: any = {
+                tentask: editTitle,
+                mota: editDesc,
+                ngayBatDau: editStart || undefined,
+                ngayKetThuc: editEnd || undefined,
+                mucDoUuTien: editPriority || undefined,
+                ghiChu: editNotes || undefined,
+            };
+            // normalize priority (allow labels or values)
+            if (['Cao','Trung bình','Thấp'].includes(String(editPriority))) {
+                payload.mucDoUuTien = mapPriorityLabelToValue(editPriority);
+            }
+            await updateTask(Number(task.id), payload);
+            Alert.alert('Thành công', 'Cập nhật công việc thành công');
+            setShowEditModal(false);
+            await loadTaskData();
+        } catch (err: any) {
+            console.error('Update task error', err);
+            Alert.alert('Lỗi', err?.message || 'Không thể cập nhật công việc');
+        } finally {
+            setUpdatingTask(false);
         }
     };
 
@@ -141,6 +277,9 @@ export default function TaskDetail() {
                         <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(task.mucDoUuTien) }]}>
                             <Text style={styles.badgeText}>{getPriorityText(task.mucDoUuTien)}</Text>
                         </View>
+                        <TouchableOpacity style={styles.openEditBtn} onPress={openEditModal}>
+                            <Text style={styles.openEditBtnText}>Sửa</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
 
@@ -244,18 +383,93 @@ export default function TaskDetail() {
                     </View>
                 )}
 
-                {/* Subtasks */}
-                {task.subtasks && task.subtasks.length > 0 && (
-                    <View style={styles.section}>
-                        <Text style={styles.sectionTitle}>📋 Công việc con ({task.subtasks.length})</Text>
-                        {task.subtasks.map((subtask, index) => (
-                            <View key={index} style={styles.subtaskCard}>
-                                <Text style={styles.subtaskName}>{subtask.tenSubtask}</Text>
-                                <Text style={styles.subtaskStatus}>{subtask.trangThai}</Text>
+                {/* Subtasks: always show link to subtasks list (even if empty) */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>📋 Công việc con ({(task.subtasks || []).length})</Text>
+                    <TouchableOpacity style={styles.openSubtasksBtn} onPress={() => router.push(`/(manager)/task-subtasks?id=${task.id}`)}>
+                        <Text style={styles.openSubtasksText}>Xem danh sách công việc con</Text>
+                    </TouchableOpacity>
+                </View>
+
+                {/* Edit Task Modal */}
+                <Modal visible={showEditModal} animationType="slide" transparent>
+                    <View style={modalStyles.modalOverlay}>
+                        <View style={modalStyles.modalContent}>
+                            <Text style={modalStyles.modalTitle}>Sửa công việc</Text>
+                            <TextInput placeholder="Tiêu đề" value={editTitle} onChangeText={setEditTitle} style={modalStyles.input} />
+                            <TextInput placeholder="Mô tả" value={editDesc} onChangeText={setEditDesc} style={[modalStyles.input, { height: 80 }]} multiline />
+                            <TextInput placeholder="Ngày bắt đầu (YYYY-MM-DD)" value={editStart} onChangeText={setEditStart} style={modalStyles.input} />
+                            <TextInput placeholder="Ngày kết thúc (YYYY-MM-DD)" value={editEnd} onChangeText={setEditEnd} style={modalStyles.input} />
+
+                            <Text style={{ fontWeight: '700', marginBottom: 6, color: '#374151' }}>Mức độ ưu tiên</Text>
+                            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                                {['high','medium','low'].map(p => (
+                                    <TouchableOpacity key={p} onPress={() => setEditPriority(p)} style={[modalStyles.priorityOption, editPriority === p ? { backgroundColor: '#1e40af' } : { backgroundColor: '#f3f4f6' }]}>
+                                        <Text style={{ color: editPriority === p ? '#fff' : '#111827', fontWeight: '700' }}>{getPriorityText(p)}</Text>
+                                    </TouchableOpacity>
+                                ))}
                             </View>
-                        ))}
+
+                            <TextInput placeholder="Ghi chú (tuỳ chọn)" value={editNotes} onChangeText={setEditNotes} style={[modalStyles.input, { height: 80 }]} multiline />
+
+                            <View style={modalStyles.modalActions}>
+                                <TouchableOpacity style={[modalStyles.modalBtn, { backgroundColor: '#9ca3af' }]} onPress={() => setShowEditModal(false)}>
+                                    <Text style={modalStyles.modalBtnText}>Hủy</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={[modalStyles.modalBtn, { backgroundColor: '#3b82f6' }]} onPress={handleUpdateTask} disabled={updatingTask}>
+                                    {updatingTask ? <ActivityIndicator color="#fff" /> : <Text style={[modalStyles.modalBtnText, { color: '#fff' }]}>Lưu</Text>}
+                                </TouchableOpacity>
+                            </View>
+                        </View>
                     </View>
-                )}
+                </Modal>
+
+                {/* Comments */}
+                <View style={[styles.section, styles.commentsContainer]}>
+                    <Text style={styles.sectionTitle}>💬 Bình luận</Text>
+                    <View style={styles.commentInputRow}>
+                        <TextInput value={newComment} onChangeText={setNewComment} placeholder="Viết bình luận..." style={styles.commentInput} multiline />
+                        <TouchableOpacity style={styles.commentButton} onPress={handlePostComment} disabled={postingComment}>
+                            <Text style={styles.commentButtonText}>{postingComment ? 'Đang gửi...' : 'Gửi'}</Text>
+                        </TouchableOpacity>
+                    </View>
+                    {commentsLoading ? <ActivityIndicator size="small" color="#2563eb" /> : null}
+                    {comments.length === 0 && !commentsLoading ? (
+                        <Text style={{ color: '#6b7280' }}>Chưa có bình luận</Text>
+                    ) : (
+                        <View>
+                            {comments.map((item:any) => (
+                                <View key={String(item.id)} style={styles.commentItem}>
+                                    <Text style={styles.commentAuthor}>{item.author?.hoten || item.authorName || item.manv || 'Người dùng'}</Text>
+                                    <Text style={styles.commentTime}>{item.createdAt ? new Date(item.createdAt).toLocaleString('vi-VN') : ''}</Text>
+                                    <Text style={styles.commentContent}>{item.content}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    )}
+                </View>
+
+                {/* Logs */}
+                <View style={[styles.section, styles.logsContainer]}>
+                    <Text style={styles.sectionTitle}>🕘 Nhật ký hoạt động</Text>
+                    <View style={styles.commentInputRow}>
+                        <TextInput value={logText} onChangeText={setLogText} placeholder="Ghi nhật ký..." style={styles.commentInput} multiline />
+                        <TouchableOpacity style={styles.commentButton} onPress={handlePostLog} disabled={postingLog}>
+                            <Text style={styles.commentButtonText}>{postingLog ? 'Đang gửi...' : 'Gửi'}</Text>
+                        </TouchableOpacity>
+                    </View>
+                    {logsLoading ? <ActivityIndicator size="small" color="#2563eb" /> : null}
+                    {logs.length === 0 && !logsLoading ? <Text style={{ color: '#6b7280' }}>Chưa có nhật ký</Text> : (
+                        <View>
+                            {logs.map((l:any)=>(
+                                <View key={l.id || l._id || String(Math.random())} style={styles.logItem}>
+                                    <Text style={styles.logText}>{l.message || l.note || l.action || JSON.stringify(l)}</Text>
+                                    <Text style={styles.logTime}>{l.createdAt ? new Date(l.createdAt).toLocaleString('vi-VN') : (l.time ? new Date(l.time).toLocaleDateString('vi-VN') : '')}</Text>
+                                </View>
+                            ))}
+                        </View>
+                    )}
+                </View>
             </ScrollView>
         </SafeAreaView>
     );
@@ -345,6 +559,22 @@ const styles = StyleSheet.create({
     section: {
         marginBottom: 24,
     },
+    /* Comments */
+    commentsContainer: { marginBottom: 16 },
+    commentInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+    commentInput: { flex: 1, backgroundColor: '#fff', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb' },
+    commentButton: { backgroundColor: '#2563eb', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, marginLeft: 8 },
+    commentButtonText: { color: '#fff', fontWeight: '700' },
+    commentItem: { paddingVertical: 10, borderBottomWidth: 1, borderColor: '#f1f5f9' },
+    commentAuthor: { fontWeight: '700', color: '#0f172a' },
+    commentTime: { color: '#6b7280', fontSize: 12 },
+    commentContent: { color: '#374151', marginTop: 6 },
+
+    /* Logs */
+    logsContainer: { marginBottom: 24 },
+    logItem: { backgroundColor: '#fff', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#e6eef8', marginBottom: 8 },
+    logText: { color: '#374151' },
+    logTime: { color: '#6b7280', fontSize: 12, marginTop: 6 },
     sectionTitle: {
         fontSize: 16,
         fontWeight: '700',
@@ -482,4 +712,85 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: '#6b7280',
     },
+    openSubtasksBtn: {
+        backgroundColor: '#3b82f6',
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    openSubtasksText: {
+        color: '#fff',
+        fontWeight: '600',
+    },
+    openEditBtn: {
+        marginLeft: 12,
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 8,
+        backgroundColor: '#e6f0ff',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: '#dbeafe',
+    },
+    openEditBtnText: {
+        color: '#1e40af',
+        fontWeight: '700',
+    },
+});
+
+const modalStyles = StyleSheet.create({
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 16,
+    },
+    modalContent: {
+        width: '100%',
+        maxWidth: 720,
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 16,
+    },
+    modalTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#1f2937',
+        marginBottom: 12,
+    },
+    input: {
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: Platform.OS === 'ios' ? 12 : 8,
+        marginBottom: 12,
+        fontSize: 14,
+        color: '#111827',
+        backgroundColor: '#fff',
+    },
+    modalActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 8,
+        marginTop: 8,
+    },
+    modalBtn: {
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+        borderRadius: 8,
+    },
+    modalBtnText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#111827',
+    },
+    priorityOption: {
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+    }
 });

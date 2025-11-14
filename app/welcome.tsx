@@ -46,9 +46,9 @@ export default function WelcomeScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#667eea" />
+            <StatusBar barStyle="light-content" backgroundColor="#2563eb" />
             <LinearGradient
-                colors={['#667eea', '#764ba2', '#f093fb']}
+                colors={["#2563eb", "#3b82f6", "#60a5fa"]}
                 style={styles.gradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -67,11 +67,11 @@ export default function WelcomeScreen() {
                 >
                     {/* Logo và tên ứng dụng */}
                     <View style={styles.logoContainer}>
-                        <View style={styles.logoCircle}>
-                            <Text style={styles.logoIcon}>📋</Text>
+                        <View style={[styles.logoCircle, { backgroundColor: 'rgba(255,255,255,0.18)', borderWidth: 2, borderColor: '#fff' }] }>
+                            <Text style={[styles.logoIcon, { color: '#fff' }]}>📋</Text>
                         </View>
-                        <Text style={styles.appName}>TaskFlow</Text>
-                        <Text style={styles.tagline}>Quản lý công việc thông minh</Text>
+                        <Text style={[styles.appName, { color: '#fff', textShadowColor: '#2563eb', textShadowOffset: {width: 0, height: 2}, textShadowRadius: 8 }]}>TaskFlow</Text>
+                        <Text style={[styles.tagline, { color: 'rgba(255,255,255,0.92)' }]}>Quản lý công việc thông minh</Text>
                     </View>
 
                     {/* Thông tin tính năng */}
@@ -189,37 +189,45 @@ const styles = StyleSheet.create({
     featureItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.15)',
-        borderRadius: 16,
-        padding: 20,
+        backgroundColor: 'rgba(255,255,255,0.18)',
+        borderRadius: 18,
+        padding: 18,
         marginBottom: 16,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.2)',
+        borderColor: 'rgba(255,255,255,0.22)',
+        shadowColor: '#2563eb',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+        elevation: 2,
     },
     featureIconContainer: {
-        width: 60,
-        height: 60,
-        borderRadius: 30,
-        backgroundColor: 'rgba(255, 255, 255, 0.25)',
+        width: 54,
+        height: 54,
+        borderRadius: 27,
+        backgroundColor: 'rgba(255,255,255,0.25)',
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 16,
+        marginRight: 14,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.18)',
     },
     featureIcon: {
-        fontSize: 32,
+        fontSize: 28,
+        color: '#2563eb',
     },
     featureTextContainer: {
         flex: 1,
     },
     featureTitle: {
-        fontSize: 18,
+        fontSize: 17,
         fontWeight: '700',
-        color: '#ffffff',
-        marginBottom: 4,
+        color: '#fff',
+        marginBottom: 2,
     },
     featureDesc: {
-        fontSize: 14,
-        color: 'rgba(255, 255, 255, 0.85)',
+        fontSize: 13,
+        color: 'rgba(255,255,255,0.85)',
     },
     buttonContainer: {
         width: '100%',
@@ -230,32 +238,33 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#ffffff',
-        paddingVertical: 18,
-        paddingHorizontal: 48,
-        borderRadius: 30,
+        backgroundColor: '#2563eb',
+        paddingVertical: 16,
+        paddingHorizontal: 44,
+        borderRadius: 28,
         width: '100%',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-        elevation: 8,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.18,
+        shadowRadius: 8,
+        elevation: 6,
     },
     startButtonText: {
-        fontSize: 18,
+        fontSize: 17,
         fontWeight: 'bold',
-        color: '#667eea',
+        color: '#fff',
         marginRight: 8,
+        letterSpacing: 0.5,
     },
     arrow: {
         fontSize: 20,
-        color: '#667eea',
+        color: '#fff',
         fontWeight: 'bold',
     },
     footerText: {
-        marginTop: 20,
+        marginTop: 18,
         fontSize: 13,
-        color: 'rgba(255, 255, 255, 0.8)',
+        color: 'rgba(255,255,255,0.92)',
         textAlign: 'center',
         paddingHorizontal: 20,
     },
@@ -265,7 +274,7 @@ const styles = StyleSheet.create({
         width: 200,
         height: 200,
         borderRadius: 100,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        backgroundColor: 'rgba(37, 99, 235, 0.12)',
         top: -50,
         right: -50,
     },
@@ -274,7 +283,7 @@ const styles = StyleSheet.create({
         width: 150,
         height: 150,
         borderRadius: 75,
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        backgroundColor: 'rgba(37, 99, 235, 0.10)',
         bottom: 100,
         left: -40,
     },
@@ -283,7 +292,7 @@ const styles = StyleSheet.create({
         width: 100,
         height: 100,
         borderRadius: 50,
-        backgroundColor: 'rgba(255, 255, 255, 0.06)',
+        backgroundColor: 'rgba(37, 99, 235, 0.08)',
         top: height * 0.4,
         right: 30,
     },

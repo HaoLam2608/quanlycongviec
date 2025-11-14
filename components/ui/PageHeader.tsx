@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { Fonts } from '@/constants/theme';
 
 interface PageHeaderProps {
     title: string;
@@ -64,7 +65,8 @@ const styles = StyleSheet.create({
     },
     title: {
         fontSize: 24,
-        fontWeight: 'bold',
+        fontWeight: '700',
+        fontFamily: Fonts?.sans || undefined,
         color: '#111827',
         marginBottom: 4,
     },
@@ -72,6 +74,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#6b7280',
         marginBottom: 8,
+        fontFamily: Fonts?.sans || undefined,
     },
     roleBadge: {
         paddingHorizontal: 12,
@@ -82,5 +85,6 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: '#fff',
         fontWeight: '600',
+        fontFamily: Fonts?.sans || undefined,
     },
 });

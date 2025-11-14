@@ -147,9 +147,9 @@ export default function LoginScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#667eea" />
+            <StatusBar barStyle="light-content" backgroundColor="#2563eb" />
             <LinearGradient
-                colors={['#667eea', '#764ba2']}
+                colors={["#2563eb", "#3b82f6"]}
                 style={styles.gradient}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        backgroundColor: 'rgba(37, 99, 235, 0.15)',
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 20,
@@ -307,10 +307,10 @@ const styles = StyleSheet.create({
         width: 100,
         height: 100,
         borderRadius: 50,
-        backgroundColor: 'rgba(255, 255, 255, 0.25)',
+        backgroundColor: 'rgba(37, 99, 235, 0.18)',
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: '#000',
+        shadowColor: '#2563eb',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 8,
@@ -322,22 +322,23 @@ const styles = StyleSheet.create({
     welcomeText: {
         fontSize: 32,
         fontWeight: 'bold',
-        color: '#ffffff',
+        color: '#2563eb',
         marginBottom: 8,
     },
     subText: {
         fontSize: 16,
-        color: 'rgba(255, 255, 255, 0.85)',
+        color: '#2563eb',
+        opacity: 0.8,
     },
     formContainer: {
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        borderRadius: 24,
-        padding: 24,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3,
-        shadowRadius: 16,
-        elevation: 8,
+        backgroundColor: 'rgba(255,255,255,0.97)',
+        borderRadius: 22,
+        padding: 22,
+        shadowColor: '#2563eb',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.13,
+        shadowRadius: 12,
+        elevation: 6,
     },
     inputWrapper: {
         marginBottom: 20,
@@ -345,18 +346,18 @@ const styles = StyleSheet.create({
     inputLabel: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#667eea',
+        color: '#2563eb',
         marginBottom: 8,
         marginLeft: 4,
     },
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#f8f9ff',
-        borderRadius: 16,
-        paddingHorizontal: 16,
-        borderWidth: 2,
-        borderColor: '#e8ebf7',
+        backgroundColor: '#f3f6fd',
+        borderRadius: 14,
+        paddingHorizontal: 14,
+        borderWidth: 1.5,
+        borderColor: '#dbeafe',
     },
     inputIcon: {
         fontSize: 20,
@@ -364,9 +365,9 @@ const styles = StyleSheet.create({
     },
     input: {
         flex: 1,
-        height: 56,
+        height: 52,
         fontSize: 16,
-        color: '#667eea',
+        color: '#2563eb',
         fontWeight: '500',
     },
     eyeButton: {
@@ -376,21 +377,21 @@ const styles = StyleSheet.create({
         fontSize: 20,
     },
     loginButton: {
-        backgroundColor: '#667eea',
+        backgroundColor: '#2563eb',
         borderRadius: 16,
-        paddingVertical: 18,
+        paddingVertical: 15,
         alignItems: 'center',
         marginTop: 8,
-        shadowColor: '#667eea',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.4,
-        shadowRadius: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.18,
+        shadowRadius: 8,
         elevation: 6,
     },
     loginButtonText: {
-        fontSize: 18,
+        fontSize: 17,
         fontWeight: 'bold',
-        color: '#ffffff',
+        color: '#fff',
         letterSpacing: 0.5,
     },
     registerLink: {
@@ -399,18 +400,19 @@ const styles = StyleSheet.create({
     },
     registerText: {
         fontSize: 14,
-        color: '#6b7280',
+        color: '#2563eb',
+        opacity: 0.8,
     },
     registerTextBold: {
         fontWeight: 'bold',
-        color: '#667eea',
+        color: '#2563eb',
     },
     circle1: {
         position: 'absolute',
         width: 200,
         height: 200,
         borderRadius: 100,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        backgroundColor: 'rgba(37, 99, 235, 0.12)',
         top: -50,
         right: -50,
     },
@@ -419,7 +421,7 @@ const styles = StyleSheet.create({
         width: 150,
         height: 150,
         borderRadius: 75,
-        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        backgroundColor: 'rgba(37, 99, 235, 0.10)',
         bottom: -30,
         left: -40,
     },

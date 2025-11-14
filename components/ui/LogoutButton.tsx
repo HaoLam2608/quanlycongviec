@@ -1,6 +1,7 @@
 import { AntDesign, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import React from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { Fonts } from '@/constants/theme';
 import { useLogout } from '../../hooks/useLogout';
 
 interface LogoutButtonProps {
@@ -171,6 +172,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: 'white',
         textAlign: 'center',
+        fontFamily: Fonts?.sans || undefined,
     },
     textColor: {
         color: '#ef4444',

@@ -91,6 +91,7 @@ const styles = StyleSheet.create({
     buttonText: {
         fontSize: 16,
         fontWeight: '600',
+        fontFamily: Fonts?.sans || undefined,
     },
     primaryText: {
         color: '#fff',

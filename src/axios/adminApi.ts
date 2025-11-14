@@ -205,6 +205,15 @@ export const getGroups = async (params?: { duanId?: number }) => {
   }
 };
 
+export const getGroup = async (id: number) => {
+  try {
+    const res = await groupAPI.getGroup(id);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Lỗi không xác định' };
+  }
+};
+
 export const createGroup = async (data: { name: string; description?: string; duanId?: number; leaderId?: number; memberIds?: number[]; projectIds?: number[] }) => {
   try {
     const res = await groupAPI.createGroup(data);
