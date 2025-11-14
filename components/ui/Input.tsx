@@ -7,6 +7,7 @@ import {
     View,
     ViewStyle
 } from 'react-native';
+import { Fonts } from '@/constants/theme';
 
 interface InputProps extends TextInputProps {
     label?: string;
@@ -51,6 +52,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#374151',
         marginBottom: 6,
+        fontFamily: Fonts?.sans || undefined,
     },
     input: {
         height: 50,
@@ -61,6 +63,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         backgroundColor: '#fff',
         color: '#111827',
+        fontFamily: Fonts?.sans || undefined,
     },
     inputError: {
         borderColor: '#ef4444',

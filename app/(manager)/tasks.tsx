@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
     SafeAreaView, StyleSheet, Text, View, FlatList, TouchableOpacity,
-    ActivityIndicator, RefreshControl, Alert,
+    ActivityIndicator, RefreshControl, Alert, Modal, TextInput, Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { fetchProjectsByManager, getTasksByProject } from '@/src/axios/api';
+import { fetchProjectsByManager, getTasksByProject, createTask } from '@/src/axios/api';
 import { PageHeader } from '../../components/ui/PageHeader';
 
 interface Task {
@@ -36,6 +36,11 @@ export default function TaskManagement() {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
     const [filter, setFilter] = useState<string>('all');
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [newTitle, setNewTitle] = useState('');
+    const [newDesc, setNewDesc] = useState('');
+    const [newDueDate, setNewDueDate] = useState('');
+    const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
 
     useEffect(() => {
         loadTasks();
@@ -73,6 +78,10 @@ export default function TaskManagement() {
                 }
                 console.log('📊 Total tasks loaded:', allTasks.length);
                 setTasks(allTasks);
+                // ensure a default selected project for the create modal
+                if (!selectedProjectId && projectsData && projectsData.length > 0) {
+                    setSelectedProjectId(projectsData[0].id);
+                }
             }
         } catch (error) {
             console.error('❌ Error loading tasks:', error);
@@ -227,6 +236,72 @@ export default function TaskManagement() {
                     </View>
                 }
             />
+
+            {/* Floating Create Button */}
+            <TouchableOpacity style={styles.fab} onPress={() => {
+                // prepare modal defaults
+                setNewTitle('');
+                setNewDesc('');
+                setNewDueDate('');
+                if (!selectedProjectId && projects.length > 0) setSelectedProjectId(projects[0].id);
+                setShowCreateModal(true);
+            }}>
+                <Text style={styles.fabText}>+</Text>
+            </TouchableOpacity>
+
+            {/* Create Task Modal */}
+            <Modal visible={showCreateModal} animationType="slide" transparent>
+                <View style={modalStyles.modalOverlay}>
+                    <View style={modalStyles.modalContent}>
+                        <Text style={modalStyles.modalTitle}>Tạo công việc mới</Text>
+                        <Text style={modalStyles.label}>Dự án</Text>
+                        <View style={modalStyles.projectList}>
+                            {projects.map(p => (
+                                <TouchableOpacity key={p.id} onPress={() => setSelectedProjectId(p.id)} style={[modalStyles.projectOption, selectedProjectId === p.id && modalStyles.projectOptionSelected]}>
+                                    <Text style={[modalStyles.projectOptionText, selectedProjectId === p.id && { color: '#fff' }]}>{p.tenduan}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                        <TextInput placeholder="Tiêu đề" value={newTitle} onChangeText={setNewTitle} style={modalStyles.input} />
+                        <TextInput placeholder="Mô tả (tuỳ chọn)" value={newDesc} onChangeText={setNewDesc} style={[modalStyles.input, { height: 80 }]} multiline />
+                        <TextInput placeholder="Ngày kết thúc (YYYY-MM-DD)" value={newDueDate} onChangeText={setNewDueDate} style={modalStyles.input} />
+                        <View style={modalStyles.modalActions}>
+                            <TouchableOpacity style={[modalStyles.modalBtn, { backgroundColor: '#9ca3af' }]} onPress={() => setShowCreateModal(false)}>
+                                <Text style={modalStyles.modalBtnText}>Hủy</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[modalStyles.modalBtn, { backgroundColor: '#3b82f6' }]} onPress={async () => {
+                                try {
+                                    if (!newTitle.trim()) return Alert.alert('Lỗi', 'Vui lòng nhập tiêu đề công việc');
+                                    if (!newDueDate.trim()) return Alert.alert('Lỗi', 'Vui lòng nhập ngày kết thúc (YYYY-MM-DD)');
+                                    const userData = await AsyncStorage.getItem('user');
+                                    let nguoiDuocGiaoId = 0;
+                                    if (userData) {
+                                        const user = JSON.parse(userData);
+                                        nguoiDuocGiaoId = user.id;
+                                    }
+                                    const duanId = selectedProjectId ?? (projects[0]?.id ?? 0);
+                                    await createTask({
+                                        tentask: newTitle,
+                                        mota: newDesc,
+                                        duanId,
+                                        nguoiDuocGiaoId,
+                                        ngayKetThuc: newDueDate,
+                                    });
+                                    Alert.alert('Thành công', 'Tạo công việc mới thành công');
+                                    setShowCreateModal(false);
+                                    setRefreshing(true);
+                                    await loadTasks();
+                                } catch (err: any) {
+                                    console.error('Create task error', err);
+                                    Alert.alert('Lỗi', err?.message || 'Không thể tạo công việc');
+                                }
+                            }}>
+                                <Text style={[modalStyles.modalBtnText, { color: '#fff' }]}>Tạo</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -374,5 +449,98 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#6b7280',
         textAlign: 'center',
+    },
+    fab: {
+        position: 'absolute',
+        right: 20,
+        bottom: 30,
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: '#3b82f6',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 5,
+    },
+    fabText: {
+        color: '#fff',
+        fontSize: 28,
+        lineHeight: 28,
+        fontWeight: '700',
+    },
+});
+
+const modalStyles = StyleSheet.create({
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 16,
+    },
+    modalContent: {
+        width: '100%',
+        maxWidth: 720,
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 16,
+    },
+    modalTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#1f2937',
+        marginBottom: 12,
+    },
+    label: {
+        fontSize: 13,
+        color: '#6b7280',
+        marginBottom: 8,
+    },
+    projectList: {
+        maxHeight: 120,
+        marginBottom: 12,
+    },
+    projectOption: {
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        backgroundColor: '#f3f4f6',
+        marginBottom: 8,
+    },
+    projectOptionSelected: {
+        backgroundColor: '#3b82f6',
+    },
+    projectOptionText: {
+        color: '#111827',
+    },
+    input: {
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: Platform.OS === 'ios' ? 12 : 8,
+        marginBottom: 12,
+        fontSize: 14,
+        color: '#111827',
+        backgroundColor: '#fff',
+    },
+    modalActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 8,
+    },
+    modalBtn: {
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+        borderRadius: 8,
+    },
+    modalBtnText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#111827',
     },
 });
