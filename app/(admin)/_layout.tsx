@@ -20,6 +20,14 @@ export default function AdminLayout() {
                 }}
             />
             <Stack.Screen
+                name="roles"
+                options={{
+                    title: 'Quản lý vai trò',
+                    headerStyle: { backgroundColor: '#ef4444' },
+                    headerTintColor: '#fff'
+                }}
+            />
+            <Stack.Screen
                 name="projects"
                 options={{
                     title: 'Quản lý dự án',
@@ -28,9 +36,41 @@ export default function AdminLayout() {
                 }}
             />
             <Stack.Screen
+                name="groups"
+                options={{
+                    title: 'Quản lý nhóm',
+                    headerStyle: { backgroundColor: '#ef4444' },
+                    headerTintColor: '#fff'
+                }}
+            />
+            <Stack.Screen
+                name="approvals"
+                options={{
+                    title: 'Phê duyệt',
+                    headerStyle: { backgroundColor: '#ef4444' },
+                    headerTintColor: '#fff'
+                }}
+            />
+            <Stack.Screen
                 name="reports"
                 options={{
                     title: 'Báo cáo hệ thống',
+                    headerStyle: { backgroundColor: '#ef4444' },
+                    headerTintColor: '#fff'
+                }}
+            />
+            <Stack.Screen
+                name="notifications"
+                options={{
+                    title: 'Thông báo',
+                    headerStyle: { backgroundColor: '#ef4444' },
+                    headerTintColor: '#fff'
+                }}
+            />
+            <Stack.Screen
+                name="settings"
+                options={{
+                    title: 'Cài đặt hệ thống',
                     headerStyle: { backgroundColor: '#ef4444' },
                     headerTintColor: '#fff'
                 }}
