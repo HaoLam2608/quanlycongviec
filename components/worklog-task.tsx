@@ -14,15 +14,17 @@ interface Worklog {
 
 interface WorklogTaskProps {
     taskId: number;
+    taskStatus?: string;
 }
 
-export default function WorklogTask({ taskId }: WorklogTaskProps) {
+export default function WorklogTask({ taskId, taskStatus }: WorklogTaskProps) {
     const [worklogs, setWorklogs] = useState<Worklog[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [form, setForm] = useState({ hours: "", note: "", date: "" });
     const { id: userId } = useAuth();
     const [error, setError] = useState("");
+    const isCompleted = taskStatus === 'Hoàn thành';
 
     useEffect(() => {
         if (taskId) {
@@ -83,7 +85,16 @@ export default function WorklogTask({ taskId }: WorklogTaskProps) {
                     <ListChecks size={20} className="text-primary" />
                     Tổng hợp Nhật ký công việc
                 </h4>
-                <button className="text-xs text-blue-600 hover:underline font-semibold" onClick={() => setShowForm((v) => !v)}>
+                <button 
+                    className={`text-xs hover:underline font-semibold ${
+                        isCompleted 
+                            ? 'text-gray-400 cursor-not-allowed' 
+                            : 'text-blue-600'
+                    }`} 
+                    onClick={() => !isCompleted && setShowForm((v) => !v)}
+                    disabled={isCompleted}
+                    title={isCompleted ? 'Không thể thêm worklog cho công việc đã hoàn thành' : ''}
+                >
                     {showForm ? "Đóng" : "Thêm worklog cho công việc này"}
                 </button>
             </div>

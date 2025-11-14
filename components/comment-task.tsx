@@ -11,9 +11,10 @@ import MentionText from "./MentionText";
 
 interface CommentTaskProps {
   taskId: number;
+  taskStatus?: string;
 }
 
-export default function CommentTask({ taskId }: CommentTaskProps) {
+export default function CommentTask({ taskId, taskStatus }: CommentTaskProps) {
   console.log('CommentTask component - taskId:', taskId);
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -24,6 +25,7 @@ export default function CommentTask({ taskId }: CommentTaskProps) {
   const { id: userId } = useAuth();
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const isCompleted = taskStatus === 'Hoàn thành';
   
   // Edit state
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -203,8 +205,14 @@ export default function CommentTask({ taskId }: CommentTaskProps) {
           Bình luận ({comments.length})
         </h4>
         <button
-          className="text-xs text-blue-600 hover:underline font-semibold"
-          onClick={() => setShowForm((v) => !v)}
+          className={`text-xs hover:underline font-semibold ${
+            isCompleted 
+              ? 'text-gray-400 cursor-not-allowed' 
+              : 'text-blue-600'
+          }`}
+          onClick={() => !isCompleted && setShowForm((v) => !v)}
+          disabled={isCompleted}
+          title={isCompleted ? 'Không thể thêm bình luận cho công việc đã hoàn thành' : ''}
         >
           {showForm ? "Đóng" : "Thêm bình luận"}
         </button>

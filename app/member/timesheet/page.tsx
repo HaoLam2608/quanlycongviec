@@ -32,6 +32,16 @@ interface Worklog {
     updatedAt?: string
 }
 
+interface BatchWorklogEntry {
+    id: string // temporary id for tracking
+    selectedSubtaskId: number | null
+    taskName: string
+    project: string
+    startTime: string
+    endTime: string
+    description: string
+}
+
 interface TimerState {
     isRunning: boolean
     startTime: Date | null
@@ -39,6 +49,18 @@ interface TimerState {
     currentProject: string
     elapsedSeconds: number
     selectedSubtaskId: number | null
+}
+
+interface MultiTimer {
+    id: string
+    subtaskId: number
+    taskName: string
+    project: string
+    isRunning: boolean
+    isPaused: boolean
+    startTime: Date
+    pausedTime: number // total paused seconds
+    elapsedSeconds: number
 }
 
 interface MySubtask {
@@ -79,6 +101,25 @@ export default function TimesheetPage() {
         description: "",
         selectedSubtaskId: null as number | null
     })
+
+    // Batch worklog entry state
+    const [batchWorklogs, setBatchWorklogs] = useState<BatchWorklogEntry[]>([
+        {
+            id: Date.now().toString(),
+            selectedSubtaskId: null,
+            taskName: "",
+            project: "",
+            startTime: "",
+            endTime: "",
+            description: ""
+        }
+    ])
+    const [batchDate, setBatchDate] = useState(new Date().toISOString().split('T')[0])
+    const [isBatchMode, setIsBatchMode] = useState(false)
+
+    // Multi-timer state
+    const [multiTimers, setMultiTimers] = useState<MultiTimer[]>([])
+    const [isMultiTimerMode, setIsMultiTimerMode] = useState(false)
 
     useEffect(() => {
         loadWorklogs()
@@ -141,6 +182,26 @@ export default function TimesheetPage() {
             if (interval) clearInterval(interval)
         }
     }, [timer.isRunning, timer.startTime])
+
+    // Update multi-timers
+    useEffect(() => {
+        let interval: NodeJS.Timeout | null = null
+        if (multiTimers.some(t => t.isRunning && !t.isPaused)) {
+            interval = setInterval(() => {
+                setMultiTimers(prev => prev.map(timer => {
+                    if (timer.isRunning && !timer.isPaused) {
+                        const now = new Date()
+                        const elapsed = Math.floor((now.getTime() - timer.startTime.getTime()) / 1000) - timer.pausedTime
+                        return { ...timer, elapsedSeconds: elapsed }
+                    }
+                    return timer
+                }))
+            }, 1000)
+        }
+        return () => {
+            if (interval) clearInterval(interval)
+        }
+    }, [multiTimers])
 
     const loadWorklogs = async () => {
         try {
@@ -391,6 +452,279 @@ export default function TimesheetPage() {
         }
     }
 
+    // Batch worklog functions
+    const addBatchEntry = () => {
+        setBatchWorklogs([
+            ...batchWorklogs,
+            {
+                id: Date.now().toString(),
+                selectedSubtaskId: null,
+                taskName: "",
+                project: "",
+                startTime: "",
+                endTime: "",
+                description: ""
+            }
+        ])
+    }
+
+    const removeBatchEntry = (id: string) => {
+        if (batchWorklogs.length === 1) {
+            alert('Phải có ít nhất 1 công việc!')
+            return
+        }
+        setBatchWorklogs(batchWorklogs.filter(entry => entry.id !== id))
+    }
+
+    const updateBatchEntry = (id: string, field: keyof BatchWorklogEntry, value: any) => {
+        setBatchWorklogs(batchWorklogs.map(entry => {
+            if (entry.id === id) {
+                const updated = { ...entry, [field]: value }
+                
+                // Auto-fill task name and project when subtask is selected
+                if (field === 'selectedSubtaskId' && value) {
+                    const selectedSubtask = mySubtasks.find(s => s.id === value)
+                    if (selectedSubtask) {
+                        updated.taskName = selectedSubtask.tenSubtask
+                        updated.project = selectedSubtask.tenduan || "Không có dự án"
+                    }
+                }
+                
+                return updated
+            }
+            return entry
+        }))
+    }
+
+    const submitBatchWorklogs = async () => {
+        if (!currentUser) {
+            alert('Chưa tải được thông tin user!')
+            return
+        }
+
+        // Validate all entries
+        const validEntries = batchWorklogs.filter(entry => 
+            entry.selectedSubtaskId && entry.startTime && entry.endTime
+        )
+
+        if (validEntries.length === 0) {
+            alert('Vui lòng điền đầy đủ thông tin cho ít nhất 1 công việc!')
+            return
+        }
+
+        if (validEntries.length < batchWorklogs.length) {
+            if (!confirm(`Chỉ có ${validEntries.length}/${batchWorklogs.length} công việc hợp lệ. Bạn có muốn tiếp tục thêm các công việc hợp lệ?`)) {
+                return
+            }
+        }
+
+        try {
+            let successCount = 0
+            let errorCount = 0
+
+            for (const entry of validEntries) {
+                try {
+                    const startHour = parseInt(entry.startTime.split(':')[0])
+                    const startMinute = parseInt(entry.startTime.split(':')[1])
+                    const endHour = parseInt(entry.endTime.split(':')[0])
+                    const endMinute = parseInt(entry.endTime.split(':')[1])
+
+                    const startTotalMinutes = startHour * 60 + startMinute
+                    const endTotalMinutes = endHour * 60 + endMinute
+                    const totalMinutes = endTotalMinutes - startTotalMinutes
+                    
+                    if (totalMinutes <= 0) {
+                        console.warn(`Skipping entry ${entry.taskName}: invalid time range`)
+                        errorCount++
+                        continue
+                    }
+
+                    const hours = parseFloat((totalMinutes / 60).toFixed(2))
+
+                    const worklogData = {
+                        userId: currentUser.id,
+                        subtaskId: entry.selectedSubtaskId!,
+                        hours,
+                        note: entry.description,
+                        date: batchDate
+                    }
+
+                    await createWorklog(worklogData)
+                    successCount++
+                } catch (error) {
+                    console.error(`Error creating worklog for ${entry.taskName}:`, error)
+                    errorCount++
+                }
+            }
+
+            await loadWorklogs()
+            
+            if (errorCount > 0) {
+                alert(`Đã thêm ${successCount} worklog thành công. ${errorCount} worklog thất bại.`)
+            } else {
+                alert(`Đã thêm thành công ${successCount} worklog!`)
+            }
+
+            // Reset form
+            setIsAddModalOpen(false)
+            setIsBatchMode(false)
+            setBatchWorklogs([{
+                id: Date.now().toString(),
+                selectedSubtaskId: null,
+                taskName: "",
+                project: "",
+                startTime: "",
+                endTime: "",
+                description: ""
+            }])
+            setBatchDate(new Date().toISOString().split('T')[0])
+        } catch (error) {
+            console.error('Error submitting batch worklogs:', error)
+            alert('Có lỗi khi tạo worklog!')
+        }
+    }
+
+    // Multi-timer functions
+    const addMultiTimer = (subtaskId: number) => {
+        const selectedSubtask = mySubtasks.find(s => s.id === subtaskId)
+        if (!selectedSubtask) return
+
+        // Check if timer for this subtask already exists
+        const existingTimer = multiTimers.find(t => t.subtaskId === subtaskId)
+        if (existingTimer) {
+            alert('Timer cho công việc này đã tồn tại!')
+            return
+        }
+
+        const newTimer: MultiTimer = {
+            id: Date.now().toString(),
+            subtaskId,
+            taskName: selectedSubtask.tenSubtask,
+            project: selectedSubtask.tenduan || "Không có dự án",
+            isRunning: true,
+            isPaused: false,
+            startTime: new Date(),
+            pausedTime: 0,
+            elapsedSeconds: 0
+        }
+
+        setMultiTimers([...multiTimers, newTimer])
+    }
+
+    const pauseMultiTimer = (timerId: string) => {
+        setMultiTimers(prev => prev.map(timer => {
+            if (timer.id === timerId) {
+                return { 
+                    ...timer, 
+                    isPaused: true,
+                    pausedTime: timer.pausedTime + timer.elapsedSeconds
+                }
+            }
+            return timer
+        }))
+    }
+
+    const resumeMultiTimer = (timerId: string) => {
+        setMultiTimers(prev => prev.map(timer => {
+            if (timer.id === timerId) {
+                return { 
+                    ...timer, 
+                    isPaused: false,
+                    startTime: new Date(),
+                    elapsedSeconds: 0
+                }
+            }
+            return timer
+        }))
+    }
+
+    const stopMultiTimer = async (timerId: string) => {
+        const timerToStop = multiTimers.find(t => t.id === timerId)
+        if (!timerToStop) return
+
+        if (!currentUser) {
+            alert('Chưa tải được thông tin user!')
+            return
+        }
+
+        const totalSeconds = timerToStop.elapsedSeconds + timerToStop.pausedTime
+        const hours = parseFloat((totalSeconds / 3600).toFixed(2))
+
+        if (!hours || hours <= 0) {
+            alert('Thời gian ghi nhận quá ngắn!')
+            setMultiTimers(prev => prev.filter(t => t.id !== timerId))
+            return
+        }
+
+        try {
+            const worklogData = {
+                userId: currentUser.id,
+                subtaskId: timerToStop.subtaskId,
+                hours,
+                note: `Multi-timer: ${timerToStop.taskName}`,
+                date: new Date().toISOString().split('T')[0]
+            }
+
+            await createWorklog(worklogData)
+            await loadWorklogs()
+            
+            // Remove timer after successful save
+            setMultiTimers(prev => prev.filter(t => t.id !== timerId))
+            alert(`Đã lưu worklog: ${hours}h cho "${timerToStop.taskName}"`)
+        } catch (error) {
+            console.error('Error creating worklog:', error)
+            alert('Có lỗi khi lưu worklog!')
+        }
+    }
+
+    const removeMultiTimer = (timerId: string) => {
+        if (confirm('Bạn có chắc muốn xóa timer này? Dữ liệu sẽ không được lưu.')) {
+            setMultiTimers(prev => prev.filter(t => t.id !== timerId))
+        }
+    }
+
+    const stopAllMultiTimers = async () => {
+        if (multiTimers.length === 0) return
+        
+        if (!confirm(`Bạn có chắc muốn dừng và lưu tất cả ${multiTimers.length} timer?`)) {
+            return
+        }
+
+        let successCount = 0
+        let errorCount = 0
+
+        for (const timer of multiTimers) {
+            try {
+                const totalSeconds = timer.elapsedSeconds + timer.pausedTime
+                const hours = parseFloat((totalSeconds / 3600).toFixed(2))
+
+                if (hours > 0) {
+                    const worklogData = {
+                        userId: currentUser!.id,
+                        subtaskId: timer.subtaskId,
+                        hours,
+                        note: `Multi-timer: ${timer.taskName}`,
+                        date: new Date().toISOString().split('T')[0]
+                    }
+                    await createWorklog(worklogData)
+                    successCount++
+                }
+            } catch (error) {
+                console.error(`Error saving timer ${timer.taskName}:`, error)
+                errorCount++
+            }
+        }
+
+        await loadWorklogs()
+        setMultiTimers([])
+
+        if (errorCount > 0) {
+            alert(`Đã lưu ${successCount} worklog. ${errorCount} thất bại.`)
+        } else {
+            alert(`Đã lưu thành công ${successCount} worklog!`)
+        }
+    }
+
     const deleteWorklog = (id: number) => {
         if (!confirm("Bạn có chắc muốn xóa worklog này?")) return
         // Call API to delete
@@ -559,33 +893,62 @@ export default function TimesheetPage() {
 
                 {/* Timer Section */}
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 mb-8">
-                    <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                        <Timer className="w-6 h-6 text-blue-600" />
-                        Timer
-                    </h2>
-
-                    <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                            {timer.isRunning ? (
-                                <div>
-                                    <div className="text-4xl font-mono font-bold text-blue-600 mb-2">
-                                        {formatTime(timer.elapsedSeconds)}
-                                    </div>
-                                    <p className="text-gray-600">
-                                        <span className="font-medium">{timer.currentTask}</span> - {timer.currentProject}
-                                    </p>
-                                </div>
-                            ) : (
-                                <div>
-                                    <div className="text-4xl font-mono font-bold text-gray-400 mb-2">
-                                        00:00:00
-                                    </div>
-                                    <p className="text-gray-500">Timer dừng</p>
-                                </div>
-                            )}
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                            <Timer className="w-6 h-6 text-blue-600" />
+                            Timer
+                        </h2>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setIsMultiTimerMode(false)}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${!isMultiTimerMode
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                }`}
+                            >
+                                Timer đơn
+                            </button>
+                            <button
+                                onClick={() => setIsMultiTimerMode(true)}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isMultiTimerMode
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                }`}
+                            >
+                                Multi-timer
+                                {multiTimers.length > 0 && (
+                                    <span className="ml-2 bg-red-500 text-white rounded-full px-2 py-0.5 text-xs">
+                                        {multiTimers.length}
+                                    </span>
+                                )}
+                            </button>
                         </div>
+                    </div>
 
-                        <div className="flex items-center gap-3">
+                    {!isMultiTimerMode ? (
+                        // Single Timer Mode
+                        <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                                {timer.isRunning ? (
+                                    <div>
+                                        <div className="text-4xl font-mono font-bold text-blue-600 mb-2">
+                                            {formatTime(timer.elapsedSeconds)}
+                                        </div>
+                                        <p className="text-gray-600">
+                                            <span className="font-medium">{timer.currentTask}</span> - {timer.currentProject}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <div className="text-4xl font-mono font-bold text-gray-400 mb-2">
+                                            00:00:00
+                                        </div>
+                                        <p className="text-gray-500">Timer dừng</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex items-center gap-3">
                             {!timer.isRunning && timer.startTime === null && (
                                 <div className="flex gap-2">
                                     <select
@@ -659,8 +1022,140 @@ export default function TimesheetPage() {
                                     </button>
                                 </div>
                             )}
+                            </div>
                         </div>
-                    </div>
+                    ) : (
+                        // Multi-Timer Mode
+                        <div>
+                            <div className="mb-4">
+                                <div className="flex items-center gap-3">
+                                    <select
+                                        onChange={(e) => {
+                                            if (e.target.value) {
+                                                addMultiTimer(Number(e.target.value))
+                                                e.target.value = "" // Reset selection
+                                            }
+                                        }}
+                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
+                                        disabled={loadingSubtasks}
+                                    >
+                                        <option value="">
+                                            {loadingSubtasks ? "Đang tải..." : "Chọn công việc để thêm timer mới"}
+                                        </option>
+                                        {mySubtasks
+                                            .filter(subtask => !multiTimers.find(t => t.subtaskId === subtask.id))
+                                            .map(subtask => (
+                                                <option key={subtask.id} value={subtask.id}>
+                                                    {subtask.tenSubtask} - {subtask.tentask}
+                                                </option>
+                                            ))}
+                                    </select>
+                                    {multiTimers.length > 0 && (
+                                        <button
+                                            onClick={stopAllMultiTimers}
+                                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 whitespace-nowrap"
+                                        >
+                                            <Square className="w-4 h-4" />
+                                            Dừng tất cả
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+
+                            {multiTimers.length === 0 ? (
+                                <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                                    <Timer className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                                    <p className="text-gray-600 font-medium mb-1">Chưa có timer nào</p>
+                                    <p className="text-gray-500 text-sm">Chọn công việc ở trên để bắt đầu timer mới</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {multiTimers.map((mt) => (
+                                        <div key={mt.id} className="border border-gray-200 rounded-lg p-4 bg-gradient-to-r from-blue-50 to-purple-50">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-3 mb-2">
+                                                        <div className="text-3xl font-mono font-bold text-blue-600">
+                                                            {formatTime(mt.elapsedSeconds + mt.pausedTime)}
+                                                        </div>
+                                                        {mt.isPaused && (
+                                                            <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+                                                                <Pause className="w-3 h-3" />
+                                                                Đã tạm dừng
+                                                            </span>
+                                                        )}
+                                                        {!mt.isPaused && mt.isRunning && (
+                                                            <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+                                                                <Play className="w-3 h-3" />
+                                                                Đang chạy
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-sm text-gray-700">
+                                                        <span className="font-semibold">{mt.taskName}</span>
+                                                        <span className="text-gray-500 mx-2">•</span>
+                                                        <span className="text-gray-600">{mt.project}</span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-2">
+                                                    {!mt.isPaused ? (
+                                                        <button
+                                                            onClick={() => pauseMultiTimer(mt.id)}
+                                                            className="px-3 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 flex items-center gap-1 text-sm"
+                                                        >
+                                                            <Pause className="w-4 h-4" />
+                                                            Tạm dừng
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => resumeMultiTimer(mt.id)}
+                                                            className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-1 text-sm"
+                                                        >
+                                                            <Play className="w-4 h-4" />
+                                                            Tiếp tục
+                                                        </button>
+                                                    )}
+                                                    <button
+                                                        onClick={() => stopMultiTimer(mt.id)}
+                                                        className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-1 text-sm"
+                                                    >
+                                                        <Square className="w-4 h-4" />
+                                                        Lưu & Dừng
+                                                    </button>
+                                                    <button
+                                                        onClick={() => removeMultiTimer(mt.id)}
+                                                        className="p-2 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-lg"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    {multiTimers.length > 1 && (
+                                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <BarChart3 className="w-5 h-5 text-blue-600" />
+                                                    <span className="font-semibold text-blue-900">Tổng thời gian:</span>
+                                                </div>
+                                                <div className="text-2xl font-mono font-bold text-blue-600">
+                                                    {formatTime(
+                                                        multiTimers.reduce((total, t) => total + t.elapsedSeconds + t.pausedTime, 0)
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <p className="text-xs text-blue-700 mt-1">
+                                                {multiTimers.length} công việc đang được theo dõi
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* Date Navigation */}
@@ -968,13 +1463,47 @@ export default function TimesheetPage() {
 
                 {/* Add Worklog Modal */}
                 {isAddModalOpen && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                        <div className="bg-white rounded-xl max-w-md w-full">
+                    <div 
+                        className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-4"
+                        onClick={() => {
+                            setIsAddModalOpen(false)
+                            setIsBatchMode(false)
+                        }}
+                    >
+                        <div 
+                            className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+                            onClick={(e) => e.stopPropagation()}
+                        >
                             <div className="p-6 border-b border-gray-200">
-                                <h2 className="text-xl font-bold text-gray-900">Thêm worklog</h2>
+                                <div className="flex items-center justify-between">
+                                    <h2 className="text-xl font-bold text-gray-900">Thêm worklog</h2>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setIsBatchMode(false)}
+                                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${!isBatchMode
+                                                ? 'bg-blue-600 text-white'
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            Đơn lẻ
+                                        </button>
+                                        <button
+                                            onClick={() => setIsBatchMode(true)}
+                                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isBatchMode
+                                                ? 'bg-blue-600 text-white'
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                            }`}
+                                        >
+                                            Nhiều công việc
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
 
-                            <div className="p-6 space-y-4">
+                            {!isBatchMode ? (
+                                // Single worklog form
+                                <>
+                                    <div className="p-6 space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Ngày</label>
                                     <input
@@ -1055,7 +1584,10 @@ export default function TimesheetPage() {
 
                             <div className="p-6 border-t border-gray-200 flex gap-3">
                                 <button
-                                    onClick={() => setIsAddModalOpen(false)}
+                                    onClick={() => {
+                                        setIsAddModalOpen(false)
+                                        setIsBatchMode(false)
+                                    }}
                                     className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                                 >
                                     Hủy
@@ -1068,6 +1600,179 @@ export default function TimesheetPage() {
                                     Thêm
                                 </button>
                             </div>
+                        </>
+                            ) : (
+                                // Batch worklog form
+                                <>
+                                    <div className="p-6 space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Ngày làm việc chung</label>
+                                            <input
+                                                type="date"
+                                                value={batchDate}
+                                                onChange={(e) => setBatchDate(e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between">
+                                                <label className="block text-sm font-medium text-gray-700">Danh sách công việc</label>
+                                                <button
+                                                    onClick={addBatchEntry}
+                                                    className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm flex items-center gap-1"
+                                                >
+                                                    <Plus className="w-4 h-4" />
+                                                    Thêm công việc
+                                                </button>
+                                            </div>
+
+                                            <div className="space-y-3 max-h-96 overflow-y-auto">
+                                                {batchWorklogs.map((entry, index) => (
+                                                    <div key={entry.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50 relative">
+                                                        <div className="flex items-center justify-between mb-3">
+                                                            <span className="font-medium text-gray-900">Công việc #{index + 1}</span>
+                                                            {batchWorklogs.length > 1 && (
+                                                                <button
+                                                                    onClick={() => removeBatchEntry(entry.id)}
+                                                                    className="text-red-600 hover:text-red-800 hover:bg-red-100 p-1 rounded"
+                                                                >
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </button>
+                                                            )}
+                                                        </div>
+
+                                                        <div className="space-y-3">
+                                                            <div>
+                                                                <select
+                                                                    value={entry.selectedSubtaskId || ""}
+                                                                    onChange={(e) => updateBatchEntry(entry.id, 'selectedSubtaskId', e.target.value ? Number(e.target.value) : null)}
+                                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                                    disabled={loadingSubtasks}
+                                                                >
+                                                                    <option value="">
+                                                                        {loadingSubtasks ? "Đang tải..." : "Chọn công việc"}
+                                                                    </option>
+                                                                    {mySubtasks.map(subtask => (
+                                                                        <option key={subtask.id} value={subtask.id}>
+                                                                            {subtask.tenSubtask} - {subtask.tentask}
+                                                                        </option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+
+                                                            <div className="grid grid-cols-2 gap-3">
+                                                                <div>
+                                                                    <input
+                                                                        type="time"
+                                                                        value={entry.startTime}
+                                                                        onChange={(e) => updateBatchEntry(entry.id, 'startTime', e.target.value)}
+                                                                        placeholder="Giờ bắt đầu"
+                                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                                    />
+                                                                </div>
+                                                                <div>
+                                                                    <input
+                                                                        type="time"
+                                                                        value={entry.endTime}
+                                                                        onChange={(e) => updateBatchEntry(entry.id, 'endTime', e.target.value)}
+                                                                        placeholder="Giờ kết thúc"
+                                                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                                    />
+                                                                </div>
+                                                            </div>
+
+                                                            <div>
+                                                                <textarea
+                                                                    value={entry.description}
+                                                                    onChange={(e) => updateBatchEntry(entry.id, 'description', e.target.value)}
+                                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                                    rows={2}
+                                                                    placeholder="Mô tả công việc (tùy chọn)"
+                                                                />
+                                                            </div>
+
+                                                            {entry.selectedSubtaskId && entry.startTime && entry.endTime && (() => {
+                                                                const startHour = parseInt(entry.startTime.split(':')[0])
+                                                                const startMinute = parseInt(entry.startTime.split(':')[1])
+                                                                const endHour = parseInt(entry.endTime.split(':')[0])
+                                                                const endMinute = parseInt(entry.endTime.split(':')[1])
+                                                                const totalMinutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute)
+                                                                const hours = (totalMinutes / 60).toFixed(2)
+                                                                return totalMinutes > 0 ? (
+                                                                    <div className="text-sm text-blue-600 font-medium flex items-center gap-2">
+                                                                        <Clock className="w-4 h-4" />
+                                                                        Thời gian: {hours}h
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="text-sm text-red-600">
+                                                                        Thời gian không hợp lệ
+                                                                    </div>
+                                                                )
+                                                            })()}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                            <div className="flex items-start gap-2">
+                                                <div className="text-blue-600 mt-0.5">
+                                                    <BarChart3 className="w-5 h-5" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium text-blue-900">Tổng cộng</p>
+                                                    <p className="text-xs text-blue-700 mt-1">
+                                                        {batchWorklogs.filter(e => e.selectedSubtaskId && e.startTime && e.endTime).length} công việc hợp lệ
+                                                        {' • '}
+                                                        {batchWorklogs.reduce((total, entry) => {
+                                                            if (entry.startTime && entry.endTime) {
+                                                                const startHour = parseInt(entry.startTime.split(':')[0])
+                                                                const startMinute = parseInt(entry.startTime.split(':')[1])
+                                                                const endHour = parseInt(entry.endTime.split(':')[0])
+                                                                const endMinute = parseInt(entry.endTime.split(':')[1])
+                                                                const totalMinutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute)
+                                                                return total + (totalMinutes > 0 ? totalMinutes / 60 : 0)
+                                                            }
+                                                            return total
+                                                        }, 0).toFixed(2)}h tổng thời gian
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="p-6 border-t border-gray-200 flex gap-3">
+                                        <button
+                                            onClick={() => {
+                                                setIsAddModalOpen(false)
+                                                setIsBatchMode(false)
+                                                setBatchWorklogs([{
+                                                    id: Date.now().toString(),
+                                                    selectedSubtaskId: null,
+                                                    taskName: "",
+                                                    project: "",
+                                                    startTime: "",
+                                                    endTime: "",
+                                                    description: ""
+                                                }])
+                                            }}
+                                            className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                                        >
+                                            Hủy
+                                        </button>
+                                        <button
+                                            onClick={submitBatchWorklogs}
+                                            disabled={batchWorklogs.filter(e => e.selectedSubtaskId && e.startTime && e.endTime).length === 0}
+                                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            <Plus className="w-4 h-4" />
+                                            Thêm {batchWorklogs.filter(e => e.selectedSubtaskId && e.startTime && e.endTime).length} worklog
+                                        </button>
+                                    </div>
+                                </>
+                            )}
                         </div>
                     </div>
                 )}

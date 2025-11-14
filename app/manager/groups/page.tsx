@@ -1,6 +1,6 @@
 "use client"
 import { useEffect, useState } from 'react'
-import { Users, FolderKanban, RefreshCw } from 'lucide-react'
+import { Users, FolderKanban, RefreshCw, Search, ChevronRight, UserCheck } from 'lucide-react'
 import { getGroups } from '@/axios/adminApi'
 import api from '@/axios/config'
 import Link from 'next/link'
@@ -9,6 +9,7 @@ export default function ManagerGroupsPage() {
     const [groups, setGroups] = useState<any[]>([])
     const [loading, setLoading] = useState(false)
     const [duanFilter, setDuanFilter] = useState<string>('')
+    const [searchQuery, setSearchQuery] = useState<string>('')
     const [projects, setProjects] = useState<any[]>([])
 
     const loadGroups = async () => {
@@ -29,155 +30,203 @@ export default function ManagerGroupsPage() {
     useEffect(() => { loadProjects() }, [])
     useEffect(() => { loadGroups() }, [duanFilter])
 
+    // Filter groups by search query
+    const filteredGroups = groups.filter(g => 
+        g.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        g.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        g.leader?.hoten.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-                <div>
-                    <h1 className="text-4xl font-bold flex items-center gap-3 mb-2">
-                        <span className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
-                            <Users className="w-6 h-6 text-white" />
-                        </span>
-                        Nhóm làm việc
-                    </h1>
-                    <p className="text-muted-foreground">Danh sách các nhóm có sẵn</p>
-                </div>
-                <div className="flex items-center gap-3">
-                    <div className="relative">
-                        <select
-                            value={duanFilter}
-                            onChange={e => setDuanFilter(e.target.value)}
-                            className="px-4 py-2.5 pr-10 border border-gray-200 rounded-xl bg-white text-sm font-medium text-gray-700 hover:border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer"
-                        >
-                            <option value="">Tất cả dự án</option>
-                            {projects.map(p => <option key={p.id} value={p.id}>{p.tenduan}</option>)}
-                        </select>
-                        <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
+            <div className="max-w-7xl mx-auto space-y-6">
+                {/* Header Section */}
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                    <div className="flex items-center justify-between flex-wrap gap-4">
+                        <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                                <Users className="w-7 h-7 text-white" />
+                            </div>
+                            <div>
+                                <h1 className="text-3xl font-bold text-gray-900">Quản lý nhóm</h1>
+                                <p className="text-sm text-gray-500 mt-0.5">Quản lý và theo dõi các nhóm làm việc</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => loadGroups()}
+                                disabled={loading}
+                                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium text-sm flex items-center gap-2 transition-all hover:from-blue-600 hover:to-blue-700 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+                                <span>Làm mới</span>
+                            </button>
                         </div>
                     </div>
-                    <button
-                        onClick={() => loadGroups()}
-                        className="px-4 py-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300 font-medium text-sm flex items-center gap-2 transition-all hover:scale-105"
-                    >
-                        <RefreshCw size={16} />
-                        <span>Làm mới</span>
-                    </button>
-                    {/* No create button for manager */}
                 </div>
-            </div>
 
-            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-lg shadow-black/5">
-                <div className="overflow-x-auto">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="bg-gradient-to-r from-slate-50 to-gray-50 border-b border-gray-200">
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 tracking-wide">Nhóm</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 tracking-wide">Dự án</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 tracking-wide">Leader</th>
-                                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 tracking-wide">Thành viên</th>
-                                <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900 tracking-wide">Hành động</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {loading ? (
-                                <>
-                                    {[1, 2, 3, 4, 5].map(i => (
-                                        <tr key={i}>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse"></div>
-                                                    <div>
-                                                        <div className="h-5 bg-gray-200 rounded w-32 mb-2 animate-pulse"></div>
-                                                        <div className="h-3 bg-gray-200 rounded w-48 animate-pulse"></div>
-                                                    </div>
+                {/* Filters and Search */}
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                    <div className="flex flex-col md:flex-row gap-4">
+                        <div className="flex-1 relative">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                            <input
+                                type="text"
+                                placeholder="Tìm kiếm nhóm theo tên, mô tả hoặc leader..."
+                                value={searchQuery}
+                                onChange={e => setSearchQuery(e.target.value)}
+                                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-sm font-medium text-gray-700 placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all outline-none"
+                            />
+                        </div>
+                        <div className="relative min-w-[200px]">
+                            <FolderKanban className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                            <select
+                                value={duanFilter}
+                                onChange={e => setDuanFilter(e.target.value)}
+                                className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl bg-gray-50 text-sm font-medium text-gray-700 hover:border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all appearance-none cursor-pointer outline-none"
+                            >
+                                <option value="">Tất cả dự án</option>
+                                {projects.map(p => <option key={p.id} value={p.id}>{p.tenduan}</option>)}
+                            </select>
+                            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="mt-4 flex items-center gap-4 text-sm text-gray-600">
+                        <span className="font-medium">Tổng số: <span className="text-blue-600 font-bold">{filteredGroups.length}</span> nhóm</span>
+                        {duanFilter && <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium">Lọc theo dự án</span>}
+                        {searchQuery && <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-lg text-xs font-medium">Đang tìm kiếm</span>}
+                    </div>
+                </div>
+
+                {/* Groups Grid */}
+                {loading ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {[1, 2, 3, 4, 5, 6].map(i => (
+                            <div key={i} className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 animate-pulse">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-12 h-12 rounded-xl bg-gray-200"></div>
+                                    <div className="flex-1">
+                                        <div className="h-5 bg-gray-200 rounded w-32 mb-2"></div>
+                                        <div className="h-3 bg-gray-200 rounded w-24"></div>
+                                    </div>
+                                </div>
+                                <div className="space-y-3">
+                                    <div className="h-4 bg-gray-200 rounded"></div>
+                                    <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : filteredGroups.length === 0 ? (
+                    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-12">
+                        <div className="flex flex-col items-center justify-center space-y-4">
+                            <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center">
+                                <Users className="w-10 h-10 text-gray-400" />
+                            </div>
+                            <div className="text-center">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-1">Không tìm thấy nhóm</h3>
+                                <p className="text-sm text-gray-500">
+                                    {searchQuery ? 'Thử tìm kiếm với từ khóa khác' : 'Không có nhóm nào phù hợp với bộ lọc hiện tại'}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {filteredGroups.map(g => {
+                            const activeProjects = Array.isArray(g.groupProjects) ? g.groupProjects.filter((gp: any) => gp.status === 'active') : []
+                            return (
+                                <div key={g.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl hover:border-blue-200 transition-all duration-300 overflow-hidden group">
+                                    <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-500 p-6 pb-4">
+                                        <div className="flex items-start justify-between mb-2">
+                                            <div className="flex items-center gap-3 flex-1">
+                                                <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                                                    <Users className="w-6 h-6 text-white" />
                                                 </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="h-6 bg-gray-200 rounded-full w-28 animate-pulse"></div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="h-4 bg-gray-200 rounded w-24 animate-pulse"></div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="h-4 bg-gray-200 rounded w-16 animate-pulse"></div>
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="w-9 h-9 bg-gray-200 rounded-lg animate-pulse ml-auto"></div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </>
-                            ) : groups.length === 0 ? (
-                                <tr>
-                                    <td colSpan={5} className="px-6 py-12 text-center">
-                                        <div className="flex flex-col items-center justify-center space-y-3">
-                                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
-                                                <Users className="w-8 h-8 text-gray-400" />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-sm font-medium text-gray-900">Chưa có nhóm</h3>
-                                                <p className="text-xs text-gray-500 mt-1">Không có nhóm nào phù hợp</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ) : groups.map(g => (
-                                <tr key={g.id} className="hover:bg-slate-50/50 transition-all duration-150 group">
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center space-x-2">
-                                            <div className="w-8 h-8 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                                                <Users className="w-4 h-4 text-indigo-600" />
-                                            </div>
-                                            <div className="min-w-0">
-                                                <div className="font-semibold text-gray-900 text-sm truncate" title={g.description || g.name}>
-                                                    <Link href={`/manager/groups/${g.id}`} className="hover:underline text-blue-700">{g.name}</Link>
+                                                <div className="flex-1 min-w-0">
+                                                    <h3 className="text-lg font-bold text-white line-clamp-1" title={g.name}>{g.name}</h3>
+                                                    <p className="text-xs text-white/80 line-clamp-1">{g.description || 'Không có mô tả'}</p>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="text-sm font-medium text-gray-900 space-y-1">
-                                            {Array.isArray(g.groupProjects) && g.groupProjects.filter((gp: any) => gp.status === 'active').length > 0 ? (
-                                                g.groupProjects.filter((gp: any) => gp.status === 'active').map((gp: any) => (
-                                                    <div key={gp.id} className="flex items-center gap-2">
-                                                        <span className="truncate max-w-[160px]" title={projects.find((p: any) => p.id === gp.projectId)?.tenduan || `Dự án #${gp.projectId}`}>{projects.find((p: any) => p.id === gp.projectId)?.tenduan || `Dự án #${gp.projectId}`}</span>
-                                                        <span className="px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-700 border border-green-200">Đang tham gia</span>
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <span className="text-gray-400 italic">Chưa gán dự án</span>
+                                            {g.status === 'closed' && (
+                                                <span className="px-3 py-1 bg-gray-700 text-white rounded-lg text-xs font-semibold whitespace-nowrap">
+                                                    Đã đóng
+                                                </span>
                                             )}
                                         </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center space-x-2">
-                                            <div className="w-7 h-7 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                                <span className="text-xs font-semibold text-indigo-700">
+                                    </div>
+                                    
+                                    <div className="p-6 space-y-4">
+                                        {/* Leader */}
+                                        <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl">
+                                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-md">
+                                                <span className="text-sm font-bold text-white">
                                                     {g.leader?.hoten ? g.leader.hoten.charAt(0).toUpperCase() : '?'}
                                                 </span>
                                             </div>
-                                            <span className="text-sm text-gray-700 truncate">
-                                                {g.leader?.hoten || <span className="text-gray-400 italic">Chưa có leader</span>}
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-xs text-gray-500 font-medium">Leader</div>
+                                                <div className="text-sm font-semibold text-gray-900 truncate">
+                                                    {g.leader?.hoten || <span className="text-gray-400 italic">Chưa có leader</span>}
+                                                </div>
+                                            </div>
+                                            <UserCheck className="w-5 h-5 text-blue-500" />
+                                        </div>
+
+                                        {/* Members Count */}
+                                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                                            <div className="flex items-center gap-2">
+                                                <Users className="w-5 h-5 text-gray-600" />
+                                                <span className="text-sm font-medium text-gray-700">Thành viên</span>
+                                            </div>
+                                            <span className="px-3 py-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full text-xs font-bold">
+                                                {g.members?.length || 0}
                                             </span>
                                         </div>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                            {g.members?.length || 0} thành viên
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center justify-end space-x-2">
-                                            <Link href={`/manager/groups/${g.id}`} className="px-3 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-xs font-medium hover:from-blue-600 hover:to-indigo-700 transition-all">Xem chi tiết</Link>
+
+                                        {/* Active Projects */}
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-2 text-xs font-semibold text-gray-700">
+                                                <FolderKanban className="w-4 h-4 text-green-600" />
+                                                <span>Dự án đang tham gia</span>
+                                            </div>
+                                            {activeProjects.length > 0 ? (
+                                                <div className="space-y-2 max-h-24 overflow-y-auto">
+                                                    {activeProjects.map((gp: any) => {
+                                                        const project = projects.find((p: any) => p.id === gp.projectId)
+                                                        return (
+                                                            <div key={gp.id} className="flex items-center gap-2 p-2 bg-green-50 rounded-lg border border-green-100">
+                                                                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                                                <span className="text-xs font-medium text-green-800 truncate flex-1" title={project?.tenduan}>
+                                                                    {project?.tenduan || `Dự án #${gp.projectId}`}
+                                                                </span>
+                                                            </div>
+                                                        )
+                                                    })}
+                                                </div>
+                                            ) : (
+                                                <div className="text-xs text-gray-400 italic p-2 bg-gray-50 rounded-lg">Chưa gán dự án</div>
+                                            )}
                                         </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+
+                                        {/* View Details Button */}
+                                        <Link 
+                                            href={`/manager/groups/${g.id}`}
+                                            className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl text-sm font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-md hover:shadow-lg group-hover:scale-105"
+                                        >
+                                            <span>Xem chi tiết</span>
+                                            <ChevronRight className="w-4 h-4" />
+                                        </Link>
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+                )}
             </div>
         </div>
     )

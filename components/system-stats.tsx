@@ -11,6 +11,7 @@ export function SystemStats() {
     totalUsers: 0,
     totalTasks: 0,
     activeProjects: 0,
+    completionRate: 0,
   })
   const [loading, setLoading] = useState(true)
 
@@ -32,7 +33,7 @@ export function SystemStats() {
     {
       icon: FolderKanban,
       label: "Dự án hoạt động",
-      value: loading ? "..." : `${data.activeProjects}+`,
+      value: loading ? "..." : `${data.activeProjects}`,
       description: "Dự án đang được quản lý",
       color: "from-blue-500 to-cyan-600",
       trend: "Realtime",
@@ -40,7 +41,7 @@ export function SystemStats() {
     {
       icon: CheckCircle2,
       label: "Tổng dự án",
-      value: loading ? "..." : `${data.totalProjects}+`,
+      value: loading ? "..." : `${data.totalProjects}`,
       description: "Tổng số dự án trong hệ thống",
       color: "from-green-500 to-emerald-600",
       trend: "Cập nhật liên tục",
@@ -48,7 +49,7 @@ export function SystemStats() {
     {
       icon: Users,
       label: "Người dùng",
-      value: loading ? "..." : `${data.totalUsers}+`,
+      value: loading ? "..." : `${data.totalUsers}`,
       description: "Nhân viên trong hệ thống",
       color: "from-purple-500 to-pink-600",
       trend: "Active users",
@@ -56,7 +57,7 @@ export function SystemStats() {
     {
       icon: Clock,
       label: "Tasks",
-      value: loading ? "..." : `${data.totalTasks}+`,
+      value: loading ? "..." : `${data.totalTasks}`,
       description: "Tổng công việc được tạo",
       color: "from-orange-500 to-red-600",
       trend: "Toàn hệ thống",
@@ -64,10 +65,10 @@ export function SystemStats() {
     {
       icon: TrendingUp,
       label: "Tỷ lệ hoàn thành",
-      value: "87%",
-      description: "Tasks đúng deadline",
+      value: loading ? "..." : `${data.completionRate}%`,
+      description: "Tasks đã hoàn thành",
       color: "from-teal-500 to-cyan-600",
-      trend: "Ước tính",
+      trend: "Toàn hệ thống",
     },
     {
       icon: Activity,

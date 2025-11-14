@@ -11,9 +11,10 @@ import MentionText from "./MentionText";
 
 interface CommentSubtaskProps {
   subtaskId: number;
+  subtaskStatus?: string;
 }
 
-export default function CommentSubtask({ subtaskId }: CommentSubtaskProps) {
+export default function CommentSubtask({ subtaskId, subtaskStatus }: CommentSubtaskProps) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -23,6 +24,7 @@ export default function CommentSubtask({ subtaskId }: CommentSubtaskProps) {
   const { id: userId } = useAuth();
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const isCompleted = subtaskStatus === 'Hoàn thành';
 
   useEffect(() => {
     if (subtaskId) {
@@ -126,8 +128,14 @@ export default function CommentSubtask({ subtaskId }: CommentSubtaskProps) {
           Bình luận ({comments.length})
         </h4>
         <button
-          className="text-xs text-blue-600 hover:underline font-semibold"
-          onClick={() => setShowForm((v) => !v)}
+          className={`text-xs hover:underline font-semibold ${
+            isCompleted 
+              ? 'text-gray-400 cursor-not-allowed' 
+              : 'text-blue-600'
+          }`}
+          onClick={() => !isCompleted && setShowForm((v) => !v)}
+          disabled={isCompleted}
+          title={isCompleted ? 'Không thể thêm bình luận cho công việc đã hoàn thành' : ''}
         >
           {showForm ? "Đóng" : "Thêm bình luận"}
         </button>

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { groupAPI } from "@/axios/adminApi";
 import { fetchProjects } from "@/axios/api";
-import { Users, User, FolderKanban } from "lucide-react";
+import { Users, User, FolderKanban, ArrowLeft, Mail, Calendar, CheckCircle2, Clock } from "lucide-react";
 
 export default function GroupDetailPage({ params }: { params: { id: string } }) {
     const groupId = params.id;
@@ -31,73 +31,242 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
         fetchData();
     }, [groupId]);
 
-    if (loading) return <div className="text-center py-10">Đang tải...</div>;
-    if (error || !group) return <div className="text-center py-10 text-red-500">{error || "Không tìm thấy nhóm"}</div>;
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 flex items-center justify-center">
+                <div className="text-center space-y-4">
+                    <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                    <p className="text-lg font-medium text-gray-600">Đang tải thông tin nhóm...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error || !group) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 flex items-center justify-center">
+                <div className="bg-white rounded-2xl shadow-xl border border-red-100 p-12 max-w-md text-center">
+                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Users className="w-8 h-8 text-red-500" />
+                    </div>
+                    <h2 className="text-xl font-bold text-red-600 mb-2">Lỗi</h2>
+                    <p className="text-gray-600 mb-6">{error || "Không tìm thấy nhóm"}</p>
+                    <Link
+                        href="/manager/groups"
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-medium hover:from-blue-600 hover:to-blue-700 transition-all"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                        Quay lại danh sách
+                    </Link>
+                </div>
+            </div>
+        );
+    }
+
+    const activeProjects = group.groupProjects?.filter((gp: any) => gp.status === 'active') || [];
+    const completedProjects = group.groupProjects?.filter((gp: any) => gp.status === 'completed') || [];
 
     return (
-        <div className="max-w-3xl mx-auto py-10 space-y-8">
-            <Link href="/manager/groups" className="text-blue-600 hover:underline flex items-center gap-1 mb-2">
-                <svg width="20" height="20" fill="none" viewBox="0 0 24 24"><path stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
-                Quay lại danh sách nhóm
-            </Link>
-            <div className="bg-gradient-to-br from-indigo-50 to-white rounded-3xl shadow-xl p-8 border border-gray-100">
-                <div className="flex items-center gap-4 mb-6">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center shadow-lg">
-                        <Users className="w-8 h-8 text-white" />
-                    </div>
-                    <div>
-                        <h1 className="text-3xl font-extrabold text-indigo-900 mb-1">{group.name}</h1>
-                        <p className="text-gray-500 text-sm">{group.description || 'Không có mô tả'}</p>
-                    </div>
-                </div>
-                <div className="flex flex-col md:flex-row gap-8 mb-8">
-                    <div className="flex-1">
-                        <div className="mb-3 flex items-center gap-2">
-                            <User className="w-5 h-5 text-blue-500" />
-                            <span className="font-semibold text-gray-700">Leader:</span>
-                            {group.leader ? (
-                                <span className="ml-1 text-indigo-700 font-medium">{group.leader.hoten} <span className="text-xs text-gray-400">({group.leader.manv})</span></span>
-                            ) : (
-                                <span className="italic text-gray-400 ml-1">Chưa có leader</span>
-                            )}
-                        </div>
-                        <div>
-                            <span className="font-semibold text-gray-700 flex items-center gap-2"><Users className="w-5 h-5 text-purple-500" />Thành viên:</span>
-                            <div className="flex flex-wrap gap-2 mt-2">
-                                {group.members && group.members.length > 0 ? (
-                                    group.members.map((m: any) => (
-                                        <span key={m.id} className="inline-flex items-center px-3 py-1 rounded-full bg-indigo-100 text-indigo-800 text-xs font-semibold border border-indigo-200">
-                                            {m.hoten} <span className="ml-1 text-gray-400">({m.manv})</span>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6">
+            <div className="max-w-6xl mx-auto space-y-6">
+                {/* Back Button */}
+                <Link
+                    href="/manager/groups"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-all shadow-md border border-gray-100"
+                >
+                    <ArrowLeft className="w-4 h-4" />
+                    Quay lại danh sách nhóm
+                </Link>
+
+                {/* Group Header Card */}
+                <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+                    <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-500 p-8">
+                        <div className="flex items-start gap-6">
+                            <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
+                                <Users className="w-10 h-10 text-white" />
+                            </div>
+                            <div className="flex-1">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <h1 className="text-4xl font-extrabold text-white">{group.name}</h1>
+                                    {group.status === 'closed' && (
+                                        <span className="px-4 py-1.5 bg-gray-700 text-white rounded-xl text-sm font-semibold">
+                                            Đã đóng
                                         </span>
-                                    ))
-                                ) : (
-                                    <span className="italic text-gray-400">Chưa có thành viên</span>
-                                )}
+                                    )}
+                                </div>
+                                <p className="text-white/90 text-lg">{group.description || 'Không có mô tả'}</p>
+                                <div className="flex items-center gap-4 mt-4">
+                                    <div className="flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-sm rounded-lg">
+                                        <Users className="w-4 h-4 text-white" />
+                                        <span className="text-white font-semibold">{group.members?.length || 0} thành viên</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-sm rounded-lg">
+                                        <FolderKanban className="w-4 h-4 text-white" />
+                                        <span className="text-white font-semibold">{activeProjects.length} dự án</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div className="flex-1">
-                        <span className="font-semibold text-gray-700 flex items-center gap-2"><FolderKanban className="w-5 h-5 text-green-500" />Dự án đã/đang tham gia:</span>
-                        {group.groupProjects && group.groupProjects.length > 0 ? (
-                            <div className="grid grid-cols-1 gap-3 mt-2">
-                                {group.groupProjects.map((gp: any) => {
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Leader Section */}
+                    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                        <div className="flex items-center gap-2 mb-4">
+                            <User className="w-5 h-5 text-blue-500" />
+                            <h2 className="text-lg font-bold text-gray-900">Leader</h2>
+                        </div>
+                        {group.leader ? (
+                            <div className="flex items-center gap-4 p-4 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl border border-blue-100">
+                                <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-md">
+                                    <span className="text-xl font-bold text-white">
+                                        {group.leader.hoten.charAt(0).toUpperCase()}
+                                    </span>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="font-semibold text-gray-900 truncate">{group.leader.hoten}</div>
+                                    <div className="text-sm text-gray-500 truncate">{group.leader.manv}</div>
+                                    {group.leader.email && (
+                                        <div className="flex items-center gap-1 mt-1 text-xs text-gray-600">
+                                            <Mail className="w-3 h-3" />
+                                            <span className="truncate">{group.leader.email}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-xl border border-gray-200">
+                                <User className="w-12 h-12 text-gray-300 mb-2" />
+                                <p className="text-sm text-gray-400 italic">Chưa có leader</p>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Members Section */}
+                    <div className="lg:col-span-2 bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Users className="w-5 h-5 text-blue-500" />
+                            <h2 className="text-lg font-bold text-gray-900">Thành viên</h2>
+                            <span className="ml-auto px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
+                                {group.members?.length || 0}
+                            </span>
+                        </div>
+                        {group.members && group.members.length > 0 ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-64 overflow-y-auto pr-2">
+                                {group.members.map((m: any) => (
+                                    <div key={m.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all border border-gray-200">
+                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-cyan-500 flex items-center justify-center flex-shrink-0 shadow-md">
+                                            <span className="text-sm font-bold text-white">
+                                                {m.hoten.charAt(0).toUpperCase()}
+                                            </span>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-medium text-gray-900 text-sm truncate">{m.hoten}</div>
+                                            <div className="text-xs text-gray-500 truncate">{m.manv}</div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center p-12 bg-gray-50 rounded-xl border border-gray-200">
+                                <Users className="w-12 h-12 text-gray-300 mb-2" />
+                                <p className="text-sm text-gray-400 italic">Chưa có thành viên</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Projects Section */}
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                    <div className="flex items-center gap-2 mb-6">
+                        <FolderKanban className="w-5 h-5 text-green-500" />
+                        <h2 className="text-lg font-bold text-gray-900">Dự án</h2>
+                    </div>
+
+                    {/* Active Projects */}
+                    {activeProjects.length > 0 && (
+                        <div className="mb-6">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Clock className="w-4 h-4 text-green-600" />
+                                <h3 className="text-sm font-semibold text-gray-700">Đang tham gia ({activeProjects.length})</h3>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {activeProjects.map((gp: any) => {
                                     const project = projects.find((p: any) => p.id === gp.projectId);
                                     return (
-                                        <div key={gp.id} className="rounded-xl border border-gray-200 bg-white p-4 flex flex-col gap-1 shadow-sm hover:shadow-md transition-all">
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-semibold text-indigo-700 truncate" title={project?.tenduan || `Dự án #${gp.projectId}`}>{project?.tenduan || `Dự án #${gp.projectId}`}</span>
-                                                {gp.status === 'active' && <span className="ml-2 px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-700 border border-green-200">Đang tham gia</span>}
-                                                {gp.status === 'completed' && <span className="ml-2 px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-500 border border-gray-200">Đã hoàn thành</span>}
+                                        <div key={gp.id} className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200 hover:shadow-md transition-all">
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-10 h-10 rounded-lg bg-green-500 flex items-center justify-center flex-shrink-0 shadow-md">
+                                                    <FolderKanban className="w-5 h-5 text-white" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <h4 className="font-semibold text-gray-900 text-sm line-clamp-1" title={project?.tenduan}>
+                                                        {project?.tenduan || `Dự án #${gp.projectId}`}
+                                                    </h4>
+                                                    {project?.mota && (
+                                                        <p className="text-xs text-gray-600 mt-1 line-clamp-2">{project.mota}</p>
+                                                    )}
+                                                    <div className="flex items-center gap-2 mt-2">
+                                                        <span className="px-2 py-0.5 bg-green-500 text-white rounded text-xs font-semibold flex items-center gap-1">
+                                                            <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
+                                                            Đang hoạt động
+                                                        </span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            {project?.mota && <div className="text-xs text-gray-500 truncate">{project.mota}</div>}
                                         </div>
                                     );
                                 })}
                             </div>
-                        ) : (
-                            <div className="italic text-gray-400 mt-1">Chưa tham gia dự án nào</div>
-                        )}
-                    </div>
+                        </div>
+                    )}
+
+                    {/* Completed Projects */}
+                    {completedProjects.length > 0 && (
+                        <div>
+                            <div className="flex items-center gap-2 mb-3">
+                                <CheckCircle2 className="w-4 h-4 text-gray-600" />
+                                <h3 className="text-sm font-semibold text-gray-700">Đã hoàn thành ({completedProjects.length})</h3>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {completedProjects.map((gp: any) => {
+                                    const project = projects.find((p: any) => p.id === gp.projectId);
+                                    return (
+                                        <div key={gp.id} className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:shadow-md transition-all">
+                                            <div className="flex items-start gap-3">
+                                                <div className="w-10 h-10 rounded-lg bg-gray-400 flex items-center justify-center flex-shrink-0 shadow-md">
+                                                    <FolderKanban className="w-5 h-5 text-white" />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <h4 className="font-semibold text-gray-900 text-sm line-clamp-1" title={project?.tenduan}>
+                                                        {project?.tenduan || `Dự án #${gp.projectId}`}
+                                                    </h4>
+                                                    {project?.mota && (
+                                                        <p className="text-xs text-gray-600 mt-1 line-clamp-2">{project.mota}</p>
+                                                    )}
+                                                    <div className="flex items-center gap-2 mt-2">
+                                                        <span className="px-2 py-0.5 bg-gray-500 text-white rounded text-xs font-semibold flex items-center gap-1">
+                                                            <CheckCircle2 className="w-3 h-3" />
+                                                            Hoàn thành
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* No Projects */}
+                    {activeProjects.length === 0 && completedProjects.length === 0 && (
+                        <div className="flex flex-col items-center justify-center p-12 bg-gray-50 rounded-xl border border-gray-200">
+                            <FolderKanban className="w-12 h-12 text-gray-300 mb-2" />
+                            <p className="text-sm text-gray-400 italic">Nhóm chưa tham gia dự án nào</p>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

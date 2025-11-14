@@ -13,6 +13,7 @@ export default function LoginPage() {
     totalUsers: 0,
     totalTasks: 0,
     activeProjects: 0,
+    completionRate: 0,
   })
   const [loading, setLoading] = useState(true)
 
@@ -112,19 +113,21 @@ export default function LoginPage() {
           <div className="grid grid-cols-3 gap-4 pt-8">
             <div className="text-center">
               <div className="text-3xl font-bold text-white">
-                {loading ? '...' : `${stats.totalProjects}+`}
+                {loading ? '...' : stats.totalProjects}
               </div>
               <div className="text-sm text-blue-300">Dự án</div>
             </div>
             <div className="text-center">
               <div className="text-3xl font-bold text-white">
-                {loading ? '...' : `${stats.totalUsers}+`}
+                {loading ? '...' : stats.totalUsers}
               </div>
               <div className="text-sm text-blue-300">Người dùng</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-white">99.9%</div>
-              <div className="text-sm text-blue-300">Uptime</div>
+              <div className="text-3xl font-bold text-white">
+                {loading ? '...' : `${stats.completionRate}%`}
+              </div>
+              <div className="text-sm text-blue-300">Hoàn thành</div>
             </div>
           </div>
         </div>

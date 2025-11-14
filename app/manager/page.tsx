@@ -151,7 +151,7 @@ export default function PMDashboard() {
             {
                 title: "Dự án đang quản lý",
                 value: String(projectCount),
-                change: "+12%",
+                change: "",
                 icon: FolderKanban,
                 color: "from-[#003D82] to-[#0052A3]",
                 bgColor: "bg-blue-50",
@@ -160,7 +160,7 @@ export default function PMDashboard() {
             {
                 title: "Nhiệm vụ hoạt động",
                 value: String(activeTasksCount),
-                change: "+8%",
+                change: "",
                 icon: CheckSquare,
                 color: "from-[#0052A3] to-[#006BB8]",
                 bgColor: "bg-cyan-50",
@@ -404,9 +404,8 @@ export default function PMDashboard() {
                                     <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center shadow-md`}>
                                         <Icon className="w-6 h-6 text-white" />
                                     </div>
-                                    <div className={`flex items-center gap-1 text-sm font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                                        {isPositive ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
-                                        {stat.change}
+                                       <div className="flex items-center gap-1 text-sm font-medium">
+                                           {/* Đã xóa thông báo tăng giảm */}
                                     </div>
                                 </div>
                                 <div>

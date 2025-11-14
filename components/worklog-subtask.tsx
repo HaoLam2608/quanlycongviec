@@ -13,15 +13,17 @@ interface Worklog {
 
 interface WorklogListProps {
     subtaskId: number;
+    subtaskStatus?: string;
 }
 
-export default function WorklogList({ subtaskId }: WorklogListProps) {
+export default function WorklogList({ subtaskId, subtaskStatus }: WorklogListProps) {
     const [worklogs, setWorklogs] = useState<Worklog[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
     const [form, setForm] = useState({ hours: "", note: "", date: "" });
     const { id: userId } = useAuth();
     const [error, setError] = useState("");
+    const isCompleted = subtaskStatus === 'Hoàn thành';
 
     useEffect(() => {
         if (!loading) {
@@ -82,7 +84,16 @@ export default function WorklogList({ subtaskId }: WorklogListProps) {
         <div className="border rounded-lg p-3 mt-2 bg-muted/30">
             <div className="flex items-center justify-between mb-2">
                 <div className="font-semibold text-sm text-primary">Nhật ký công việc</div>
-                <button className="text-xs text-blue-600 hover:underline" onClick={() => setShowForm((v) => !v)}>
+                <button 
+                    className={`text-xs hover:underline ${
+                        isCompleted 
+                            ? 'text-gray-400 cursor-not-allowed' 
+                            : 'text-blue-600'
+                    }`} 
+                    onClick={() => !isCompleted && setShowForm((v) => !v)}
+                    disabled={isCompleted}
+                    title={isCompleted ? 'Không thể thêm worklog cho công việc đã hoàn thành' : ''}
+                >
                     {showForm ? "Đóng" : "Thêm worklog"}
                 </button>
             </div>

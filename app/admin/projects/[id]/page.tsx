@@ -1121,8 +1121,8 @@ export default function ProjectDetailPage() {
                                                     <tr key={`${task.id}-worklog`} className="bg-slate-50 border-b border-border">
                                                         <td colSpan={8} className="p-0">
                                                             <div className="space-y-4 p-4">
-                                                                <WorklogTask taskId={task.id} />
-                                                                <CommentTask taskId={task.id} />
+                                                                <WorklogTask taskId={task.id} taskStatus={task.trangThai} />
+                                                                <CommentTask taskId={task.id} taskStatus={task.trangThai} />
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -1664,8 +1664,8 @@ export default function ProjectDetailPage() {
 
                                             {/* Worklog và Comments cho subtask */}
                                             <div className="mt-6 space-y-4">
-                                                <WorklogSubtask subtaskId={subtask.id} />
-                                                <CommentSubtask subtaskId={subtask.id} />
+                                                <WorklogSubtask subtaskId={subtask.id} subtaskStatus={subtask.trangThai} />
+                                                <CommentSubtask subtaskId={subtask.id} subtaskStatus={subtask.trangThai} />
                                             </div>
                                         </div>
                                     ))
@@ -1683,8 +1683,8 @@ export default function ProjectDetailPage() {
 
                         {/* Tổng hợp Worklog và Comments cho Task */}
                         <div className="space-y-4">
-                            <WorklogTask taskId={selectedTask.id} />
-                            <CommentTask taskId={selectedTask.id} />
+                            <WorklogTask taskId={selectedTask.id} taskStatus={selectedTask.trangThai} />
+                            <CommentTask taskId={selectedTask.id} taskStatus={selectedTask.trangThai} />
                         </div>
 
                         <div className="flex justify-end pt-4">

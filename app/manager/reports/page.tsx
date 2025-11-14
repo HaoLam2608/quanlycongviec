@@ -73,7 +73,7 @@ interface UserType {
 export default function ManagerReportsPage() {
     const [loading, setLoading] = useState(true)
     const [reportType, setReportType] = useState<"overview" | "projects" | "team">("overview")
-    const [dateRange, setDateRange] = useState("thisMonth")
+    const [dateRange, setDateRange] = useState("all")
     const [projects, setProjects] = useState<Project[]>([])
     const [tasks, setTasks] = useState<Task[]>([])
     const [users, setUsers] = useState<UserType[]>([])
@@ -515,8 +515,7 @@ export default function ManagerReportsPage() {
                                         <p className="text-sm font-medium text-slate-600 mb-1">Nhân sự</p>
                                         <p className="text-3xl font-bold text-purple-700">{totalStats.totalTeamMembers}</p>
                                         <div className="flex items-center gap-1 mt-2">
-                                            <TrendingUp className="w-4 h-4 text-purple-600" />
-                                            <span className="text-sm text-purple-600 font-medium">Hiệu suất {totalStats.avgEfficiency}%</span>
+                                            {/* Đã xóa dòng Hiệu suất */}
                                         </div>
                                     </div>
                                     <Users className="w-12 h-12 text-purple-600 opacity-80" />
@@ -529,8 +528,7 @@ export default function ManagerReportsPage() {
                                         <p className="text-sm font-medium text-slate-600 mb-1">Tỷ lệ hoàn thành</p>
                                         <p className="text-3xl font-bold text-orange-700">{completionRate}%</p>
                                         <div className="flex items-center gap-1 mt-2">
-                                            <Target className="w-4 h-4 text-orange-600" />
-                                            <span className="text-sm text-slate-600">Mục tiêu 90%</span>
+                                            {/* Đã xóa dòng Mục tiêu */}
                                         </div>
                                     </div>
                                     <Target className="w-12 h-12 text-orange-600 opacity-80" />

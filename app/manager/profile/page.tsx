@@ -334,30 +334,28 @@ export default function PMProfilePage() {
                         </div>
                     </div>
                 ) : pmData ? (
-                    <div className="space-y-6">
+                    <div className="space-y-8">
                         {/* Profile Card */}
-                        <Card className="overflow-hidden bg-white shadow-xl border-0">
-                            {/* Cover Image */}
-                            <div className="h-32 bg-gradient-to-r from-[#003D82] via-[#0052A3] to-[#0066C0]"></div>
-                            
+                        <Card className="overflow-hidden bg-white shadow-2xl border-0 rounded-2xl">
                             {/* Profile Content */}
-                            <div className="px-8 pb-8">
+                            <div className="px-6 sm:px-10 py-10">
                                 {/* Avatar & Basic Info */}
-                                <div className="flex flex-col md:flex-row md:items-end md:justify-between -mt-16 mb-6">
-                                    <div className="flex flex-col md:flex-row md:items-end gap-4">
-                                        <div className="relative">
-                                            <Avatar className="w-32 h-32 border-4 border-white shadow-lg">
+                                <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between mb-8">
+                                    <div className="flex flex-col sm:flex-row sm:items-end gap-6">
+                                        <div className="relative group">
+                                            <div className="absolute inset-0 bg-gradient-to-br from-[#003D82] to-[#0066C0] rounded-full blur-2xl opacity-30 group-hover:opacity-50 transition-opacity"></div>
+                                            <Avatar className="relative w-40 h-40 border-4 border-white shadow-2xl ring-4 ring-slate-100 transition-transform group-hover:scale-105 duration-300">
                                                 <AvatarImage src={avatarUrl} alt={pmData.name} />
-                                                <AvatarFallback className="text-3xl font-bold bg-gradient-to-br from-[#003D82] to-[#0066C0] text-white">
+                                                <AvatarFallback className="text-5xl font-bold bg-gradient-to-br from-[#003D82] to-[#0066C0] text-white">
                                                     {pmData.name?.charAt(0)?.toUpperCase()}
                                                 </AvatarFallback>
                                             </Avatar>
                                             <button
                                                 onClick={handleChooseFile}
                                                 disabled={uploading}
-                                                className="absolute bottom-0 right-0 p-2 bg-[#003D82] hover:bg-[#0052A3] text-white rounded-full shadow-lg transition-colors disabled:opacity-50"
+                                                className="absolute bottom-2 right-2 p-3 bg-gradient-to-r from-[#003D82] to-[#0052A3] hover:from-[#0052A3] hover:to-[#0066C0] text-white rounded-full shadow-xl transition-all duration-300 disabled:opacity-50 hover:scale-110"
                                             >
-                                                <Camera className="w-4 h-4" />
+                                                <Camera className="w-5 h-5" />
                                             </button>
                                             <input
                                                 ref={inputRef}
@@ -367,101 +365,133 @@ export default function PMProfilePage() {
                                                 className="hidden"
                                             />
                                         </div>
-                                        <div className="mb-2">
-                                            <h2 className="text-3xl font-bold text-slate-900">{pmData.name}</h2>
-                                            <p className="text-lg text-[#003D82] font-medium">{pmData.position}</p>
-                                            <p className="text-sm text-slate-500">Mã NV: {pmData.manv}</p>
+                                        <div className="mb-2 sm:mb-4">
+                                            <h2 className="text-4xl font-bold text-slate-900 mb-1 bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text">{pmData.name}</h2>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                                <p className="text-xl text-[#003D82] font-semibold">{pmData.position}</p>
+                                            </div>
+                                            <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full">
+                                                <Briefcase className="w-4 h-4 text-slate-600" />
+                                                <p className="text-sm text-slate-600 font-medium">Mã NV: {pmData.manv}</p>
+                                            </div>
                                         </div>
                                     </div>
                                     <Button 
                                         onClick={() => setIsEditing(true)}
-                                        className="bg-[#003D82] hover:bg-[#0052A3] text-white gap-2 mt-4 md:mt-0"
+                                        className="bg-gradient-to-r from-[#003D82] to-[#0052A3] hover:from-[#0052A3] hover:to-[#0066C0] text-white gap-2 mt-6 lg:mt-0 shadow-lg hover:shadow-xl transition-all duration-300 px-6 py-6 rounded-xl"
                                     >
-                                        <Edit className="w-4 h-4" />
-                                        Chỉnh sửa
+                                        <Edit className="w-5 h-5" />
+                                        Chỉnh sửa hồ sơ
                                     </Button>
                                 </div>
 
+                                {/* Stats Cards - Moved up for better hierarchy */}
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                                    <Card className="p-5 bg-gradient-to-br from-blue-50 via-blue-50 to-blue-100 border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group cursor-pointer rounded-xl">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="p-3 bg-blue-500/10 rounded-xl group-hover:scale-110 transition-transform">
+                                                <FolderKanban className="w-6 h-6 text-blue-600" />
+                                            </div>
+                                            <TrendingUp className="w-4 h-4 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        </div>
+                                        <p className="text-sm text-slate-600 font-medium mb-1">Dự án</p>
+                                        <p className="text-4xl font-bold text-blue-700">{stats.projectCount}</p>
+                                    </Card>
+                                    <Card className="p-5 bg-gradient-to-br from-purple-50 via-purple-50 to-purple-100 border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group cursor-pointer rounded-xl">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="p-3 bg-purple-500/10 rounded-xl group-hover:scale-110 transition-transform">
+                                                <Target className="w-6 h-6 text-purple-600" />
+                                            </div>
+                                            <TrendingUp className="w-4 h-4 text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        </div>
+                                        <p className="text-sm text-slate-600 font-medium mb-1">Nhiệm vụ</p>
+                                        <p className="text-4xl font-bold text-purple-700">{stats.taskCount}</p>
+                                    </Card>
+                                    <Card className="p-5 bg-gradient-to-br from-orange-50 via-orange-50 to-orange-100 border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group cursor-pointer rounded-xl">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="p-3 bg-orange-500/10 rounded-xl group-hover:scale-110 transition-transform">
+                                                <Users2 className="w-6 h-6 text-orange-600" />
+                                            </div>
+                                            <TrendingUp className="w-4 h-4 text-orange-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        </div>
+                                        <p className="text-sm text-slate-600 font-medium mb-1">Nhóm</p>
+                                        <p className="text-4xl font-bold text-orange-700">—</p>
+                                    </Card>
+                                    <Card className="p-5 bg-gradient-to-br from-green-50 via-green-50 to-green-100 border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 group cursor-pointer rounded-xl">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="p-3 bg-green-500/10 rounded-xl group-hover:scale-110 transition-transform">
+                                                <CheckCircle2 className="w-6 h-6 text-green-600" />
+                                            </div>
+                                            <TrendingUp className="w-4 h-4 text-green-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        </div>
+                                        <p className="text-sm text-slate-600 font-medium mb-1">Hoàn thành</p>
+                                        <p className="text-4xl font-bold text-green-700">{stats.completedCount}</p>
+                                    </Card>
+                                </div>
+
                                 {/* Contact Information Grid */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="space-y-4">
-                                        <h3 className="text-lg font-semibold text-slate-900 mb-4">Thông tin liên hệ</h3>
-                                        
-                                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                    <Card className="p-6 bg-gradient-to-br from-slate-50 to-white border-slate-200 shadow-md rounded-xl">
+                                        <div className="flex items-center gap-2 mb-5">
                                             <div className="p-2 bg-[#003D82]/10 rounded-lg">
                                                 <Mail className="w-5 h-5 text-[#003D82]" />
                                             </div>
-                                            <div>
-                                                <p className="text-xs text-slate-500">Email</p>
-                                                <p className="text-sm font-medium text-slate-900">{pmData.email || 'Chưa cập nhật'}</p>
-                                            </div>
+                                            <h3 className="text-lg font-bold text-slate-900">Thông tin liên hệ</h3>
                                         </div>
-
-                                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                                            <div className="p-2 bg-[#003D82]/10 rounded-lg">
-                                                <Phone className="w-5 h-5 text-[#003D82]" />
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-slate-500">Điện thoại</p>
-                                                <p className="text-sm font-medium text-slate-900">{pmData.phone || 'Chưa cập nhật'}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        <h3 className="text-lg font-semibold text-slate-900 mb-4">Thông tin công việc</h3>
                                         
-                                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-slate-200 hover:border-[#003D82]/30 transition-colors group">
+                                                <div className="p-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl group-hover:scale-110 transition-transform">
+                                                    <Mail className="w-5 h-5 text-[#003D82]" />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className="text-xs text-slate-500 font-medium mb-1">Email</p>
+                                                    <p className="text-sm font-semibold text-slate-900">{pmData.email || 'Chưa cập nhật'}</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-slate-200 hover:border-[#003D82]/30 transition-colors group">
+                                                <div className="p-3 bg-gradient-to-br from-green-50 to-green-100 rounded-xl group-hover:scale-110 transition-transform">
+                                                    <Phone className="w-5 h-5 text-green-600" />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className="text-xs text-slate-500 font-medium mb-1">Điện thoại</p>
+                                                    <p className="text-sm font-semibold text-slate-900">{pmData.phone || 'Chưa cập nhật'}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </Card>
+
+                                    <Card className="p-6 bg-gradient-to-br from-slate-50 to-white border-slate-200 shadow-md rounded-xl">
+                                        <div className="flex items-center gap-2 mb-5">
                                             <div className="p-2 bg-[#003D82]/10 rounded-lg">
                                                 <Briefcase className="w-5 h-5 text-[#003D82]" />
                                             </div>
-                                            <div>
-                                                <p className="text-xs text-slate-500">Phòng ban</p>
-                                                <p className="text-sm font-medium text-slate-900">{pmData.department || 'Quản lý dự án IT'}</p>
-                                            </div>
+                                            <h3 className="text-lg font-bold text-slate-900">Thông tin công việc</h3>
                                         </div>
+                                        
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-slate-200 hover:border-[#003D82]/30 transition-colors group">
+                                                <div className="p-3 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl group-hover:scale-110 transition-transform">
+                                                    <Briefcase className="w-5 h-5 text-purple-600" />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className="text-xs text-slate-500 font-medium mb-1">Phòng ban</p>
+                                                    <p className="text-sm font-semibold text-slate-900">{pmData.department || 'Quản lý dự án IT'}</p>
+                                                </div>
+                                            </div>
 
-                                        <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
-                                            <div className="p-2 bg-[#003D82]/10 rounded-lg">
-                                                <Calendar className="w-5 h-5 text-[#003D82]" />
+                                            <div className="flex items-center gap-4 p-4 bg-white rounded-xl border border-slate-200 hover:border-[#003D82]/30 transition-colors group">
+                                                <div className="p-3 bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl group-hover:scale-110 transition-transform">
+                                                    <Calendar className="w-5 h-5 text-amber-600" />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <p className="text-xs text-slate-500 font-medium mb-1">Ngày tham gia</p>
+                                                    <p className="text-sm font-semibold text-slate-900">{pmData.joinDate || 'Chưa cập nhật'}</p>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <p className="text-xs text-slate-500">Ngày tham gia</p>
-                                                <p className="text-sm font-medium text-slate-900">{pmData.joinDate || 'Chưa cập nhật'}</p>
-                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-
-                                {/* Stats Cards */}
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                                    <Card className="p-4 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <FolderKanban className="w-5 h-5 text-blue-600" />
-                                            <p className="text-sm text-slate-600 font-medium">Dự án</p>
-                                        </div>
-                                        <p className="text-3xl font-bold text-blue-700">{stats.projectCount}</p>
-                                    </Card>
-                                    <Card className="p-4 bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <Target className="w-5 h-5 text-purple-600" />
-                                            <p className="text-sm text-slate-600 font-medium">Nhiệm vụ</p>
-                                        </div>
-                                        <p className="text-3xl font-bold text-purple-700">{stats.taskCount}</p>
-                                    </Card>
-                                    <Card className="p-4 bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <Users2 className="w-5 h-5 text-orange-600" />
-                                            <p className="text-sm text-slate-600 font-medium">Nhóm</p>
-                                        </div>
-                                        <p className="text-3xl font-bold text-orange-700">—</p>
-                                    </Card>
-                                    <Card className="p-4 bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <CheckCircle2 className="w-5 h-5 text-green-600" />
-                                            <p className="text-sm text-slate-600 font-medium">Hoàn thành</p>
-                                        </div>
-                                        <p className="text-3xl font-bold text-green-700">{stats.completedCount}</p>
                                     </Card>
                                 </div>
                             </div>
@@ -469,18 +499,23 @@ export default function PMProfilePage() {
 
                         {/* Projects List */}
                         {projects.length > 0 && (
-                            <Card className="p-6 bg-white shadow-lg border-slate-200">
-                                <div className="flex items-center justify-between mb-6">
-                                    <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                                        <FolderKanban className="w-6 h-6 text-[#003D82]" />
-                                        Dự án đang quản lý
-                                    </h2>
-                                    <Badge variant="outline" className="text-[#003D82] border-[#003D82]">
+                            <Card className="p-8 bg-white shadow-2xl border-0 rounded-2xl">
+                                <div className="flex items-center justify-between mb-8">
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-3 bg-gradient-to-br from-[#003D82]/10 to-[#0066C0]/10 rounded-xl">
+                                            <FolderKanban className="w-7 h-7 text-[#003D82]" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-3xl font-bold text-slate-900">Dự án đang quản lý</h2>
+                                            <p className="text-sm text-slate-600 mt-1">Danh sách các dự án bạn đang phụ trách</p>
+                                        </div>
+                                    </div>
+                                    <Badge className="px-4 py-2 text-base bg-gradient-to-r from-[#003D82] to-[#0052A3] text-white border-0 shadow-lg">
                                         {projects.length} dự án
                                     </Badge>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                     {projects.map((project) => {
                                         const progress = calculateProjectProgress(project)
                                         const taskCount = project.tasks?.length || 0
@@ -491,51 +526,67 @@ export default function PMProfilePage() {
                                         ).length || 0
 
                                         return (
-                                            <Card key={project.id} className="p-5 hover:shadow-md transition-shadow border-slate-200">
-                                                <div className="flex justify-between items-start mb-3">
-                                                    <h3 className="font-semibold text-lg text-slate-900 line-clamp-1">
-                                                        {project.tenduan}
-                                                    </h3>
-                                                    <Badge className={getStatusColor(project.status)}>
+                                            <Card key={project.id} className="p-6 hover:shadow-2xl transition-all duration-300 border-slate-200 hover:border-[#003D82]/30 group cursor-pointer rounded-xl bg-gradient-to-br from-white to-slate-50 hover:-translate-y-1">
+                                                <div className="flex justify-between items-start mb-4">
+                                                    <div className="flex-1">
+                                                        <h3 className="font-bold text-xl text-slate-900 line-clamp-1 group-hover:text-[#003D82] transition-colors">
+                                                            {project.tenduan}
+                                                        </h3>
+                                                    </div>
+                                                    <Badge className={`${getStatusColor(project.status)} px-3 py-1 text-xs font-semibold ml-2 shadow-sm`}>
                                                         {getStatusText(project.status)}
                                                     </Badge>
                                                 </div>
                                                 
                                                 {project.mota && (
-                                                    <p className="text-sm text-slate-600 mb-4 line-clamp-2">
+                                                    <p className="text-sm text-slate-600 mb-5 line-clamp-2 leading-relaxed">
                                                         {project.mota}
                                                     </p>
                                                 )}
 
-                                                <div className="mb-4">
-                                                    <div className="flex justify-between items-center mb-2">
-                                                        <span className="text-sm text-slate-600">Tiến độ</span>
-                                                        <span className="text-sm font-semibold text-[#003D82]">
+                                                <div className="mb-5">
+                                                    <div className="flex justify-between items-center mb-3">
+                                                        <span className="text-sm font-medium text-slate-700">Tiến độ hoàn thành</span>
+                                                        <span className="text-lg font-bold text-[#003D82]">
                                                             {progress}%
                                                         </span>
                                                     </div>
-                                                    <Progress value={progress} className="h-2" />
-                                                </div>
-
-                                                <div className="flex items-center gap-4 text-sm">
-                                                    <div className="flex items-center gap-1 text-slate-600">
-                                                        <Target className="w-4 h-4" />
-                                                        <span>{taskCount} nhiệm vụ</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-1 text-green-600">
-                                                        <CheckCircle2 className="w-4 h-4" />
-                                                        <span>{completedCount} hoàn thành</span>
+                                                    <div className="relative">
+                                                        <Progress value={progress} className="h-3 bg-slate-200" />
+                                                        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"></div>
                                                     </div>
                                                 </div>
 
-                                                <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                                                    <div className="flex items-center gap-1">
-                                                        <Calendar className="w-3 h-3" />
-                                                        {new Date(project.ngaybatdau).toLocaleDateString('vi-VN')}
+                                                <div className="flex items-center gap-6 mb-4">
+                                                    <div className="flex items-center gap-2 text-sm">
+                                                        <div className="p-2 bg-blue-50 rounded-lg">
+                                                            <Target className="w-4 h-4 text-blue-600" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-xs text-slate-500">Nhiệm vụ</p>
+                                                            <p className="font-bold text-slate-900">{taskCount}</p>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex items-center gap-1">
-                                                        <Clock className="w-3 h-3" />
-                                                        {new Date(project.ngayketthuc).toLocaleDateString('vi-VN')}
+                                                    <div className="flex items-center gap-2 text-sm">
+                                                        <div className="p-2 bg-green-50 rounded-lg">
+                                                            <CheckCircle2 className="w-4 h-4 text-green-600" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-xs text-slate-500">Hoàn thành</p>
+                                                            <p className="font-bold text-green-600">{completedCount}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="pt-4 border-t border-slate-200 flex items-center justify-between text-xs">
+                                                    <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 rounded-lg">
+                                                        <Calendar className="w-3.5 h-3.5 text-slate-600" />
+                                                        <span className="text-slate-700 font-medium">{new Date(project.ngaybatdau).toLocaleDateString('vi-VN')}</span>
+                                                    </div>
+                                                    <div className="text-slate-400">→</div>
+                                                    <div className="flex items-center gap-2 px-3 py-2 bg-slate-100 rounded-lg">
+                                                        <Clock className="w-3.5 h-3.5 text-slate-600" />
+                                                        <span className="text-slate-700 font-medium">{new Date(project.ngayketthuc).toLocaleDateString('vi-VN')}</span>
                                                     </div>
                                                 </div>
                                             </Card>

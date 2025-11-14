@@ -189,8 +189,7 @@ export default function AdminNotificationsPage() {
     const stats = {
         total: notifications.length,
         published: notifications.filter(n => n.status === "published").length,
-        draft: notifications.filter(n => n.status === "draft").length,
-        totalReads: 0 // API doesn't provide read count yet
+        draft: notifications.filter(n => n.status === "draft").length
     }
 
     if (loading) {
@@ -213,7 +212,7 @@ export default function AdminNotificationsPage() {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
                     <div className="flex items-center justify-between">
                         <div>
@@ -244,15 +243,7 @@ export default function AdminNotificationsPage() {
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <p className="text-sm font-medium text-gray-600">Lượt đọc</p>
-                            <p className="text-2xl font-bold text-purple-600">{stats.totalReads}</p>
-                        </div>
-                        <Eye className="w-8 h-8 text-purple-600" />
-                    </div>
-                </div>
+
             </div>
 
             {/* Filters and Create Button */}
@@ -325,9 +316,6 @@ export default function AdminNotificationsPage() {
                                     Trạng thái
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Lượt đọc
-                                </th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Ngày tạo
                                 </th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -390,14 +378,7 @@ export default function AdminNotificationsPage() {
                                             </button>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm text-gray-900">
-                                            N/A
-                                        </div>
-                                        <div className="text-xs text-gray-500">
-                                            Chưa có dữ liệu
-                                        </div>
-                                    </td>
+
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="flex items-center text-sm text-gray-900">
                                             <Calendar className="w-4 h-4 text-gray-400 mr-1" />
@@ -452,9 +433,9 @@ export default function AdminNotificationsPage() {
 
             {/* Create/Edit Modal */}
             {(isCreateModalOpen || editingNotification) && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                        <div className="p-6 border-b border-gray-200">
+                <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-2">
+                    <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl border border-gray-200">
+                        <div className="p-4 border-b border-gray-200">
                             <div className="flex items-center justify-between">
                                 <h2 className="text-xl font-bold text-gray-900">
                                     {editingNotification ? "Chỉnh sửa thông báo" : "Tạo thông báo mới"}
@@ -471,8 +452,8 @@ export default function AdminNotificationsPage() {
                             </div>
                         </div>
 
-                        <div className="p-6">
-                            <div className="space-y-6">
+                        <div className="p-4">
+                            <div className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Tiêu đề *
@@ -551,7 +532,7 @@ export default function AdminNotificationsPage() {
                             </div>
                         </div>
 
-                        <div className="p-6 border-t border-gray-200 flex gap-3">
+                        <div className="p-4 border-t border-gray-200 flex gap-3">
                             <button
                                 onClick={() => {
                                     setIsCreateModalOpen(false)

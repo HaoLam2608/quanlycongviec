@@ -2,8 +2,9 @@
 import React, { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { usePathname, useRouter } from "next/navigation"
-import { authAPI } from "@/axios/api"
+import { authAPI, getMyProfile } from "@/axios/api"
 import NotificationBell from "@/components/NotificationBell"
 import { useToastContext } from "@/components/providers/toast-provider"
 import { showConfirm } from '@/lib/notifications'
@@ -67,19 +68,55 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
 
     // Load user info from localStorage
     useEffect(() => {
-        const loadUserInfo = () => {
+        const loadUserInfo = async () => {
             const token = localStorage.getItem('accessToken')
             const userId = localStorage.getItem('userId')
-            const hoten = localStorage.getItem('hoten')
-            const manv = localStorage.getItem('manv')
-            const role = localStorage.getItem('role')
+            const hotenLS = localStorage.getItem('hoten')
+            const manvLS = localStorage.getItem('manv')
+            const roleLS = localStorage.getItem('role')
+
+            // Try to fetch fresh profile from API (preferred)
+            if (token) {
+                try {
+                    const user = await getMyProfile()
+
+                    // Profile page sets avatar as avatarUrl or fallback `/users/:id/avatar`
+                    let avatar = user.avatarUrl || user.avatar || `/users/${user.id}/avatar`
+
+                    // If avatar is a relative path, prefix API base URL
+                    if (avatar && !avatar.startsWith('http') && !avatar.startsWith('data:')) {
+                        const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
+                        avatar = `${base.replace(/\/$/, '')}${avatar.startsWith('/') ? '' : '/'}${avatar}`
+                    }
+
+                    setCurrentUser({
+                        id: user.id,
+                        hoten: user.hoten || hotenLS || user.name || '',
+                        manv: user.manv || manvLS || '',
+                        role: user.role?.name || roleLS || '',
+                        avatar
+                    })
+
+                    return
+                } catch (err) {
+                    // If API call fails, fall back to localStorage values
+                    console.warn('getMyProfile failed, falling back to localStorage', err)
+                }
+            }
+
+            // Fallback: read from localStorage (legacy behavior)
+            const hoten = hotenLS
+            const manv = manvLS
+            const role = roleLS
+            const avatarLS = localStorage.getItem('avatar')
 
             if (token && userId && hoten) {
                 setCurrentUser({
                     id: parseInt(userId),
                     hoten,
                     manv,
-                    role
+                    role,
+                    avatar: avatarLS
                 })
             }
         }
@@ -229,8 +266,19 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                     {/* User section */}
                     <div className="flex-shrink-0 border-t border-gray-200">
                         <div className="flex items-center p-4">
-                            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                                <User className="w-4 h-4 text-white" />
+                            <div>
+                                {currentUser?.avatar ? (
+                                    <Avatar className="w-8 h-8">
+                                        <AvatarImage src={currentUser.avatar} alt={currentUser?.hoten || 'Member'} />
+                                        <AvatarFallback className="text-xs">
+                                            {(currentUser?.hoten || 'M').substring(0, 2).toUpperCase()}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                ) : (
+                                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                        <User className="w-4 h-4 text-white" />
+                                    </div>
+                                )}
                             </div>
                             <div className="ml-3 flex-1">
                                 <p className="text-sm font-medium text-gray-700">
@@ -280,9 +328,20 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                         </button>
 
                         {/* User menu */}
-                        <div className="relative flex items-center space-x-3">
-                            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                                <User className="w-4 h-4 text-white" />
+                            <div className="relative flex items-center space-x-3">
+                            <div>
+                                {currentUser?.avatar ? (
+                                    <Avatar className="w-8 h-8">
+                                        <AvatarImage src={currentUser.avatar} alt={currentUser?.hoten || 'Member'} />
+                                        <AvatarFallback className="text-xs">
+                                            {(currentUser?.hoten || 'M').substring(0, 2).toUpperCase()}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                ) : (
+                                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                        <User className="w-4 h-4 text-white" />
+                                    </div>
+                                )}
                             </div>
                             <div className="hidden lg:block">
                                 <p className="text-sm font-medium text-gray-700">

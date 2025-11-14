@@ -113,7 +113,12 @@ export default function ManagerTasksPage() {
                 try {
                     const taskRes = await getTasksByProject(proj.id)
                     const projectTasks = (taskRes.tasks || taskRes || []) as Task[]
-                    allTasks = [...allTasks, ...projectTasks]
+                    // Ensure each task has project info
+                    const tasksWithProject = projectTasks.map(task => ({
+                        ...task,
+                        duan: task.duan || { id: proj.id, tenduan: proj.tenduan }
+                    }))
+                    allTasks = [...allTasks, ...tasksWithProject]
                 } catch (e) {
                     // ignore
                 }
@@ -616,7 +621,9 @@ export default function ManagerTasksPage() {
                                                 <td className="p-4">
                                                     <div className="flex items-center gap-2">
                                                         <FolderOpen className="w-4 h-4 text-blue-600" />
-                                                        <span className="text-sm text-slate-700">{task.duan?.tenduan || 'N/A'}</span>
+                                                        <span className="text-sm text-slate-700 font-medium">
+                                                            {task.duan?.tenduan || projects.find(p => p.id === task.duanId)?.tenduan || 'Chưa xác định'}
+                                                        </span>
                                                     </div>
                                                 </td>
                                                 <td className="p-4">
@@ -645,11 +652,30 @@ export default function ManagerTasksPage() {
                                                     </Badge>
                                                 </td>
                                                 <td className="p-4">
-                                                    {task.ngayKetThuc && (
-                                                        <div className="flex items-center gap-2 text-sm text-slate-600">
-                                                            <Calendar className="w-4 h-4" />
-                                                            {new Date(task.ngayKetThuc).toLocaleDateString('vi-VN')}
+                                                    {task.ngayKetThuc ? (
+                                                        <div className="flex flex-col gap-1">
+                                                            <div className="flex items-center gap-2 text-sm text-slate-600">
+                                                                <Calendar className="w-4 h-4" />
+                                                                <span className="font-medium">
+                                                                    {new Date(task.ngayKetThuc).toLocaleDateString('vi-VN', {
+                                                                        day: '2-digit',
+                                                                        month: '2-digit',
+                                                                        year: 'numeric'
+                                                                    })}
+                                                                </span>
+                                                            </div>
+                                                            {task.ngayBatDau && (
+                                                                <div className="text-xs text-slate-400">
+                                                                    Bắt đầu: {new Date(task.ngayBatDau).toLocaleDateString('vi-VN', {
+                                                                        day: '2-digit',
+                                                                        month: '2-digit',
+                                                                        year: 'numeric'
+                                                                    })}
+                                                                </div>
+                                                            )}
                                                         </div>
+                                                    ) : (
+                                                        <span className="text-sm text-slate-400 italic">Chưa có hạn</span>
                                                     )}
                                                 </td>
                                                 <td className="p-4">
@@ -715,7 +741,9 @@ export default function ManagerTasksPage() {
                                                 </div>
                                                 <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
                                                     <FolderOpen className="w-3 h-3" />
-                                                    <span>{task.duan?.tenduan}</span>
+                                                    <span className="font-medium">
+                                                        {task.duan?.tenduan || projects.find(p => p.id === task.duanId)?.tenduan || 'Chưa xác định'}
+                                                    </span>
                                                 </div>
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-2">
@@ -731,7 +759,13 @@ export default function ManagerTasksPage() {
                                                 {task.ngayKetThuc && (
                                                     <div className="mt-2 flex items-center gap-1 text-xs text-slate-500">
                                                         <Calendar className="w-3 h-3" />
-                                                        {new Date(task.ngayKetThuc).toLocaleDateString('vi-VN')}
+                                                        <span className="font-medium">
+                                                            Hạn: {new Date(task.ngayKetThuc).toLocaleDateString('vi-VN', {
+                                                                day: '2-digit',
+                                                                month: '2-digit',
+                                                                year: 'numeric'
+                                                            })}
+                                                        </span>
                                                     </div>
                                                 )}
                                             </Card>

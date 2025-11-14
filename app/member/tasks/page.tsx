@@ -621,13 +621,13 @@ export default function MyTasksPage() {
                                 <div className="pt-4 border-t border-gray-200 space-y-4">
                                     {selectedTask.type === 'subtask' && selectedTask.id ? (
                                         <>
-                                            <WorklogSubtask subtaskId={selectedTask.id} />
-                                            <CommentSubtask subtaskId={selectedTask.id} />
+                                            <WorklogSubtask subtaskId={selectedTask.id} subtaskStatus={selectedTask.status} />
+                                            <CommentSubtask subtaskId={selectedTask.id} subtaskStatus={selectedTask.status} />
                                         </>
                                     ) : selectedTask.id ? (
                                         <>
-                                            <WorklogTask taskId={selectedTask.id} />
-                                            <CommentTask taskId={selectedTask.id} />
+                                            <WorklogTask taskId={selectedTask.id} taskStatus={selectedTask.status} />
+                                            <CommentTask taskId={selectedTask.id} taskStatus={selectedTask.status} />
                                         </>
                                     ) : null}
                                 </div>

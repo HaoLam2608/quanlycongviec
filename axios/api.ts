@@ -503,22 +503,25 @@ export const getMemberProjects = async () => {
 
 // Public stats for homepage (no auth required)
 export const getPublicStats = async () => {
-  // Landing page should not call protected APIs
-  // Return demo/mock data for public display
-  // If you need real stats, create a public endpoint in backend without auth
-  return new Promise<{
-    totalProjects: number;
-    totalUsers: number;
-    totalTasks: number;
-    activeProjects: number;
-  }>((resolve) => {
-    setTimeout(() => {
-      resolve({
-        totalProjects: 50,
-        totalUsers: 100,
-        totalTasks: 250,
-        activeProjects: 35,
-      });
-    }, 500);
-  });
+  try {
+    const response = await api.get('/public/stats');
+    return {
+      totalProjects: response.data.totalProjects || 0,
+      totalUsers: response.data.totalUsers || 0,
+      totalTasks: response.data.totalTasks || 0,
+      activeProjects: response.data.activeProjects || 0,
+      completionRate: response.data.completionRate || 0,
+    };
+  } catch (error) {
+    console.error('Error fetching public stats:', error);
+    // Return fallback data if API fails
+    return {
+      totalProjects: 0,
+      totalUsers: 0,
+      totalTasks: 0,
+      activeProjects: 0,
+      completionRate: 0,
+    };
+  }
 };
+
