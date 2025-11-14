@@ -25,6 +25,7 @@ const upload = multer({ storage });
 
 // routes...
 app.use('/auth', require('./routes/authRoutes'));
+app.use('/public', require('./routes/publicRoutes')); // Public routes (no auth)
 app.use('/duan', duanRoutes);
 app.use('/users', (req, res, next) => { req.upload = upload; next(); }, require('./routes/userRoutes'));
 app.use('/roles', require('./routes/roleRoutes'));

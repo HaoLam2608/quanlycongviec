@@ -12,8 +12,6 @@ const {
   Group,
   GroupProject
 } = require('../models');
-const path = require('path');
-const fs = require('fs');
 
 /**
  * Extract user IDs from @mentions in text
@@ -137,17 +135,9 @@ const createComment = async (req, res) => {
             throw new Error(`File ${file.originalname} quá lớn. Tối đa 1MB cho lưu trữ trong database.`);
           }
           
-          // Read file and convert to base64
-          const fileBuffer = fs.readFileSync(file.path);
-          const base64Data = fileBuffer.toString('base64');
+          // Convert buffer to base64 (multer is using memoryStorage)
+          const base64Data = file.buffer.toString('base64');
           console.log('Base64 length:', base64Data.length, 'bytes');
-          
-          // Delete the temporary file after reading
-          try {
-            fs.unlinkSync(file.path);
-          } catch (err) {
-            console.error('Error deleting temp file:', err);
-          }
           
           return {
             filename: file.originalname,
@@ -212,8 +202,18 @@ const createComment = async (req, res) => {
     
     return res.status(201).json(result);
   } catch (err) {
-    console.error('createComment error', err);
-    return res.status(500).json({ message: 'Internal server error' });
+    console.error('❌ createComment error:', err);
+    console.error('Error stack:', err.stack);
+    console.error('Error details:', {
+      message: err.message,
+      name: err.name,
+      taskId: req.body.taskId,
+      subtaskId: req.body.subtaskId
+    });
+    return res.status(500).json({ 
+      message: 'Internal server error', 
+      error: err.message 
+    });
   }
 };
 
