@@ -1,22 +1,22 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     Alert,
+    Animated,
     Dimensions,
     KeyboardAvoidingView,
     Platform,
     SafeAreaView,
     ScrollView,
+    StatusBar,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
     View,
-    Animated,
-    StatusBar,
 } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { loginUser } from '../src/axios/api';
 
 const { width, height } = Dimensions.get('window');
@@ -26,7 +26,7 @@ export default function LoginScreen() {
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
-    
+
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const slideAnim = useRef(new Animated.Value(30)).current;
 
@@ -54,10 +54,12 @@ export default function LoginScreen() {
         setIsLoading(true);
         try {
             const response = await loginUser({ manv: manv.trim(), password });
-
             // Lưu thông tin đăng nhập vào AsyncStorage
             if (response.accessToken) {
                 try {
+                    // Backend trả userId ở root level, không phải response.user.id
+                    const userIdValue = response.userId ? String(response.userId) : '';
+
                     // Tạo user object từ response
                     const userObject = {
                         id: response.userId,
@@ -71,6 +73,10 @@ export default function LoginScreen() {
                     await AsyncStorage.multiSet([
                         ['accessToken', response.accessToken],
                         ['refreshToken', response.refreshToken || ''],
+                        ['manv', response.manv || manv],
+                        ['hoten', response.hoten || ''],
+                        ['role', response.role || ''],
+                        ['userId', userIdValue],
                         ['user', JSON.stringify(userObject)], // Lưu user object đã construct
                         ['manv', userObject.manv],
                         ['hoten', userObject.hoten],
@@ -81,6 +87,8 @@ export default function LoginScreen() {
                     console.log('✅ Đăng nhập thành công:', response);
                     console.log('👤 User object đã lưu:', userObject);
 
+                    // Điều hướng theo role - backend trả role ở root level
+                    const userRole = response.role;
                     // Điều hướng theo role
                     const userRole = response.role;
                     switch (userRole) {
@@ -92,7 +100,7 @@ export default function LoginScreen() {
                             break;
                         case 'employee':
                         default:
-                            router.replace('/(tabs)');
+                            router.replace('/(tabs)/member-dashboard/' as any);
                             break;
                     }
                 } catch (storageError) {
@@ -158,7 +166,7 @@ export default function LoginScreen() {
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                     style={styles.keyboardAvoid}
                 >
-                    <ScrollView 
+                    <ScrollView
                         contentContainerStyle={styles.scrollContainer}
                         showsVerticalScrollIndicator={false}
                     >
@@ -167,7 +175,7 @@ export default function LoginScreen() {
                             <Text style={styles.backButtonText}>←</Text>
                         </TouchableOpacity>
 
-                        <Animated.View 
+                        <Animated.View
                             style={[
                                 styles.content,
                                 {
@@ -219,7 +227,7 @@ export default function LoginScreen() {
                                             autoCapitalize="none"
                                             editable={!isLoading}
                                         />
-                                        <TouchableOpacity 
+                                        <TouchableOpacity
                                             onPress={() => setShowPassword(!showPassword)}
                                             style={styles.eyeButton}
                                         >

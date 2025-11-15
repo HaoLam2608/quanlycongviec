@@ -1,3 +1,5 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { API_CONFIG, STORAGE_KEYS } from '../config/api';
 import api from "./config";
 
 export const registerUser = async (data: {
@@ -183,15 +185,57 @@ export const uploadDocument = async (file: File, duanId?: number, description?: 
   }
 };
 
-export const uploadAvatar = async (file: File) => {
+export const uploadAvatar = async (file: { uri: string; type: string; name: string; mimeType?: string }) => {
   try {
     const form = new FormData();
-    form.append('avatar', file);
+    
+    // React Native FormData syntax  
+    form.append('avatar', {
+      uri: file.uri,
+      type: file.mimeType || file.type || 'image/jpeg',
+      name: file.name,
+    } as any);
 
-    const res = await api.post('/users/avatar', form, { headers: { 'Content-Type': 'multipart/form-data' } });
-    return res.data;
+    console.log('🔄 FormData created for upload');
+
+    // Lấy token để authenticate
+    const token = await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+    
+    const headers: any = {};
+    
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    console.log('🔄 Upload headers:', headers);
+    console.log('🔄 Using fetch API for upload');
+
+    // Sử dụng fetch thay vì axios cho upload - reliable hơn với FormData
+    const response = await fetch(`${API_CONFIG.BASE_URL}/users/avatar`, {
+      method: 'POST',
+      headers,
+      body: form,
+    });
+
+    console.log('🔄 Fetch response status:', response.status);
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('❌ Fetch error response:', errorData);
+      throw new Error(`HTTP ${response.status}: ${errorData}`);
+    }
+
+    const data = await response.json();
+    console.log('✅ Upload success:', data);
+    return data;
+
   } catch (err: any) {
-    throw err.response?.data || { message: 'Không thể upload avatar' };
+    console.error('❌ Upload error:', err);
+    if (err.response) {
+      console.error('❌ Upload error response data:', err.response.data);
+      throw err.response.data;
+    }
+    throw err;
   }
 };
 
@@ -486,6 +530,15 @@ export const getUpcomingTasks = async (days: number = 7) => {
   }
 };
 
+export const getOverdueTasks = async () => {
+  try {
+    const res = await api.get('/members/tasks/overdue');
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy công việc quá hạn" };
+  }
+};
+
 export const getRecentActivities = async (limit: number = 10) => {
   try {
     const res = await api.get(`/members/activities/recent?limit=${limit}`);
@@ -589,5 +642,61 @@ export const getPublicStats = async () => {
       totalTasks: 0,
       activeProjects: 0,
     };
+  }
+};
+
+// ==================== NOTIFICATION APIs ====================
+
+export const getMyNotifications = async (params?: { limit?: number }) => {
+  try {
+    const res = await api.get('/notifications/user', { params });
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy danh sách thông báo" };
+  }
+};
+
+export const markNotificationAsRead = async (notificationId: string) => {
+  try {
+    const res = await api.post(`/notifications/${notificationId}/mark-read`);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể đánh dấu đã đọc" };
+  }
+};
+
+export const markAllNotificationsAsRead = async () => {
+  try {
+    const res = await api.patch('/notifications/mark-all-read');
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể đánh dấu tất cả đã đọc" };
+  }
+};
+
+export const getAssignmentDetails = async (assignmentId: string) => {
+  try {
+    const res = await api.get(`/assignments/${assignmentId}`);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy thông tin giao việc" };
+  }
+};
+
+export const acceptAssignment = async (assignmentId: string) => {
+  try {
+    const res = await api.post(`/assignments/${assignmentId}/accept`);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể chấp nhận giao việc" };
+  }
+};
+
+export const declineAssignment = async (assignmentId: string, data: { reason: string }) => {
+  try {
+    const res = await api.post(`/assignments/${assignmentId}/decline`, data);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể từ chối giao việc" };
   }
 };

@@ -23,6 +23,8 @@ api.interceptors.request.use(
     } catch (e) {
       console.warn('Unable to preview request data for logging', e);
     }
+    console.log('📤 Request data:', config.data);
+    console.log('📤 Request headers before auth:', config.headers);
     
     try {
       const token = await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
@@ -32,6 +34,16 @@ api.interceptors.request.use(
     } catch (error) {
       console.error('Error getting token from storage:', error);
     }
+    
+    // Xử lý multipart/form-data uploads
+    if (config.data instanceof FormData || 
+        (config.headers && config.headers['Content-Type'] === 'multipart/form-data')) {
+      // Xóa Content-Type để axios tự set boundary
+      delete config.headers['Content-Type'];
+      console.log('📤 FormData detected, Content-Type removed for auto boundary');
+    }
+    
+    console.log('📤 Final request headers:', config.headers);
     return config;
   },
   (error) => {
@@ -88,28 +100,28 @@ api.interceptors.response.use(
     if (status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
-        const refreshToken = await AsyncStorage.getItem("refreshToken");
+        const refreshToken = await AsyncStorage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
         if (!refreshToken) throw new Error('Missing refresh token');
         
-        const response = await axios.post("http://localhost:5000/auth/refresh", { refreshToken });
+        const response = await axios.post(`${API_CONFIG.BASE_URL}/auth/refresh`, { refreshToken });
         const newAccessToken = response.data.accessToken;
         
         // Lưu token mới
-        await AsyncStorage.setItem("accessToken", newAccessToken);
+        await AsyncStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, newAccessToken);
         originalRequest.headers["Authorization"] = `Bearer ${newAccessToken}`;
         return api(originalRequest);
       } catch (refreshError) {
         // Xóa tất cả dữ liệu liên quan đến authentication
         try {
           const keysToRemove = [
-            'accessToken',
-            'refreshToken', 
-            'manv',
-            'hoten',
-            'role',
-            'avatar',
-            'userId',
-            'token'
+            STORAGE_KEYS.ACCESS_TOKEN,
+            STORAGE_KEYS.REFRESH_TOKEN, 
+            STORAGE_KEYS.MANV,
+            STORAGE_KEYS.HOTEN,
+            STORAGE_KEYS.ROLE,
+            STORAGE_KEYS.AVATAR,
+            STORAGE_KEYS.USER_ID,
+            'token' // legacy key
           ];
           await AsyncStorage.multiRemove(keysToRemove);
         } catch (e) {
@@ -123,7 +135,7 @@ api.interceptors.response.use(
             type: 'refreshFailed',
             message: refreshError?.toString?.() || String(refreshError)
           }
-          await AsyncStorage.setItem('lastAuthEvent', JSON.stringify(ev));
+          await AsyncStorage.setItem(STORAGE_KEYS.LAST_AUTH_EVENT, JSON.stringify(ev));
         } catch (e) {
           // ignore
         }
@@ -138,7 +150,7 @@ api.interceptors.response.use(
       console.warn('Permission denied:', message);
       try {
         // Lưu thông tin lỗi permission denied
-        await AsyncStorage.setItem('lastAuthEvent', JSON.stringify({ 
+        await AsyncStorage.setItem(STORAGE_KEYS.LAST_AUTH_EVENT, JSON.stringify({ 
           time: new Date().toISOString(), 
           type: 'permissionDenied', 
           message 
