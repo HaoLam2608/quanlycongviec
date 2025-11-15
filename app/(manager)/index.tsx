@@ -137,7 +137,7 @@ export default function ManagerDashboard() {
     if (loading) {
         return (
             <SafeAreaView style={styles.container}>
-                <View style={styles.header}>
+                <View style={styles.headerContainer}>
                     <PageHeader
                         title="Bảng điều khiển Manager"
                         subtitle="Quản lý dự án và nhóm làm việc"
@@ -304,6 +304,50 @@ export default function ManagerDashboard() {
                                 <Text style={styles.drawerItemSubtitle}>Theo dõi tiến độ</Text>
                             </View>
                         </TouchableOpacity>
+                        
+                        <TouchableOpacity 
+                            style={styles.drawerItem}
+                            onPress={() => {
+                                setMenuVisible(false);
+                                router.push('/(manager)/timeline');
+                            }}
+                        >
+                            <Text style={styles.drawerIcon}>📅</Text>
+                            <View style={styles.drawerItemContent}>
+                                <Text style={styles.drawerItemTitle}>Timeline (Lịch)</Text>
+                                <Text style={styles.drawerItemSubtitle}>Xem công việc theo ngày</Text>
+                            </View>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity 
+                            style={styles.drawerItem}
+                            onPress={() => {
+                                setMenuVisible(false);
+                                router.push('/(manager)/reports');
+                            }}
+                        >
+                            <Text style={styles.drawerIcon}>📈</Text>
+                            <View style={styles.drawerItemContent}>
+                                <Text style={styles.drawerItemTitle}>Báo cáo</Text>
+                                <Text style={styles.drawerItemSubtitle}>Thống kê dự án</Text>
+                            </View>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity 
+                            style={styles.drawerItem}
+                            onPress={() => {
+                                setMenuVisible(false);
+                                router.push('/(manager)/profile');
+                            }}
+                        >
+                            <Text style={styles.drawerIcon}>👤</Text>
+                            <View style={styles.drawerItemContent}>
+                                <Text style={styles.drawerItemTitle}>Hồ sơ</Text>
+                                <Text style={styles.drawerItemSubtitle}>Thông tin quản lý</Text>
+                            </View>
+                        </TouchableOpacity>
+                        
+                        
                     </View>
                 </Pressable>
             </Modal>

@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+// header actions removed: no top 'Hồ sơ' button
 import { Fonts } from '@/constants/theme';
 
 interface PageHeaderProps {
@@ -40,8 +41,10 @@ export function PageHeader({ title, subtitle, role }: PageHeaderProps) {
                     </View>
                 )}
             </View>
+            {/* header actions intentionally removed */}
         </View>
     );
+
 }
 
 const styles = StyleSheet.create({
@@ -86,5 +89,20 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontWeight: '600',
         fontFamily: Fonts?.sans || undefined,
+    },
+    actions: {
+        position: 'absolute',
+        right: 16,
+        top: 18,
+    },
+    profileBtn: {
+        backgroundColor: '#eef2ff',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 8,
+    },
+    profileBtnText: {
+        color: '#1e40af',
+        fontWeight: '700',
     },
 });

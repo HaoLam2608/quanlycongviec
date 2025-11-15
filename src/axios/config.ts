@@ -14,7 +14,15 @@ const api = axios.create({
 api.interceptors.request.use(
   async (config) => {
     console.log(`🔄 API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
-    console.log('📤 Request data:', config.data);
+    try {
+      if (config.data && typeof config.data === 'object') {
+        console.log('📤 Request data keys:', Object.keys(config.data));
+      } else {
+        console.log('📤 Request data:', config.data);
+      }
+    } catch (e) {
+      console.warn('Unable to preview request data for logging', e);
+    }
     
     try {
       const token = await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
@@ -36,7 +44,29 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (res) => {
     console.log(`✅ API Response: ${res.config.method?.toUpperCase()} ${res.config.url}`);
-    console.log('📥 Response data:', res.data);
+    try {
+      if (res.data && typeof res.data === 'object') {
+        console.log('📥 Response keys:', Object.keys(res.data));
+        // Friendly, small preview for user objects
+        if ((res.data as any).user) {
+          const u = (res.data as any).user;
+          console.log('👤 user preview:', {
+            id: u.id,
+            hoten: u.hoten,
+            manv: u.manv,
+            email: u.email,
+            chucvu: u.chucvu,
+            avatarUrl: u.avatarUrl || u.avatar
+          });
+        } else if (Object.keys(res.data).length <= 6) {
+          console.log('📥 Response data (shallow):', res.data);
+        }
+      } else {
+        console.log('📥 Response data:', res.data);
+      }
+    } catch (e) {
+      console.warn('Unable to preview response data for logging', e);
+    }
     console.log('📊 Response status:', res.status);
     return res;
   },

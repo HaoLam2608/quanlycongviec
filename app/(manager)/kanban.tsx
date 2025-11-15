@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
     SafeAreaView, StyleSheet, Text, View, ScrollView, TouchableOpacity,
-    ActivityIndicator, RefreshControl, Alert, FlatList,
+    ActivityIndicator, RefreshControl, Alert, FlatList, Modal, TextInput, Platform,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { fetchProjectsByManager, getKanbanTasks } from '@/src/axios/api';
+import { fetchProjectsByManager, getKanbanTasks, updateTaskStatus, createTask } from '@/src/axios/api';
 import { PageHeader } from '../../components/ui/PageHeader';
 
 interface Task {
@@ -41,6 +41,14 @@ export default function KanbanBoard() {
         { status: 'Chờ xác nhận hoàn thành', title: 'Chờ xác nhận', tasks: [], color: '#3b82f6' },
         { status: 'Hoàn thành', title: 'Hoàn thành', tasks: [], color: '#10b981' },
     ]);
+    // Create task modal state
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [newTitle, setNewTitle] = useState('');
+    const [newDesc, setNewDesc] = useState('');
+    const [newStart, setNewStart] = useState('');
+    const [newEnd, setNewEnd] = useState('');
+    const [newPriority, setNewPriority] = useState<'low'|'medium'|'high'>('medium');
+    const [creatingTask, setCreatingTask] = useState(false);
 
     useEffect(() => {
         loadProjects();
@@ -81,13 +89,15 @@ export default function KanbanBoard() {
         try {
             setLoading(true);
             const kanbanData = await getKanbanTasks(projectId);
-            
-            // Organize tasks by status
+            // Some backends return { kanban: { status: [...] }, stats: {...} }
+            const source = (kanbanData && (kanbanData.kanban || kanbanData)) || {};
+
+            // Organize tasks by status (be defensive if a status key is missing)
             const newColumns = columns.map(col => ({
                 ...col,
-                tasks: kanbanData[col.status] || []
+                tasks: Array.isArray(source[col.status]) ? source[col.status] : []
             }));
-            
+
             setColumns(newColumns);
         } catch (error) {
             console.error('Error loading kanban data:', error);
@@ -128,6 +138,16 @@ export default function KanbanBoard() {
             <View style={styles.taskHeader}>
                 <View style={[styles.priorityDot, { backgroundColor: getPriorityColor(task.mucDoUuTien) }]} />
                 <Text style={styles.taskTitle} numberOfLines={2}>{task.tentask}</Text>
+                <TouchableOpacity style={styles.taskActionBtn} onPress={() => {
+                    // show status change options
+                    const otherStatuses = columns.map(c => c.status).filter(s => s !== task.trangThai);
+                    Alert.alert('Chuyển trạng thái', 'Chọn trạng thái mới', [
+                        ...otherStatuses.map(s => ({ text: s, onPress: () => handleChangeTaskStatus(task.id, s) })),
+                        { text: 'Huỷ', style: 'cancel' }
+                    ]);
+                }}>
+                    <Text style={styles.taskActionText}>⋯</Text>
+                </TouchableOpacity>
             </View>
             
             {task.mota && (
@@ -152,6 +172,58 @@ export default function KanbanBoard() {
             </Text>
         </TouchableOpacity>
     );
+
+    const handleChangeTaskStatus = async (taskId: number, status: string) => {
+        try {
+            setLoading(true);
+            await updateTaskStatus(taskId, status);
+            await loadKanbanData(selectedProject.id);
+        } catch (err) {
+            console.error('Error updating task status', err);
+            Alert.alert('Lỗi', 'Không thể cập nhật trạng thái');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCreateTask = async () => {
+        if (!selectedProject) return Alert.alert('Lỗi', 'Chưa chọn dự án');
+        if (!newTitle.trim()) return Alert.alert('Lỗi', 'Vui lòng nhập tiêu đề');
+        if (!newEnd.trim()) return Alert.alert('Lỗi', 'Vui lòng nhập ngày kết thúc (YYYY-MM-DD)');
+        if (newStart && newEnd) {
+            const s = new Date(newStart);
+            const e = new Date(newEnd);
+            if (isNaN(s.getTime()) || isNaN(e.getTime()) || s > e) return Alert.alert('Lỗi', 'Ngày bắt đầu phải trước hoặc bằng ngày kết thúc');
+        }
+        try {
+            setCreatingTask(true);
+            const userData = await AsyncStorage.getItem('user');
+            let userId = undefined;
+            if (userData) {
+                const u = JSON.parse(userData);
+                userId = Number(u.id);
+            }
+            await createTask({
+                tentask: newTitle,
+                mota: newDesc || undefined,
+                duanId: Number(selectedProject.id),
+                nguoiDuocGiaoId: userId || 0,
+                ngayBatDau: newStart || undefined,
+                ngayKetThuc: newEnd,
+                mucDoUuTien: newPriority,
+                ghiChu: undefined,
+            });
+            Alert.alert('Thành công', 'Tạo công việc thành công');
+            setShowCreateModal(false);
+            setNewTitle(''); setNewDesc(''); setNewStart(''); setNewEnd(''); setNewPriority('medium');
+            await loadKanbanData(selectedProject.id);
+        } catch (err) {
+            console.error('Create task error', err);
+            Alert.alert('Lỗi', 'Không thể tạo công việc');
+        } finally {
+            setCreatingTask(false);
+        }
+    };
 
     const renderColumn = (column: KanbanColumn) => (
         <View key={column.status} style={styles.column}>
@@ -241,6 +313,41 @@ export default function KanbanBoard() {
                     <Text style={styles.noProjectText}>Vui lòng tạo dự án mới để sử dụng Kanban Board</Text>
                 </View>
             )}
+
+            {/* Floating create task button */}
+            <TouchableOpacity style={styles.fab} onPress={() => setShowCreateModal(true)}>
+                <Text style={styles.fabText}>+</Text>
+            </TouchableOpacity>
+
+            {/* Create Task Modal */}
+            <Modal visible={showCreateModal} animationType="slide" transparent>
+                <View style={modalStyles.modalOverlay}>
+                    <View style={modalStyles.modalContent}>
+                        <Text style={modalStyles.modalTitle}>Tạo công việc mới</Text>
+                        <TextInput placeholder="Tiêu đề" value={newTitle} onChangeText={setNewTitle} style={modalStyles.input} />
+                        <TextInput placeholder="Mô tả" value={newDesc} onChangeText={setNewDesc} style={[modalStyles.input, { height: 80 }]} multiline />
+                        <TextInput placeholder="Ngày bắt đầu (YYYY-MM-DD)" value={newStart} onChangeText={setNewStart} style={modalStyles.input} />
+                        <TextInput placeholder="Ngày kết thúc (YYYY-MM-DD)" value={newEnd} onChangeText={setNewEnd} style={modalStyles.input} />
+
+                        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                            {['high','medium','low'].map(p => (
+                                <TouchableOpacity key={p} onPress={() => setNewPriority(p as any)} style={[modalStyles.priorityOption, newPriority === p ? { backgroundColor: '#1e40af' } : { backgroundColor: '#f3f4f6' }]}>
+                                    <Text style={{ color: newPriority === p ? '#fff' : '#111827', fontWeight: '700' }}>{p === 'high' ? 'Cao' : p === 'medium' ? 'Trung bình' : 'Thấp'}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
+                        <View style={modalStyles.modalActions}>
+                            <TouchableOpacity style={[modalStyles.modalBtn, { backgroundColor: '#9ca3af' }]} onPress={() => setShowCreateModal(false)}>
+                                <Text style={modalStyles.modalBtnText}>Hủy</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[modalStyles.modalBtn, { backgroundColor: '#3b82f6' }]} onPress={handleCreateTask} disabled={creatingTask}>
+                                {creatingTask ? <ActivityIndicator color="#fff" /> : <Text style={[modalStyles.modalBtnText, { color: '#fff' }]}>Tạo</Text>}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -431,4 +538,82 @@ const styles = StyleSheet.create({
         color: '#6b7280',
         textAlign: 'center',
     },
+}) as any;
+
+const modalStyles = StyleSheet.create({
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 16,
+    },
+    modalContent: {
+        width: '100%',
+        maxWidth: 720,
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 16,
+    },
+    modalTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#1f2937',
+        marginBottom: 12,
+    },
+    input: {
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: Platform.OS === 'ios' ? 12 : 8,
+        marginBottom: 12,
+        fontSize: 14,
+        color: '#111827',
+        backgroundColor: '#fff',
+    },
+    modalActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 8,
+        marginTop: 8,
+    },
+    modalBtn: {
+        paddingVertical: 10,
+        paddingHorizontal: 14,
+        borderRadius: 8,
+    },
+    modalBtnText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#111827',
+    },
+    priorityOption: {
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+    }
 });
+
+// additional styles for task action and fab
+Object.assign(styles, StyleSheet.create({
+    taskActionBtn: { marginLeft: 8, paddingHorizontal: 6, paddingVertical: 2 },
+    taskActionText: { color: '#6b7280', fontWeight: '700' },
+    fab: {
+        position: 'absolute',
+        right: 20,
+        bottom: 30,
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: '#3b82f6',
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 5,
+    },
+    fabText: { color: '#fff', fontSize: 28, lineHeight: 28, fontWeight: '700' },
+}));

@@ -8,6 +8,8 @@ interface Member {
     id: number;
     hoten?: string;
     manv?: string;
+    name?: string;
+    fullName?: string;
 }
 
 interface GroupDetailType {
@@ -15,7 +17,8 @@ interface GroupDetailType {
     name: string;
     description?: string;
     closed?: boolean;
-    leader?: { id: number; hoten?: string; manv?: string };
+    // leader objects from backend sometimes use `hoten`, `name` or `fullName`
+    leader?: { id: number; hoten?: string; manv?: string; name?: string; fullName?: string };
     members?: Member[];
     duans?: any[]; // projects - be defensive
 }

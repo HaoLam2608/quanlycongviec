@@ -309,7 +309,22 @@ export const getKanbanTasks = async (projectId: string | number) => {
     console.log('📡 Request URL:', url);
     const res = await api.get(url);
     console.log('📡 Response status:', res.status);
-    console.log('📡 Response data:', res.data);
+    try {
+      if (res.data && typeof res.data === 'object') {
+        console.log('📡 Response keys:', Object.keys(res.data));
+        // if kanban wrapped, show column keys and counts
+        if ((res.data as any).kanban) {
+          const k = (res.data as any).kanban;
+          console.log('📡 Kanban columns:', Object.keys(k).map(col => ({ col, count: Array.isArray(k[col]) ? k[col].length : undefined })));
+        } else if (Object.keys(res.data).length <= 6) {
+          console.log('📡 Response data (shallow):', res.data);
+        }
+      } else {
+        console.log('📡 Response data:', res.data);
+      }
+    } catch (e) {
+      console.warn('Unable to preview kanban response data for logging', e);
+    }
     return res.data;
   } catch (err: any) {
     console.error('📡 API Error:', err);
