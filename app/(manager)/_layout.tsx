@@ -107,6 +107,30 @@ export default function ManagerLayout() {
                     headerTintColor: '#fff'
                 }}
             />
+            <Stack.Screen
+                name="approvals"
+                options={{
+                    title: 'Phê duyệt',
+                    headerStyle: { backgroundColor: '#f59e0b' },
+                    headerTintColor: '#fff'
+                }}
+            />
+            <Stack.Screen
+                name="notifications"
+                options={{
+                    title: 'Thông báo',
+                    headerStyle: { backgroundColor: '#f59e0b' },
+                    headerTintColor: '#fff'
+                }}
+            />
+            <Stack.Screen
+                name="settings"
+                options={{
+                    title: 'Cài đặt',
+                    headerStyle: { backgroundColor: '#f59e0b' },
+                    headerTintColor: '#fff'
+                }}
+            />
         </Stack>
     );
 }
