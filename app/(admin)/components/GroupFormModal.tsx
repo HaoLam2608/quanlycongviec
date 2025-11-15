@@ -18,6 +18,8 @@ interface User {
     id: number;
     manv: string;
     hoten: string;
+    // `role` can be either a string or an object { id, name }
+    role?: string | { id?: number; name?: string };
 }
 
 interface GroupFormData {
@@ -113,6 +115,13 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
             console.log('DEBUG group toggleMember -> memberIds:', next.memberIds);
             return next;
         });
+    };
+
+    const getRoleName = (u?: User) => {
+        if (!u) return undefined;
+        if (!u.role) return undefined;
+        if (typeof u.role === 'string') return u.role;
+        return (u.role as any).name;
     };
 
     const handleSubmit = async () => {
@@ -307,10 +316,16 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
                     continue;
                 }
 
+                const user = users.find(u => u.id === id);
+                const rname = getRoleName(user);
+                if (!user || rname !== 'employee') {
+                    removed.push({ id, name: user ? user.hoten : String(id), reason: 'Không phải nhân viên' });
+                    continue;
+                }
+
                 const currentCount = counts.get(id) || 0;
                 // Allow add only if currentCount < 2
                 if (currentCount >= 2) {
-                    const user = users.find(u => u.id === id);
                     removed.push({ id, name: user ? user.hoten : String(id), reason: 'Đã tham gia tối đa 2 nhóm' });
                     continue;
                 }
@@ -384,13 +399,15 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
                                     style={styles.picker}
                                 >
                                     <Picker.Item label="Chọn trưởng nhóm" value={0} />
-                                    {users.map((user) => (
-                                        <Picker.Item 
-                                            key={user.id} 
-                                            label={`${user.hoten} (${user.manv})`} 
-                                            value={user.id} 
-                                        />
-                                    ))}
+                                    {users
+                                            .filter(u => getRoleName(u) === 'manager')
+                                            .map((user) => (
+                                            <Picker.Item 
+                                                key={user.id} 
+                                                label={`${user.hoten} (${user.manv})`} 
+                                                value={user.id} 
+                                            />
+                                        ))}
                                 </Picker>
                             </View>
                             {errors.leaderId && <Text style={styles.errorText}>{errors.leaderId}</Text>}
@@ -423,7 +440,7 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
                                     keyboardShouldPersistTaps="handled"
                                 >
                                     {users
-                                        .filter(u => u.id !== formData.leaderId)
+                                        .filter(u => u.id !== formData.leaderId && getRoleName(u) === 'employee')
                                         .map((user) => (
                                             <TouchableOpacity
                                                 key={user.id}
