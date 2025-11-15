@@ -87,8 +87,6 @@ export default function LoginScreen() {
                     console.log('✅ Đăng nhập thành công:', response);
                     console.log('👤 User object đã lưu:', userObject);
 
-                    // Điều hướng theo role - backend trả role ở root level
-                    const userRole = response.role;
                     // Điều hướng theo role
                     const userRole = response.role;
                     switch (userRole) {

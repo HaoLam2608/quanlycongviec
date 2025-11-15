@@ -1,0 +1,25 @@
+# Ignore styles files from routing
+**/styles.ts
+**/styles.js
+**/*.styles.ts
+**/*.styles.js
+**/index.styles.ts
+**/index.styles.js
+
+# Ignore test files
+**/*.test.ts
+**/*.test.tsx
+**/*.test.js
+**/*.test.jsx
+
+# Ignore spec files
+**/*.spec.ts
+**/*.spec.tsx
+**/*.spec.js
+**/*.spec.jsx
+
+# Ignore utility files
+**/utils.ts
+**/utils.js
+**/constants.ts
+**/constants.js
