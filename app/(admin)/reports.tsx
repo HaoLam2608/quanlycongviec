@@ -1,24 +1,21 @@
+import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useEffect, useState } from 'react';
 import {
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
-    RefreshControl,
-    Alert,
     ActivityIndicator,
-    Dimensions,
-    TouchableOpacity,
+    Alert,
     Modal,
     Platform,
+    RefreshControl,
+    SafeAreaView,
+    ScrollView,
     Share,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../src/axios/config';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { Picker } from '@react-native-picker/picker';
 
 interface ReportStats {
     totalProjects: number;
@@ -869,19 +866,16 @@ const styles = StyleSheet.create({
     statsGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        marginHorizontal: -6,
+        columnGap: 12,   // gap ngang
+        rowGap: 12,      // gap dọc
     },
     statCard: {
-        width: '50%',
+        width: '48.2%',
         padding: 16,
         borderRadius: 16,
         marginBottom: 12,
         paddingHorizontal: 6,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.1,
-        shadowRadius: 6,
-        elevation: 4,
+       
     },
     statIcon: {
         width: 56,

@@ -1,17 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import { Picker } from '@react-native-picker/picker';
+import React, { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
+    Alert,
     Modal,
-    View,
+    ScrollView,
+    StyleSheet,
+    Switch,
     Text,
     TextInput,
     TouchableOpacity,
-    StyleSheet,
-    ScrollView,
-    Alert,
-    ActivityIndicator,
+    View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { Picker } from '@react-native-picker/picker';
 import api from '../../../src/axios/config';
 
 interface Notification {
@@ -20,6 +21,7 @@ interface Notification {
     title: string;
     message: string;
     isRead?: boolean;
+    status?: string;
 }
 
 interface NotificationFormModalProps {
@@ -40,6 +42,7 @@ export default function NotificationFormModal({
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
+    const [publishNow, setPublishNow] = useState(false);
 
     const notificationTypes = [
         { value: 'task', label: 'Công việc' },
@@ -55,6 +58,7 @@ export default function NotificationFormModal({
                 setType(notification.type || 'system');
                 setTitle(notification.title);
                 setMessage(notification.message);
+                setPublishNow(notification.status === 'published');
             } else {
                 resetForm();
             }
@@ -66,6 +70,7 @@ export default function NotificationFormModal({
         setTitle('');
         setMessage('');
         setErrors({});
+        setPublishNow(false);
     };
 
     const validate = (): boolean => {
@@ -90,21 +95,43 @@ export default function NotificationFormModal({
         try {
             if (notification) {
                 // Update existing notification
+                const originalPublished = notification.status === 'published';
+
                 await api.put(`/notifications/admin/${notification.id}`, {
-                    type,
-                    title,
-                    message,
+                   ...{type , title}, 
+                   content : message
                 });
+
+                // If publish state changed, call toggle-status
+                if (publishNow !== originalPublished) {
+                    try {
+                        const action = publishNow ? 'publish' : 'unpublish';
+                        await api.post(`/notifications/admin/${notification.id}/toggle-status`, { action });
+                    } catch (err) {
+                        console.warn('Could not toggle publish status for notification', err);
+                    }
+                }
 
                 Alert.alert('Thành công', 'Cập nhật thông báo thành công');
             } else {
                 // Create new notification (broadcast to all users)
-                await api.post('/notifications/admin/create', {
+                const resp = await api.post('/notifications/admin/create', {
                     type,
                     title,
-                    message,
-                    broadcast: true, // Send to all users
+                    content: message,
+                    targetRole: 'all', // Send to all users
+                    priority: 'medium'
                 });
+
+                const newId = resp?.data?.data?.id;
+                // If admin selected publishNow, toggle status to published
+                if (publishNow && newId) {
+                    try {
+                        await api.post(`/notifications/admin/${newId}/toggle-status`, { action: 'publish' });
+                    } catch (err) {
+                        console.warn('Could not auto-publish notification', err);
+                    }
+                }
 
                 Alert.alert('Thành công', 'Tạo thông báo thành công');
             }
@@ -239,15 +266,43 @@ export default function NotificationFormModal({
                             {errors.message && <Text style={styles.errorText}>{errors.message}</Text>}
                         </View>
 
-                        {/* Info Box */}
-                        {!notification && (
-                            <View style={styles.infoBox}>
-                                <Ionicons name="information-circle" size={20} color="#3b82f6" />
-                                <Text style={styles.infoText}>
-                                    Thông báo sẽ được gửi đến tất cả người dùng trong hệ thống
-                                </Text>
+                        {/* Info Box (create or edit) */}
+                        <View style={styles.infoBox}>
+                            <Ionicons name="information-circle" size={20} color="#3b82f6" />
+                            <View style={styles.infoContent}>
+                                {notification ? (
+                                    <>
+                                        <Text style={styles.infoText}>
+                                            Trạng thái: <Text style={{ fontWeight: '700', color: notification.status === 'published' ? '#10b981' : '#374151' }}>
+                                                {notification.status === 'published' ? 'Đã xuất bản' : 'Nháp'}
+                                            </Text>
+                                        </Text>
+                                        <View style={styles.publishRow}>
+                                            <Text style={styles.publishLabel}>Xuất bản ngay</Text>
+                                            <Switch
+                                                value={publishNow}
+                                                onValueChange={setPublishNow}
+                                                disabled={loading}
+                                            />
+                                        </View>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Text style={styles.infoText}>
+                                            Thông báo sẽ được gửi đến tất cả người dùng trong hệ thống
+                                        </Text>
+                                        <View style={styles.publishRow}>
+                                            <Text style={styles.publishLabel}>Xuất bản ngay</Text>
+                                            <Switch
+                                                value={publishNow}
+                                                onValueChange={setPublishNow}
+                                                disabled={loading}
+                                            />
+                                        </View>
+                                    </>
+                                )}
                             </View>
-                        )}
+                        </View>
                     </ScrollView>
 
                     {/* Footer */}
@@ -362,16 +417,30 @@ const styles = StyleSheet.create({
     },
     infoBox: {
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-start',
         backgroundColor: '#eff6ff',
         padding: 12,
         borderRadius: 8,
-        gap: 8,
     },
     infoText: {
         flex: 1,
         fontSize: 13,
         color: '#3b82f6',
+    },
+    infoContent: {
+        flex: 1,
+        marginLeft: 8,
+    },
+    publishRow: {
+        marginTop: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    publishLabel: {
+        fontSize: 14,
+        color: '#374151',
+        fontWeight: '600'
     },
     modalFooter: {
         flexDirection: 'row',

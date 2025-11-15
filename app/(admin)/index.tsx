@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View, TouchableOpacity, RefreshControl } from 'react-native';
-import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { RefreshControl, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import api from '../../src/axios/config';
 
 interface DashboardStats {
@@ -70,7 +70,7 @@ export default function AdminDashboard() {
                     const projects = Array.isArray(projectsResponse.data) ? projectsResponse.data : [];
                     totalProjects = projects.length;
                     activeProjects = projects.filter((p: any) => p.status === 'dang_chay' || p.status === 'in_progress').length;
-                    completedProjects = projects.filter((p: any) => p.status === 'hoan_thanh' || p.status === 'completed').length;
+                    completedProjects = projects.filter((p: any) => p.status === 'da_hoan_thanh' || p.status === 'completed').length;
                     console.log(`📁 Projects: ${totalProjects} total, ${activeProjects} active, ${completedProjects} completed`);
                 } catch (err) {
                     console.log('❌ Error loading projects:', err);

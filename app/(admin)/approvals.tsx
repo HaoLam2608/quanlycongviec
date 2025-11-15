@@ -1,18 +1,18 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
+    Alert,
+    Modal,
+    RefreshControl,
     SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
-    View,
-    TouchableOpacity,
-    RefreshControl,
-    Alert,
-    ActivityIndicator,
     TextInput,
-    Modal,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import api from '../../src/axios/config';
 
 interface PendingTask {
@@ -181,7 +181,7 @@ export default function ApprovalsManagement() {
             </View>
 
             {/* Filter Tabs */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer} contentContainerStyle={{ alignItems: 'center' }}>
                 <TouchableOpacity
                     style={[styles.filterTab, filter === 'all' && styles.filterTabActive]}
                     onPress={() => setFilter('all')}
@@ -581,7 +581,7 @@ const styles = StyleSheet.create({
     },
     filterTab: {
         paddingVertical: 10,
-        paddingHorizontal: 18,
+        paddingHorizontal: 12,
         borderRadius: 20,
         backgroundColor: '#fff',
         marginRight: 8,

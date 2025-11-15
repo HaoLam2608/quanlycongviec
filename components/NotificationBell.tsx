@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
 import {
     Alert,
@@ -107,15 +108,40 @@ export default function NotificationBell({ userRole = 'member' }: NotificationBe
                 console.log('📋 Total notifications:', response.data.length);
                 setNotifications(response.data);
             }
-        } catch (error) {
+        } catch (error: any) {
+            // Better error handling similar to web frontend
             console.error('❌ Error fetching notifications:', error);
+            if (error?.response?.status === 403) {
+                console.warn('⚠️ Permission denied for notifications - user may not have access');
+            } else if (error?.response?.status === 401) {
+                console.warn('⚠️ Authentication failed for notifications - token may be invalid');
+            } else if (error?.code === 'ECONNREFUSED' || (error?.message && error.message.includes('Network Error'))) {
+                console.warn('⚠️ Backend server not running - notifications unavailable');
+            }
+            setNotifications([]);
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchNotifications();
+        // Delay and check token (similar behavior to web client) before fetching
+        const timer = setTimeout(async () => {
+            try {
+                const token = await AsyncStorage.getItem('token');
+                if (token) {
+                    fetchNotifications();
+                } else {
+                    console.warn('⚠️ No token found, skipping notification fetch');
+                }
+            } catch (err) {
+                console.warn('Error checking token for notifications fetch', err);
+                // still attempt fetch as fallback
+                fetchNotifications();
+            }
+        }, 800);
+
+        return () => clearTimeout(timer);
     }, []);
 
     const unreadCount = notifications.filter(n => !n.isRead).length;
@@ -144,9 +170,9 @@ export default function NotificationBell({ userRole = 'member' }: NotificationBe
             const unreadNotifications = (activeTab === 'general' ? generalNotifications : assignmentNotifications)
                 .filter(n => !n.isRead);
 
-            for (const notification of unreadNotifications) {
-                await markNotificationAsRead(notification.id);
-            }
+            // run in parallel like web frontend
+            const promises = unreadNotifications.map(n => markNotificationAsRead(n.id));
+            await Promise.all(promises);
 
             setNotifications(prev =>
                 prev.map(n => {

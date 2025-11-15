@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import {
-    Modal,
-    View,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
-    TextInput,
-    ScrollView,
-    Alert,
-    ActivityIndicator,
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import api from '../../../src/axios/config';
 
 interface User {
@@ -103,12 +103,16 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
     };
 
     const toggleMember = (userId: number) => {
-        setFormData(prev => ({
-            ...prev,
-            memberIds: prev.memberIds.includes(userId)
-                ? prev.memberIds.filter(id => id !== userId)
-                : [...prev.memberIds, userId]
-        }));
+        setFormData(prev => {
+            const next = {
+                ...prev,
+                memberIds: prev.memberIds.includes(userId)
+                    ? prev.memberIds.filter(id => id !== userId)
+                    : [...prev.memberIds, userId]
+            };
+            console.log('DEBUG group toggleMember -> memberIds:', next.memberIds);
+            return next;
+        });
     };
 
     const handleSubmit = async () => {
@@ -129,15 +133,36 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
             console.log('📤 Saving group with payload:', payload);
 
             if (group) {
-                // Update group basic info
-                const updateResponse = await api.put(`/groups/${group.id}`, {
+                // Prepare memberIds (remove leader if present) and filter invalid ones before sending
+                const intendedMemberIds = (formData.memberIds || []).filter(id => id !== formData.leaderId);
+                let finalMemberIds = intendedMemberIds;
+                let skippedFromFilter = 0;
+                let skippedDetails: Array<{ id: number; name: string; reason: string }> = [];
+                try {
+                    const { filtered, removed } = await filterMemberIdsForAdd(intendedMemberIds, group.id, formData.leaderId);
+                    finalMemberIds = filtered;
+                    skippedDetails = removed || [];
+                    skippedFromFilter = skippedDetails.length || 0;
+                    if (skippedFromFilter > 0) console.log('DEBUG group filter removed (update):', removed);
+                } catch (e) {
+                    console.error('Filtering failed before update:', e);
+                    Alert.alert('Lỗi', 'Không thể thêm thành viên');
+                    setLoading(false);
+                    return;
+                }
+
+                // Update group basic info including the desired memberIds so backend can sync removals/adds
+                const updatePayload = {
                     name: formData.name.trim(),
                     description: formData.description.trim(),
                     leaderId: formData.leaderId,
-                });
+                    memberIds: finalMemberIds
+                };
+                console.log('DEBUG group update payload:', updatePayload);
+                const updateResponse = await api.put(`/groups/${group.id}`, updatePayload);
                 console.log('✅ Group updated:', updateResponse.data);
-                
-                // Handle status change separately
+
+                // Handle status change (close) first. If closing fails, report error and stop.
                 if (formData.status === 'closed') {
                     try {
                         await api.patch(`/groups/${group.id}/close`);
@@ -145,59 +170,90 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
                     } catch (closeError: any) {
                         console.error('Error closing group:', closeError);
                         const closeErrorMsg = closeError.response?.data?.message || 'Không thể đóng nhóm';
-                        Alert.alert('Cảnh báo', `Đã cập nhật thông tin nhóm.\n\nLỗi khi đóng nhóm: ${closeErrorMsg}`);
+                        Alert.alert('Lỗi', closeErrorMsg);
+                        setLoading(false);
+                        return;
                     }
                 }
-                
-                // Only update members if group is active and members are selected
-                if (formData.status === 'active' && formData.memberIds.length > 0) {
-                    try {
-                        await api.post(`/groups/${group.id}/members`, {
-                            memberIds: formData.memberIds
-                        });
+
+                // Verify members were actually persisted. If some requested memberIds are missing,
+                // show a concise partial-failure message (no long lists).
+                try {
+                    const returnedMemberIds: number[] = (updateResponse.data.group?.members || []).map((m: any) => m.id);
+                    const missing = finalMemberIds.filter(id => !returnedMemberIds.includes(id));
+                    if (missing.length > 0 || skippedFromFilter > 0) {
+                        console.log('DEBUG group update missing members:', missing);
+                        const missingNames = missing.map(id => users.find(u => u.id === id)?.hoten || String(id));
+                        const skippedNames = skippedDetails.map(s => s.name).filter(Boolean) as string[];
+                        const allNames = [...skippedNames, ...missingNames];
+                        if (allNames.length > 0) {
+                            const namesText = allNames.slice(0, 5).join(', ') + (allNames.length > 5 ? ` và ${allNames.length - 5} người khác` : '');
+                            Alert.alert('Cập nhật thành công', `Một số thành viên không được thêm: ${namesText}`);
+                        } else {
+                            Alert.alert('Cập nhật thành công', 'Một số thành viên không được thêm');
+                        }
+                    } else {
                         Alert.alert('Thành công', 'Đã cập nhật nhóm và thành viên');
-                    } catch (memberError: any) {
-                        const memberErrorMsg = memberError.response?.data?.message || 'Không thể thêm thành viên';
-                        Alert.alert(
-                            'Cập nhật nhóm thành công',
-                            `Thông tin nhóm đã được cập nhật.\n\nLỗi khi thêm thành viên: ${memberErrorMsg}`
-                        );
                     }
-                } else {
+                } catch (e) {
+                    console.error('Error verifying updated members:', e);
                     Alert.alert('Thành công', 'Đã cập nhật nhóm');
                 }
-                
+
                 onSuccess();
                 onClose();
             } else {
                 // Create new group
+                // For create: include memberIds in the create payload so backend will sync members on create
+                const intendedMemberIds = (formData.memberIds || []).filter(id => id !== formData.leaderId);
+                let skippedFromFilter = 0;
+                let skippedDetails: Array<{ id: number; name: string; reason: string }> = [];
+                try {
+                    const { filtered, removed } = await filterMemberIdsForAdd(intendedMemberIds, null, formData.leaderId);
+                    (payload as any).memberIds = filtered;
+                    skippedDetails = removed || [];
+                    skippedFromFilter = skippedDetails.length || 0;
+                    if (skippedFromFilter > 0) console.log('DEBUG group filter removed (create):', removed);
+                } catch (e) {
+                    console.error('Filtering failed before create:', e);
+                    Alert.alert('Lỗi', 'Không thể thêm thành viên');
+                    setLoading(false);
+                    return;
+                }
+
+                console.log('DEBUG group create payload:', payload);
                 const response = await api.post('/groups', payload);
                 const groupId = response.data.id || response.data.group?.id;
-                
-                // Add members if group is active and members are selected
-                if (formData.status === 'active' && formData.memberIds.length > 0 && groupId) {
-                    try {
-                        await api.post(`/groups/${groupId}/members`, {
-                            memberIds: formData.memberIds
-                        });
-                        Alert.alert('Thành công', 'Đã tạo nhóm mới và thêm thành viên');
-                    } catch (memberError: any) {
-                        const memberErrorMsg = memberError.response?.data?.message || 'Không thể thêm thành viên';
-                        Alert.alert(
-                            'Tạo nhóm thành công',
-                            `Nhóm đã được tạo.\n\nLỗi khi thêm thành viên: ${memberErrorMsg}`
-                        );
+
+                // Verify created group's members vs requested memberIds
+                try {
+                    const returnedMemberIds: number[] = (response.data.group?.members || []).map((m: any) => m.id);
+                    const requested: number[] = (payload as any).memberIds || [];
+                    const missing = requested.filter((id: number) => !returnedMemberIds.includes(id));
+                    if (missing.length > 0 || skippedFromFilter > 0) {
+                        console.log('DEBUG group create missing members:', missing);
+                        const missingNames = missing.map(id => users.find(u => u.id === id)?.hoten || String(id));
+                        const skippedNames = skippedDetails.map(s => s.name).filter(Boolean) as string[];
+                        const allNames = [...skippedNames, ...missingNames];
+                        if (allNames.length > 0) {
+                            const namesText = allNames.slice(0, 5).join(', ') + (allNames.length > 5 ? ` và ${allNames.length - 5} người khác` : '');
+                            Alert.alert('Đã tạo nhóm', `Một số thành viên không được thêm: ${namesText}`);
+                        } else {
+                            Alert.alert('Đã tạo nhóm', 'Một số thành viên không được thêm');
+                        }
+                    } else {
+                        Alert.alert('Thành công', 'Đã tạo nhóm mới');
                     }
-                } else {
+                } catch (e) {
+                    console.error('Error verifying created members:', e);
                     Alert.alert('Thành công', 'Đã tạo nhóm mới');
                 }
-                
+
                 onSuccess();
                 onClose();
             }
 
-            onSuccess();
-            onClose();
+            
         } catch (error: any) {
             console.error('Error saving group:', error);
             const errorMsg = error.response?.data?.message || 'Không thể lưu nhóm';
@@ -211,6 +267,64 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
         { label: 'Hoạt động', value: 'active' },
         { label: 'Đóng', value: 'closed' },
     ];
+
+    // Helper: filter memberIds before sending to server
+    // - removes the leader id if present
+    // - removes users who already participate in >=2 active groups
+    // Returns { filtered: number[], removed: { id, name, reason }[] }
+    async function filterMemberIdsForAdd(candidateIds: number[], targetGroupId: number | string | null, leaderId: number): Promise<{ filtered: number[]; removed: { id: number; name: string; reason: string }[] }> {
+        try {
+            const resp = await api.get('/groups');
+            const groups: any[] = resp.data.groups || [];
+
+            // Build counts map userId -> activeGroupCount (exclude closed groups)
+            const counts = new Map<number, number>();
+            for (const g of groups) {
+                // skip closed groups
+                if (g.status === 'closed') continue;
+                // If we're computing counts for an update, exclude the target group itself
+                // so that current members of this group are not counted against the "max 2 groups" rule.
+                if (targetGroupId != null && String(g.id) === String(targetGroupId)) continue;
+
+                const seen = new Set<number>();
+                if (g.leader && g.leader.id) seen.add(g.leader.id);
+                const memberList = g.members || [];
+                for (const m of memberList) {
+                    if (m && m.id) seen.add(m.id);
+                }
+                for (const uid of Array.from(seen)) {
+                    counts.set(uid, (counts.get(uid) || 0) + 1);
+                }
+            }
+
+            const removed: Array<{ id: number; name: string; reason: string }> = [];
+            const filtered: number[] = [];
+
+            for (const id of candidateIds) {
+                if (id === leaderId) {
+                    const user = users.find(u => u.id === id);
+                    removed.push({ id, name: user ? user.hoten : String(id), reason: 'Là trưởng nhóm' });
+                    continue;
+                }
+
+                const currentCount = counts.get(id) || 0;
+                // Allow add only if currentCount < 2
+                if (currentCount >= 2) {
+                    const user = users.find(u => u.id === id);
+                    removed.push({ id, name: user ? user.hoten : String(id), reason: 'Đã tham gia tối đa 2 nhóm' });
+                    continue;
+                }
+
+                filtered.push(id);
+            }
+
+            return { filtered, removed };
+        } catch (e) {
+            console.error('Error filtering memberIds:', e);
+            // Throw so caller knows filtering failed and avoids sending unvalidated ids to backend
+            throw new Error('filter_failed');
+        }
+    }
 
     return (
         <Modal
@@ -303,7 +417,11 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
                             </TouchableOpacity>
 
                             {showMemberSelector && (
-                                <View style={styles.memberList}>
+                                <ScrollView
+                                    style={styles.memberList}
+                                    nestedScrollEnabled={true}
+                                    keyboardShouldPersistTaps="handled"
+                                >
                                     {users
                                         .filter(u => u.id !== formData.leaderId)
                                         .map((user) => (
@@ -322,7 +440,7 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
                                                 </Text>
                                             </TouchableOpacity>
                                         ))}
-                                </View>
+                                </ScrollView>
                             )}
                         </View>
 
@@ -460,6 +578,10 @@ const styles = StyleSheet.create({
         borderColor: '#d1d5db',
         borderRadius: 8,
         maxHeight: 200,
+        backgroundColor: '#fff',
+        zIndex: 10,
+        elevation: 10,
+        paddingVertical: 4,
     },
     memberItem: {
         flexDirection: 'row',
