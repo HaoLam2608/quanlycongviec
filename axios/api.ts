@@ -439,6 +439,15 @@ export const getUpcomingTasks = async (days: number = 7) => {
   }
 };
 
+export const getOverdueTasks = async () => {
+  try {
+    const res = await api.get('/members/tasks/overdue');
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy công việc quá hạn" };
+  }
+};
+
 export const getRecentActivities = async (limit: number = 10) => {
   try {
     const res = await api.get(`/members/activities/recent?limit=${limit}`);

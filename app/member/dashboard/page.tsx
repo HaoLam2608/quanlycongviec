@@ -12,8 +12,9 @@ import {
 } from "lucide-react"
 import {
     getMemberStats,
-    getTodayTasks,
+    getMySubtasks,
     getUpcomingTasks,
+    getOverdueTasks,
     getRecentActivities
 } from "@/axios/api"
 import StatsCard from "@/components/member/StatsCard"
@@ -26,14 +27,35 @@ interface TaskStats {
     completionRate: number
 }
 
-interface TodayTask {
+interface MemberSubtask {
     id: number
-    tentask: string
+    tenSubtask: string
+    mota?: string
+    nguoiThucHienId: number
+    taskId: number
+    trangThai: string
+    ngayBatDau?: string
+    ngayKetThuc?: string
+    task?: {
+        tentask: string
+    }
+}
+
+interface OverdueTask {
+    id: number
+    title: string
+    tentask?: string
     tenSubtask?: string
-    priority: string
     deadline: string
+    ngayKetThuc?: string
+    priority: string
+    mucDoUuTien?: string
     status: string
+    trangThai?: string
+    daysOverdue: number
     type: 'task' | 'subtask'
+    project?: string
+    parentTask?: string
 }
 
 interface UpcomingTask {
@@ -60,8 +82,9 @@ export default function MemberDashboard() {
         overdueTasks: 0,
         completionRate: 0
     })
-    const [todayTasks, setTodayTasks] = useState<TodayTask[]>([])
+    const [assignedTasks, setAssignedTasks] = useState<MemberSubtask[]>([])
     const [upcomingTasks, setUpcomingTasks] = useState<UpcomingTask[]>([])
+    const [overdueTasks, setOverdueTasks] = useState<OverdueTask[]>([])
     const [recentActivities, setRecentActivities] = useState<Activity[]>([])
     const [loading, setLoading] = useState(true)
 
@@ -73,10 +96,11 @@ export default function MemberDashboard() {
         try {
             setLoading(true);
             // Fetch dữ liệu thật từ database
-            const [statsData, todayData, upcomingData, activitiesData] = await Promise.all([
+            const [statsData, assignedData, upcomingData, overdueData, activitiesData] = await Promise.all([
                 getMemberStats(),
-                getTodayTasks(),
+                getMySubtasks(),
                 getUpcomingTasks(7),
+                getOverdueTasks(),
                 getRecentActivities(10)
             ]);
 
@@ -85,16 +109,31 @@ export default function MemberDashboard() {
                 setStats(statsData);
             }
 
-            if (todayData && Array.isArray(todayData)) {
-                setTodayTasks(todayData);
+            // Xử lý dữ liệu subtasks - có thể được wrap trong object
+            if (assignedData) {
+                if (Array.isArray(assignedData)) {
+                    setAssignedTasks(assignedData);
+                } else if (assignedData.subtasks && Array.isArray(assignedData.subtasks)) {
+                    setAssignedTasks(assignedData.subtasks);
+                } else if (assignedData.data && Array.isArray(assignedData.data)) {
+                    setAssignedTasks(assignedData.data);
+                } else {
+                    setAssignedTasks([]);
+                }
             } else {
-                setTodayTasks([]);
+                setAssignedTasks([]);
             }
 
             if (upcomingData && Array.isArray(upcomingData)) {
                 setUpcomingTasks(upcomingData);
             } else {
                 setUpcomingTasks([]);
+            }
+
+            if (overdueData && Array.isArray(overdueData)) {
+                setOverdueTasks(overdueData);
+            } else {
+                setOverdueTasks([]);
             }
 
             if (activitiesData && Array.isArray(activitiesData)) {
@@ -113,8 +152,9 @@ export default function MemberDashboard() {
                 overdueTasks: 0,
                 completionRate: 0
             });
-            setTodayTasks([]);
+            setAssignedTasks([]);
             setUpcomingTasks([]);
+            setOverdueTasks([]);
             setRecentActivities([]);
         } finally {
             setLoading(false);
@@ -165,7 +205,7 @@ export default function MemberDashboard() {
 
                     {/* Content Grid Skeleton */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Today Tasks Skeleton */}
+                        {/* Assigned Tasks Skeleton */}
                         <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
                             <div className="h-6 bg-gray-200 rounded w-48 mb-4 animate-pulse"></div>
                             <div className="space-y-3">
@@ -195,6 +235,22 @@ export default function MemberDashboard() {
                                     </div>
                                 ))}
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Overdue Tasks Skeleton */}
+                    <div className="mt-6 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                        <div className="h-6 bg-gray-200 rounded w-48 mb-4 animate-pulse"></div>
+                        <div className="space-y-3">
+                            {[1, 2].map(i => (
+                                <div key={i} className="p-4 bg-red-50 rounded-lg">
+                                    <div className="h-5 bg-gray-200 rounded w-3/4 mb-2 animate-pulse"></div>
+                                    <div className="flex gap-2">
+                                        <div className="h-4 bg-gray-200 rounded w-20 animate-pulse"></div>
+                                        <div className="h-4 bg-gray-200 rounded w-24 animate-pulse"></div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </div>
@@ -251,39 +307,39 @@ export default function MemberDashboard() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Today's Tasks */}
+                    {/* Assigned Subtasks */}
                     <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
                         <div className="flex items-center justify-between mb-6">
                             <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                                <Calendar className="w-5 h-5 text-blue-600" />
-                                Công việc hôm nay
+                                <ListTodo className="w-5 h-5 text-blue-600" />
+                                Công việc được giao
                             </h2>
-                            <span className="text-sm text-gray-500">{todayTasks.length} công việc</span>
+                            <span className="text-sm text-gray-500">{assignedTasks.length} công việc</span>
                         </div>
 
                         <div className="space-y-4">
-                            {todayTasks.length === 0 ? (
+                            {assignedTasks.length === 0 ? (
                                 <div className="text-center py-8 text-gray-500">
-                                    <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                                    <p>Không có công việc nào hôm nay</p>
+                                    <ListTodo className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                                    <p>Không có công việc nào được giao</p>
                                 </div>
                             ) : (
-                                todayTasks.map(task => (
+                                assignedTasks.slice(0, 5).map(task => (
                                     <div key={task.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                                         <div className="flex-1">
                                             <h3 className="font-semibold text-gray-900">
-                                                {task.type === 'subtask' ? '• ' : ''}{task.tenSubtask || task.tentask}
+                                                {task.tenSubtask}
                                             </h3>
-                                            {task.type === 'subtask' && (
-                                                <p className="text-sm text-gray-600">Task: {task.tentask}</p>
+                                            {task.task?.tentask && (
+                                                <p className="text-sm text-gray-600">Task: {task.task.tentask}</p>
+                                            )}
+                                            {task.ngayKetThuc && (
+                                                <p className="text-sm text-gray-500">Hạn: {new Date(task.ngayKetThuc).toLocaleDateString('vi-VN')}</p>
                                             )}
                                         </div>
                                         <div className="flex items-center gap-2">
-                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(task.priority)}`}>
-                                                {task.priority === 'high' ? 'Cao' : task.priority === 'medium' ? 'Trung bình' : 'Thấp'}
-                                            </span>
-                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
-                                                {task.status}
+                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(task.trangThai)}`}>
+                                                {task.trangThai}
                                             </span>
                                         </div>
                                     </div>
@@ -319,8 +375,8 @@ export default function MemberDashboard() {
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${task.daysLeft <= 1 ? 'text-red-600 bg-red-100' :
-                                                    task.daysLeft <= 3 ? 'text-orange-600 bg-orange-100' :
-                                                        'text-blue-600 bg-blue-100'
+                                                task.daysLeft <= 3 ? 'text-orange-600 bg-orange-100' :
+                                                    'text-blue-600 bg-blue-100'
                                                 }`}>
                                                 {task.daysLeft} ngày
                                             </span>
@@ -334,6 +390,79 @@ export default function MemberDashboard() {
                         </div>
                     </div>
                 </div>
+
+                {/* Overdue Tasks */}
+                {stats.overdueTasks > 0 && (
+                    <div className="mt-8 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-bold text-red-700 flex items-center gap-2">
+                                <AlertTriangle className="w-5 h-5 text-red-600" />
+                                Công việc quá hạn
+                            </h2>
+                            <div className="bg-red-100 text-red-700 text-sm font-medium px-3 py-1 rounded-full">
+                                {overdueTasks.length}
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            {overdueTasks.length === 0 ? (
+                                <div className="text-center py-8 text-gray-500">
+                                    <AlertTriangle className="w-12 h-12 mx-auto mb-4 text-red-300" />
+                                    <p>Đang tải công việc quá hạn...</p>
+                                </div>
+                            ) : (
+                                overdueTasks.slice(0, 3).map(task => (
+                                    <div key={task.id} className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                                        <div className="flex items-start justify-between mb-2">
+                                            <div className="flex items-start gap-2 flex-1">
+                                                <AlertTriangle className="w-4 h-4 text-red-600 mt-0.5" />
+                                                <h3 className="font-semibold text-gray-900 line-clamp-1">
+                                                    {task.tenSubtask || task.tentask || task.title}
+                                                </h3>
+                                            </div>
+                                            <div className="bg-red-100 text-red-700 text-xs font-medium px-2 py-1 rounded">
+                                                Quá {task.daysOverdue} ngày
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-1">
+                                            {task.type === 'subtask' && task.parentTask && (
+                                                <div className="flex items-center gap-1 text-sm text-gray-600">
+                                                    <span>•</span>
+                                                    <span>Task: {task.parentTask}</span>
+                                                </div>
+                                            )}
+
+                                            <div className="flex items-center gap-1 text-sm text-red-600">
+                                                <Calendar className="w-3 h-3" />
+                                                <span>Hạn: {new Date(task.ngayKetThuc || task.deadline).toLocaleDateString('vi-VN')}</span>
+                                            </div>
+
+                                            {(task.mucDoUuTien || task.priority) && (
+                                                <div className="flex items-center gap-1 text-sm text-gray-600">
+                                                    <span className={`w-2 h-2 rounded-full ${(task.mucDoUuTien || task.priority) === 'cao' ? 'bg-red-500' :
+                                                            (task.mucDoUuTien || task.priority) === 'trung_binh' ? 'bg-yellow-500' : 'bg-green-500'
+                                                        }`}></span>
+                                                    <span>
+                                                        {(task.mucDoUuTien || task.priority) === 'cao' ? 'Cao' :
+                                                            (task.mucDoUuTien || task.priority) === 'trung_binh' ? 'Trung bình' : 'Thấp'}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+
+                        {overdueTasks.length > 3 && (
+                            <button className="w-full mt-4 text-center text-red-600 hover:text-red-800 text-sm font-medium py-2 border border-red-200 rounded-lg hover:bg-red-50 transition-colors flex items-center justify-center gap-1">
+                                Xem thêm {overdueTasks.length - 3} công việc quá hạn
+                                <TrendingUp className="w-4 h-4" />
+                            </button>
+                        )}
+                    </div>
+                )}
 
                 {/* Recent Activities */}
                 <div className="mt-8 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
@@ -357,8 +486,8 @@ export default function MemberDashboard() {
                             recentActivities.map(activity => (
                                 <div key={activity.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${activity.type === 'status_change' ? 'bg-green-100' :
-                                            activity.type === 'comment' ? 'bg-blue-100' :
-                                                'bg-purple-100'
+                                        activity.type === 'comment' ? 'bg-blue-100' :
+                                            'bg-purple-100'
                                         }`}>
                                         {activity.type === 'status_change' ? (
                                             <CheckCircle2 className="w-5 h-5 text-green-600" />

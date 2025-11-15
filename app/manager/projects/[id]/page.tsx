@@ -922,12 +922,6 @@ export default function ProjectDetailPage() {
                         </div>
                     )}
 
-                    {activeTab === "timeline" && (
-                        <div>
-                            {/* Inline timeline component */}
-                            <TimelineInline params={{ id: String(id) }} />
-                        </div>
-                    )}
 
                     {activeTab === "teams" && (
                         <div className="space-y-6">
@@ -1073,8 +1067,8 @@ export default function ProjectDetailPage() {
 
                     {activeTab === "kanban" && (
                         <div>
-                            <KanbanBoard 
-                                projectId={Array.isArray(id) ? id[0] : id} 
+                            <KanbanBoard
+                                projectId={Array.isArray(id) ? id[0] : id}
                                 onTaskClick={(task) => {
                                     setSelectedTask(task);
                                     setIsTaskDetailModalOpen(true);
