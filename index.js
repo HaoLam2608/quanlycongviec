@@ -12,8 +12,11 @@ const documentRoutes = require('./routes/documentRoutes');
 const multer = require('multer');
 const path = require('path');
 
-app.use(cors());
-
+app.use(cors({
+    origin: '*', // Chấp nhận request từ mọi nguồn
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'], // Chấp nhận các phương thức này
+    allowedHeaders: ['Content-Type', 'Authorization'] // Cho phép các header này
+}));
 app.use(bodyParser.json());
 
 // Serve static files from uploads directory

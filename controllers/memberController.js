@@ -14,14 +14,14 @@ const getMemberStats = async (req, res) => {
         });
 
         const completedTasksCount = await Task.count({
-            where: { 
+            where: {
                 nguoiDuocGiaoId: userId,
                 trangThai: 'Hoàn thành'
             }
         });
 
         const inProgressTasksCount = await Task.count({
-            where: { 
+            where: {
                 nguoiDuocGiaoId: userId,
                 trangThai: 'Đang chạy'
             }
@@ -29,7 +29,7 @@ const getMemberStats = async (req, res) => {
 
         // Count overdue tasks (deadline passed but not completed)
         const overdueTasksCount = await Task.count({
-            where: { 
+            where: {
                 nguoiDuocGiaoId: userId,
                 trangThai: { [Op.ne]: 'Hoàn thành' },
                 ngayKetThuc: { [Op.lt]: today }
@@ -42,14 +42,14 @@ const getMemberStats = async (req, res) => {
         });
 
         const completedSubtasksCount = await Subtask.count({
-            where: { 
+            where: {
                 nguoiThucHienId: userId,
                 trangThai: 'Hoàn thành'
             }
         });
 
         const inProgressSubtasksCount = await Subtask.count({
-            where: { 
+            where: {
                 nguoiThucHienId: userId,
                 trangThai: 'Đang chạy'
             }
@@ -57,7 +57,7 @@ const getMemberStats = async (req, res) => {
 
         // Count overdue subtasks
         const overdueSubtasksCount = await Subtask.count({
-            where: { 
+            where: {
                 nguoiThucHienId: userId,
                 trangThai: { [Op.ne]: 'Hoàn thành' },
                 ngayKetThuc: { [Op.lt]: today }
@@ -70,8 +70,8 @@ const getMemberStats = async (req, res) => {
         const inProgressTasks = inProgressTasksCount + inProgressSubtasksCount;
         const overdueTasks = overdueTasksCount + overdueSubtasksCount;
 
-        const completionRate = totalTasks > 0 
-            ? Math.round((completedTasks / totalTasks) * 100) 
+        const completionRate = totalTasks > 0
+            ? Math.round((completedTasks / totalTasks) * 100)
             : 0;
 
         res.json({
@@ -171,12 +171,103 @@ const getTodayTasks = async (req, res) => {
     }
 };
 
+// Get overdue tasks for member
+const getOverdueTasks = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Get overdue tasks
+        const tasks = await Task.findAll({
+            where: {
+                nguoiDuocGiaoId: userId,
+                trangThai: { [Op.ne]: 'Hoàn thành' },
+                ngayKetThuc: { [Op.lt]: today }
+            },
+            include: [
+                {
+                    model: DuAn,
+                    as: 'duan',
+                    attributes: ['id', 'tenduan']
+                }
+            ],
+            order: [['ngayKetThuc', 'ASC']]
+        });
+
+        // Get overdue subtasks
+        const subtasks = await Subtask.findAll({
+            where: {
+                nguoiThucHienId: userId,
+                trangThai: { [Op.ne]: 'Hoàn thành' },
+                ngayKetThuc: { [Op.lt]: today }
+            },
+            include: [
+                {
+                    model: Task,
+                    as: 'task',
+                    attributes: ['id', 'tentask'],
+                    include: [{
+                        model: DuAn,
+                        as: 'duan',
+                        attributes: ['id', 'tenduan']
+                    }]
+                }
+            ],
+            order: [['ngayKetThuc', 'ASC']]
+        });
+
+        // Calculate days overdue and format response
+        const overdueTasks = [
+            ...tasks.map(task => {
+                const deadline = new Date(task.ngayKetThuc);
+                const diffTime = today.getTime() - deadline.getTime();
+                const daysOverdue = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                return {
+                    id: task.id,
+                    title: task.tentask,
+                    deadline: task.ngayKetThuc,
+                    priority: task.mucDoUuTien || 'medium',
+                    status: task.trangThai,
+                    daysOverdue,
+                    type: 'task',
+                    project: task.duan?.tenduan
+                };
+            }),
+            ...subtasks.map(subtask => {
+                const deadline = new Date(subtask.ngayKetThuc);
+                const diffTime = today.getTime() - deadline.getTime();
+                const daysOverdue = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                return {
+                    id: subtask.id,
+                    title: subtask.tenSubtask,
+                    deadline: subtask.ngayKetThuc,
+                    priority: 'medium', // Subtask không có priority field
+                    status: subtask.trangThai,
+                    daysOverdue,
+                    type: 'subtask',
+                    parentTask: subtask.task?.tentask,
+                    project: subtask.task?.duan?.tenduan
+                };
+            })
+        ].sort((a, b) => b.daysOverdue - a.daysOverdue); // Sort by most overdue first
+
+        res.json(overdueTasks);
+
+    } catch (error) {
+        console.error('Error getting overdue tasks:', error);
+        res.status(500).json({ message: 'Không thể lấy công việc quá hạn', error: error.message });
+    }
+};
+
 // Get upcoming tasks (next 7 days)
 const getUpcomingTasks = async (req, res) => {
     try {
         const userId = req.user.id;
         const days = parseInt(req.query.days) || 7;
-        
+
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const futureDate = new Date(today);
@@ -508,7 +599,7 @@ const getMemberTasks = async (req, res) => {
 const getMemberProjects = async (req, res) => {
     try {
         const userId = req.user.id;
-        
+
         console.log('🔍 [getMemberProjects] User ID:', userId);
         console.log('👤 [getMemberProjects] User info:', req.user);
 
@@ -517,7 +608,7 @@ const getMemberProjects = async (req, res) => {
             where: { userId },
             attributes: ['groupId']
         });
-        
+
         console.log('👥 [getMemberProjects] User is in groups:', groupMembers.map(gm => gm.groupId));
 
         const groupIds = groupMembers.map(gm => gm.groupId);
@@ -540,7 +631,7 @@ const getMemberProjects = async (req, res) => {
             ...projectIds,
             ...directProjects.map(p => p.id)
         ])];
-        
+
         console.log('📂 [getMemberProjects] All project IDs for user:', allProjectIds);
 
         // Get detailed project information
@@ -564,13 +655,13 @@ const getMemberProjects = async (req, res) => {
         const formattedProjects = await Promise.all(projects.map(async (project) => {
             // Count total tasks in project
             const totalTasks = project.tasks.length;
-            
+
             // Count completed tasks
             const completedTasks = project.tasks.filter(t => t.trangThai === 'Hoàn thành').length;
-            
+
             // Count tasks assigned to current user
             const myTasks = project.tasks.filter(t => t.nguoiDuocGiaoId === userId).length;
-            
+
             // Count completed tasks by current user
             const myCompletedTasks = project.tasks.filter(
                 t => t.nguoiDuocGiaoId === userId && t.trangThai === 'Hoàn thành'
@@ -584,9 +675,9 @@ const getMemberProjects = async (req, res) => {
                 where: { projectId: project.id },
                 attributes: ['groupId']
             });
-            
+
             const projectGroupIds = projectGroupRelations.map(gp => gp.groupId);
-            
+
             const teamMembers = await GroupMember.count({
                 where: { groupId: { [Op.in]: projectGroupIds } },
                 distinct: true,
@@ -613,7 +704,7 @@ const getMemberProjects = async (req, res) => {
         }));
 
         console.log('✅ [getMemberProjects] Returning', formattedProjects.length, 'projects');
-        
+
         res.json(formattedProjects);
 
     } catch (error) {
@@ -779,6 +870,7 @@ const updateMemberSubtaskStatus = async (req, res) => {
 module.exports = {
     getMemberStats,
     getTodayTasks,
+    getOverdueTasks,
     getUpcomingTasks,
     getRecentActivities,
     getMemberTasks,

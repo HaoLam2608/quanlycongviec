@@ -120,7 +120,7 @@ exports.createUser = async (req, res) => {
 exports.updateUser = async (req, res) => {
     try {
         const { id } = req.params;
-    const { manv, chucvu, hoten, sdt, roleId, password, avatar } = req.body;
+        const { manv, chucvu, hoten, sdt, roleId, password, avatar } = req.body;
 
         const user = await User.findByPk(id);
         if (!user) {
@@ -137,12 +137,12 @@ exports.updateUser = async (req, res) => {
 
         // Chuẩn bị dữ liệu cập nhật
         const updateData = {};
-    if (manv) updateData.manv = manv;
-    if (chucvu) updateData.chucvu = chucvu;
-    if (hoten) updateData.hoten = hoten;
-    if (sdt) updateData.sdt = sdt;
-    if (roleId) updateData.roleId = roleId;
-    if (avatar) updateData.avatar = avatar;
+        if (manv) updateData.manv = manv;
+        if (chucvu) updateData.chucvu = chucvu;
+        if (hoten) updateData.hoten = hoten;
+        if (sdt) updateData.sdt = sdt;
+        if (roleId) updateData.roleId = roleId;
+        if (avatar) updateData.avatar = avatar;
 
         // Hash password mới nếu có
         if (password) {
@@ -352,7 +352,7 @@ exports.getMyProfile = async (req, res) => {
             attributes: { exclude: ['password', 'token'] }
         });
         if (!user) return res.status(404).json({ message: 'User not found' });
-        
+
         // Format avatar URL
         const userData = user.toJSON();
         if (userData.avatar) {
@@ -360,7 +360,7 @@ exports.getMyProfile = async (req, res) => {
         } else if (userData.id) {
             userData.avatarUrl = `/users/${userData.id}/avatar`;
         }
-        
+
         res.json({ user: userData });
     } catch (err) {
         console.error('Get my profile error:', err);

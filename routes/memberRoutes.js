@@ -4,6 +4,7 @@ const authenticateToken = require('../middleware/auth');
 const {
     getMemberStats,
     getTodayTasks,
+    getOverdueTasks,
     getUpcomingTasks,
     getRecentActivities,
     getMemberTasks,
@@ -28,6 +29,7 @@ router.get('/debug/me', (req, res) => {
 // Dashboard endpoints
 router.get('/dashboard/stats', getMemberStats);
 router.get('/tasks/today', getTodayTasks);
+router.get('/tasks/overdue', getOverdueTasks);
 router.get('/tasks/upcoming', getUpcomingTasks);
 router.get('/activities/recent', getRecentActivities);
 
