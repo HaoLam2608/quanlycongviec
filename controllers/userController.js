@@ -79,12 +79,20 @@ exports.getAllUsers = async (req, res) => {
 // Tạo người dùng mới
 exports.createUser = async (req, res) => {
     try {
-        const { manv, password, chucvu, hoten, sdt, roleId } = req.body;
+        const { manv, password, chucvu, hoten, sdt, roleId, email } = req.body;
 
         // Kiểm tra mã nhân viên đã tồn tại
         const existingUser = await User.findOne({ where: { manv } });
         if (existingUser) {
             return res.status(400).json({ message: 'Mã nhân viên đã tồn tại' });
+        }
+
+        // Nếu email được cung cấp, kiểm tra trùng email
+        if (email) {
+            const existingEmail = await User.findOne({ where: { email } });
+            if (existingEmail) {
+                return res.status(400).json({ message: 'Email đã được sử dụng' });
+            }
         }
 
         // Hash password
@@ -97,7 +105,8 @@ exports.createUser = async (req, res) => {
             chucvu,
             hoten,
             sdt,
-            roleId
+            roleId,
+            email
         });
 
         // Lấy user với role để trả về
@@ -120,7 +129,7 @@ exports.createUser = async (req, res) => {
 exports.updateUser = async (req, res) => {
     try {
         const { id } = req.params;
-        const { manv, chucvu, hoten, sdt, roleId, password, avatar } = req.body;
+        const { manv, chucvu, hoten, sdt, roleId, password, avatar, email } = req.body;
 
         const user = await User.findByPk(id);
         if (!user) {
@@ -135,6 +144,14 @@ exports.updateUser = async (req, res) => {
             }
         }
 
+        // Kiểm tra email nếu thay đổi
+        if (email && email !== user.email) {
+            const existingEmail = await User.findOne({ where: { email } });
+            if (existingEmail) {
+                return res.status(400).json({ message: 'Email đã được sử dụng' });
+            }
+        }
+
         // Chuẩn bị dữ liệu cập nhật
         const updateData = {};
         if (manv) updateData.manv = manv;
@@ -143,6 +160,7 @@ exports.updateUser = async (req, res) => {
         if (sdt) updateData.sdt = sdt;
         if (roleId) updateData.roleId = roleId;
         if (avatar) updateData.avatar = avatar;
+        if (email) updateData.email = email;
 
         // Hash password mới nếu có
         if (password) {
