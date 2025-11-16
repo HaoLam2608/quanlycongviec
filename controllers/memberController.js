@@ -27,11 +27,19 @@ const getMemberStats = async (req, res) => {
             }
         });
 
+        // Count pending approval tasks
+        const pendingApprovalTasksCount = await Task.count({
+            where: {
+                nguoiDuocGiaoId: userId,
+                trangThai: 'Chờ xác nhận hoàn thành'
+            }
+        });
+
         // Count overdue tasks (deadline passed but not completed)
         const overdueTasksCount = await Task.count({
             where: {
                 nguoiDuocGiaoId: userId,
-                trangThai: { [Op.ne]: 'Hoàn thành' },
+                trangThai: { [Op.notIn]: ['Hoàn thành', 'Chờ xác nhận hoàn thành'] },
                 ngayKetThuc: { [Op.lt]: today }
             }
         });
@@ -55,20 +63,29 @@ const getMemberStats = async (req, res) => {
             }
         });
 
+        // Count pending approval subtasks
+        const pendingApprovalSubtasksCount = await Subtask.count({
+            where: {
+                nguoiThucHienId: userId,
+                trangThai: 'Chờ xác nhận hoàn thành'
+            }
+        });
+
         // Count overdue subtasks
         const overdueSubtasksCount = await Subtask.count({
             where: {
                 nguoiThucHienId: userId,
-                trangThai: { [Op.ne]: 'Hoàn thành' },
+                trangThai: { [Op.notIn]: ['Hoàn thành', 'Chờ xác nhận hoàn thành'] },
                 ngayKetThuc: { [Op.lt]: today }
             }
         });
 
-        // Combine tasks and subtasks
-        const totalTasks = totalTasksCount + totalSubtasksCount;
-        const completedTasks = completedTasksCount + completedSubtasksCount;
-        const inProgressTasks = inProgressTasksCount + inProgressSubtasksCount;
-        const overdueTasks = overdueTasksCount + overdueSubtasksCount;
+        // Only count subtasks for mobile app (members primarily work with subtasks)
+        const totalTasks = totalSubtasksCount;
+        const completedTasks = completedSubtasksCount;
+        const inProgressTasks = inProgressSubtasksCount;
+        const pendingApprovalTasks = pendingApprovalSubtasksCount;
+        const overdueTasks = overdueSubtasksCount;
 
         const completionRate = totalTasks > 0
             ? Math.round((completedTasks / totalTasks) * 100)
@@ -78,8 +95,26 @@ const getMemberStats = async (req, res) => {
             totalTasks,
             completedTasks,
             inProgressTasks,
+            pendingApprovalTasks,
             overdueTasks,
-            completionRate
+            completionRate,
+            // Detailed breakdown
+            breakdown: {
+                tasks: {
+                    total: totalTasksCount,
+                    completed: completedTasksCount,
+                    inProgress: inProgressTasksCount,
+                    pendingApproval: pendingApprovalTasksCount,
+                    overdue: overdueTasksCount
+                },
+                subtasks: {
+                    total: totalSubtasksCount,
+                    completed: completedSubtasksCount,
+                    inProgress: inProgressSubtasksCount,
+                    pendingApproval: pendingApprovalSubtasksCount,
+                    overdue: overdueSubtasksCount
+                }
+            }
         });
 
     } catch (error) {
@@ -759,11 +794,11 @@ const updateMemberTaskStatus = async (req, res) => {
             task.trangThai = 'Chờ xác nhận hoàn thành';
             task.requestedCompletionAt = new Date();
             await task.save();
-            
+
             console.log('✅ Task saved with pending approval status');
-            return res.json({ 
+            return res.json({
                 message: 'Đã gửi yêu cầu xác nhận hoàn thành. Chờ quản lý duyệt.',
-                task 
+                task
             });
         }
 
@@ -826,7 +861,7 @@ const updateMemberSubtaskStatus = async (req, res) => {
         });
 
         // Check if user is assigned to this subtask or parent task
-        if (subtask.nguoiThucHienId !== userId && 
+        if (subtask.nguoiThucHienId !== userId &&
             subtask.task.nguoiDuocGiaoId !== userId) {
             console.log('❌ Permission denied: user is not assigned to this subtask or parent task');
             return res.status(403).json({ message: 'Bạn không có quyền cập nhật công việc con này' });
@@ -842,11 +877,11 @@ const updateMemberSubtaskStatus = async (req, res) => {
             subtask.trangThai = 'Chờ xác nhận hoàn thành';
             subtask.requestedCompletionAt = new Date();
             await subtask.save();
-            
+
             console.log('✅ Subtask saved with pending approval status');
-            return res.json({ 
+            return res.json({
                 message: 'Đã gửi yêu cầu xác nhận hoàn thành. Chờ quản lý duyệt.',
-                subtask 
+                subtask
             });
         }
 
