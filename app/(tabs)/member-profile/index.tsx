@@ -12,6 +12,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { STORAGE_KEYS } from '../../../constants/api';
 import { useLogout } from '../../../hooks/useLogout';
 import { getMyProfile, updateMyProfile, uploadAvatar } from '../../../src/axios/api';
 import { API_CONFIG } from '../../../src/config/api';
@@ -119,7 +120,7 @@ export default function MemberProfileScreen() {
     const pickImage = async () => {
         try {
             // Debug: Check if user is authenticated
-            const accessToken = await AsyncStorage.getItem('accessToken');
+            const accessToken = await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
             const userId = await AsyncStorage.getItem('userId');
             console.log('🔐 Auth Debug:', {
                 hasAccessToken: !!accessToken,

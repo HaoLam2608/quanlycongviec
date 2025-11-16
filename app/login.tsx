@@ -17,6 +17,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { STORAGE_KEYS } from '../constants/api';
 import { loginUser } from '../src/axios/api';
 
 const { width, height } = Dimensions.get('window');
@@ -71,17 +72,13 @@ export default function LoginScreen() {
                     };
 
                     await AsyncStorage.multiSet([
-                        ['accessToken', response.accessToken],
-                        ['refreshToken', response.refreshToken || ''],
-                        ['manv', response.manv || manv],
-                        ['hoten', response.hoten || ''],
-                        ['role', response.role || ''],
-                        ['userId', userIdValue],
+                        [STORAGE_KEYS.ACCESS_TOKEN, response.accessToken],
+                        [STORAGE_KEYS.REFRESH_TOKEN, response.refreshToken || ''],
+                        [STORAGE_KEYS.USER_CODE, response.manv || manv],
+                        [STORAGE_KEYS.USER_NAME, response.hoten || ''],
+                        [STORAGE_KEYS.USER_ROLE, response.role || ''],
+                        [STORAGE_KEYS.USER_ID, userIdValue],
                         ['user', JSON.stringify(userObject)], // Lưu user object đã construct
-                        ['manv', userObject.manv],
-                        ['hoten', userObject.hoten],
-                        ['role', userObject.role],
-                        ['userId', String(userObject.id)],
                     ]);
 
                     console.log('✅ Đăng nhập thành công:', response);

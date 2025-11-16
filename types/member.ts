@@ -2,6 +2,7 @@ export interface MemberStats {
   totalTasks: number;
   completedTasks: number;
   inProgressTasks: number;
+  pendingApprovalTasks: number;
   overdueTasks: number;
   completionRate: number;
 }
@@ -91,6 +92,11 @@ export interface MemberSubtask {
   tenSubtask: string;
   trangThai: string;
   ngayKetThuc?: string;
+  taskId?: number;
+  duanId?: number;
+  tentask?: string;
+  tenduan?: string;
+  // Legacy structure for backward compatibility
   task?: {
     id: number;
     tentask: string;

@@ -20,6 +20,7 @@ export default function MemberDashboardScreen() {
         totalTasks: 0,
         completedTasks: 0,
         inProgressTasks: 0,
+        pendingApprovalTasks: 0,
         overdueTasks: 0,
         completionRate: 0,
     });
@@ -132,11 +133,19 @@ export default function MemberDashboardScreen() {
                             <Text style={styles.statNumber}>{stats.inProgressTasks}</Text>
                             <Text style={styles.statLabel}>Đang xử lý</Text>
                         </View>
-                        <View style={[styles.statCard, { backgroundColor: '#ff4757' }]}>
-                            <Text style={styles.statNumber}>{stats.overdueTasks}</Text>
-                            <Text style={styles.statLabel}>Quá hạn</Text>
+                        <View style={[styles.statCard, { backgroundColor: '#f39c12' }]}>
+                            <Text style={styles.statNumber}>{stats.pendingApprovalTasks}</Text>
+                            <Text style={styles.statLabel}>Chờ xác nhận</Text>
                         </View>
                     </View>
+                    {stats.overdueTasks > 0 && (
+                        <View style={styles.statsRow}>
+                            <View style={[styles.statCard, { backgroundColor: '#ff4757', flex: 1 }]}>
+                                <Text style={styles.statNumber}>{stats.overdueTasks}</Text>
+                                <Text style={styles.statLabel}>Quá hạn</Text>
+                            </View>
+                        </View>
+                    )}
                 </View>
 
                 {/* My Assigned Subtasks */}

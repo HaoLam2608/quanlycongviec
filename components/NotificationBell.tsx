@@ -10,6 +10,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { STORAGE_KEYS } from '../constants/api';
 import {
     acceptAssignment,
     declineAssignment,
@@ -128,7 +129,7 @@ export default function NotificationBell({ userRole = 'member' }: NotificationBe
         // Delay and check token (similar behavior to web client) before fetching
         const timer = setTimeout(async () => {
             try {
-                const token = await AsyncStorage.getItem('token');
+                const token = await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
                 if (token) {
                     fetchNotifications();
                 } else {

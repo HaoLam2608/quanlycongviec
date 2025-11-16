@@ -13,15 +13,13 @@ import {
 } from 'react-native';
 import TaskCard from '../../../components/member/TaskCard';
 import {
-    getMemberTasks,
-    updateMemberSubtaskStatus,
-    updateMemberTaskStatus,
+    getMySubtasks,
+    updateMemberSubtaskStatus
 } from '../../../src/axios/api';
-import { MemberSubtask, MemberTask } from '../../../types/member';
+import { MemberSubtask } from '../../../types/member';
 import { styles } from './index.styles';
 
 export default function MemberTasksScreen() {
-    const [tasks, setTasks] = useState<MemberTask[]>([]);
     const [subtasks, setSubtasks] = useState<MemberSubtask[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -38,45 +36,42 @@ export default function MemberTasksScreen() {
     const loadTasks = async () => {
         try {
             setLoading(true);
-            const data = await getMemberTasks({});
-            setTasks(data.tasks || []);
-            setSubtasks(data.subtasks || []);
+            const data = await getMySubtasks();
+
+            // Handle response structure - could be array or wrapped in object
+            let subtasksArray: MemberSubtask[] = [];
+            if (Array.isArray(data)) {
+                subtasksArray = data;
+            } else if (data.subtasks && Array.isArray(data.subtasks)) {
+                subtasksArray = data.subtasks;
+            } else if (data.data && Array.isArray(data.data)) {
+                subtasksArray = data.data;
+            }
+
+            setSubtasks(subtasksArray);
         } catch (error: any) {
-            console.error('Error loading tasks:', error);
-            Alert.alert('Lỗi', 'Không thể tải danh sách công việc');
+            console.error('Error loading subtasks:', error);
+            Alert.alert('Lỗi', 'Không thể tải danh sách công việc con');
         } finally {
             setLoading(false);
         }
-    };
-
-    const allItems = [
-        ...tasks.map((task) => ({
-            id: task.id,
-            title: task.tentask,
-            description: task.mota,
-            status: task.trangThai,
-            priority: task.mucDoUuTien || 'medium',
-            deadline: task.ngayKetThuc,
-            startDate: task.ngayBatDau,
-            project: task.duan?.tenduan || 'Chưa có dự án',
-            projectId: task.duan?.id,
-            type: 'task' as const,
-            assignedBy: task.nguoiGiao?.hoten,
-            progress: task.tienDo || 0,
-        })),
-        ...subtasks.map((subtask) => ({
-            id: subtask.id,
-            title: subtask.tenSubtask,
-            description: '',
-            status: subtask.trangThai,
-            priority: 'medium',
-            deadline: subtask.ngayKetThuc,
-            project: subtask.task?.duan?.tenduan || 'Chưa có dự án',
-            projectId: subtask.task?.duan?.id,
-            type: 'subtask' as const,
-            parentTask: subtask.task?.tentask,
-            progress: 0,
-        })),
+    }; const allItems = [
+        ...subtasks.map((subtask: any) => {
+            return {
+                id: subtask.id,
+                title: subtask.tenSubtask || 'Chưa có tên',
+                description: '',
+                status: subtask.trangThai || 'Chưa bắt đầu',
+                priority: 'medium',
+                deadline: subtask.ngayKetThuc,
+                project: subtask.tenduan || 'Chưa có dự án',
+                projectId: subtask.duanId,
+                type: 'subtask' as const,
+                parentTask: subtask.tentask || 'Chưa có công việc lớn',
+                taskId: subtask.taskId,
+                progress: 0,
+            };
+        }),
     ];
 
     const filteredTasks = allItems.filter((task) => {
@@ -90,28 +85,30 @@ export default function MemberTasksScreen() {
         return matchesSearch && matchesStatus && matchesPriority;
     });
 
-    const updateTaskStatus = async (taskId: number, newStatus: string, type: 'task' | 'subtask') => {
+    const updateTaskStatus = async (subtaskId: number, newStatus: string, type: 'task' | 'subtask') => {
         try {
-            if (type === 'task') {
-                await updateMemberTaskStatus(taskId, newStatus);
-                setTasks(
-                    tasks.map((task) =>
-                        task.id === taskId ? { ...task, trangThai: newStatus } : task
+            const subtask = subtasks.find((st: any) => st.id === subtaskId);
+            if (subtask?.taskId) {
+                // If user selects "Hoàn thành", actually set to "Chờ xác nhận hoàn thành"
+                let actualStatus = newStatus;
+                let successMessage = 'Cập nhật trạng thái thành công';
+
+                if (newStatus === 'Hoàn thành') {
+                    actualStatus = 'Chờ xác nhận hoàn thành';
+                    successMessage = 'Đã gửi yêu cầu hoàn thành, chờ quản lý xác nhận';
+                }
+
+                await updateMemberSubtaskStatus(subtask.taskId, subtaskId, actualStatus);
+                setSubtasks(
+                    subtasks.map((st: any) =>
+                        st.id === subtaskId ? { ...st, trangThai: actualStatus } : st
                     )
                 );
+                Alert.alert('Thành công', successMessage);
+                setSelectedTask({ ...selectedTask, status: actualStatus });
             } else {
-                const subtask = subtasks.find((st) => st.id === taskId);
-                if (subtask?.task) {
-                    await updateMemberSubtaskStatus(subtask.task.id, taskId, newStatus);
-                    setSubtasks(
-                        subtasks.map((st) =>
-                            st.id === taskId ? { ...st, trangThai: newStatus } : st
-                        )
-                    );
-                }
+                Alert.alert('Lỗi', 'Không tìm thấy thông tin công việc con');
             }
-            Alert.alert('Thành công', 'Cập nhật trạng thái thành công');
-            setSelectedTask({ ...selectedTask, status: newStatus });
         } catch (error) {
             console.error('Error updating status:', error);
             Alert.alert('Lỗi', 'Không thể cập nhật trạng thái');
@@ -133,7 +130,7 @@ export default function MemberTasksScreen() {
         <SafeAreaView style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>Công việc của tôi</Text>
+                <Text style={styles.headerTitle}>Công việc con được giao</Text>
                 <View style={styles.headerStats}>
                     <Text style={styles.headerStatsText}>Tổng số</Text>
                     <Text style={styles.headerStatsNumber}>{allItems.length}</Text>
@@ -146,7 +143,7 @@ export default function MemberTasksScreen() {
                     <Ionicons name="search" size={20} color="#9CA3AF" />
                     <TextInput
                         style={styles.searchInput}
-                        placeholder="Tìm kiếm công việc..."
+                        placeholder="Tìm kiếm công việc con..."
                         value={searchTerm}
                         onChangeText={setSearchTerm}
                         placeholderTextColor="#9CA3AF"
@@ -166,7 +163,7 @@ export default function MemberTasksScreen() {
                     <View style={styles.filterRow}>
                         <Text style={styles.filterLabel}>Trạng thái:</Text>
                         <View style={styles.filterButtons}>
-                            {['all', 'Chưa bắt đầu', 'Đang chạy', 'Hoàn thành'].map((status) => (
+                            {['all', 'Chưa bắt đầu', 'Đang chạy', 'Chờ xác nhận hoàn thành', 'Hoàn thành'].map((status) => (
                                 <TouchableOpacity
                                     key={status}
                                     style={[
@@ -224,9 +221,9 @@ export default function MemberTasksScreen() {
                 {filteredTasks.length === 0 ? (
                     <View style={styles.emptyContainer}>
                         <Ionicons name="file-tray-outline" size={64} color="#D1D5DB" />
-                        <Text style={styles.emptyTitle}>Không có công việc</Text>
+                        <Text style={styles.emptyTitle}>Không có công việc con</Text>
                         <Text style={styles.emptyText}>
-                            Không tìm thấy công việc nào phù hợp với bộ lọc hiện tại.
+                            Không tìm thấy công việc con nào phù hợp với bộ lọc hiện tại.
                         </Text>
                     </View>
                 ) : (
@@ -261,7 +258,7 @@ export default function MemberTasksScreen() {
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>Chi tiết công việc</Text>
+                            <Text style={styles.modalTitle}>Chi tiết công việc con</Text>
                             <TouchableOpacity onPress={() => setIsDetailModalOpen(false)}>
                                 <Ionicons name="close" size={24} color="#6B7280" />
                             </TouchableOpacity>
@@ -277,28 +274,50 @@ export default function MemberTasksScreen() {
                                     <Text style={styles.modalDescription}>{selectedTask.description}</Text>
                                 )}
 
+                                {selectedTask.parentTask && (
+                                    <View style={styles.modalSection}>
+                                        <Text style={styles.modalSectionLabel}>Công việc lớn</Text>
+                                        <Text style={styles.modalSectionValue}>{selectedTask.parentTask}</Text>
+                                    </View>
+                                )}
+
                                 <View style={styles.modalSection}>
                                     <Text style={styles.modalSectionLabel}>Trạng thái</Text>
+
+                                    {selectedTask.status === 'Chờ xác nhận hoàn thành' && (
+                                        <View style={[styles.modalSection, { backgroundColor: '#FEF3C7', padding: 12, marginBottom: 12, borderRadius: 8 }]}>
+                                            <Text style={[styles.modalSectionValue, { color: '#F59E0B', fontWeight: 'bold', textAlign: 'center' }]}>
+                                                ⏳ Đang chờ quản lý xác nhận hoàn thành
+                                            </Text>
+                                        </View>
+                                    )}
+
                                     <View style={styles.statusButtons}>
-                                        {['Chưa bắt đầu', 'Đang chạy', 'Hoàn thành'].map((status) => (
-                                            <TouchableOpacity
-                                                key={status}
-                                                style={[
-                                                    styles.statusButton,
-                                                    selectedTask.status === status && styles.statusButtonActive,
-                                                ]}
-                                                onPress={() => updateTaskStatus(selectedTask.id, status, selectedTask.type)}
-                                            >
-                                                <Text
+                                        {['Chưa bắt đầu', 'Đang chạy', 'Hoàn thành'].map((status) => {
+                                            // Show actual status in UI but handle "Hoàn thành" specially
+                                            const isActive = selectedTask.status === status ||
+                                                (status === 'Hoàn thành' && selectedTask.status === 'Chờ xác nhận hoàn thành');
+
+                                            return (
+                                                <TouchableOpacity
+                                                    key={status}
                                                     style={[
-                                                        styles.statusButtonText,
-                                                        selectedTask.status === status && styles.statusButtonTextActive,
+                                                        styles.statusButton,
+                                                        isActive && styles.statusButtonActive,
                                                     ]}
+                                                    onPress={() => updateTaskStatus(selectedTask.id, status, selectedTask.type)}
                                                 >
-                                                    {status}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        ))}
+                                                    <Text
+                                                        style={[
+                                                            styles.statusButtonText,
+                                                            isActive && styles.statusButtonTextActive,
+                                                        ]}
+                                                    >
+                                                        {status}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            );
+                                        })}
                                     </View>
                                 </View>
 

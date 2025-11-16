@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { STORAGE_KEYS } from '../../../constants/api';
 import { createWorklog, deleteWorklog, getMySubtasks, getMyWorklogs, updateWorklog } from '../../../src/axios/api';
 import { MemberTask, TimerState, Worklog } from '../../../types/member';
 import { styles } from './index.styles';
@@ -286,7 +287,7 @@ export default function MemberTimesheetScreen() {
       console.log('All AsyncStorage data:', allData);
 
       const userId = await AsyncStorage.getItem('userId');
-      const token = await AsyncStorage.getItem('accessToken');
+      const token = await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
 
       console.log('Debug create worklog:', { userId, hasToken: !!token });
 

@@ -29,6 +29,8 @@ const TaskCard: React.FC<TaskCardProps> = ({
         switch (status) {
             case 'Hoàn thành':
                 return { bg: '#D1FAE5', text: '#16A34A' };
+            case 'Chờ xác nhận hoàn thành':
+                return { bg: '#FEF3C7', text: '#F59E0B' };
             case 'Đang chạy':
                 return { bg: '#DBEAFE', text: '#2563EB' };
             case 'Chưa bắt đầu':
