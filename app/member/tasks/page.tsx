@@ -17,7 +17,7 @@ import {
     MessageSquare,
     Paperclip
 } from "lucide-react"
-import { getMemberTasks, updateMemberTaskStatus, updateMemberSubtaskStatus } from "@/axios/api"
+import { getMySubtasks, updateMemberTaskStatus, updateMemberSubtaskStatus } from "@/axios/api"
 import { useToastContext } from '@/components/providers/toast-provider'
 import Modal from "@/components/admin/Modal"
 import WorklogTask from "@/components/worklog-task"
@@ -82,25 +82,31 @@ export default function MyTasksPage() {
         try {
             setLoading(true)
             setError(null)
-            
-            console.log('📡 Fetching member tasks...')
-            
-            // Get all tasks without filters - we'll filter on frontend
-            const data = await getMemberTasks({})
-            console.log('✅ Tasks received:', data)
-            console.log('📊 Tasks count:', data.tasks?.length || 0)
-            console.log('📊 Subtasks count:', data.subtasks?.length || 0)
-            
-            // Log first task to check data structure
-            if (data.tasks && data.tasks.length > 0) {
-                console.log('📝 Sample task:', data.tasks[0])
+
+            console.log('📡 Fetching my subtasks...')
+
+            // Get all subtasks assigned to current member
+            const data = await getMySubtasks()
+            console.log('✅ Subtasks received:', data)
+            console.log('📊 Subtasks count:', Array.isArray(data) ? data.length : data.subtasks?.length || 0)
+
+            // Handle response structure - could be array or wrapped in object
+            let subtasksArray: Subtask[] = []
+            if (Array.isArray(data)) {
+                subtasksArray = data
+            } else if (data.subtasks && Array.isArray(data.subtasks)) {
+                subtasksArray = data.subtasks
+            } else if (data.data && Array.isArray(data.data)) {
+                subtasksArray = data.data
             }
-            if (data.subtasks && data.subtasks.length > 0) {
-                console.log('📝 Sample subtask:', data.subtasks[0])
+
+            // Log first subtask to check data structure
+            if (subtasksArray.length > 0) {
+                console.log('📝 Sample subtask:', subtasksArray[0])
             }
-            
-            setTasks(data.tasks || [])
-            setSubtasks(data.subtasks || [])
+
+            setTasks([]) // No tasks, only subtasks
+            setSubtasks(subtasksArray)
         } catch (error: any) {
             console.error("❌ Error loading tasks:", error)
             setError(error.message || "Không thể tải danh sách công việc")
@@ -146,38 +152,21 @@ export default function MyTasksPage() {
         return diffDays
     }
 
-    // Combine tasks and subtasks for display and include createdAt if present
-    const allItems = [
-        ...tasks.map(task => ({
-            id: task.id,
-            title: task.tentask,
-            description: task.mota,
-            status: task.trangThai,
-            priority: task.mucDoUuTien || 'medium',
-            deadline: task.ngayKetThuc,
-            startDate: task.ngayBatDau,
-            project: task.duan?.tenduan || 'Chưa có dự án',
-            projectId: task.duan?.id,
-            type: 'task' as const,
-            assignedBy: task.nguoiGiao?.hoten,
-            progress: task.trangThai === 'Hoàn thành' ? 100 : task.trangThai === 'Chờ xác nhận hoàn thành' ? 90 : task.trangThai === 'Đang chạy' ? 50 : 0,
-            createdAt: (task as any).createdAt || null
-        })),
-        ...subtasks.map(subtask => ({
-            id: subtask.id,
-            title: subtask.tenSubtask,
-            description: '',
-            status: subtask.trangThai,
-            priority: 'medium',
-            deadline: subtask.ngayKetThuc,
-            project: subtask.task?.duan?.tenduan || 'Chưa có dự án',
-            projectId: subtask.task?.duan?.id,
-            type: 'subtask' as const,
-            parentTask: subtask.task?.tentask,
-            progress: subtask.trangThai === 'Hoàn thành' ? 100 : subtask.trangThai === 'Chờ xác nhận hoàn thành' ? 90 : subtask.trangThai === 'Đang chạy' ? 50 : 0,
-            createdAt: (subtask as any).createdAt || null
-        }))
-    ]
+    // Only display subtasks (member-focused view)
+    const allItems = subtasks.map(subtask => ({
+        id: subtask.id,
+        title: subtask.tenSubtask,
+        description: '',
+        status: subtask.trangThai,
+        priority: 'medium',
+        deadline: subtask.ngayKetThuc,
+        project: subtask.task?.duan?.tenduan || 'Chưa có dự án',
+        projectId: subtask.task?.duan?.id,
+        type: 'subtask' as const,
+        parentTask: subtask.task?.tentask,
+        progress: subtask.trangThai === 'Hoàn thành' ? 100 : subtask.trangThai === 'Chờ xác nhận hoàn thành' ? 90 : subtask.trangThai === 'Đang chạy' ? 50 : 0,
+        createdAt: (subtask as any).createdAt || null
+    }))
 
     // Sort items newest-first. Prefer createdAt if available, otherwise fall back to id descending.
     const sortedItems = allItems.slice().sort((a, b) => {
@@ -212,9 +201,9 @@ export default function MyTasksPage() {
         console.log('⚠️ Status filter:', statusFilter)
     }
 
-    const projects = Array.from(new Set(tasks.map(task => ({
-        id: task.duan?.id,
-        name: task.duan?.tenduan
+    const projects = Array.from(new Set(subtasks.map(subtask => ({
+        id: subtask.task?.duan?.id,
+        name: subtask.task?.duan?.tenduan
     })).filter(p => p.id && p.name)))
 
     const updateTaskStatus = async (taskId: number, newStatus: string, type: 'task' | 'subtask') => {
@@ -223,13 +212,13 @@ export default function MyTasksPage() {
                 const response = await updateMemberTaskStatus(taskId, newStatus)
                 // Backend returns actual status (may be "Chờ xác nhận hoàn thành" instead of "Hoàn thành")
                 const actualStatus = response.task?.trangThai || (newStatus === 'Hoàn thành' ? 'Chờ xác nhận hoàn thành' : newStatus)
-                
+
                 setTasks(tasks.map(task =>
                     task.id === taskId
                         ? { ...task, trangThai: actualStatus }
                         : task
                 ))
-                
+
                 // Show success message
                 if (actualStatus === 'Chờ xác nhận hoàn thành') {
                     showSuccess('Đã gửi yêu cầu xác nhận hoàn thành. Chờ quản lý phê duyệt.')
@@ -244,13 +233,13 @@ export default function MyTasksPage() {
                     const response = await updateMemberSubtaskStatus(task.task.id, taskId, newStatus)
                     // Backend returns actual status (may be "Chờ xác nhận hoàn thành" instead of "Hoàn thành")
                     const actualStatus = response.subtask?.trangThai || (newStatus === 'Hoàn thành' ? 'Chờ xác nhận hoàn thành' : newStatus)
-                    
+
                     setSubtasks(subtasks.map(subtask =>
                         subtask.id === taskId
                             ? { ...subtask, trangThai: actualStatus }
                             : subtask
                     ))
-                    
+
                     // Show success message
                     if (actualStatus === 'Chờ xác nhận hoàn thành') {
                         showSuccess('Đã gửi yêu cầu xác nhận hoàn thành. Chờ quản lý phê duyệt.')
@@ -286,7 +275,7 @@ export default function MyTasksPage() {
                     {/* Filters Skeleton */}
                     <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 mb-6">
                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            {[1,2,3,4].map(i => (
+                            {[1, 2, 3, 4].map(i => (
                                 <div key={i} className="h-10 bg-gray-200 rounded-lg animate-pulse"></div>
                             ))}
                         </div>
@@ -294,7 +283,7 @@ export default function MyTasksPage() {
 
                     {/* Tasks List Skeleton */}
                     <div className="space-y-4">
-                        {[1,2,3,4,5].map(i => (
+                        {[1, 2, 3, 4, 5].map(i => (
                             <div key={i} className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
                                 <div className="flex items-start justify-between mb-4">
                                     <div className="flex-1">
@@ -327,7 +316,7 @@ export default function MyTasksPage() {
                     <AlertTriangle className="w-12 h-12 text-red-600 mx-auto mb-4" />
                     <p className="text-gray-900 font-semibold mb-2">Lỗi khi tải dữ liệu</p>
                     <p className="text-gray-600 mb-4">{error}</p>
-                    <button 
+                    <button
                         onClick={loadTasks}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                     >
@@ -344,11 +333,11 @@ export default function MyTasksPage() {
                 {/* Header */}
                 <div className="mb-6 flex items-center justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Công việc của tôi</h1>
-                        <p className="text-gray-600">Quản lý và theo dõi tiến độ công việc được giao</p>
+                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Công việc nhỏ của tôi</h1>
+                        <p className="text-gray-600">Quản lý và theo dõi tiến độ các subtask được giao</p>
                     </div>
                     <div className="text-right">
-                        <p className="text-sm text-gray-500">Tổng số công việc</p>
+                        <p className="text-sm text-gray-500">Tổng số subtask</p>
                         <p className="text-2xl font-bold text-blue-600">{allItems.length}</p>
                     </div>
                 </div>
@@ -446,12 +435,6 @@ export default function MyTasksPage() {
                                         </div>
 
                                         <div className="flex items-center gap-6 text-sm text-gray-500">
-                                            {task.type === 'task' && task.startDate && (
-                                                <div className="flex items-center gap-1">
-                                                    <CalendarIcon className="w-4 h-4" />
-                                                    <span>Bắt đầu: {new Date(task.startDate).toLocaleDateString('vi-VN')}</span>
-                                                </div>
-                                            )}
                                             {task.deadline && (
                                                 <div className="flex items-center gap-1">
                                                     <Clock className="w-4 h-4" />
@@ -468,9 +451,6 @@ export default function MyTasksPage() {
                                                             ` (${getDaysUntilDeadline(task.deadline)} ngày)`}
                                                     </span>
                                                 </div>
-                                            )}
-                                            {task.type === 'task' && task.assignedBy && (
-                                                <span>Giao bởi: {task.assignedBy}</span>
                                             )}
                                         </div>
 
@@ -574,16 +554,14 @@ export default function MyTasksPage() {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="text-sm font-medium text-muted-foreground">Ngày bắt đầu</label>
-                                    <p className="mt-1 text-foreground">
-                                        {selectedTask.startDate ? new Date(selectedTask.startDate).toLocaleDateString('vi-VN') : 'Chưa xác định'}
-                                    </p>
-                                </div>
-                                <div>
                                     <label className="text-sm font-medium text-muted-foreground">Deadline</label>
                                     <p className="mt-1 text-foreground">
                                         {selectedTask.deadline ? new Date(selectedTask.deadline).toLocaleDateString('vi-VN') : 'Chưa xác định'}
                                     </p>
+                                </div>
+                                <div>
+                                    <label className="text-sm font-medium text-muted-foreground">Task cha</label>
+                                    <p className="mt-1 text-foreground">{selectedTask.parentTask || 'Không có'}</p>
                                 </div>
                             </div>
 
@@ -591,13 +569,6 @@ export default function MyTasksPage() {
                                 <label className="text-sm font-medium text-muted-foreground">Dự án</label>
                                 <p className="mt-1 text-foreground">{selectedTask.project}</p>
                             </div>
-
-                            {selectedTask.assignedBy && (
-                                <div>
-                                    <label className="text-sm font-medium text-muted-foreground">Được giao bởi</label>
-                                    <p className="mt-1 text-foreground">{selectedTask.assignedBy}</p>
-                                </div>
-                            )}
 
                             {selectedTask.progress !== undefined && (
                                 <div>
@@ -612,38 +583,33 @@ export default function MyTasksPage() {
                                                 className="bg-blue-600 h-3 rounded-full transition-all duration-300"
                                                 style={{ width: `${selectedTask.progress}%` }}
                                             />
-                                            </div>
                                         </div>
                                     </div>
-                                )}
-
-                                {/* Worklog và Comments */}
-                                <div className="pt-4 border-t border-gray-200 space-y-4">
-                                    {selectedTask.type === 'subtask' && selectedTask.id ? (
-                                        <>
-                                            <WorklogSubtask subtaskId={selectedTask.id} subtaskStatus={selectedTask.status} />
-                                            <CommentSubtask subtaskId={selectedTask.id} subtaskStatus={selectedTask.status} />
-                                        </>
-                                    ) : selectedTask.id ? (
-                                        <>
-                                            <WorklogTask taskId={selectedTask.id} taskStatus={selectedTask.status} />
-                                            <CommentTask taskId={selectedTask.id} taskStatus={selectedTask.status} />
-                                        </>
-                                    ) : null}
                                 </div>
+                            )}
 
-                                {/* Action Buttons - có thể bỏ vì đã có Worklog và Comment components */}
-                                <div className="flex justify-end pt-4 border-t border-gray-200">
-                                    <button
-                                        onClick={() => setIsDetailModalOpen(false)}
-                                        className="px-6 py-3 bg-secondary text-foreground rounded-xl font-semibold hover:bg-secondary/80 transition-all"
-                                    >
-                                        Đóng
-                                    </button>
-                                </div>
+                            {/* Worklog và Comments - chỉ cho subtasks */}
+                            <div className="pt-4 border-t border-gray-200 space-y-4">
+                                {selectedTask.id ? (
+                                    <>
+                                        <WorklogSubtask subtaskId={selectedTask.id} subtaskStatus={selectedTask.status} />
+                                        <CommentSubtask subtaskId={selectedTask.id} subtaskStatus={selectedTask.status} />
+                                    </>
+                                ) : null}
                             </div>
-                        )}
-                    </Modal>
+
+                            {/* Action Buttons - có thể bỏ vì đã có Worklog và Comment components */}
+                            <div className="flex justify-end pt-4 border-t border-gray-200">
+                                <button
+                                    onClick={() => setIsDetailModalOpen(false)}
+                                    className="px-6 py-3 bg-secondary text-foreground rounded-xl font-semibold hover:bg-secondary/80 transition-all"
+                                >
+                                    Đóng
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </Modal>
             </div>
         </div>
     )
