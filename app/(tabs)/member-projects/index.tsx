@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -16,6 +17,7 @@ import { MemberProject } from '../../../types/member';
 import { styles } from './index.styles';
 
 export default function MemberProjectsScreen() {
+    const router = useRouter();
     const [projects, setProjects] = useState<MemberProject[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -165,6 +167,18 @@ export default function MemberProjectsScreen() {
                         </Text>
                     </View>
                 </View>
+
+                {/* Kanban Button */}
+                <TouchableOpacity
+                    style={styles.kanbanButton}
+                    onPress={(e) => {
+                        e.stopPropagation();
+                        router.push('/(tabs)/member-kanban' as any);
+                    }}
+                >
+                    <Ionicons name="grid" size={18} color="#fff" />
+                    <Text style={styles.kanbanButtonText}>Xem bảng Kanban</Text>
+                </TouchableOpacity>
             </TouchableOpacity>
         );
     };

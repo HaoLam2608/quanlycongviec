@@ -1,14 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import {
-    SafeAreaView, StyleSheet, Text, View, ScrollView, TouchableOpacity,
-    ActivityIndicator, RefreshControl, Alert, FlatList, Modal, TextInput, Platform,
-} from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { createTask, fetchProjectsByManager, getKanbanTasks, updateTaskStatus } from '@/src/axios/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { fetchProjectsByManager, getKanbanTasks, updateTaskStatus, createTask } from '@/src/axios/api';
-import { PageHeader } from '../../components/ui/PageHeader';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert, FlatList, Modal,
+    Platform,
+    RefreshControl,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet, Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { PageHeader } from '../../components/ui/PageHeader';
 
 interface Task {
     id: number;
@@ -49,7 +57,7 @@ export default function KanbanBoard() {
     const [newDesc, setNewDesc] = useState('');
     const [newStart, setNewStart] = useState('');
     const [newEnd, setNewEnd] = useState('');
-    const [newPriority, setNewPriority] = useState<'low'|'medium'|'high'>('medium');
+    const [newPriority, setNewPriority] = useState<'low' | 'medium' | 'high'>('medium');
     const [creatingTask, setCreatingTask] = useState(false);
     const [showProjectPicker, setShowProjectPicker] = useState(false);
     const [projectSearch, setProjectSearch] = useState('');
@@ -79,7 +87,7 @@ export default function KanbanBoard() {
                 const user = JSON.parse(userData);
                 const projectsData = await fetchProjectsByManager(user.id);
                 setProjects(projectsData);
-                
+
                 // Auto-select first project if not specified
                 if (!params.projectId && projectsData.length > 0) {
                     setSelectedProject(projectsData[0]);
@@ -164,11 +172,11 @@ export default function KanbanBoard() {
                         <Text style={styles.taskActionText}>⋯</Text>
                     </TouchableOpacity>
                 </View>
-                
+
                 {task.mota && (
                     <Text style={styles.taskDesc} numberOfLines={2}>{task.mota}</Text>
                 )}
-                
+
                 {task.nguoiDuocGiao && (
                     <View style={styles.assigneeContainer}>
                         <View style={styles.assigneeAvatar}>
@@ -181,7 +189,7 @@ export default function KanbanBoard() {
                         </Text>
                     </View>
                 )}
-                
+
                 <Text style={styles.dueDate}>
                     📅 {new Date(task.ngayKetThuc).toLocaleDateString('vi-VN')}
                 </Text>
@@ -243,7 +251,7 @@ export default function KanbanBoard() {
 
     const handleDragEnd = async (data: Task[], columnStatus: string) => {
         // Update local state first
-        const newColumns = columns.map(col => 
+        const newColumns = columns.map(col =>
             col.status === columnStatus ? { ...col, tasks: data } : col
         );
         setColumns(newColumns);
@@ -258,7 +266,7 @@ export default function KanbanBoard() {
         try {
             setShowMoveModal(false);
             setLoading(true);
-            
+
             // Optimistic update
             const newColumns = columns.map(col => {
                 if (col.status === fromStatus) {
@@ -296,14 +304,14 @@ export default function KanbanBoard() {
                     <Text style={styles.columnCountText}>{column.tasks.length}</Text>
                 </View>
             </View>
-            
+
             <View style={styles.columnContent}>
                 {column.tasks.length > 0 ? (
                     <DraggableFlatList
                         data={column.tasks}
                         onDragEnd={({ data }) => handleDragEnd(data, column.status)}
                         keyExtractor={(item) => item.id.toString()}
-                        renderItem={({ item, drag, isActive }: RenderItemParams<Task>) => 
+                        renderItem={({ item, drag, isActive }: RenderItemParams<Task>) =>
                             renderTaskCard(item, drag, isActive, column.status)
                         }
                         showsVerticalScrollIndicator={false}
@@ -333,164 +341,164 @@ export default function KanbanBoard() {
         <GestureHandlerRootView style={{ flex: 1 }}>
             <SafeAreaView style={styles.container}>
                 <PageHeader title="Kanban Board" />
-            
-                    {/* Project selector (opens modal) */}
-                    {projects.length > 0 && (
-                        <View style={styles.projectSelector}>
-                            <Text style={styles.selectorLabel}>Chọn dự án:</Text>
 
-                            <TouchableOpacity
-                                style={[
-                                    styles.projectChip,
-                                    selectedProject ? styles.projectChipActive : null,
-                                    { maxWidth: '70%' }
-                                ]}
-                                onPress={() => setShowProjectPicker(true)}
-                            >
-                                <Text style={[
-                                    styles.projectChipText,
-                                    selectedProject ? styles.projectChipTextActive : null
-                                ]} numberOfLines={1}>
-                                    {selectedProject ? selectedProject.tenduan : 'Chọn dự án...'}
-                                </Text>
-                            </TouchableOpacity>
+                {/* Project selector (opens modal) */}
+                {projects.length > 0 && (
+                    <View style={styles.projectSelector}>
+                        <Text style={styles.selectorLabel}>Chọn dự án:</Text>
 
-                            <TouchableOpacity onPress={() => { setSelectedProject(null); setColumns(columns.map(c => ({ ...c, tasks: [] }))); }} style={{ marginLeft: 12 }}>
-                                <Text style={{ color: '#6b7280', fontWeight: '600' }}>Bỏ chọn</Text>
-                            </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[
+                                styles.projectChip,
+                                selectedProject ? styles.projectChipActive : null,
+                                { maxWidth: '70%' }
+                            ]}
+                            onPress={() => setShowProjectPicker(true)}
+                        >
+                            <Text style={[
+                                styles.projectChipText,
+                                selectedProject ? styles.projectChipTextActive : null
+                            ]} numberOfLines={1}>
+                                {selectedProject ? selectedProject.tenduan : 'Chọn dự án...'}
+                            </Text>
+                        </TouchableOpacity>
 
-                            <Modal visible={showProjectPicker} animationType="slide" transparent>
-                                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 16 }}>
-                                    <View style={{ backgroundColor: '#fff', borderRadius: 12, maxHeight: '80%', padding: 12 }}>
-                                        <Text style={{ fontSize: 16, fontWeight: '700', marginBottom: 8 }}>Chọn dự án</Text>
-                                        <TextInput placeholder="Tìm dự án..." value={projectSearch} onChangeText={setProjectSearch} style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingHorizontal: 12, paddingVertical: Platform.OS === 'ios' ? 10 : 8, marginBottom: 8 }} />
+                        <TouchableOpacity onPress={() => { setSelectedProject(null); setColumns(columns.map(c => ({ ...c, tasks: [] }))); }} style={{ marginLeft: 12 }}>
+                            <Text style={{ color: '#6b7280', fontWeight: '600' }}>Bỏ chọn</Text>
+                        </TouchableOpacity>
 
-                                        <FlatList
-                                            data={projects.filter(p => (p.tenduan || p.name || p.title || '').toLowerCase().includes(projectSearch.toLowerCase()))}
-                                            keyExtractor={item => item.id.toString()}
-                                            nestedScrollEnabled
-                                            style={{ marginBottom: 8 }}
-                                            renderItem={({ item }) => (
-                                                <TouchableOpacity onPress={() => { selectProject(item); setShowProjectPicker(false); setProjectSearch(''); }} style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' }}>
-                                                    <Text style={{ fontSize: 15, fontWeight: selectedProject?.id === item.id ? '700' : '500', color: '#111827' }}>{item.tenduan || item.name || item.title}</Text>
-                                                    {item.mota ? <Text style={{ color: '#6b7280', fontSize: 12 }}>{item.mota}</Text> : null}
-                                                </TouchableOpacity>
-                                            )}
-                                            ListEmptyComponent={<Text style={{ padding: 12, color: '#6b7280' }}>Không có dự án</Text>}
-                                        />
+                        <Modal visible={showProjectPicker} animationType="slide" transparent>
+                            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 16 }}>
+                                <View style={{ backgroundColor: '#fff', borderRadius: 12, maxHeight: '80%', padding: 12 }}>
+                                    <Text style={{ fontSize: 16, fontWeight: '700', marginBottom: 8 }}>Chọn dự án</Text>
+                                    <TextInput placeholder="Tìm dự án..." value={projectSearch} onChangeText={setProjectSearch} style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingHorizontal: 12, paddingVertical: Platform.OS === 'ios' ? 10 : 8, marginBottom: 8 }} />
 
-                                        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
-                                            <TouchableOpacity onPress={() => { setShowProjectPicker(false); setProjectSearch(''); }} style={{ paddingVertical: 8, paddingHorizontal: 12 }}>
-                                                <Text style={{ color: '#6b7280', fontWeight: '700' }}>Đóng</Text>
+                                    <FlatList
+                                        data={projects.filter(p => (p.tenduan || p.name || p.title || '').toLowerCase().includes(projectSearch.toLowerCase()))}
+                                        keyExtractor={item => item.id.toString()}
+                                        nestedScrollEnabled
+                                        style={{ marginBottom: 8 }}
+                                        renderItem={({ item }) => (
+                                            <TouchableOpacity onPress={() => { selectProject(item); setShowProjectPicker(false); setProjectSearch(''); }} style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' }}>
+                                                <Text style={{ fontSize: 15, fontWeight: selectedProject?.id === item.id ? '700' : '500', color: '#111827' }}>{item.tenduan || item.name || item.title}</Text>
+                                                {item.mota ? <Text style={{ color: '#6b7280', fontSize: 12 }}>{item.mota}</Text> : null}
                                             </TouchableOpacity>
-                                        </View>
+                                        )}
+                                        ListEmptyComponent={<Text style={{ padding: 12, color: '#6b7280' }}>Không có dự án</Text>}
+                                    />
+
+                                    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
+                                        <TouchableOpacity onPress={() => { setShowProjectPicker(false); setProjectSearch(''); }} style={{ paddingVertical: 8, paddingHorizontal: 12 }}>
+                                            <Text style={{ color: '#6b7280', fontWeight: '700' }}>Đóng</Text>
+                                        </TouchableOpacity>
                                     </View>
                                 </View>
-                            </Modal>
-                        </View>
-                    )}
-
-            {selectedProject ? (
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    style={styles.boardContainer}
-                    refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-                    }
-                >
-                    {columns.map(column => renderColumn(column))}
-                </ScrollView>
-            ) : (
-                <View style={styles.noProjectContainer}>
-                    <Text style={styles.noProjectIcon}>📋</Text>
-                    <Text style={styles.noProjectTitle}>Chưa có dự án</Text>
-                    <Text style={styles.noProjectText}>Vui lòng tạo dự án mới để sử dụng Kanban Board</Text>
-                </View>
-            )}
-
-            {/* Floating create task button */}
-            <TouchableOpacity style={styles.fab} onPress={() => setShowCreateModal(true)}>
-                <Text style={styles.fabText}>+</Text>
-            </TouchableOpacity>
-
-            {/* Create Task Modal */}
-            <Modal visible={showCreateModal} animationType="slide" transparent>
-                <View style={modalStyles.modalOverlay}>
-                    <View style={modalStyles.modalContent}>
-                        <Text style={modalStyles.modalTitle}>Tạo công việc mới</Text>
-                        <TextInput placeholder="Tiêu đề" value={newTitle} onChangeText={setNewTitle} style={modalStyles.input} />
-                        <TextInput placeholder="Mô tả" value={newDesc} onChangeText={setNewDesc} style={[modalStyles.input, { height: 80 }]} multiline />
-                        <TextInput placeholder="Ngày bắt đầu (YYYY-MM-DD)" value={newStart} onChangeText={setNewStart} style={modalStyles.input} />
-                        <TextInput placeholder="Ngày kết thúc (YYYY-MM-DD)" value={newEnd} onChangeText={setNewEnd} style={modalStyles.input} />
-
-                        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-                            {['high','medium','low'].map(p => (
-                                <TouchableOpacity key={p} onPress={() => setNewPriority(p as any)} style={[modalStyles.priorityOption, newPriority === p ? { backgroundColor: '#1e40af' } : { backgroundColor: '#f3f4f6' }]}>
-                                    <Text style={{ color: newPriority === p ? '#fff' : '#111827', fontWeight: '700' }}>{p === 'high' ? 'Cao' : p === 'medium' ? 'Trung bình' : 'Thấp'}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-
-                        <View style={modalStyles.modalActions}>
-                            <TouchableOpacity style={[modalStyles.modalBtn, { backgroundColor: '#9ca3af' }]} onPress={() => setShowCreateModal(false)}>
-                                <Text style={modalStyles.modalBtnText}>Hủy</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={[modalStyles.modalBtn, { backgroundColor: '#3b82f6' }]} onPress={handleCreateTask} disabled={creatingTask}>
-                                {creatingTask ? <ActivityIndicator color="#fff" /> : <Text style={[modalStyles.modalBtnText, { color: '#fff' }]}>Tạo</Text>}
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
-
-            {/* Move Task Modal */}
-            <Modal visible={showMoveModal} animationType="fade" transparent>
-                <View style={modalStyles.modalOverlay}>
-                    <View style={[modalStyles.modalContent, { maxWidth: 400 }]}>
-                        <Text style={modalStyles.modalTitle}>Chuyển công việc</Text>
-                        
-                        {taskToMove && (
-                            <View style={styles.taskPreview}>
-                                <View style={[styles.priorityDot, { backgroundColor: getPriorityColor(taskToMove.mucDoUuTien) }]} />
-                                <Text style={styles.taskPreviewTitle} numberOfLines={2}>{taskToMove.tentask}</Text>
                             </View>
-                        )}
+                        </Modal>
+                    </View>
+                )}
 
-                        <Text style={modalStyles.sectionLabel}>Chọn cột đích:</Text>
-                        
-                        <View style={modalStyles.columnOptions}>
-                            {columns
-                                .filter(col => col.status !== currentColumnStatus)
-                                .map(col => (
-                                    <TouchableOpacity
-                                        key={col.status}
-                                        style={[modalStyles.columnOption, { borderColor: col.color }]}
-                                        onPress={() => taskToMove && handleTaskMove(taskToMove, currentColumnStatus, col.status)}
-                                    >
-                                        <View style={[modalStyles.columnDot, { backgroundColor: col.color }]} />
-                                        <Text style={modalStyles.columnOptionText}>{col.title}</Text>
-                                        <Text style={modalStyles.columnArrow}>→</Text>
+                {selectedProject ? (
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        style={styles.boardContainer}
+                        refreshControl={
+                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                        }
+                    >
+                        {columns.map(column => renderColumn(column))}
+                    </ScrollView>
+                ) : (
+                    <View style={styles.noProjectContainer}>
+                        <Text style={styles.noProjectIcon}>📋</Text>
+                        <Text style={styles.noProjectTitle}>Chưa có dự án</Text>
+                        <Text style={styles.noProjectText}>Vui lòng tạo dự án mới để sử dụng Kanban Board</Text>
+                    </View>
+                )}
+
+                {/* Floating create task button */}
+                <TouchableOpacity style={styles.fab} onPress={() => setShowCreateModal(true)}>
+                    <Text style={styles.fabText}>+</Text>
+                </TouchableOpacity>
+
+                {/* Create Task Modal */}
+                <Modal visible={showCreateModal} animationType="slide" transparent>
+                    <View style={modalStyles.modalOverlay}>
+                        <View style={modalStyles.modalContent}>
+                            <Text style={modalStyles.modalTitle}>Tạo công việc mới</Text>
+                            <TextInput placeholder="Tiêu đề" value={newTitle} onChangeText={setNewTitle} style={modalStyles.input} />
+                            <TextInput placeholder="Mô tả" value={newDesc} onChangeText={setNewDesc} style={[modalStyles.input, { height: 80 }]} multiline />
+                            <TextInput placeholder="Ngày bắt đầu (YYYY-MM-DD)" value={newStart} onChangeText={setNewStart} style={modalStyles.input} />
+                            <TextInput placeholder="Ngày kết thúc (YYYY-MM-DD)" value={newEnd} onChangeText={setNewEnd} style={modalStyles.input} />
+
+                            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                                {['high', 'medium', 'low'].map(p => (
+                                    <TouchableOpacity key={p} onPress={() => setNewPriority(p as any)} style={[modalStyles.priorityOption, newPriority === p ? { backgroundColor: '#1e40af' } : { backgroundColor: '#f3f4f6' }]}>
+                                        <Text style={{ color: newPriority === p ? '#fff' : '#111827', fontWeight: '700' }}>{p === 'high' ? 'Cao' : p === 'medium' ? 'Trung bình' : 'Thấp'}</Text>
                                     </TouchableOpacity>
                                 ))}
-                        </View>
+                            </View>
 
-                        <View style={modalStyles.modalActions}>
-                            <TouchableOpacity 
-                                style={[modalStyles.modalBtn, { backgroundColor: '#9ca3af', flex: 1 }]} 
-                                onPress={() => {
-                                    setShowMoveModal(false);
-                                    setTaskToMove(null);
-                                    setCurrentColumnStatus('');
-                                }}
-                            >
-                                <Text style={modalStyles.modalBtnText}>Hủy</Text>
-                            </TouchableOpacity>
+                            <View style={modalStyles.modalActions}>
+                                <TouchableOpacity style={[modalStyles.modalBtn, { backgroundColor: '#9ca3af' }]} onPress={() => setShowCreateModal(false)}>
+                                    <Text style={modalStyles.modalBtnText}>Hủy</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={[modalStyles.modalBtn, { backgroundColor: '#3b82f6' }]} onPress={handleCreateTask} disabled={creatingTask}>
+                                    {creatingTask ? <ActivityIndicator color="#fff" /> : <Text style={[modalStyles.modalBtnText, { color: '#fff' }]}>Tạo</Text>}
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     </View>
-                </View>
-            </Modal>
-        </SafeAreaView>
+                </Modal>
+
+                {/* Move Task Modal */}
+                <Modal visible={showMoveModal} animationType="fade" transparent>
+                    <View style={modalStyles.modalOverlay}>
+                        <View style={[modalStyles.modalContent, { maxWidth: 400 }]}>
+                            <Text style={modalStyles.modalTitle}>Chuyển công việc</Text>
+
+                            {taskToMove && (
+                                <View style={styles.taskPreview}>
+                                    <View style={[styles.priorityDot, { backgroundColor: getPriorityColor(taskToMove.mucDoUuTien) }]} />
+                                    <Text style={styles.taskPreviewTitle} numberOfLines={2}>{taskToMove.tentask}</Text>
+                                </View>
+                            )}
+
+                            <Text style={modalStyles.sectionLabel}>Chọn cột đích:</Text>
+
+                            <View style={modalStyles.columnOptions}>
+                                {columns
+                                    .filter(col => col.status !== currentColumnStatus)
+                                    .map(col => (
+                                        <TouchableOpacity
+                                            key={col.status}
+                                            style={[modalStyles.columnOption, { borderColor: col.color }]}
+                                            onPress={() => taskToMove && handleTaskMove(taskToMove, currentColumnStatus, col.status)}
+                                        >
+                                            <View style={[modalStyles.columnDot, { backgroundColor: col.color }]} />
+                                            <Text style={modalStyles.columnOptionText}>{col.title}</Text>
+                                            <Text style={modalStyles.columnArrow}>→</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                            </View>
+
+                            <View style={modalStyles.modalActions}>
+                                <TouchableOpacity
+                                    style={[modalStyles.modalBtn, { backgroundColor: '#9ca3af', flex: 1 }]}
+                                    onPress={() => {
+                                        setShowMoveModal(false);
+                                        setTaskToMove(null);
+                                        setCurrentColumnStatus('');
+                                    }}
+                                >
+                                    <Text style={modalStyles.modalBtnText}>Hủy</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
+            </SafeAreaView>
         </GestureHandlerRootView>
     );
 }

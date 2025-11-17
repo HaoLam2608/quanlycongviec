@@ -60,6 +60,13 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
+        name="member-kanban/index"
+        options={{
+          href: null, // Hide from tab bar
+        }}
+      />
+
+      <Tabs.Screen
         name="member-projects/index"
         options={{
           title: 'Dự án',

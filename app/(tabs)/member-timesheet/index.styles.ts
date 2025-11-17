@@ -106,6 +106,36 @@ export const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  filterButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#667eea',
+    gap: 6,
+  },
+  filterButtonActive: {
+    backgroundColor: '#667eea',
+  },
+  filterButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#667eea',
+  },
+  filterButtonTextActive: {
+    color: '#fff',
+  },
   dateNav: {
     flexDirection: 'row',
     alignItems: 'center',

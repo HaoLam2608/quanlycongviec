@@ -1,17 +1,14 @@
 ﻿import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  RefreshControl,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Text, TouchableOpacity, View } from 'react-native';
+import { DateNavigation } from '../../../components/timesheet/DateNavigation';
+import { FilterButtons } from '../../../components/timesheet/FilterButtons';
+import { TaskSelectionModal } from '../../../components/timesheet/TaskSelectionModal';
+import { TimerWidget } from '../../../components/timesheet/TimerWidget';
+import { WorklogFormModal } from '../../../components/timesheet/WorklogFormModal';
+import { WorklogList } from '../../../components/timesheet/WorklogList';
 import { STORAGE_KEYS } from '../../../constants/api';
 import { createWorklog, deleteWorklog, getMySubtasks, getMyWorklogs, updateWorklog } from '../../../src/axios/api';
 import { MemberTask, TimerState, Worklog } from '../../../types/member';
@@ -22,7 +19,7 @@ export default function MemberTimesheetScreen() {
   const [tasks, setTasks] = useState<MemberTask[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null); // null = show all worklogs
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingWorklog, setEditingWorklog] = useState<Worklog | null>(null);
@@ -30,6 +27,7 @@ export default function MemberTimesheetScreen() {
   const [taskSearchQuery, setTaskSearchQuery] = useState('');
   const [previousModalState, setPreviousModalState] = useState<'create' | 'edit' | null>(null);
   const [taskSelectionMode, setTaskSelectionMode] = useState<'timer' | 'worklog'>('timer');
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Timer state
   const [timer, setTimer] = useState<TimerState>({
@@ -52,11 +50,14 @@ export default function MemberTimesheetScreen() {
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Fetch worklogs from API
-  const fetchWorklogs = async (date: Date) => {
+  const fetchWorklogs = async (date: Date | null) => {
     try {
       setIsLoading(true);
-      const dateString = date.toISOString().split('T')[0];
-      const data = await getMyWorklogs({ date: dateString });
+      const params: { date?: string } = {};
+      if (date) {
+        params.date = date.toISOString().split('T')[0];
+      }
+      const data = await getMyWorklogs(params);
 
       // Transform API data to match component interface
       const transformedWorklogs: Worklog[] = (data.worklogs || []).map((item: any) => ({
@@ -221,10 +222,10 @@ export default function MemberTimesheetScreen() {
           {
             text: 'Lưu',
             onPress: () => {
-              const hours = Number((timer.elapsedSeconds / 3600).toFixed(2));
+              const timeHMS = secondsToHMS(timer.elapsedSeconds);
               setFormData({
                 ...formData,
-                hours: hours.toString(),
+                hours: timeHMS,
                 taskId: '', // Set actual task ID
               });
               setTimer({
@@ -260,9 +261,36 @@ export default function MemberTimesheetScreen() {
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
+  // Convert seconds to HH:MM:SS format
+  const secondsToHMS = (totalSeconds: number): string => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = Math.floor(totalSeconds % 60);
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  };
+
+  // Convert HH:MM:SS format to seconds
+  const hmsToSeconds = (hms: string): number => {
+    const parts = hms.split(':');
+    if (parts.length !== 3) return 0;
+
+    const hours = parseInt(parts[0]) || 0;
+    const minutes = parseInt(parts[1]) || 0;
+    const seconds = parseInt(parts[2]) || 0;
+
+    return hours * 3600 + minutes * 60 + seconds;
+  };
+
+  // Convert decimal hours to HH:MM:SS format
+  const hoursToHMS = (decimalHours: number): string => {
+    const totalSeconds = Math.floor(decimalHours * 3600);
+    return secondsToHMS(totalSeconds);
+  };
+
   // Date navigation
   const changeDate = (direction: 'prev' | 'next') => {
-    const newDate = new Date(selectedDate);
+    const currentDate = selectedDate || new Date();
+    const newDate = new Date(currentDate);
     if (direction === 'prev') {
       newDate.setDate(newDate.getDate() - 1);
     } else {
@@ -275,8 +303,24 @@ export default function MemberTimesheetScreen() {
     setSelectedDate(new Date());
   };
 
-  // Calculate total hours
-  const totalHours = worklogs.reduce((sum, log) => sum + log.hours, 0);
+  const openDatePicker = () => {
+    setShowDatePicker(true);
+  };
+
+  const handleDateChange = (event: any, date?: Date) => {
+    setShowDatePicker(false);
+    if (date) {
+      setSelectedDate(date);
+    }
+  };
+
+  const showAllWorklogs = () => {
+    setSelectedDate(null);
+  };
+
+  // Calculate total hours in HH:MM:SS format
+  const totalSeconds = worklogs.reduce((sum, log) => sum + (log.hours * 3600), 0);
+  const totalTimeHMS = secondsToHMS(totalSeconds);
 
   // Create worklog with API
   const handleCreateWorklog = async () => {
@@ -301,18 +345,26 @@ export default function MemberTimesheetScreen() {
         return;
       }
 
-      if (!formData.hours || parseFloat(formData.hours) <= 0) {
-        Alert.alert('Lỗi', 'Vui lòng nhập số giờ hợp lệ');
+      if (!formData.hours) {
+        Alert.alert('Lỗi', 'Vui lòng nhập thời gian');
         return;
       }
+
+      // Convert HH:MM:SS to decimal hours for API
+      const totalSeconds = hmsToSeconds(formData.hours);
+      if (totalSeconds <= 0) {
+        Alert.alert('Lỗi', 'Vui lòng nhập thời gian hợp lệ (HH:MM:SS)');
+        return;
+      }
+      const decimalHours = totalSeconds / 3600;
 
       const requestData = {
         userId: parseInt(userId),
         taskId: formData.taskId ? parseInt(formData.taskId) : undefined,
         subtaskId: formData.subtaskId ? parseInt(formData.subtaskId) : undefined,
-        hours: parseFloat(formData.hours),
+        hours: decimalHours,
         note: formData.description || '',
-        date: selectedDate.toISOString().split('T')[0],
+        date: (selectedDate || new Date()).toISOString().split('T')[0],
       };
 
       console.log('Create worklog request:', requestData);
@@ -354,18 +406,26 @@ export default function MemberTimesheetScreen() {
         return;
       }
 
-      if (!formData.hours || parseFloat(formData.hours) <= 0) {
-        Alert.alert('Lỗi', 'Vui lòng nhập số giờ hợp lệ');
+      if (!formData.hours) {
+        Alert.alert('Lỗi', 'Vui lòng nhập thời gian');
         return;
       }
+
+      // Convert HH:MM:SS to decimal hours for API
+      const totalSeconds = hmsToSeconds(formData.hours);
+      if (totalSeconds <= 0) {
+        Alert.alert('Lỗi', 'Vui lòng nhập thời gian hợp lệ (HH:MM:SS)');
+        return;
+      }
+      const decimalHours = totalSeconds / 3600;
 
       await updateWorklog(editingWorklog.id, {
         userId: parseInt(userId),
         taskId: formData.taskId ? parseInt(formData.taskId) : null,
         subtaskId: formData.subtaskId ? parseInt(formData.subtaskId) : null,
-        hours: parseFloat(formData.hours),
+        hours: decimalHours,
         note: formData.description,
-        date: selectedDate.toISOString().split('T')[0],
+        date: (selectedDate || new Date()).toISOString().split('T')[0],
       });
 
       Alert.alert('Thành công', 'Đã cập nhật worklog');
@@ -397,6 +457,18 @@ export default function MemberTimesheetScreen() {
     ]);
   };
 
+  // Handle edit worklog
+  const handleEditWorklog = (log: Worklog) => {
+    setEditingWorklog(log);
+    setFormData({
+      taskId: log.taskId?.toString() || '',
+      subtaskId: log.subtaskId?.toString() || '',
+      hours: hoursToHMS(log.hours),
+      description: log.description,
+    });
+    setIsEditModalOpen(true);
+  };
+
   // Group worklogs by task
   const groupedWorklogs = worklogs.reduce<Record<string, Worklog[]>>((acc, log) => {
     const key = log.taskName;
@@ -425,54 +497,44 @@ export default function MemberTimesheetScreen() {
       </View>
 
       {/* Timer Widget */}
-      <View style={styles.timerWidget}>
-        {timer.isRunning ? (
-          <View style={styles.timerActive}>
-            <View style={styles.timerInfo}>
-              <Text style={styles.timerTask}>{timer.currentTask}</Text>
-              <Text style={styles.timerProject}>{timer.currentProject}</Text>
-            </View>
-            <Text style={styles.timerDisplay}>{formatTime(timer.elapsedSeconds)}</Text>
-            <TouchableOpacity style={styles.stopButton} onPress={stopTimer}>
-              <Ionicons name="stop" size={24} color="#fff" />
-              <Text style={styles.stopButtonText}>Dừng</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.timerInactive}>
-            <Ionicons name="timer-outline" size={32} color="#667eea" />
-            <Text style={styles.timerInactiveText}>Chọn công việc để bắt đầu</Text>
-            <TouchableOpacity
-              style={styles.selectTaskButton}
-              onPress={handleSelectTaskForTimer}
-            >
-              <Text style={styles.selectTaskButtonText}>Chọn công việc</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </View>
+      <TimerWidget
+        timer={timer}
+        formatTime={formatTime}
+        onSelectTask={handleSelectTaskForTimer}
+        onStopTimer={stopTimer}
+      />
+
+      {/* Filter Mode Buttons */}
+      <FilterButtons
+        selectedDate={selectedDate}
+        onShowAll={showAllWorklogs}
+        onShowByDate={openDatePicker}
+      />
+
+      {/* Date Picker */}
+      {showDatePicker && (
+        <DateTimePicker
+          value={selectedDate || new Date()}
+          mode="date"
+          display="default"
+          onChange={handleDateChange}
+        />
+      )}
 
       {/* Date Navigation */}
-      <View style={styles.dateNav}>
-        <TouchableOpacity style={styles.dateNavButton} onPress={() => changeDate('prev')}>
-          <Ionicons name="chevron-back" size={24} color="#667eea" />
-        </TouchableOpacity>
-        <View style={styles.dateDisplay}>
-          <Text style={styles.dateText}>{selectedDate.toLocaleDateString('vi-VN')}</Text>
-          <TouchableOpacity style={styles.todayButton} onPress={goToToday}>
-            <Text style={styles.todayButtonText}>Hôm nay</Text>
-          </TouchableOpacity>
-        </View>
-        <TouchableOpacity style={styles.dateNavButton} onPress={() => changeDate('next')}>
-          <Ionicons name="chevron-forward" size={24} color="#667eea" />
-        </TouchableOpacity>
-      </View>
+      <DateNavigation
+        selectedDate={selectedDate}
+        onPrevDate={() => changeDate('prev')}
+        onNextDate={() => changeDate('next')}
+        onOpenDatePicker={openDatePicker}
+      />
 
       {/* Total Hours */}
       <View style={styles.totalHours}>
         <Ionicons name="time-outline" size={20} color="#667eea" />
         <Text style={styles.totalHoursText}>
-          Tổng: <Text style={styles.totalHoursValue}>{totalHours.toFixed(1)} giờ</Text>
+          {selectedDate ? 'Tổng ngày này: ' : 'Tổng tất cả: '}
+          <Text style={styles.totalHoursValue}>{totalTimeHMS}</Text>
         </Text>
         <TouchableOpacity
           style={styles.addButton}
@@ -484,254 +546,49 @@ export default function MemberTimesheetScreen() {
       </View>
 
       {/* Worklogs List */}
-      <ScrollView
-        style={styles.worklogsList}
-        contentContainerStyle={styles.worklogsContent}
-        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
-        showsVerticalScrollIndicator={false}
-      >
-        {Object.keys(groupedWorklogs).length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Ionicons name="document-text-outline" size={64} color="#9CA3AF" />
-            <Text style={styles.emptyTitle}>Chưa có worklog</Text>
-            <Text style={styles.emptyText}>
-              Bắt đầu làm việc và ghi lại thời gian của bạn
-            </Text>
-          </View>
-        ) : (
-          Object.entries(groupedWorklogs).map(([taskName, logs]) => (
-            <View key={taskName} style={styles.taskGroup}>
-              <View style={styles.taskGroupHeader}>
-                <Text style={styles.taskGroupTitle}>{taskName}</Text>
-                <Text style={styles.taskGroupHours}>
-                  {logs.reduce((sum, log) => sum + log.hours, 0).toFixed(1)}h
-                </Text>
-              </View>
-              {logs.map((log) => (
-                <View key={log.id} style={styles.worklogCard}>
-                  <View style={styles.worklogHeader}>
-                    <View style={styles.worklogInfo}>
-                      <Text style={styles.worklogProject}>{log.project}</Text>
-                      <Text style={styles.worklogHours}>{log.hours}h</Text>
-                    </View>
-                    <View style={styles.worklogActions}>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => {
-                          setEditingWorklog(log);
-                          setFormData({
-                            taskId: log.taskId?.toString() || '',
-                            subtaskId: log.subtaskId?.toString() || '',
-                            hours: log.hours.toString(),
-                            description: log.description,
-                          });
-                          setIsEditModalOpen(true);
-                        }}
-                      >
-                        <Ionicons name="create-outline" size={20} color="#667eea" />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => handleDeleteWorklog(log.id)}
-                      >
-                        <Ionicons name="trash-outline" size={20} color="#EF4444" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                  {log.description && (
-                    <Text style={styles.worklogDescription}>{log.description}</Text>
-                  )}
-                  <Text style={styles.worklogTime}>
-                    {new Date(log.createdAt || '').toLocaleTimeString('vi-VN', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          ))
-        )}
-      </ScrollView>
+      <WorklogList
+        groupedWorklogs={groupedWorklogs}
+        isRefreshing={isRefreshing}
+        onRefresh={onRefresh}
+        onEdit={handleEditWorklog}
+        onDelete={handleDeleteWorklog}
+        hoursToHMS={hoursToHMS}
+      />
 
       {/* Create/Edit Worklog Modal */}
-      <Modal
-        visible={isCreateModalOpen || isEditModalOpen}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => {
+      <WorklogFormModal
+        isOpen={isCreateModalOpen || isEditModalOpen}
+        isEditMode={isEditModalOpen}
+        formData={formData}
+        tasks={tasks}
+        onClose={() => {
           setIsCreateModalOpen(false);
           setIsEditModalOpen(false);
+          setEditingWorklog(null);
         }}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {isEditModalOpen ? 'Chỉnh sửa worklog' : 'Tạo worklog mới'}
-              </Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setIsCreateModalOpen(false);
-                  setIsEditModalOpen(false);
-                  setEditingWorklog(null);
-                }}
-              >
-                <Ionicons name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalBody}>
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Công việc *</Text>
-                <TouchableOpacity
-                  style={styles.input}
-                  onPress={() => {
-                    setTaskSelectionMode('worklog');
-                    setPreviousModalState(isEditModalOpen ? 'edit' : 'create');
-                    setIsCreateModalOpen(false);
-                    setIsEditModalOpen(false);
-                    setIsTaskSelectionModalOpen(true);
-                  }}
-                >
-                  <Text style={styles.inputText}>
-                    {formData.subtaskId
-                      ? tasks.find(t => t.id.toString() === formData.subtaskId)?.tentask || 'Chọn công việc'
-                      : 'Chọn công việc'}
-                  </Text>
-                  <Ionicons name="chevron-down" size={20} color="#9CA3AF" />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Số giờ *</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Ví dụ: 2.5"
-                  placeholderTextColor="#9CA3AF"
-                  value={formData.hours}
-                  onChangeText={(text) => setFormData({ ...formData, hours: text })}
-                  keyboardType="decimal-pad"
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Mô tả công việc *</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  placeholder="Nhập mô tả chi tiết..."
-                  placeholderTextColor="#9CA3AF"
-                  value={formData.description}
-                  onChangeText={(text) => setFormData({ ...formData, description: text })}
-                  multiline
-                  numberOfLines={4}
-                  textAlignVertical="top"
-                />
-              </View>
-
-              <TouchableOpacity
-                style={styles.submitButton}
-                onPress={isEditModalOpen ? handleUpdateWorklog : handleCreateWorklog}
-              >
-                <Text style={styles.submitButtonText}>
-                  {isEditModalOpen ? 'Cập nhật' : 'Tạo mới'}
-                </Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+        onSubmit={isEditModalOpen ? handleUpdateWorklog : handleCreateWorklog}
+        onFormChange={(field, value) => setFormData({ ...formData, [field]: value })}
+        onSelectTask={() => {
+          setTaskSelectionMode('worklog');
+          setPreviousModalState(isEditModalOpen ? 'edit' : 'create');
+          setIsCreateModalOpen(false);
+          setIsEditModalOpen(false);
+          setIsTaskSelectionModalOpen(true);
+        }}
+      />
 
       {/* Task Selection Modal */}
-      <Modal
-        visible={isTaskSelectionModalOpen}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setIsTaskSelectionModalOpen(false)}
-      >
-        <View style={styles.taskSelectionModalOverlay}>
-          <View style={styles.taskSelectionModalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chọn công việc</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setIsTaskSelectionModalOpen(false);
-                  setTaskSearchQuery('');
-                }}
-              >
-                <Ionicons name="close" size={24} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Search Input */}
-            <View style={styles.searchContainer}>
-              <Ionicons name="search" size={20} color="#9CA3AF" />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Tìm kiếm công việc..."
-                placeholderTextColor="#9CA3AF"
-                value={taskSearchQuery}
-                onChangeText={setTaskSearchQuery}
-              />
-              {taskSearchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setTaskSearchQuery('')}>
-                  <Ionicons name="close-circle" size={20} color="#9CA3AF" />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <ScrollView style={styles.taskListContainer}>
-              {filteredTasks.length === 0 ? (
-                <View style={styles.emptyTaskContainer}>
-                  <Ionicons name="briefcase-outline" size={48} color="#9CA3AF" />
-                  <Text style={styles.emptyTaskText}>
-                    {taskSearchQuery ? 'Không tìm thấy công việc' : 'Chưa có công việc nào'}
-                  </Text>
-                </View>
-              ) : (
-                filteredTasks.map((task) => (
-                  <TouchableOpacity
-                    key={task.id}
-                    style={styles.taskItem}
-                    onPress={() => handleSelectTaskFromModal(task)}
-                  >
-                    <View style={styles.taskItemHeader}>
-                      <Text style={styles.taskItemTitle}>{task.tentask}</Text>
-                      <View style={[
-                        styles.taskStatusBadge,
-                        task.trangThai === 'Đang chạy' && styles.taskStatusActive,
-                        task.trangThai === 'Hoàn thành' && styles.taskStatusCompleted,
-                        task.trangThai === 'Chưa bắt đầu' && styles.taskStatusPending,
-                      ]}>
-                        <Text style={styles.taskStatusText}>{task.trangThai}</Text>
-                      </View>
-                    </View>
-                    {task.project && (
-                      <View style={styles.taskItemProject}>
-                        <Ionicons name="folder-outline" size={14} color="#667eea" />
-                        <Text style={styles.taskItemProjectText}>{task.project}</Text>
-                      </View>
-                    )}
-                    {task.description && (
-                      <Text style={styles.taskItemDescription} numberOfLines={2}>
-                        {task.description}
-                      </Text>
-                    )}
-                    {task.deadline && (
-                      <View style={styles.taskItemFooter}>
-                        <Ionicons name="calendar-outline" size={14} color="#6B7280" />
-                        <Text style={styles.taskItemDeadline}>
-                          {new Date(task.deadline).toLocaleDateString('vi-VN')}
-                        </Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                ))
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      <TaskSelectionModal
+        isOpen={isTaskSelectionModalOpen}
+        tasks={tasks}
+        searchQuery={taskSearchQuery}
+        onClose={() => {
+          setIsTaskSelectionModalOpen(false);
+          setTaskSearchQuery('');
+        }}
+        onSelectTask={handleSelectTaskFromModal}
+        onSearchChange={setTaskSearchQuery}
+      />
     </View>
   );
 }

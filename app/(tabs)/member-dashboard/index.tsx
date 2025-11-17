@@ -7,7 +7,7 @@ import {
     ScrollView,
     Text,
     TouchableOpacity,
-    View,
+    View
 } from 'react-native';
 import TaskCard from '../../../components/member/TaskCard';
 import NotificationBell from '../../../components/NotificationBell';

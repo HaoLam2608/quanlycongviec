@@ -1,7 +1,8 @@
 ﻿import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
-import React, { useEffect, useState } from 'react';
+import * as Notifications from 'expo-notifications';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     Alert,
     Image,
@@ -14,7 +15,8 @@ import {
 } from 'react-native';
 import { STORAGE_KEYS } from '../../../constants/api';
 import { useLogout } from '../../../hooks/useLogout';
-import { getMyProfile, updateMyProfile, uploadAvatar } from '../../../src/axios/api';
+import notificationService, { TaskNotification } from '../../../services/notificationService';
+import { getMyProfile, getMySubtasks, getUpcomingTasks, updateMyProfile, uploadAvatar } from '../../../src/axios/api';
 import { API_CONFIG } from '../../../src/config/api';
 import { UserProfile } from '../../../types/member';
 import { styles } from './index.styles';
@@ -54,7 +56,11 @@ export default function MemberProfileScreen() {
         pushNotifications: true,
         taskReminders: true,
         weeklyReports: false,
+        deadlineNotifications: false, // Thông báo deadline
     });
+
+    const notificationListener = useRef<Notifications.Subscription | null>(null);
+    const responseListener = useRef<Notifications.Subscription | null>(null);
 
     // Password form data
     const [passwordForm, setPasswordForm] = useState({
@@ -114,7 +120,137 @@ export default function MemberProfileScreen() {
 
     useEffect(() => {
         fetchProfile();
+        loadNotificationSettings();
+
+        // Cleanup listeners
+        return () => {
+            if (notificationListener.current) {
+                notificationListener.current.remove();
+            }
+            if (responseListener.current) {
+                responseListener.current.remove();
+            }
+        };
     }, []);
+
+    // Load notification settings từ storage
+    const loadNotificationSettings = async () => {
+        try {
+            const saved = await AsyncStorage.getItem('deadlineNotificationsEnabled');
+            if (saved !== null) {
+                setSettings(prev => ({ ...prev, deadlineNotifications: saved === 'true' }));
+            }
+        } catch (error) {
+            console.error('Lỗi load notification settings:', error);
+        }
+    };
+
+    // Lên lịch thông báo deadline
+    const scheduleDeadlineNotifications = async () => {
+        try {
+            const [assignedData, upcomingData] = await Promise.all([
+                getMySubtasks(),
+                getUpcomingTasks(7),
+            ]);
+
+            const allTasksWithDeadline: TaskNotification[] = [];
+
+            // Thêm assigned tasks
+            const assignedTasks = assignedData.subtasks || assignedData || [];
+            assignedTasks.forEach((task: any) => {
+                if (task.ngayKetThuc) {
+                    allTasksWithDeadline.push({
+                        id: task.id,
+                        title: task.tenSubtask,
+                        deadline: task.ngayKetThuc,
+                        daysLeft: Math.ceil(
+                            (new Date(task.ngayKetThuc).getTime() - new Date().getTime()) /
+                            (1000 * 60 * 60 * 24)
+                        ),
+                        type: 'subtask',
+                    });
+                }
+            });
+
+            // Thêm upcoming tasks
+            if (Array.isArray(upcomingData)) {
+                upcomingData.forEach((task: any) => {
+                    if (task.deadline) {
+                        allTasksWithDeadline.push({
+                            id: task.id,
+                            title: task.title,
+                            deadline: task.deadline,
+                            daysLeft: task.daysLeft,
+                            type: 'task',
+                        });
+                    }
+                });
+            }
+
+            // Lên lịch thông báo
+            if (allTasksWithDeadline.length > 0) {
+                await notificationService.scheduleMultipleTaskNotifications(allTasksWithDeadline);
+                console.log(`✅ Đã lên lịch thông báo cho ${allTasksWithDeadline.length} công việc`);
+
+                // Hiển thị thông báo xác nhận
+                const scheduledCount = await notificationService.getAllScheduledNotifications();
+                await notificationService.sendImmediateNotification(
+                    '✅ Đã bật thông báo deadline',
+                    `Bạn sẽ nhận được nhắc nhở cho ${allTasksWithDeadline.length} công việc (${scheduledCount.length} thông báo đã lên lịch)`
+                );
+            }
+        } catch (error) {
+            console.error('Lỗi lên lịch thông báo:', error);
+        }
+    };
+
+    // Xử lý bật/tắt deadline notifications
+    const handleToggleDeadlineNotifications = async (value: boolean) => {
+        try {
+            if (value) {
+                // Bật thông báo
+                const hasPermission = await notificationService.requestPermissions();
+                if (hasPermission) {
+                    await notificationService.registerForPushNotificationsAsync();
+
+                    // Thiết lập listeners
+                    notificationListener.current = notificationService.addNotificationReceivedListener(
+                        (notification) => {
+                            console.log('📬 Nhận thông báo:', notification);
+                        }
+                    );
+
+                    responseListener.current = notificationService.addNotificationResponseReceivedListener(
+                        (response) => {
+                            console.log('👆 User tap vào thông báo:', response);
+                        }
+                    );
+
+                    // Lên lịch thông báo
+                    await scheduleDeadlineNotifications();
+
+                    // Lưu settings
+                    await AsyncStorage.setItem('deadlineNotificationsEnabled', 'true');
+                    setSettings(prev => ({ ...prev, deadlineNotifications: true }));
+                    Alert.alert('Thành công', 'Đã bật thông báo deadline');
+                } else {
+                    Alert.alert(
+                        'Cần cấp quyền',
+                        'Vui lòng vào Cài đặt > Ứng dụng > Mobile_qlcv > Thông báo để bật quyền'
+                    );
+                }
+            } else {
+                // Tắt thông báo
+                await notificationService.cancelAllScheduledNotifications();
+                await AsyncStorage.setItem('deadlineNotificationsEnabled', 'false');
+                setSettings(prev => ({ ...prev, deadlineNotifications: false }));
+                Alert.alert('Đã tắt', 'Đã tắt thông báo deadline');
+            }
+        } catch (error: any) {
+            console.error('Lỗi toggle deadline notifications:', error);
+            Alert.alert('Lỗi', error.message || 'Không thể cập nhật cài đặt thông báo');
+        }
+    };
 
     // Pick image from gallery and upload to server
     const pickImage = async () => {
@@ -475,7 +611,7 @@ export default function MemberProfileScreen() {
                                     thumbColor="#fff"
                                 />
                             </View>
-
+                            {/* 
                             <View style={styles.settingItem}>
                                 <View style={styles.settingInfo}>
                                     <Text style={styles.settingLabel}>Push notification</Text>
@@ -491,7 +627,7 @@ export default function MemberProfileScreen() {
                                     trackColor={{ false: '#D1D5DB', true: '#667eea' }}
                                     thumbColor="#fff"
                                 />
-                            </View>
+                            </View> */}
 
                             <View style={styles.settingItem}>
                                 <View style={styles.settingInfo}>
@@ -505,6 +641,21 @@ export default function MemberProfileScreen() {
                                     onValueChange={(value) =>
                                         setSettings({ ...settings, taskReminders: value })
                                     }
+                                    trackColor={{ false: '#D1D5DB', true: '#667eea' }}
+                                    thumbColor="#fff"
+                                />
+                            </View>
+
+                            <View style={styles.settingItem}>
+                                <View style={styles.settingInfo}>
+                                    <Text style={styles.settingLabel}>Thông báo Deadline</Text>
+                                    <Text style={styles.settingDescription}>
+                                        Nhận thông báo 7, 3, 1 ngày trước và vào ngày deadline
+                                    </Text>
+                                </View>
+                                <Switch
+                                    value={settings.deadlineNotifications}
+                                    onValueChange={handleToggleDeadlineNotifications}
                                     trackColor={{ false: '#D1D5DB', true: '#667eea' }}
                                     thumbColor="#fff"
                                 />
