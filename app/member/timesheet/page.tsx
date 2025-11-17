@@ -248,16 +248,21 @@ export default function TimesheetPage() {
 
             // Ensure we have a task or subtask id. Currently we only support subtask-based timer.
             if (!timer.selectedSubtaskId) {
-                alert('Vui lòng chọn công việc (subtask) trước khi bắt đầu timer.')
+                alert('Vui lòng chọn công việc (subtask) trước khi bấm dừng.')
                 setTimer({ isRunning: false, startTime: null, currentTask: "", currentProject: "", elapsedSeconds: 0, selectedSubtaskId: null })
                 return
             }
 
-            const hours = parseFloat((timer.elapsedSeconds / 3600).toFixed(2))
+            // Calculate actual elapsed time from startTime to now
+            const now = new Date()
+            const actualElapsedSeconds = Math.floor((now.getTime() - timer.startTime.getTime()) / 1000)
+            const hours = parseFloat((actualElapsedSeconds / 3600).toFixed(2))
+
+            console.log('Stop timer:', { actualElapsedSeconds, hours, startTime: timer.startTime, now })
 
             // Do not create worklogs with zero hours (backend rejects falsy hours)
             if (!hours || hours <= 0) {
-                alert('Thời gian ghi nhận quá ngắn, worklog sẽ không được tạo.')
+                alert('Thời gian ghi nhận quá ngắn (dưới 0.01h), worklog sẽ không được tạo.')
                 setTimer({ isRunning: false, startTime: null, currentTask: "", currentProject: "", elapsedSeconds: 0, selectedSubtaskId: null })
                 return
             }
@@ -272,11 +277,14 @@ export default function TimesheetPage() {
                     date: new Date().toISOString().split('T')[0]
                 }
 
+                console.log('Creating worklog:', worklogData)
+
                 await createWorklog(worklogData)
                 await loadWorklogs() // Reload worklogs to show the new one
-            } catch (error) {
+                alert(`Đã lưu worklog: ${hoursToHMS(hours)}`)
+            } catch (error: any) {
                 console.error('Error creating worklog:', error)
-                alert('Có lỗi khi lưu worklog!')
+                alert(`Có lỗi khi lưu worklog: ${error.message || 'Unknown error'}`)
             }
         }
 
@@ -291,8 +299,39 @@ export default function TimesheetPage() {
         return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
     }
 
+    // Convert seconds to HH:MM:SS format
+    const secondsToHMS = (totalSeconds: number): string => {
+        const hours = Math.floor(totalSeconds / 3600)
+        const minutes = Math.floor((totalSeconds % 3600) / 60)
+        const seconds = Math.floor(totalSeconds % 60)
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+    }
+
+    // Convert HH:MM:SS format to seconds
+    const hmsToSeconds = (hms: string): number => {
+        const parts = hms.split(':')
+        if (parts.length !== 3) return 0
+
+        const hours = parseInt(parts[0]) || 0
+        const minutes = parseInt(parts[1]) || 0
+        const seconds = parseInt(parts[2]) || 0
+
+        return hours * 3600 + minutes * 60 + seconds
+    }
+
+    // Convert decimal hours to HH:MM:SS format
+    const hoursToHMS = (decimalHours: number): string => {
+        const totalSeconds = Math.floor(decimalHours * 3600)
+        return secondsToHMS(totalSeconds)
+    }
+
     const calculateTotalHours = () => {
         return worklogs.reduce((total, log) => total + log.hours, 0)
+    }
+
+    const calculateTotalTimeHMS = () => {
+        const totalSeconds = worklogs.reduce((sum, log) => sum + (log.hours * 3600), 0)
+        return secondsToHMS(totalSeconds)
     }
 
     // Group worklogs by task/subtask
@@ -480,7 +519,7 @@ export default function TimesheetPage() {
         setBatchWorklogs(batchWorklogs.map(entry => {
             if (entry.id === id) {
                 const updated = { ...entry, [field]: value }
-                
+
                 // Auto-fill task name and project when subtask is selected
                 if (field === 'selectedSubtaskId' && value) {
                     const selectedSubtask = mySubtasks.find(s => s.id === value)
@@ -489,7 +528,7 @@ export default function TimesheetPage() {
                         updated.project = selectedSubtask.tenduan || "Không có dự án"
                     }
                 }
-                
+
                 return updated
             }
             return entry
@@ -503,7 +542,7 @@ export default function TimesheetPage() {
         }
 
         // Validate all entries
-        const validEntries = batchWorklogs.filter(entry => 
+        const validEntries = batchWorklogs.filter(entry =>
             entry.selectedSubtaskId && entry.startTime && entry.endTime
         )
 
@@ -532,7 +571,7 @@ export default function TimesheetPage() {
                     const startTotalMinutes = startHour * 60 + startMinute
                     const endTotalMinutes = endHour * 60 + endMinute
                     const totalMinutes = endTotalMinutes - startTotalMinutes
-                    
+
                     if (totalMinutes <= 0) {
                         console.warn(`Skipping entry ${entry.taskName}: invalid time range`)
                         errorCount++
@@ -558,7 +597,7 @@ export default function TimesheetPage() {
             }
 
             await loadWorklogs()
-            
+
             if (errorCount > 0) {
                 alert(`Đã thêm ${successCount} worklog thành công. ${errorCount} worklog thất bại.`)
             } else {
@@ -614,8 +653,8 @@ export default function TimesheetPage() {
     const pauseMultiTimer = (timerId: string) => {
         setMultiTimers(prev => prev.map(timer => {
             if (timer.id === timerId) {
-                return { 
-                    ...timer, 
+                return {
+                    ...timer,
                     isPaused: true,
                     pausedTime: timer.pausedTime + timer.elapsedSeconds
                 }
@@ -627,8 +666,8 @@ export default function TimesheetPage() {
     const resumeMultiTimer = (timerId: string) => {
         setMultiTimers(prev => prev.map(timer => {
             if (timer.id === timerId) {
-                return { 
-                    ...timer, 
+                return {
+                    ...timer,
                     isPaused: false,
                     startTime: new Date(),
                     elapsedSeconds: 0
@@ -667,7 +706,7 @@ export default function TimesheetPage() {
 
             await createWorklog(worklogData)
             await loadWorklogs()
-            
+
             // Remove timer after successful save
             setMultiTimers(prev => prev.filter(t => t.id !== timerId))
             alert(`Đã lưu worklog: ${hours}h cho "${timerToStop.taskName}"`)
@@ -685,7 +724,7 @@ export default function TimesheetPage() {
 
     const stopAllMultiTimers = async () => {
         if (multiTimers.length === 0) return
-        
+
         if (!confirm(`Bạn có chắc muốn dừng và lưu tất cả ${multiTimers.length} timer?`)) {
             return
         }
@@ -904,7 +943,7 @@ export default function TimesheetPage() {
                                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${!isMultiTimerMode
                                     ? 'bg-blue-600 text-white'
                                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                }`}
+                                    }`}
                             >
                                 Timer đơn
                             </button>
@@ -913,7 +952,7 @@ export default function TimesheetPage() {
                                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isMultiTimerMode
                                     ? 'bg-blue-600 text-white'
                                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                }`}
+                                    }`}
                             >
                                 Multi-timer
                                 {multiTimers.length > 0 && (
@@ -949,79 +988,79 @@ export default function TimesheetPage() {
                             </div>
 
                             <div className="flex items-center gap-3">
-                            {!timer.isRunning && timer.startTime === null && (
-                                <div className="flex gap-2">
-                                    <select
-                                        value={timer.selectedSubtaskId || ""}
-                                        onChange={(e) => handleTimerSubtaskSelection(e.target.value ? Number(e.target.value) : null)}
-                                        className="px-3 py-2 border border-gray-300 rounded-lg min-w-[200px]"
-                                        disabled={loadingSubtasks}
-                                    >
-                                        <option value="">
-                                            {loadingSubtasks ? "Đang tải..." : "Chọn công việc"}
-                                        </option>
-                                        {mySubtasks.map(subtask => (
-                                            <option key={subtask.id} value={subtask.id}>
-                                                {subtask.tenSubtask} - {subtask.tentask}
+                                {!timer.isRunning && timer.startTime === null && (
+                                    <div className="flex gap-2">
+                                        <select
+                                            value={timer.selectedSubtaskId || ""}
+                                            onChange={(e) => handleTimerSubtaskSelection(e.target.value ? Number(e.target.value) : null)}
+                                            className="px-3 py-2 border border-gray-300 rounded-lg min-w-[200px]"
+                                            disabled={loadingSubtasks}
+                                        >
+                                            <option value="">
+                                                {loadingSubtasks ? "Đang tải..." : "Chọn công việc"}
                                             </option>
-                                        ))}
-                                    </select>
-                                    <input
-                                        type="text"
-                                        placeholder="Dự án"
-                                        value={timer.currentProject}
-                                        onChange={(e) => setTimer(prev => ({ ...prev, currentProject: e.target.value }))}
-                                        className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-100"
-                                        readOnly
-                                    />
-                                    <button
-                                        onClick={() => startTimer(timer.currentTask, timer.currentProject, timer.selectedSubtaskId)}
-                                        disabled={!timer.currentTask || !timer.currentProject}
-                                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                                    >
-                                        <Play className="w-4 h-4" />
-                                        Bắt đầu
-                                    </button>
-                                </div>
-                            )}
+                                            {mySubtasks.map(subtask => (
+                                                <option key={subtask.id} value={subtask.id}>
+                                                    {subtask.tenSubtask} - {subtask.tentask}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <input
+                                            type="text"
+                                            placeholder="Dự án"
+                                            value={timer.currentProject}
+                                            onChange={(e) => setTimer(prev => ({ ...prev, currentProject: e.target.value }))}
+                                            className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-100"
+                                            readOnly
+                                        />
+                                        <button
+                                            onClick={() => startTimer(timer.currentTask, timer.currentProject, timer.selectedSubtaskId)}
+                                            disabled={!timer.currentTask || !timer.currentProject}
+                                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                        >
+                                            <Play className="w-4 h-4" />
+                                            Bắt đầu
+                                        </button>
+                                    </div>
+                                )}
 
-                            {timer.isRunning && (
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={pauseTimer}
-                                        className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 flex items-center gap-2"
-                                    >
-                                        <Pause className="w-4 h-4" />
-                                        Tạm dừng
-                                    </button>
-                                    <button
-                                        onClick={stopTimer}
-                                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
-                                    >
-                                        <Square className="w-4 h-4" />
-                                        Dừng
-                                    </button>
-                                </div>
-                            )}
+                                {timer.isRunning && (
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={pauseTimer}
+                                            className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 flex items-center gap-2"
+                                        >
+                                            <Pause className="w-4 h-4" />
+                                            Tạm dừng
+                                        </button>
+                                        <button
+                                            onClick={stopTimer}
+                                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+                                        >
+                                            <Square className="w-4 h-4" />
+                                            Dừng
+                                        </button>
+                                    </div>
+                                )}
 
-                            {!timer.isRunning && timer.startTime !== null && (
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => setTimer(prev => ({ ...prev, isRunning: true }))}
-                                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
-                                    >
-                                        <Play className="w-4 h-4" />
-                                        Tiếp tục
-                                    </button>
-                                    <button
-                                        onClick={stopTimer}
-                                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
-                                    >
-                                        <Square className="w-4 h-4" />
-                                        Dừng
-                                    </button>
-                                </div>
-                            )}
+                                {!timer.isRunning && timer.startTime !== null && (
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setTimer(prev => ({ ...prev, isRunning: true }))}
+                                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+                                        >
+                                            <Play className="w-4 h-4" />
+                                            Tiếp tục
+                                        </button>
+                                        <button
+                                            onClick={stopTimer}
+                                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+                                        >
+                                            <Square className="w-4 h-4" />
+                                            Dừng
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ) : (
@@ -1221,7 +1260,7 @@ export default function TimesheetPage() {
                         <div className="flex items-center gap-4">
                             <div className="text-right">
                                 <p className="text-sm text-gray-600">Tổng thời gian hôm nay</p>
-                                <p className="text-xl font-bold text-blue-600">{calculateTotalHours().toFixed(1)}h</p>
+                                <p className="text-xl font-bold text-blue-600">{calculateTotalTimeHMS()}</p>
                             </div>
 
                             <button
@@ -1358,7 +1397,7 @@ export default function TimesheetPage() {
                                                     <div className="flex items-center gap-2">
                                                         <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
                                                             <Clock className="w-4 h-4 inline mr-1" />
-                                                            {group.totalHours.toFixed(1)}h
+                                                            {hoursToHMS(group.totalHours)}
                                                         </div>
                                                         <span className="text-xs text-gray-500">
                                                             ({group.worklogs.length} lần)
@@ -1404,7 +1443,7 @@ export default function TimesheetPage() {
                                                         <div className="flex items-center gap-2">
                                                             <div className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-medium">
                                                                 <Clock className="w-4 h-4 inline mr-1" />
-                                                                {worklog.hours}h
+                                                                {hoursToHMS(worklog.hours)}
                                                             </div>
                                                         </div>
                                                     </td>
@@ -1446,7 +1485,7 @@ export default function TimesheetPage() {
                                             {selectedDate ? 'Tổng ngày này:' : 'Tổng tất cả:'}
                                         </td>
                                         <td className="px-6 py-3 font-bold text-blue-600">
-                                            {calculateTotalHours().toFixed(1)}h
+                                            {calculateTotalTimeHMS()}
                                             {!selectedDate && worklogs.length > 0 && (
                                                 <div className="text-xs font-normal text-gray-500">
                                                     ({worklogs.length} worklog)
@@ -1463,14 +1502,14 @@ export default function TimesheetPage() {
 
                 {/* Add Worklog Modal */}
                 {isAddModalOpen && (
-                    <div 
+                    <div
                         className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-4"
                         onClick={() => {
                             setIsAddModalOpen(false)
                             setIsBatchMode(false)
                         }}
                     >
-                        <div 
+                        <div
                             className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
                             onClick={(e) => e.stopPropagation()}
                         >
@@ -1483,7 +1522,7 @@ export default function TimesheetPage() {
                                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${!isBatchMode
                                                 ? 'bg-blue-600 text-white'
                                                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                            }`}
+                                                }`}
                                         >
                                             Đơn lẻ
                                         </button>
@@ -1492,7 +1531,7 @@ export default function TimesheetPage() {
                                             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isBatchMode
                                                 ? 'bg-blue-600 text-white'
                                                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                            }`}
+                                                }`}
                                         >
                                             Nhiều công việc
                                         </button>
@@ -1504,103 +1543,103 @@ export default function TimesheetPage() {
                                 // Single worklog form
                                 <>
                                     <div className="p-6 space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Ngày</label>
-                                    <input
-                                        type="date"
-                                        value={newWorklog.date}
-                                        onChange={(e) => setNewWorklog({ ...newWorklog, date: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    />
-                                </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Ngày</label>
+                                            <input
+                                                type="date"
+                                                value={newWorklog.date}
+                                                onChange={(e) => setNewWorklog({ ...newWorklog, date: e.target.value })}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            />
+                                        </div>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Công việc</label>
-                                    <select
-                                        value={newWorklog.selectedSubtaskId || ""}
-                                        onChange={(e) => handleSubtaskSelection(e.target.value ? Number(e.target.value) : null)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        disabled={loadingSubtasks}
-                                    >
-                                        <option value="">
-                                            {loadingSubtasks ? "Đang tải..." : "Chọn công việc"}
-                                        </option>
-                                        {mySubtasks.map(subtask => (
-                                            <option key={subtask.id} value={subtask.id}>
-                                                {subtask.tenSubtask} - {subtask.tentask}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {mySubtasks.length === 0 && !loadingSubtasks && (
-                                        <p className="text-sm text-red-600 mt-1">
-                                            Không tìm thấy subtask nào. Vui lòng kiểm tra lại.
-                                        </p>
-                                    )}
-                                </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Công việc</label>
+                                            <select
+                                                value={newWorklog.selectedSubtaskId || ""}
+                                                onChange={(e) => handleSubtaskSelection(e.target.value ? Number(e.target.value) : null)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                disabled={loadingSubtasks}
+                                            >
+                                                <option value="">
+                                                    {loadingSubtasks ? "Đang tải..." : "Chọn công việc"}
+                                                </option>
+                                                {mySubtasks.map(subtask => (
+                                                    <option key={subtask.id} value={subtask.id}>
+                                                        {subtask.tenSubtask} - {subtask.tentask}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {mySubtasks.length === 0 && !loadingSubtasks && (
+                                                <p className="text-sm text-red-600 mt-1">
+                                                    Không tìm thấy subtask nào. Vui lòng kiểm tra lại.
+                                                </p>
+                                            )}
+                                        </div>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Dự án</label>
-                                    <input
-                                        type="text"
-                                        value={newWorklog.project}
-                                        readOnly
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600"
-                                        placeholder="Tự động điền khi chọn công việc"
-                                    />
-                                </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Dự án</label>
+                                            <input
+                                                type="text"
+                                                value={newWorklog.project}
+                                                readOnly
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600"
+                                                placeholder="Tự động điền khi chọn công việc"
+                                            />
+                                        </div>
 
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Giờ bắt đầu</label>
-                                        <input
-                                            type="time"
-                                            value={newWorklog.startTime}
-                                            onChange={(e) => setNewWorklog({ ...newWorklog, startTime: e.target.value })}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        />
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Giờ bắt đầu</label>
+                                                <input
+                                                    type="time"
+                                                    value={newWorklog.startTime}
+                                                    onChange={(e) => setNewWorklog({ ...newWorklog, startTime: e.target.value })}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Giờ kết thúc</label>
+                                                <input
+                                                    type="time"
+                                                    value={newWorklog.endTime}
+                                                    onChange={(e) => setNewWorklog({ ...newWorklog, endTime: e.target.value })}
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Chi tiết báo cáo</label>
+                                            <textarea
+                                                value={newWorklog.description}
+                                                onChange={(e) => setNewWorklog({ ...newWorklog, description: e.target.value })}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                rows={3}
+                                                placeholder="Mô tả công việc đã thực hiện"
+                                            />
+                                        </div>
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Giờ kết thúc</label>
-                                        <input
-                                            type="time"
-                                            value={newWorklog.endTime}
-                                            onChange={(e) => setNewWorklog({ ...newWorklog, endTime: e.target.value })}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        />
+
+                                    <div className="p-6 border-t border-gray-200 flex gap-3">
+                                        <button
+                                            onClick={() => {
+                                                setIsAddModalOpen(false)
+                                                setIsBatchMode(false)
+                                            }}
+                                            className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                                        >
+                                            Hủy
+                                        </button>
+                                        <button
+                                            onClick={addWorklog}
+                                            disabled={!newWorklog.selectedSubtaskId || !newWorklog.startTime || !newWorklog.endTime}
+                                            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                        >
+                                            Thêm
+                                        </button>
                                     </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Chi tiết báo cáo</label>
-                                    <textarea
-                                        value={newWorklog.description}
-                                        onChange={(e) => setNewWorklog({ ...newWorklog, description: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        rows={3}
-                                        placeholder="Mô tả công việc đã thực hiện"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="p-6 border-t border-gray-200 flex gap-3">
-                                <button
-                                    onClick={() => {
-                                        setIsAddModalOpen(false)
-                                        setIsBatchMode(false)
-                                    }}
-                                    className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                                >
-                                    Hủy
-                                </button>
-                                <button
-                                    onClick={addWorklog}
-                                    disabled={!newWorklog.selectedSubtaskId || !newWorklog.startTime || !newWorklog.endTime}
-                                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                >
-                                    Thêm
-                                </button>
-                            </div>
-                        </>
+                                </>
                             ) : (
                                 // Batch worklog form
                                 <>
@@ -1797,13 +1836,16 @@ export default function TimesheetPage() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Số giờ</label>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Thời gian (HH:MM:SS)</label>
                                     <input
-                                        type="number"
-                                        step="0.25"
-                                        min="0"
-                                        value={editForm.hours}
-                                        onChange={(e) => setEditForm(prev => prev ? ({ ...prev, hours: parseFloat(e.target.value) }) : prev)}
+                                        type="text"
+                                        placeholder="Ví dụ: 02:30:00"
+                                        value={hoursToHMS(editForm.hours)}
+                                        onChange={(e) => {
+                                            const seconds = hmsToSeconds(e.target.value)
+                                            const hours = seconds / 3600
+                                            setEditForm(prev => prev ? ({ ...prev, hours: hours }) : prev)
+                                        }}
                                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                     />
                                 </div>
