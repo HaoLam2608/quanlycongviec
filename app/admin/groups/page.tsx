@@ -198,7 +198,7 @@ export default function GroupsPage() {
                         {filteredGroups.map(g => {
                             const activeProjects = Array.isArray(g.groupProjects) ? g.groupProjects.filter((gp: any) => gp.status === 'active') : []
                             return (
-                                <div key={g.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl hover:border-blue-200 transition-all duration-300 overflow-hidden group">
+                                <div key={g.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl hover:border-blue-200 transition-all duration-300 overflow-hidden group flex flex-col">
                                     <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-500 p-6 pb-4">
                                         <div className="flex items-start justify-between mb-2">
                                             <div className="flex items-center gap-3 flex-1">
@@ -218,7 +218,7 @@ export default function GroupsPage() {
                                         </div>
                                     </div>
                                     
-                                    <div className="p-6 space-y-4">
+                                    <div className="p-6 space-y-4 flex-1 flex flex-col">
                                         {/* Leader */}
                                         <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl">
                                             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-md">
@@ -247,7 +247,7 @@ export default function GroupsPage() {
                                         </div>
 
                                         {/* Active Projects */}
-                                        <div className="space-y-2">
+                                        <div className="space-y-2 flex-1">
                                             <div className="flex items-center gap-2 text-xs font-semibold text-gray-700">
                                                 <FolderKanban className="w-4 h-4 text-green-600" />
                                                 <span>Dự án đang tham gia</span>
@@ -272,23 +272,23 @@ export default function GroupsPage() {
                                         </div>
 
                                         {/* Action Buttons */}
-                                        <div className="flex items-center gap-2 pt-2">
+                                        <div className="grid grid-cols-2 gap-2 pt-2 mt-auto">
                                             <Link 
                                                 href={`/admin/groups/${g.id}`}
-                                                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl text-sm font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-md hover:shadow-lg group-hover:scale-105"
+                                                className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl text-sm font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-md hover:shadow-lg"
                                             >
                                                 <span>Xem chi tiết</span>
                                                 <ChevronRight className="w-4 h-4" />
                                             </Link>
-                                            {g.status !== 'closed' && (
-                                                <button
-                                                    onClick={() => handleEdit(g)}
-                                                    className="px-4 py-3 bg-white border-2 border-blue-200 text-blue-600 rounded-xl font-semibold text-sm hover:bg-blue-50 hover:border-blue-300 transition-all flex items-center gap-2"
-                                                    title="Chỉnh sửa nhóm"
-                                                >
-                                                    <Edit size={16} />
-                                                </button>
-                                            )}
+                                            <button
+                                                onClick={() => handleEdit(g)}
+                                                disabled={g.status === 'closed'}
+                                                className="flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-blue-200 text-blue-600 rounded-xl font-semibold text-sm hover:bg-blue-50 hover:border-blue-300 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
+                                                title={g.status === 'closed' ? 'Không thể chỉnh sửa nhóm đã đóng' : 'Chỉnh sửa nhóm'}
+                                            >
+                                                <Edit size={16} />
+                                                <span>Chỉnh sửa</span>
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -297,6 +297,14 @@ export default function GroupsPage() {
                     </div>
                 )}
             </div>
+
+            {/* Group Form Modal */}
+            <GroupForm 
+                isOpen={openModal}
+                onClose={() => { setOpenModal(false); setEditGroup(null); }}
+                onSuccess={() => { setOpenModal(false); setEditGroup(null); loadGroups(); }}
+                editGroup={editGroup}
+            />
         </div>
     );
 }
