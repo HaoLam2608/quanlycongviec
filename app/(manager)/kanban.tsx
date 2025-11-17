@@ -7,6 +7,8 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchProjectsByManager, getKanbanTasks, updateTaskStatus, createTask } from '@/src/axios/api';
 import { PageHeader } from '../../components/ui/PageHeader';
+import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 interface Task {
     id: number;
@@ -49,6 +51,12 @@ export default function KanbanBoard() {
     const [newEnd, setNewEnd] = useState('');
     const [newPriority, setNewPriority] = useState<'low'|'medium'|'high'>('medium');
     const [creatingTask, setCreatingTask] = useState(false);
+    const [showProjectPicker, setShowProjectPicker] = useState(false);
+    const [projectSearch, setProjectSearch] = useState('');
+    // Move task modal state
+    const [showMoveModal, setShowMoveModal] = useState(false);
+    const [taskToMove, setTaskToMove] = useState<Task | null>(null);
+    const [currentColumnStatus, setCurrentColumnStatus] = useState<string>('');
 
     useEffect(() => {
         loadProjects();
@@ -129,48 +137,56 @@ export default function KanbanBoard() {
         }
     };
 
-    const renderTaskCard = (task: Task) => (
-        <TouchableOpacity
-            key={task.id}
-            style={styles.taskCard}
-            onPress={() => router.push(`/(manager)/task-detail?id=${task.id}`)}
-        >
-            <View style={styles.taskHeader}>
-                <View style={[styles.priorityDot, { backgroundColor: getPriorityColor(task.mucDoUuTien) }]} />
-                <Text style={styles.taskTitle} numberOfLines={2}>{task.tentask}</Text>
-                <TouchableOpacity style={styles.taskActionBtn} onPress={() => {
-                    // show status change options
-                    const otherStatuses = columns.map(c => c.status).filter(s => s !== task.trangThai);
-                    Alert.alert('Chuyển trạng thái', 'Chọn trạng thái mới', [
-                        ...otherStatuses.map(s => ({ text: s, onPress: () => handleChangeTaskStatus(task.id, s) })),
-                        { text: 'Huỷ', style: 'cancel' }
-                    ]);
-                }}>
-                    <Text style={styles.taskActionText}>⋯</Text>
-                </TouchableOpacity>
-            </View>
-            
-            {task.mota && (
-                <Text style={styles.taskDesc} numberOfLines={2}>{task.mota}</Text>
-            )}
-            
-            {task.nguoiDuocGiao && (
-                <View style={styles.assigneeContainer}>
-                    <View style={styles.assigneeAvatar}>
-                        <Text style={styles.assigneeInitial}>
-                            {task.nguoiDuocGiao.hoten.charAt(0).toUpperCase()}
+    const renderTaskCard = (task: Task, drag?: () => void, isActive?: boolean, columnStatus?: string) => (
+        <ScaleDecorator>
+            <TouchableOpacity
+                key={task.id}
+                style={[styles.taskCard, isActive && styles.taskCardDragging]}
+                onPress={() => router.push(`/(manager)/task-detail?id=${task.id}`)}
+                onLongPress={() => {
+                    setTaskToMove(task);
+                    setCurrentColumnStatus(columnStatus || task.trangThai);
+                    setShowMoveModal(true);
+                }}
+                delayLongPress={300}
+            >
+                <View style={styles.taskHeader}>
+                    <View style={[styles.priorityDot, { backgroundColor: getPriorityColor(task.mucDoUuTien) }]} />
+                    <Text style={styles.taskTitle} numberOfLines={2}>{task.tentask}</Text>
+                    <TouchableOpacity style={styles.taskActionBtn} onPress={() => {
+                        // show status change options
+                        const otherStatuses = columns.map(c => c.status).filter(s => s !== task.trangThai);
+                        Alert.alert('Chuyển trạng thái', 'Chọn trạng thái mới', [
+                            ...otherStatuses.map(s => ({ text: s, onPress: () => handleChangeTaskStatus(task.id, s) })),
+                            { text: 'Huỷ', style: 'cancel' }
+                        ]);
+                    }}>
+                        <Text style={styles.taskActionText}>⋯</Text>
+                    </TouchableOpacity>
+                </View>
+                
+                {task.mota && (
+                    <Text style={styles.taskDesc} numberOfLines={2}>{task.mota}</Text>
+                )}
+                
+                {task.nguoiDuocGiao && (
+                    <View style={styles.assigneeContainer}>
+                        <View style={styles.assigneeAvatar}>
+                            <Text style={styles.assigneeInitial}>
+                                {task.nguoiDuocGiao.hoten.charAt(0).toUpperCase()}
+                            </Text>
+                        </View>
+                        <Text style={styles.assigneeName} numberOfLines={1}>
+                            {task.nguoiDuocGiao.hoten}
                         </Text>
                     </View>
-                    <Text style={styles.assigneeName} numberOfLines={1}>
-                        {task.nguoiDuocGiao.hoten}
-                    </Text>
-                </View>
-            )}
-            
-            <Text style={styles.dueDate}>
-                📅 {new Date(task.ngayKetThuc).toLocaleDateString('vi-VN')}
-            </Text>
-        </TouchableOpacity>
+                )}
+                
+                <Text style={styles.dueDate}>
+                    📅 {new Date(task.ngayKetThuc).toLocaleDateString('vi-VN')}
+                </Text>
+            </TouchableOpacity>
+        </ScaleDecorator>
     );
 
     const handleChangeTaskStatus = async (taskId: number, status: string) => {
@@ -225,6 +241,53 @@ export default function KanbanBoard() {
         }
     };
 
+    const handleDragEnd = async (data: Task[], columnStatus: string) => {
+        // Update local state first
+        const newColumns = columns.map(col => 
+            col.status === columnStatus ? { ...col, tasks: data } : col
+        );
+        setColumns(newColumns);
+    };
+
+    const handleTaskMove = async (task: Task, fromStatus: string, toStatus: string) => {
+        if (fromStatus === toStatus) {
+            setShowMoveModal(false);
+            return;
+        }
+
+        try {
+            setShowMoveModal(false);
+            setLoading(true);
+            
+            // Optimistic update
+            const newColumns = columns.map(col => {
+                if (col.status === fromStatus) {
+                    return { ...col, tasks: col.tasks.filter(t => t.id !== task.id) };
+                }
+                if (col.status === toStatus) {
+                    return { ...col, tasks: [...col.tasks, { ...task, trangThai: toStatus }] };
+                }
+                return col;
+            });
+            setColumns(newColumns);
+
+            // Update on server
+            await updateTaskStatus(task.id, toStatus);
+            Alert.alert('Thành công', `Đã chuyển công việc sang "${toStatus}"`);
+        } catch (err) {
+            console.error('Error moving task:', err);
+            Alert.alert('Lỗi', 'Không thể chuyển công việc');
+            // Revert on error
+            if (selectedProject) {
+                loadKanbanData(selectedProject.id);
+            }
+        } finally {
+            setLoading(false);
+            setTaskToMove(null);
+            setCurrentColumnStatus('');
+        }
+    };
+
     const renderColumn = (column: KanbanColumn) => (
         <View key={column.status} style={styles.column}>
             <View style={[styles.columnHeader, { backgroundColor: column.color }]}>
@@ -234,18 +297,23 @@ export default function KanbanBoard() {
                 </View>
             </View>
             
-            <ScrollView 
-                style={styles.columnContent}
-                showsVerticalScrollIndicator={false}
-            >
+            <View style={styles.columnContent}>
                 {column.tasks.length > 0 ? (
-                    column.tasks.map(task => renderTaskCard(task))
+                    <DraggableFlatList
+                        data={column.tasks}
+                        onDragEnd={({ data }) => handleDragEnd(data, column.status)}
+                        keyExtractor={(item) => item.id.toString()}
+                        renderItem={({ item, drag, isActive }: RenderItemParams<Task>) => 
+                            renderTaskCard(item, drag, isActive, column.status)
+                        }
+                        showsVerticalScrollIndicator={false}
+                    />
                 ) : (
                     <View style={styles.emptyColumn}>
                         <Text style={styles.emptyColumnText}>Không có công việc</Text>
                     </View>
                 )}
-            </ScrollView>
+            </View>
         </View>
     );
 
@@ -262,38 +330,65 @@ export default function KanbanBoard() {
     }
 
     return (
-        <SafeAreaView style={styles.container}>
-            <PageHeader title="Kanban Board" />
+        <GestureHandlerRootView style={{ flex: 1 }}>
+            <SafeAreaView style={styles.container}>
+                <PageHeader title="Kanban Board" />
             
-            {/* Project selector */}
-            {projects.length > 0 && (
-                <View style={styles.projectSelector}>
-                    <Text style={styles.selectorLabel}>Chọn dự án:</Text>
-                    <ScrollView 
-                        horizontal 
-                        showsHorizontalScrollIndicator={false}
-                        style={styles.projectList}
-                    >
-                        {projects.map((project) => (
+                    {/* Project selector (opens modal) */}
+                    {projects.length > 0 && (
+                        <View style={styles.projectSelector}>
+                            <Text style={styles.selectorLabel}>Chọn dự án:</Text>
+
                             <TouchableOpacity
-                                key={project.id}
                                 style={[
                                     styles.projectChip,
-                                    selectedProject?.id === project.id && styles.projectChipActive
+                                    selectedProject ? styles.projectChipActive : null,
+                                    { maxWidth: '70%' }
                                 ]}
-                                onPress={() => selectProject(project)}
+                                onPress={() => setShowProjectPicker(true)}
                             >
                                 <Text style={[
                                     styles.projectChipText,
-                                    selectedProject?.id === project.id && styles.projectChipTextActive
-                                ]}>
-                                    {project.tenduan}
+                                    selectedProject ? styles.projectChipTextActive : null
+                                ]} numberOfLines={1}>
+                                    {selectedProject ? selectedProject.tenduan : 'Chọn dự án...'}
                                 </Text>
                             </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                </View>
-            )}
+
+                            <TouchableOpacity onPress={() => { setSelectedProject(null); setColumns(columns.map(c => ({ ...c, tasks: [] }))); }} style={{ marginLeft: 12 }}>
+                                <Text style={{ color: '#6b7280', fontWeight: '600' }}>Bỏ chọn</Text>
+                            </TouchableOpacity>
+
+                            <Modal visible={showProjectPicker} animationType="slide" transparent>
+                                <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 16 }}>
+                                    <View style={{ backgroundColor: '#fff', borderRadius: 12, maxHeight: '80%', padding: 12 }}>
+                                        <Text style={{ fontSize: 16, fontWeight: '700', marginBottom: 8 }}>Chọn dự án</Text>
+                                        <TextInput placeholder="Tìm dự án..." value={projectSearch} onChangeText={setProjectSearch} style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, paddingHorizontal: 12, paddingVertical: Platform.OS === 'ios' ? 10 : 8, marginBottom: 8 }} />
+
+                                        <FlatList
+                                            data={projects.filter(p => (p.tenduan || p.name || p.title || '').toLowerCase().includes(projectSearch.toLowerCase()))}
+                                            keyExtractor={item => item.id.toString()}
+                                            nestedScrollEnabled
+                                            style={{ marginBottom: 8 }}
+                                            renderItem={({ item }) => (
+                                                <TouchableOpacity onPress={() => { selectProject(item); setShowProjectPicker(false); setProjectSearch(''); }} style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' }}>
+                                                    <Text style={{ fontSize: 15, fontWeight: selectedProject?.id === item.id ? '700' : '500', color: '#111827' }}>{item.tenduan || item.name || item.title}</Text>
+                                                    {item.mota ? <Text style={{ color: '#6b7280', fontSize: 12 }}>{item.mota}</Text> : null}
+                                                </TouchableOpacity>
+                                            )}
+                                            ListEmptyComponent={<Text style={{ padding: 12, color: '#6b7280' }}>Không có dự án</Text>}
+                                        />
+
+                                        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
+                                            <TouchableOpacity onPress={() => { setShowProjectPicker(false); setProjectSearch(''); }} style={{ paddingVertical: 8, paddingHorizontal: 12 }}>
+                                                <Text style={{ color: '#6b7280', fontWeight: '700' }}>Đóng</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+                                </View>
+                            </Modal>
+                        </View>
+                    )}
 
             {selectedProject ? (
                 <ScrollView
@@ -348,7 +443,55 @@ export default function KanbanBoard() {
                     </View>
                 </View>
             </Modal>
+
+            {/* Move Task Modal */}
+            <Modal visible={showMoveModal} animationType="fade" transparent>
+                <View style={modalStyles.modalOverlay}>
+                    <View style={[modalStyles.modalContent, { maxWidth: 400 }]}>
+                        <Text style={modalStyles.modalTitle}>Chuyển công việc</Text>
+                        
+                        {taskToMove && (
+                            <View style={styles.taskPreview}>
+                                <View style={[styles.priorityDot, { backgroundColor: getPriorityColor(taskToMove.mucDoUuTien) }]} />
+                                <Text style={styles.taskPreviewTitle} numberOfLines={2}>{taskToMove.tentask}</Text>
+                            </View>
+                        )}
+
+                        <Text style={modalStyles.sectionLabel}>Chọn cột đích:</Text>
+                        
+                        <View style={modalStyles.columnOptions}>
+                            {columns
+                                .filter(col => col.status !== currentColumnStatus)
+                                .map(col => (
+                                    <TouchableOpacity
+                                        key={col.status}
+                                        style={[modalStyles.columnOption, { borderColor: col.color }]}
+                                        onPress={() => taskToMove && handleTaskMove(taskToMove, currentColumnStatus, col.status)}
+                                    >
+                                        <View style={[modalStyles.columnDot, { backgroundColor: col.color }]} />
+                                        <Text style={modalStyles.columnOptionText}>{col.title}</Text>
+                                        <Text style={modalStyles.columnArrow}>→</Text>
+                                    </TouchableOpacity>
+                                ))}
+                        </View>
+
+                        <View style={modalStyles.modalActions}>
+                            <TouchableOpacity 
+                                style={[modalStyles.modalBtn, { backgroundColor: '#9ca3af', flex: 1 }]} 
+                                onPress={() => {
+                                    setShowMoveModal(false);
+                                    setTaskToMove(null);
+                                    setCurrentColumnStatus('');
+                                }}
+                            >
+                                <Text style={modalStyles.modalBtnText}>Hủy</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
+        </GestureHandlerRootView>
     );
 }
 
@@ -454,6 +597,15 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#e5e7eb',
     },
+    taskCardDragging: {
+        opacity: 0.7,
+        backgroundColor: '#fff',
+        elevation: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+    },
     taskHeader: {
         flexDirection: 'row',
         alignItems: 'flex-start',
@@ -507,6 +659,21 @@ const styles = StyleSheet.create({
     dueDate: {
         fontSize: 11,
         color: '#6b7280',
+    },
+    taskPreview: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f3f4f6',
+        padding: 12,
+        borderRadius: 8,
+        marginBottom: 16,
+    },
+    taskPreviewTitle: {
+        flex: 1,
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#1f2937',
+        marginLeft: 8,
     },
     emptyColumn: {
         paddingVertical: 24,
@@ -592,7 +759,42 @@ const modalStyles = StyleSheet.create({
         paddingVertical: 8,
         paddingHorizontal: 12,
         borderRadius: 8,
-    }
+    },
+    sectionLabel: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#6b7280',
+        marginBottom: 12,
+    },
+    columnOptions: {
+        gap: 8,
+        marginBottom: 16,
+    },
+    columnOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 14,
+        borderRadius: 10,
+        borderWidth: 2,
+        backgroundColor: '#f9fafb',
+    },
+    columnDot: {
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        marginRight: 12,
+    },
+    columnOptionText: {
+        flex: 1,
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#1f2937',
+    },
+    columnArrow: {
+        fontSize: 18,
+        color: '#6b7280',
+        fontWeight: '700',
+    },
 });
 
 // additional styles for task action and fab

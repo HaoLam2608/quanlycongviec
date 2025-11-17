@@ -12,11 +12,13 @@ import {
     Modal,
     TextInput,
     ScrollView,
+    Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchProjectsByManager, createProject, updateProject, deleteProject } from '@/src/axios/api';
 import { PageHeader } from '../../components/ui/PageHeader';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface Project {
     id: number;
@@ -33,8 +35,13 @@ export default function MyProjects() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [projects, setProjects] = useState<Project[]>([]);
+    const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState<string>('all');
     const [modalVisible, setModalVisible] = useState(false);
     const [editingProject, setEditingProject] = useState<Project | null>(null);
+    const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+    const [showEndDatePicker, setShowEndDatePicker] = useState(false);
     const [formData, setFormData] = useState({
         tenduan: '',
         mota: '',
@@ -46,6 +53,10 @@ export default function MyProjects() {
     useEffect(() => {
         loadProjects();
     }, []);
+
+    useEffect(() => {
+        filterProjects();
+    }, [projects, searchQuery, statusFilter]);
 
     const loadProjects = async () => {
         try {
@@ -62,6 +73,25 @@ export default function MyProjects() {
             setLoading(false);
             setRefreshing(false);
         }
+    };
+
+    const filterProjects = () => {
+        let filtered = [...projects];
+
+        // Lọc theo trạng thái
+        if (statusFilter !== 'all') {
+            filtered = filtered.filter(p => p.status === statusFilter);
+        }
+
+        // Tìm kiếm theo tên
+        if (searchQuery.trim()) {
+            filtered = filtered.filter(p => 
+                p.tenduan.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                (p.mota && p.mota.toLowerCase().includes(searchQuery.toLowerCase()))
+            );
+        }
+
+        setFilteredProjects(filtered);
     };
 
     const onRefresh = () => {
@@ -225,12 +255,78 @@ export default function MyProjects() {
         <SafeAreaView style={styles.container}>
             <PageHeader title="Dự án của tôi" />
             <View style={styles.content}>
-                <TouchableOpacity style={styles.createBtn} onPress={handleCreate}>
-                    <Text style={styles.createBtnText}>➕ Tạo dự án mới</Text>
-                </TouchableOpacity>
+                {/* Search Bar */}
+                <View style={styles.searchContainer}>
+                    <Text style={styles.searchIcon}>🔍</Text>
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Tìm kiếm dự án..."
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        placeholderTextColor="#9ca3af"
+                    />
+                    {searchQuery.length > 0 && (
+                        <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearBtn}>
+                            <Text style={styles.clearBtnText}>✕</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                {/* Status Filter */}
+                <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false} 
+                    style={styles.filterContainer}
+                    contentContainerStyle={styles.filterContent}
+                >
+                    <TouchableOpacity
+                        style={[styles.filterChip, statusFilter === 'all' && styles.filterChipActive]}
+                        onPress={() => setStatusFilter('all')}
+                    >
+                        <Text style={[styles.filterChipText, statusFilter === 'all' && styles.filterChipTextActive]}>
+                            Tất cả ({projects.length})
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.filterChip, statusFilter === 'chua_bat_dau' && styles.filterChipActive]}
+                        onPress={() => setStatusFilter('chua_bat_dau')}
+                    >
+                        <View style={[styles.filterDot, { backgroundColor: '#6b7280' }]} />
+                        <Text style={[styles.filterChipText, statusFilter === 'chua_bat_dau' && styles.filterChipTextActive]}>
+                            Chưa bắt đầu ({projects.filter(p => p.status === 'chua_bat_dau').length})
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.filterChip, statusFilter === 'dang_chay' && styles.filterChipActive]}
+                        onPress={() => setStatusFilter('dang_chay')}
+                    >
+                        <View style={[styles.filterDot, { backgroundColor: '#f59e0b' }]} />
+                        <Text style={[styles.filterChipText, statusFilter === 'dang_chay' && styles.filterChipTextActive]}>
+                            Đang chạy ({projects.filter(p => p.status === 'dang_chay').length})
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.filterChip, statusFilter === 'da_hoan_thanh' && styles.filterChipActive]}
+                        onPress={() => setStatusFilter('da_hoan_thanh')}
+                    >
+                        <View style={[styles.filterDot, { backgroundColor: '#10b981' }]} />
+                        <Text style={[styles.filterChipText, statusFilter === 'da_hoan_thanh' && styles.filterChipTextActive]}>
+                            Hoàn thành ({projects.filter(p => p.status === 'da_hoan_thanh').length})
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.filterChip, statusFilter === 'da_dong' && styles.filterChipActive]}
+                        onPress={() => setStatusFilter('da_dong')}
+                    >
+                        <View style={[styles.filterDot, { backgroundColor: '#8b5cf6' }]} />
+                        <Text style={[styles.filterChipText, statusFilter === 'da_dong' && styles.filterChipTextActive]}>
+                            Đã đóng ({projects.filter(p => p.status === 'da_dong').length})
+                        </Text>
+                    </TouchableOpacity>
+                </ScrollView>
                 
                 <FlatList
-                    data={projects}
+                    data={filteredProjects}
                     renderItem={renderProject}
                     keyExtractor={(item) => item.id.toString()}
                     contentContainerStyle={styles.listContent}
@@ -239,12 +335,25 @@ export default function MyProjects() {
                     }
                     ListEmptyComponent={
                         <View style={styles.emptyContainer}>
-                            <Text style={styles.emptyText}>📋</Text>
-                            <Text style={styles.emptyTitle}>Chưa có dự án</Text>
-                            <Text style={styles.emptyDesc}>Nhấn nút "Tạo dự án mới" để bắt đầu</Text>
+                            <Text style={styles.emptyText}>
+                                {searchQuery || statusFilter !== 'all' ? '🔍' : '📋'}
+                            </Text>
+                            <Text style={styles.emptyTitle}>
+                                {searchQuery || statusFilter !== 'all' ? 'Không tìm thấy dự án' : 'Chưa có dự án'}
+                            </Text>
+                            <Text style={styles.emptyDesc}>
+                                {searchQuery || statusFilter !== 'all' 
+                                    ? 'Thử thay đổi từ khóa hoặc bộ lọc' 
+                                    : 'Nhấn nút + để tạo dự án mới'}
+                            </Text>
                         </View>
                     }
                 />
+
+                {/* Floating Action Button */}
+                <TouchableOpacity style={styles.fab} onPress={handleCreate}>
+                    <Text style={styles.fabIcon}>+</Text>
+                </TouchableOpacity>
             </View>
 
             <Modal visible={modalVisible} animationType="slide" transparent={true}>
@@ -297,20 +406,44 @@ export default function MyProjects() {
                             </View>
 
                             <Text style={styles.label}>Ngày bắt đầu</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={formData.ngaybatdau}
-                                onChangeText={(text) => setFormData({ ...formData, ngaybatdau: text })}
-                                placeholder="YYYY-MM-DD"
-                            />
+                            <TouchableOpacity onPress={() => setShowStartDatePicker(true)} style={styles.dateButton}>
+                                <Text style={styles.dateButtonText}>
+                                    {formData.ngaybatdau ? new Date(formData.ngaybatdau).toLocaleDateString('vi-VN') : '📅 Chọn ngày bắt đầu'}
+                                </Text>
+                            </TouchableOpacity>
+                            {showStartDatePicker && (
+                                <DateTimePicker
+                                    value={formData.ngaybatdau ? new Date(formData.ngaybatdau) : new Date()}
+                                    mode="date"
+                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                    onChange={(event, selectedDate) => {
+                                        setShowStartDatePicker(Platform.OS === 'ios');
+                                        if (selectedDate) {
+                                            setFormData({ ...formData, ngaybatdau: selectedDate.toISOString().split('T')[0] });
+                                        }
+                                    }}
+                                />
+                            )}
 
                             <Text style={styles.label}>Ngày kết thúc</Text>
-                            <TextInput
-                                style={styles.input}
-                                value={formData.ngayketthuc}
-                                onChangeText={(text) => setFormData({ ...formData, ngayketthuc: text })}
-                                placeholder="YYYY-MM-DD"
-                            />
+                            <TouchableOpacity onPress={() => setShowEndDatePicker(true)} style={styles.dateButton}>
+                                <Text style={styles.dateButtonText}>
+                                    {formData.ngayketthuc ? new Date(formData.ngayketthuc).toLocaleDateString('vi-VN') : '📅 Chọn ngày kết thúc'}
+                                </Text>
+                            </TouchableOpacity>
+                            {showEndDatePicker && (
+                                <DateTimePicker
+                                    value={formData.ngayketthuc ? new Date(formData.ngayketthuc) : new Date()}
+                                    mode="date"
+                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                    onChange={(event, selectedDate) => {
+                                        setShowEndDatePicker(Platform.OS === 'ios');
+                                        if (selectedDate) {
+                                            setFormData({ ...formData, ngayketthuc: selectedDate.toISOString().split('T')[0] });
+                                        }
+                                    }}
+                                />
+                            )}
 
                             <View style={styles.modalActions}>
                                 <TouchableOpacity
@@ -339,9 +472,105 @@ const styles = StyleSheet.create({
     content: { flex: 1 },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     loadingText: { marginTop: 12, fontSize: 16, color: '#6b7280' },
-    createBtn: { backgroundColor: '#3b82f6', margin: 16, padding: 16, borderRadius: 12, alignItems: 'center' },
-    createBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
-    listContent: { padding: 16, paddingTop: 0 },
+    searchContainer: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        backgroundColor: '#fff', 
+        marginHorizontal: 16, 
+        marginTop: 16,
+        marginBottom: 12,
+        paddingHorizontal: 16, 
+        borderRadius: 12, 
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+    },
+    searchIcon: { fontSize: 18, marginRight: 8 },
+    searchInput: { 
+        flex: 1, 
+        paddingVertical: 14, 
+        fontSize: 16, 
+        color: '#111827',
+    },
+    clearBtn: { 
+        padding: 4,
+        marginLeft: 8,
+    },
+    clearBtnText: { 
+        fontSize: 20, 
+        color: '#9ca3af',
+        fontWeight: 'bold',
+    },
+    filterContainer: { 
+        marginBottom: 8,
+        paddingVertical: 4,
+    },
+    filterContent: {
+        paddingHorizontal: 16,
+        gap: 8,
+        alignItems: 'center',
+    },
+    filterChip: { 
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10, 
+        paddingHorizontal: 18, 
+        borderRadius: 20, 
+        backgroundColor: '#fff',
+        borderWidth: 2,
+        borderColor: '#e5e7eb',
+        elevation: 1,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 1,
+        minHeight: 40,
+    },
+    filterChipActive: { 
+        backgroundColor: '#3b82f6', 
+        borderColor: '#3b82f6',
+        elevation: 3,
+    },
+    filterChipText: { 
+        fontSize: 14, 
+        color: '#6b7280',
+        fontWeight: '600',
+    },
+    filterChipTextActive: { 
+        color: '#fff',
+        fontWeight: '700',
+    },
+    filterDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginRight: 6,
+    },
+    fab: {
+        position: 'absolute',
+        right: 20,
+        bottom: 20,
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: '#3b82f6',
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 8,
+        shadowColor: '#3b82f6',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+    },
+    fabIcon: {
+        fontSize: 32,
+        color: '#fff',
+        fontWeight: 'bold',
+        lineHeight: 32,
+    },
+    listContent: { padding: 16, paddingTop: 0, paddingBottom: 100 },
     projectCard: { backgroundColor: '#fff', borderRadius: 12, padding: 16, marginBottom: 16, elevation: 3 },
     projectHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
     projectInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
@@ -378,4 +607,6 @@ const styles = StyleSheet.create({
     saveBtn: { backgroundColor: '#3b82f6' },
     cancelBtnText: { color: '#6b7280', fontSize: 16, fontWeight: '600' },
     saveBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+    dateButton: { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 12, backgroundColor: '#fff', marginBottom: 12 },
+    dateButtonText: { fontSize: 16, color: '#111827' },
 });

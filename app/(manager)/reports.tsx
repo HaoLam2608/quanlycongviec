@@ -15,7 +15,7 @@ export default function ReportsPage() {
   const [stats, setStats] = useState<any>({});
   const [overallStats, setOverallStats] = useState<any>({});
   const [viewMode, setViewMode] = useState<'overall'|'project'>('overall'); // tab toggle
-  const [chartType, setChartType] = useState<'bar'|'line'|'pie'|'table'>('bar');
+  const [chartType, setChartType] = useState<'bar'|'line'|'pie'>('bar');
   const screenWidth = Dimensions.get('window').width - 48; // padding adjustments
 
   useEffect(() => {
@@ -138,20 +138,76 @@ export default function ReportsPage() {
   };
 
   const renderBarChart = (items: { label: string; count: number }[]) => {
-    const max = items.length ? Math.max(...items.map(i => i.count), 1) : 1;
+    if (items.length === 0) {
+      return (
+        <View style={{ backgroundColor: '#fff', padding: 16, borderRadius: 12, marginTop: 8 }}>
+          <Text style={{ textAlign: 'center', color: '#9ca3af', padding: 20 }}>
+            Chưa có dữ liệu
+          </Text>
+        </View>
+      );
+    }
+
+    const max = Math.max(...items.map(i => i.count), 1);
+    const colors = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#ec4899'];
+    const chartHeight = 200;
+    const barWidth = Math.max(40, Math.floor((screenWidth - 80) / items.length));
+    
     return (
-      <View style={{ backgroundColor: '#fff', padding: 12, borderRadius: 8 }}>
-        {items.map(it => (
-          <View key={it.label} style={{ marginBottom: 14 }}>
-            <View style={styles.chartRow}>
-              <Text style={styles.chartLabel}>{it.label}</Text>
-              <Text style={styles.chartCount}>{it.count}</Text>
-            </View>
-            <View style={styles.chartBarBg}>
-              <View style={[styles.chartBarFill, { width: `${Math.round((it.count / max) * 100)}%` }]} />
-            </View>
-          </View>
-        ))}
+      <View style={{ 
+        backgroundColor: '#fff', 
+        padding: 16, 
+        borderRadius: 12, 
+        marginTop: 8 
+      }}>
+        {/* <Text style={{ fontSize: 15, fontWeight: '700', color: '#1f2937', marginBottom: 16 }}>
+          Biểu đồ cột
+        </Text> */}
+        
+        {/* Chart Area */}
+        <View style={{ 
+          height: chartHeight + 40,
+          flexDirection: 'row',
+          alignItems: 'flex-end',
+          justifyContent: 'space-around',
+          borderBottomWidth: 2,
+          borderBottomColor: '#e5e7eb',
+          paddingBottom: 30,
+        }}>
+          {items.map((it, idx) => {
+            const barHeight = (it.count / max) * chartHeight;
+            const color = colors[idx % colors.length];
+            
+            return (
+              <View key={idx} style={{ alignItems: 'center', minWidth: barWidth }}>
+                <Text style={{ 
+                  fontSize: 12, 
+                  fontWeight: '700', 
+                  color: '#1f2937',
+                  marginBottom: 8,
+                }}>
+                  {it.count}
+                </Text>
+                <View style={{
+                  width: barWidth - 10,
+                  height: Math.max(10, barHeight),
+                  backgroundColor: color,
+                  borderTopLeftRadius: 6,
+                  borderTopRightRadius: 6,
+                  marginBottom: 8,
+                }} />
+                <Text style={{ 
+                  fontSize: 11, 
+                  color: '#6b7280',
+                  textAlign: 'center',
+                  maxWidth: barWidth,
+                }} numberOfLines={2}>
+                  {it.label}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
       </View>
     );
   };
@@ -178,45 +234,365 @@ export default function ReportsPage() {
   };
 
   const renderLineChart = () => {
-    const data = buildLineData(14); // last 14 days
-    const values = data.datasets[0].data as number[];
+    const currentStats = viewMode === 'overall' ? overallStats : stats;
+    const tasks = currentStats.sourceTasks || [];
+    
+    // Build data for last 14 days
+    const result: { date: string; count: number; label: string }[] = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      const label = d.getDate().toString();
+      result.push({ date: key, count: 0, label });
+    }
+    
+    // Count tasks per day
+    tasks.forEach((t: any) => {
+      const dateKey = (t.ngayBatDau || t.createdAt || t.ngayTao || '').slice?.(0, 10);
+      const found = result.find(r => r.date === dateKey);
+      if (found) found.count++;
+    });
+    
+    const values = result.map(r => r.count);
     const max = Math.max(1, ...values);
+    const chartHeight = 160;
+    const chartWidth = screenWidth - 60; // Leave padding
+    const pointSpacing = chartWidth / (values.length - 1 || 1);
+    
     return (
-      <View style={{ width: screenWidth, height: 180, backgroundColor: '#fff', borderRadius: 8, padding: 12 }}>
-        <Text style={{ color: '#111827', fontWeight: '700', marginBottom: 12 }}>Xu hướng 14 ngày gần nhất</Text>
-        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'flex-end', gap: 2 }}>
-          {values.map((v, i) => (
-            <View key={i} style={{ width: Math.max(4, Math.floor((screenWidth - values.length * 2) / values.length)), height: Math.max(4, (v / max) * 120), backgroundColor: '#3b82f6', borderRadius: 2, marginHorizontal: 1 }} />
-          ))}
+      <View style={{ 
+        backgroundColor: '#fff', 
+        borderRadius: 12, 
+        padding: 16, 
+        marginTop: 8,
+      }}>
+        <Text style={{ fontSize: 15, fontWeight: '700', color: '#1f2937', marginBottom: 16 }}>
+          Xu hướng 14 ngày gần nhất
+        </Text>
+        
+        {/* Chart Container with proper boundaries */}
+        <View style={{ 
+          height: chartHeight + 50,
+          paddingHorizontal: 10,
+        }}>
+          {/* Chart Area */}
+          <View style={{ 
+            height: chartHeight, 
+            borderBottomWidth: 2,
+            borderBottomColor: '#e5e7eb',
+            position: 'relative',
+            marginBottom: 10,
+          }}>
+            {/* Grid lines */}
+            {[0, 1, 2, 3, 4].map(i => {
+              const y = (chartHeight / 4) * i;
+              return (
+                <View 
+                  key={i} 
+                  style={{ 
+                    position: 'absolute', 
+                    top: y, 
+                    left: 0, 
+                    right: 0, 
+                    height: 1, 
+                    backgroundColor: '#f1f5f9' 
+                  }} 
+                />
+              );
+            })}
+            
+            {/* Line path and dots */}
+            <View style={{ flex: 1, position: 'relative' }}>
+              {values.map((v, i) => {
+                if (i === values.length - 1) return null;
+                
+                const x1 = i * pointSpacing;
+                const y1 = chartHeight - ((v / max) * chartHeight);
+                const nextV = values[i + 1];
+                const x2 = (i + 1) * pointSpacing;
+                const y2 = chartHeight - ((nextV / max) * chartHeight);
+                
+                // Calculate line properties
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const length = Math.sqrt(dx * dx + dy * dy);
+                const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+                
+                return (
+                  <View
+                    key={`line-${i}`}
+                    style={{
+                      position: 'absolute',
+                      left: x1,
+                      top: y1,
+                      width: length,
+                      height: 2,
+                      backgroundColor: '#3b82f6',
+                      transform: [{ rotate: `${angle}deg` }],
+                      transformOrigin: 'left center',
+                    }}
+                  />
+                );
+              })}
+              
+              {/* Data points and values */}
+              {values.map((v, i) => {
+                const x = i * pointSpacing;
+                const y = chartHeight - ((v / max) * chartHeight);
+                
+                return (
+                  <React.Fragment key={`point-${i}`}>
+                    {/* Dot */}
+                    <View
+                      style={{
+                        position: 'absolute',
+                        left: x - 5,
+                        top: y - 5,
+                        width: 10,
+                        height: 10,
+                        borderRadius: 5,
+                        backgroundColor: '#3b82f6',
+                        borderWidth: 2,
+                        borderColor: '#fff',
+                        elevation: 2,
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 1 },
+                        shadowOpacity: 0.2,
+                        shadowRadius: 1,
+                      }}
+                    />
+                    
+                    {/* Value label */}
+                    {v > 0 && (
+                      <View
+                        style={{
+                          position: 'absolute',
+                          left: x - 12,
+                          top: Math.max(0, y - 22),
+                          width: 24,
+                          backgroundColor: '#3b82f6',
+                          paddingVertical: 2,
+                          paddingHorizontal: 4,
+                          borderRadius: 4,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 9,
+                            fontWeight: '700',
+                            color: '#fff',
+                            textAlign: 'center',
+                          }}
+                        >
+                          {v}
+                        </Text>
+                      </View>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </View>
+          </View>
+          
+          {/* X-axis labels */}
+          <View style={{ 
+            flexDirection: 'row', 
+            justifyContent: 'space-between',
+            paddingHorizontal: 5,
+          }}>
+            {result.map((r, i) => {
+              // Show every other label to avoid crowding
+              if (i % 2 !== 0) return <View key={i} style={{ width: 20 }} />;
+              return (
+                <Text 
+                  key={i} 
+                  style={{ 
+                    fontSize: 10, 
+                    color: '#6b7280',
+                    width: 20,
+                    textAlign: 'center',
+                  }}
+                >
+                  {r.label}
+                </Text>
+              );
+            })}
+          </View>
         </View>
-        <Text style={{ marginTop: 8, color: '#6b7280', fontSize: 11, textAlign: 'center' }}>Số lượng công việc theo ngày</Text>
+        
+        <Text style={{ marginTop: 8, color: '#6b7280', fontSize: 12, textAlign: 'center' }}>
+          Số lượng công việc theo ngày
+        </Text>
       </View>
     );
   };
 
   const renderPieChart = (items: { name: string; count: number; color?: string }[]) => {
     const total = items.reduce((s, it) => s + (it.count || 0), 0) || 1;
+    const filteredItems = items.filter(it => it.count > 0);
+    
+    if (filteredItems.length === 0) {
+      return (
+        <View style={{ backgroundColor: '#fff', borderRadius: 12, padding: 16, marginTop: 8 }}>
+          <Text style={{ textAlign: 'center', color: '#9ca3af', padding: 20 }}>
+            Chưa có dữ liệu
+          </Text>
+        </View>
+      );
+    }
+    
+    const size = Math.min(screenWidth * 0.7, 220);
+    const strokeWidth = 35;
+    const radius = (size - strokeWidth) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const center = size / 2;
+    
+    // Calculate stroke dash array for each segment
+    let currentPercentage = 0;
+    const segments = filteredItems.map((it, idx) => {
+      const percentage = (it.count / total) * 100;
+      const strokeDasharray = `${(percentage / 100) * circumference} ${circumference}`;
+      const rotation = (currentPercentage / 100) * 360 - 90; // -90 to start from top
+      currentPercentage += percentage;
+      
+      return {
+        ...it,
+        percentage,
+        strokeDasharray,
+        rotation,
+        color: it.color || ['#ef4444', '#f59e0b', '#10b981', '#6b7280'][idx % 4],
+      };
+    });
+    
     return (
-      <View style={{ width: screenWidth, backgroundColor: '#fff', borderRadius: 8, padding: 12 }}>
-        <Text style={{ color: '#111827', fontWeight: '700', marginBottom: 12 }}>Phân bố theo mức độ ưu tiên</Text>
-        {items.map((it, idx) => {
-          const pct = Math.round(((it.count||0) / total) * 100);
-          const color = it.color || ['#3b82f6','#f59e0b','#10b981','#6b7280'][idx % 4];
-          return (
-            <View key={idx} style={{ marginBottom: 12 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: color, marginRight: 8 }} />
-                  <Text style={{ color: '#111827', fontSize: 14 }}>{it.name}</Text>
+      <View style={{ backgroundColor: '#fff', borderRadius: 12, padding: 16, marginTop: 8 }}>
+        <Text style={{ fontSize: 15, fontWeight: '700', color: '#1f2937', marginBottom: 16 }}>
+          Phân bố theo mức độ ưu tiên
+        </Text>
+        
+        {/* Pie Chart using SVG-like approach with View */}
+        <View style={{ alignItems: 'center', marginVertical: 24 }}>
+          <View style={{ 
+            width: size, 
+            height: size,
+            position: 'relative',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}>
+            {/* Background circle */}
+            <View style={{
+              position: 'absolute',
+              width: size,
+              height: size,
+              borderRadius: size / 2,
+              backgroundColor: '#f1f5f9',
+            }} />
+            
+            {/* Segments as wedges */}
+            {segments.map((seg, idx) => {
+              const angle = (seg.percentage / 100) * 360;
+              const startAngle = segments.slice(0, idx).reduce((sum, s) => sum + (s.percentage / 100) * 360, 0);
+              
+              // Create wedge using border trick
+              return (
+                <View
+                  key={idx}
+                  style={{
+                    position: 'absolute',
+                    width: size,
+                    height: size,
+                    borderRadius: size / 2,
+                    transform: [{ rotate: `${startAngle - 90}deg` }],
+                    overflow: 'hidden',
+                  }}
+                >
+                  <View style={{
+                    position: 'absolute',
+                    width: size,
+                    height: size,
+                    borderRadius: size / 2,
+                    borderWidth: strokeWidth,
+                    borderColor: 'transparent',
+                    borderTopColor: seg.color,
+                    borderRightColor: angle > 90 ? seg.color : 'transparent',
+                    borderBottomColor: angle > 180 ? seg.color : 'transparent',
+                    borderLeftColor: angle > 270 ? seg.color : 'transparent',
+                    transform: angle <= 180 
+                      ? [{ rotate: `${angle / 2}deg` }]
+                      : [{ rotate: '90deg' }],
+                  }} />
+                  {angle > 180 && (
+                    <View style={{
+                      position: 'absolute',
+                      width: size,
+                      height: size,
+                      borderRadius: size / 2,
+                      borderWidth: strokeWidth,
+                      borderColor: 'transparent',
+                      borderTopColor: seg.color,
+                      borderRightColor: angle > 270 ? seg.color : 'transparent',
+                      transform: [{ rotate: `${(angle - 180) / 2 + 180}deg` }],
+                    }} />
+                  )}
                 </View>
-                <Text style={{ color: '#111827', fontWeight: '700', fontSize: 14 }}>{it.count} ({pct}%)</Text>
-              </View>
-              <View style={{ height: 12, backgroundColor: '#f1f5f9', borderRadius: 6 }}>
-                <View style={{ width: `${pct}%`, height: '100%', backgroundColor: color, borderRadius: 6 }} />
-              </View>
+              );
+            })}
+            
+            {/* Center white circle for donut effect */}
+            <View style={{
+              position: 'absolute',
+              width: size - strokeWidth * 2,
+              height: size - strokeWidth * 2,
+              borderRadius: (size - strokeWidth * 2) / 2,
+              backgroundColor: '#fff',
+              justifyContent: 'center',
+              alignItems: 'center',
+              elevation: 2,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: 0.1,
+              shadowRadius: 2,
+            }}>
+              <Text style={{ fontSize: 28, fontWeight: '700', color: '#1f2937' }}>
+                {total}
+              </Text>
+              <Text style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
+                Tổng
+              </Text>
             </View>
-          );
-        })}
+          </View>
+        </View>
+        
+        {/* Legend */}
+        {segments.map((seg, idx) => (
+          <View key={idx} style={{ 
+            flexDirection: 'row', 
+            alignItems: 'center', 
+            justifyContent: 'space-between', 
+            marginBottom: 10,
+            paddingVertical: 10,
+            paddingHorizontal: 12,
+            backgroundColor: '#f9fafb',
+            borderRadius: 8,
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <View style={{ 
+                width: 14, 
+                height: 14, 
+                borderRadius: 7, 
+                backgroundColor: seg.color, 
+                marginRight: 10 
+              }} />
+              <Text style={{ color: '#374151', fontSize: 14, fontWeight: '600', flex: 1 }}>
+                {seg.name}
+              </Text>
+            </View>
+            <Text style={{ color: '#1f2937', fontWeight: '700', fontSize: 14, marginLeft: 12 }}>
+              {seg.count} ({Math.round(seg.percentage)}%)
+            </Text>
+          </View>
+        ))}
       </View>
     );
   };
@@ -227,28 +603,128 @@ export default function ReportsPage() {
     const currentStats = viewMode === 'overall' ? overallStats : stats;
     const status = currentStats.statusCounts || {};
     const priority = currentStats.byPriority || {};
+    
     return (
-      <View style={{ backgroundColor: '#fff', borderRadius: 8, padding: 12 }}>
-        <Text style={{ fontWeight: '700', marginBottom: 12, fontSize: 15, color: '#111827' }}>Bảng tổng hợp</Text>
+      <View style={{ backgroundColor: '#fff', borderRadius: 12, padding: 16, marginTop: 8 }}>
+        <Text style={{ fontWeight: '700', marginBottom: 16, fontSize: 15, color: '#1f2937' }}>
+          Bảng tổng hợp
+        </Text>
         
-        <Text style={{ fontWeight: '700', marginTop: 8, marginBottom: 8, color: '#6b7280', fontSize: 13 }}>Theo trạng thái</Text>
-        <View style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-          {Object.keys(status).map((k, idx) => (
-            <View key={k} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, paddingHorizontal: 12, backgroundColor: idx % 2 === 0 ? '#f9fafb' : '#fff' }}>
-              <Text style={{ color: '#111827', fontSize: 14 }}>{k}</Text>
-              <Text style={{ fontWeight: '700', fontSize: 14 }}>{status[k]}</Text>
+        <Text style={{ 
+          fontWeight: '700', 
+          marginTop: 8, 
+          marginBottom: 10, 
+          color: '#6b7280', 
+          fontSize: 13,
+          textTransform: 'uppercase',
+          letterSpacing: 0.5,
+        }}>
+          Theo trạng thái
+        </Text>
+        <View style={{ 
+          borderWidth: 1, 
+          borderColor: '#e5e7eb', 
+          borderRadius: 10, 
+          overflow: 'hidden',
+          marginBottom: 16,
+        }}>
+          {Object.keys(status).length > 0 ? (
+            Object.keys(status).map((k, idx) => (
+              <View 
+                key={k} 
+                style={{ 
+                  flexDirection: 'row', 
+                  justifyContent: 'space-between', 
+                  paddingVertical: 12, 
+                  paddingHorizontal: 14, 
+                  backgroundColor: idx % 2 === 0 ? '#f9fafb' : '#fff',
+                  borderBottomWidth: idx < Object.keys(status).length - 1 ? 1 : 0,
+                  borderBottomColor: '#f1f5f9',
+                }}
+              >
+                <Text style={{ color: '#374151', fontSize: 14, fontWeight: '500' }}>{k}</Text>
+                <View style={{
+                  backgroundColor: '#3b82f6',
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                  borderRadius: 6,
+                  minWidth: 32,
+                  alignItems: 'center',
+                }}>
+                  <Text style={{ fontWeight: '700', fontSize: 14, color: '#fff' }}>
+                    {status[k]}
+                  </Text>
+                </View>
+              </View>
+            ))
+          ) : (
+            <View style={{ padding: 16, alignItems: 'center' }}>
+              <Text style={{ color: '#9ca3af' }}>Chưa có dữ liệu</Text>
             </View>
-          ))}
+          )}
         </View>
 
-        <Text style={{ fontWeight: '700', marginTop: 16, marginBottom: 8, color: '#6b7280', fontSize: 13 }}>Theo mức độ ưu tiên</Text>
-        <View style={{ borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 8, overflow: 'hidden' }}>
-          {['high','medium','low','unknown'].map((k, idx) => (
-            <View key={k} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, paddingHorizontal: 12, backgroundColor: idx % 2 === 0 ? '#f9fafb' : '#fff' }}>
-              <Text style={{ color: '#111827', fontSize: 14 }}>{k === 'high' ? 'Cao' : k === 'medium' ? 'Trung bình' : k === 'low' ? 'Thấp' : 'Không rõ'}</Text>
-              <Text style={{ fontWeight: '700', fontSize: 14 }}>{(priority && priority[k]) || 0}</Text>
-            </View>
-          ))}
+        <Text style={{ 
+          fontWeight: '700', 
+          marginTop: 8, 
+          marginBottom: 10, 
+          color: '#6b7280', 
+          fontSize: 13,
+          textTransform: 'uppercase',
+          letterSpacing: 0.5,
+        }}>
+          Theo mức độ ưu tiên
+        </Text>
+        <View style={{ 
+          borderWidth: 1, 
+          borderColor: '#e5e7eb', 
+          borderRadius: 10, 
+          overflow: 'hidden' 
+        }}>
+          {['high', 'medium', 'low', 'unknown'].map((k, idx) => {
+            const priorityColors: any = {
+              'high': '#ef4444',
+              'medium': '#f59e0b',
+              'low': '#10b981',
+              'unknown': '#6b7280',
+            };
+            const labels: any = {
+              'high': '🔴 Cao',
+              'medium': '🟡 Trung bình',
+              'low': '🟢 Thấp',
+              'unknown': '⚪ Không rõ',
+            };
+            return (
+              <View 
+                key={k} 
+                style={{ 
+                  flexDirection: 'row', 
+                  justifyContent: 'space-between', 
+                  paddingVertical: 12, 
+                  paddingHorizontal: 14, 
+                  backgroundColor: idx % 2 === 0 ? '#f9fafb' : '#fff',
+                  borderBottomWidth: idx < 3 ? 1 : 0,
+                  borderBottomColor: '#f1f5f9',
+                }}
+              >
+                <Text style={{ color: '#374151', fontSize: 14, fontWeight: '500' }}>
+                  {labels[k]}
+                </Text>
+                <View style={{
+                  backgroundColor: priorityColors[k],
+                  paddingHorizontal: 10,
+                  paddingVertical: 4,
+                  borderRadius: 6,
+                  minWidth: 32,
+                  alignItems: 'center',
+                }}>
+                  <Text style={{ fontWeight: '700', fontSize: 14, color: '#fff' }}>
+                    {(priority && priority[k]) || 0}
+                  </Text>
+                </View>
+              </View>
+            );
+          })}
         </View>
       </View>
     );
@@ -343,17 +819,48 @@ export default function ReportsPage() {
 
                 <View style={{ marginTop: 16 }}>
                   <Text style={styles.sectionTitle}>Biểu đồ</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-                    {(['bar','line','pie','table'] as const).map((t) => (
-                      <TouchableOpacity key={t} onPress={() => setChartType(t)} style={{ paddingVertical: 8, paddingHorizontal: 12, marginRight: 8, backgroundColor: chartType === t ? '#3b82f6' : '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb' }}>
-                        <Text style={{ color: chartType === t ? '#fff' : '#111827', fontWeight: '700', fontSize: 13 }}>{t === 'bar' ? 'Cột' : t === 'line' ? 'Đường' : t === 'pie' ? 'Tròn' : 'Bảng'}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
+                  <View style={{ 
+                    flexDirection: 'row', 
+                    gap: 8, 
+                    marginBottom: 12,
+                    flexWrap: 'wrap',
+                  }}>
+                    {(['bar', 'line', 'pie'] as const).map((t) => {
+                      const icons = { bar: '📊', line: '📈', pie: '🥧' };
+                      const labels = { bar: 'Cột', line: 'Đường', pie: 'Tròn' };
+                      return (
+                        <TouchableOpacity 
+                          key={t} 
+                          onPress={() => setChartType(t)} 
+                          style={{ 
+                            paddingVertical: 10, 
+                            paddingHorizontal: 16, 
+                            backgroundColor: chartType === t ? '#3b82f6' : '#fff', 
+                            borderRadius: 10, 
+                            borderWidth: 2, 
+                            borderColor: chartType === t ? '#3b82f6' : '#e5e7eb',
+                            shadowColor: chartType === t ? '#3b82f6' : '#000',
+                            shadowOffset: { width: 0, height: 2 },
+                            shadowOpacity: chartType === t ? 0.3 : 0.05,
+                            shadowRadius: 3,
+                            elevation: chartType === t ? 4 : 1,
+                          }}
+                        >
+                          <Text style={{ 
+                            color: chartType === t ? '#fff' : '#374151', 
+                            fontWeight: '700', 
+                            fontSize: 14 
+                          }}>
+                            {icons[t]} {labels[t]}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
 
                   <View>
                     {chartType === 'bar' && (
-                      <View style={{ marginTop: 8 }}>{renderBarChart(Object.keys(overallStats.statusCounts || {}).map(k => ({ label: k, count: overallStats.statusCounts[k] })) )}</View>
+                      <View>{renderBarChart(Object.keys(overallStats.statusCounts || {}).map(k => ({ label: k, count: overallStats.statusCounts[k] })) )}</View>
                     )}
                     {chartType === 'pie' && (
                       <View style={{ marginTop: 8 }}>{renderPieChart([
@@ -365,9 +872,6 @@ export default function ReportsPage() {
                     )}
                     {chartType === 'line' && (
                       <View style={{ marginTop: 8 }}>{renderLineChart()}</View>
-                    )}
-                    {chartType === 'table' && (
-                      <View style={{ marginTop: 8 }}>{renderTable()}</View>
                     )}
                   </View>
 
@@ -408,17 +912,48 @@ export default function ReportsPage() {
 
                 <View style={{ marginTop: 16 }}>
                   <Text style={styles.sectionTitle}>Biểu đồ</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-                    {(['bar','line','pie','table'] as const).map((t) => (
-                      <TouchableOpacity key={t} onPress={() => setChartType(t)} style={{ paddingVertical: 8, paddingHorizontal: 12, marginRight: 8, backgroundColor: chartType === t ? '#3b82f6' : '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb' }}>
-                        <Text style={{ color: chartType === t ? '#fff' : '#111827', fontWeight: '700', fontSize: 13 }}>{t === 'bar' ? 'Cột' : t === 'line' ? 'Đường' : t === 'pie' ? 'Tròn' : 'Bảng'}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
+                  <View style={{ 
+                    flexDirection: 'row', 
+                    gap: 8, 
+                    marginBottom: 12,
+                    flexWrap: 'wrap',
+                  }}>
+                    {(['bar', 'line', 'pie'] as const).map((t) => {
+                      const icons = { bar: '📊', line: '📈', pie: '🥧' };
+                      const labels = { bar: 'Cột', line: 'Đường', pie: 'Tròn' };
+                      return (
+                        <TouchableOpacity 
+                          key={t} 
+                          onPress={() => setChartType(t)} 
+                          style={{ 
+                            paddingVertical: 10, 
+                            paddingHorizontal: 16, 
+                            backgroundColor: chartType === t ? '#3b82f6' : '#fff', 
+                            borderRadius: 10, 
+                            borderWidth: 2, 
+                            borderColor: chartType === t ? '#3b82f6' : '#e5e7eb',
+                            shadowColor: chartType === t ? '#3b82f6' : '#000',
+                            shadowOffset: { width: 0, height: 2 },
+                            shadowOpacity: chartType === t ? 0.3 : 0.05,
+                            shadowRadius: 3,
+                            elevation: chartType === t ? 4 : 1,
+                          }}
+                        >
+                          <Text style={{ 
+                            color: chartType === t ? '#fff' : '#374151', 
+                            fontWeight: '700', 
+                            fontSize: 14 
+                          }}>
+                            {icons[t]} {labels[t]}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
 
                   <View>
                     {chartType === 'bar' && (
-                      <View style={{ marginTop: 8 }}>{renderBarChart(Object.keys(stats.statusCounts || {}).map(k => ({ label: k, count: stats.statusCounts[k] })) )}</View>
+                      <View>{renderBarChart(Object.keys(stats.statusCounts || {}).map(k => ({ label: k, count: stats.statusCounts[k] })) )}</View>
                     )}
                     {chartType === 'pie' && (
                       <View style={{ marginTop: 8 }}>{renderPieChart([
@@ -430,9 +965,6 @@ export default function ReportsPage() {
                     )}
                     {chartType === 'line' && (
                       <View style={{ marginTop: 8 }}>{renderLineChart()}</View>
-                    )}
-                    {chartType === 'table' && (
-                      <View style={{ marginTop: 8 }}>{renderTable()}</View>
                     )}
                   </View>
 
@@ -481,9 +1013,33 @@ const styles = StyleSheet.create({
 
 // chart styles
 Object.assign(styles, StyleSheet.create({
-  chartRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  chartLabel: { color: '#111827', fontSize: 14 },
-  chartCount: { fontWeight: '700', fontSize: 14, color: '#3b82f6' },
-  chartBarBg: { height: 12, backgroundColor: '#eef2ff', borderRadius: 8, overflow: 'hidden' },
-  chartBarFill: { height: 12, backgroundColor: '#3b82f6', borderRadius: 8 },
+  chartRow: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    marginBottom: 8 
+  },
+  chartLabel: { 
+    color: '#374151', 
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  chartCount: { 
+    fontWeight: '700', 
+    fontSize: 15, 
+    color: '#1f2937',
+    marginLeft: 12,
+  },
+  chartBarBg: { 
+    height: 14, 
+    backgroundColor: '#f1f5f9', 
+    borderRadius: 7, 
+    overflow: 'hidden' 
+  },
+  chartBarFill: { 
+    height: 14, 
+    borderRadius: 7,
+    minWidth: 4,
+  },
 }));

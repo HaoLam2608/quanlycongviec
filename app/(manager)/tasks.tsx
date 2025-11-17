@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
     SafeAreaView, StyleSheet, Text, View, FlatList, TouchableOpacity,
-    ActivityIndicator, RefreshControl, Alert, Modal, TextInput, Platform,
+    ActivityIndicator, RefreshControl, Alert, Modal, TextInput, Platform, ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchProjectsByManager, getTasksByProject, createTask } from '@/src/axios/api';
 import { PageHeader } from '../../components/ui/PageHeader';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface Task {
     id: number;
@@ -36,10 +37,14 @@ export default function TaskManagement() {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
     const [filter, setFilter] = useState<string>('all');
+    const [searchQuery, setSearchQuery] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newTitle, setNewTitle] = useState('');
     const [newDesc, setNewDesc] = useState('');
+    const [newStartDate, setNewStartDate] = useState('');
     const [newDueDate, setNewDueDate] = useState('');
+    const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+    const [showEndDatePicker, setShowEndDatePicker] = useState(false);
     const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
 
     useEffect(() => {
@@ -126,8 +131,17 @@ export default function TaskManagement() {
     };
 
     const filteredTasks = tasks.filter(task => {
-        if (filter === 'all') return true;
-        return task.trangThai === filter;
+        // Filter by status
+        const matchesStatus = filter === 'all' || task.trangThai === filter;
+        
+        // Filter by search query
+        const matchesSearch = searchQuery.trim() === '' || 
+            task.tentask.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            task.mota?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (task as any).projectName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            task.nguoiDuocGiao?.hoten.toLowerCase().includes(searchQuery.toLowerCase());
+        
+        return matchesStatus && matchesSearch;
     });
 
     const renderTask = ({ item }: { item: Task }) => (
@@ -187,6 +201,28 @@ export default function TaskManagement() {
         <SafeAreaView style={styles.container}>
             <PageHeader title="Quản lý công việc" />
             
+            {/* Search Bar */}
+            <View style={styles.searchContainer}>
+                <View style={styles.searchInputWrapper}>
+                    <Text style={styles.searchIcon}>🔍</Text>
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Tìm kiếm công việc, dự án, người thực hiện..."
+                        placeholderTextColor="#9ca3af"
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                    />
+                    {searchQuery.length > 0 && (
+                        <TouchableOpacity 
+                            onPress={() => setSearchQuery('')}
+                            style={styles.clearButton}
+                        >
+                            <Text style={styles.clearIcon}>✕</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+            </View>
+            
             {/* Filter tabs */}
             <View style={styles.filterContainer}>
                 <TouchableOpacity
@@ -242,6 +278,7 @@ export default function TaskManagement() {
                 // prepare modal defaults
                 setNewTitle('');
                 setNewDesc('');
+                setNewStartDate('');
                 setNewDueDate('');
                 if (!selectedProjectId && projects.length > 0) setSelectedProjectId(projects[0].id);
                 setShowCreateModal(true);
@@ -254,17 +291,63 @@ export default function TaskManagement() {
                 <View style={modalStyles.modalOverlay}>
                     <View style={modalStyles.modalContent}>
                         <Text style={modalStyles.modalTitle}>Tạo công việc mới</Text>
-                        <Text style={modalStyles.label}>Dự án</Text>
-                        <View style={modalStyles.projectList}>
-                            {projects.map(p => (
-                                <TouchableOpacity key={p.id} onPress={() => setSelectedProjectId(p.id)} style={[modalStyles.projectOption, selectedProjectId === p.id && modalStyles.projectOptionSelected]}>
-                                    <Text style={[modalStyles.projectOptionText, selectedProjectId === p.id && { color: '#fff' }]}>{p.tenduan}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                        <TextInput placeholder="Tiêu đề" value={newTitle} onChangeText={setNewTitle} style={modalStyles.input} />
-                        <TextInput placeholder="Mô tả (tuỳ chọn)" value={newDesc} onChangeText={setNewDesc} style={[modalStyles.input, { height: 80 }]} multiline />
-                        <TextInput placeholder="Ngày kết thúc (YYYY-MM-DD)" value={newDueDate} onChangeText={setNewDueDate} style={modalStyles.input} />
+                        <ScrollView showsVerticalScrollIndicator={false} style={modalStyles.scrollContent}>
+                            <Text style={modalStyles.label}>Dự án</Text>
+                            <ScrollView style={modalStyles.projectList} nestedScrollEnabled={true}>
+                                {projects.map(p => (
+                                    <TouchableOpacity key={p.id} onPress={() => setSelectedProjectId(p.id)} style={[modalStyles.projectOption, selectedProjectId === p.id && modalStyles.projectOptionSelected]}>
+                                        <Text style={[modalStyles.projectOptionText, selectedProjectId === p.id && { color: '#fff' }]}>{p.tenduan}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                            
+                            <Text style={modalStyles.label}>Tiêu đề *</Text>
+                            <TextInput placeholder="Nhập tiêu đề công việc" value={newTitle} onChangeText={setNewTitle} style={modalStyles.input} />
+                            
+                            <Text style={modalStyles.label}>Mô tả</Text>
+                            <TextInput placeholder="Nhập mô tả (tuỳ chọn)" value={newDesc} onChangeText={setNewDesc} style={[modalStyles.input, modalStyles.textArea]} multiline numberOfLines={3} />
+                            
+                            <Text style={modalStyles.label}>Ngày bắt đầu *</Text>
+                            <TouchableOpacity onPress={() => setShowStartDatePicker(true)} style={modalStyles.dateButton}>
+                                <Text style={[modalStyles.dateButtonText, !newStartDate && modalStyles.placeholderText]}>
+                                    {newStartDate ? `📅 ${new Date(newStartDate).toLocaleDateString('vi-VN')}` : '📅 Chọn ngày bắt đầu'}
+                                </Text>
+                            </TouchableOpacity>
+                            {showStartDatePicker && (
+                                <DateTimePicker
+                                    value={newStartDate ? new Date(newStartDate) : new Date()}
+                                    mode="date"
+                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                    onChange={(event, selectedDate) => {
+                                        setShowStartDatePicker(Platform.OS === 'ios');
+                                        if (selectedDate) {
+                                            setNewStartDate(selectedDate.toISOString().split('T')[0]);
+                                        }
+                                    }}
+                                />
+                            )}
+                            
+                            <Text style={modalStyles.label}>Ngày kết thúc *</Text>
+                            <TouchableOpacity onPress={() => setShowEndDatePicker(true)} style={modalStyles.dateButton}>
+                                <Text style={[modalStyles.dateButtonText, !newDueDate && modalStyles.placeholderText]}>
+                                    {newDueDate ? `📅 ${new Date(newDueDate).toLocaleDateString('vi-VN')}` : '📅 Chọn ngày kết thúc'}
+                                </Text>
+                            </TouchableOpacity>
+                            {showEndDatePicker && (
+                                <DateTimePicker
+                                    value={newDueDate ? new Date(newDueDate) : new Date()}
+                                    mode="date"
+                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                    onChange={(event, selectedDate) => {
+                                        setShowEndDatePicker(Platform.OS === 'ios');
+                                        if (selectedDate) {
+                                            setNewDueDate(selectedDate.toISOString().split('T')[0]);
+                                        }
+                                    }}
+                                />
+                            )}
+                        </ScrollView>
+                        
                         <View style={modalStyles.modalActions}>
                             <TouchableOpacity style={[modalStyles.modalBtn, { backgroundColor: '#9ca3af' }]} onPress={() => setShowCreateModal(false)}>
                                 <Text style={modalStyles.modalBtnText}>Hủy</Text>
@@ -272,7 +355,16 @@ export default function TaskManagement() {
                             <TouchableOpacity style={[modalStyles.modalBtn, { backgroundColor: '#3b82f6' }]} onPress={async () => {
                                 try {
                                     if (!newTitle.trim()) return Alert.alert('Lỗi', 'Vui lòng nhập tiêu đề công việc');
-                                    if (!newDueDate.trim()) return Alert.alert('Lỗi', 'Vui lòng nhập ngày kết thúc (YYYY-MM-DD)');
+                                    if (!selectedProjectId) return Alert.alert('Lỗi', 'Vui lòng chọn dự án');
+                                    if (!newStartDate.trim()) return Alert.alert('Lỗi', 'Vui lòng chọn ngày bắt đầu');
+                                    if (!newDueDate.trim()) return Alert.alert('Lỗi', 'Vui lòng chọn ngày kết thúc');
+                                    
+                                    const startDate = new Date(newStartDate);
+                                    const endDate = new Date(newDueDate);
+                                    if (startDate > endDate) {
+                                        return Alert.alert('Lỗi', 'Ngày bắt đầu phải trước ngày kết thúc');
+                                    }
+                                    
                                     const userData = await AsyncStorage.getItem('user');
                                     let nguoiDuocGiaoId = 0;
                                     if (userData) {
@@ -285,6 +377,7 @@ export default function TaskManagement() {
                                         mota: newDesc,
                                         duanId,
                                         nguoiDuocGiaoId,
+                                        ngayBatDau: newStartDate,
                                         ngayKetThuc: newDueDate,
                                     });
                                     Alert.alert('Thành công', 'Tạo công việc mới thành công');
@@ -320,6 +413,42 @@ const styles = StyleSheet.create({
         marginTop: 12,
         fontSize: 16,
         color: '#6b7280',
+    },
+    searchContainer: {
+        backgroundColor: '#fff',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e5e7eb',
+    },
+    searchInputWrapper: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f3f4f6',
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: Platform.OS === 'ios' ? 12 : 8,
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+    },
+    searchIcon: {
+        fontSize: 18,
+        marginRight: 8,
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 14,
+        color: '#111827',
+        padding: 0,
+    },
+    clearButton: {
+        padding: 4,
+        marginLeft: 8,
+    },
+    clearIcon: {
+        fontSize: 16,
+        color: '#6b7280',
+        fontWeight: '700',
     },
     filterContainer: {
         flexDirection: 'row',
@@ -485,27 +614,34 @@ const modalStyles = StyleSheet.create({
     modalContent: {
         width: '100%',
         maxWidth: 720,
+        maxHeight: '85%',
         backgroundColor: '#fff',
-        borderRadius: 12,
-        padding: 16,
+        borderRadius: 16,
+        padding: 20,
     },
     modalTitle: {
-        fontSize: 16,
+        fontSize: 20,
         fontWeight: '700',
         color: '#1f2937',
-        marginBottom: 12,
+        marginBottom: 16,
+        textAlign: 'center',
+    },
+    scrollContent: {
+        flexGrow: 0,
     },
     label: {
-        fontSize: 13,
-        color: '#6b7280',
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#374151',
         marginBottom: 8,
+        marginTop: 4,
     },
     projectList: {
-        maxHeight: 120,
-        marginBottom: 12,
+        maxHeight: 100,
+        marginBottom: 16,
     },
     projectOption: {
-        paddingVertical: 8,
+        paddingVertical: 10,
         paddingHorizontal: 12,
         borderRadius: 8,
         backgroundColor: '#f3f4f6',
@@ -516,27 +652,56 @@ const modalStyles = StyleSheet.create({
     },
     projectOptionText: {
         color: '#111827',
+        fontSize: 14,
+        fontWeight: '500',
     },
     input: {
         borderWidth: 1,
         borderColor: '#e5e7eb',
         borderRadius: 8,
         paddingHorizontal: 12,
-        paddingVertical: Platform.OS === 'ios' ? 12 : 8,
-        marginBottom: 12,
+        paddingVertical: Platform.OS === 'ios' ? 12 : 10,
+        marginBottom: 16,
         fontSize: 14,
         color: '#111827',
         backgroundColor: '#fff',
     },
+    textArea: {
+        height: 80,
+        textAlignVertical: 'top',
+    },
+    dateButton: {
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 14,
+        marginBottom: 16,
+        backgroundColor: '#f9fafb',
+    },
+    dateButtonText: {
+        fontSize: 14,
+        color: '#111827',
+        fontWeight: '500',
+    },
+    placeholderText: {
+        color: '#9ca3af',
+    },
     modalActions: {
         flexDirection: 'row',
         justifyContent: 'flex-end',
-        gap: 8,
+        gap: 12,
+        marginTop: 16,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: '#e5e7eb',
     },
     modalBtn: {
-        paddingVertical: 10,
-        paddingHorizontal: 14,
+        paddingVertical: 12,
+        paddingHorizontal: 20,
         borderRadius: 8,
+        minWidth: 80,
+        alignItems: 'center',
     },
     modalBtnText: {
         fontSize: 14,

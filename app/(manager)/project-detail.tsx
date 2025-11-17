@@ -5,11 +5,12 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createTask } from '@/src/axios/api';
+import { createTask, deleteTask } from '@/src/axios/api';
 import { PRIORITY_LEVELS, PRIORITY_LABELS } from '../../constants/roles';
 import { getProjectById, getTasksByProject } from '@/src/axios/api';
 import { getGroups, groupAPI } from '@/src/axios/adminApi';
 import { PageHeader } from '../../components/ui/PageHeader';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface Project {
     id: number;
@@ -51,6 +52,8 @@ export default function ProjectDetail() {
     const [newDesc, setNewDesc] = useState('');
     const [newDueDate, setNewDueDate] = useState('');
     const [newStartDate, setNewStartDate] = useState('');
+    const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+    const [showEndDatePicker, setShowEndDatePicker] = useState(false);
     const [selectedAssigneeId, setSelectedAssigneeId] = useState<number | null>(null);
     const [newPriority, setNewPriority] = useState<string>('trung_binh');
     const [newNotes, setNewNotes] = useState('');
@@ -313,8 +316,8 @@ export default function ProjectDetail() {
         try {
             if (!newTitle.trim()) return Alert.alert('Lỗi', 'Vui lòng nhập tiêu đề công việc');
             if (!newDesc.trim()) return Alert.alert('Lỗi', 'Vui lòng nhập mô tả công việc');
-            if (!newStartDate.trim()) return Alert.alert('Lỗi', 'Vui lòng nhập ngày bắt đầu (YYYY-MM-DD)');
-            if (!newDueDate.trim()) return Alert.alert('Lỗi', 'Vui lòng nhập ngày kết thúc (YYYY-MM-DD)');
+            if (!newStartDate.trim()) return Alert.alert('Lỗi', 'Vui lòng chọn ngày bắt đầu');
+            if (!newDueDate.trim()) return Alert.alert('Lỗi', 'Vui lòng chọn ngày kết thúc');
             if (!selectedAssigneeId) return Alert.alert('Lỗi', 'Vui lòng chọn người thực hiện (trưởng nhóm)');
             if (!newPriority) return Alert.alert('Lỗi', 'Vui lòng chọn mức độ ưu tiên');
 
@@ -450,26 +453,76 @@ export default function ProjectDetail() {
         </ScrollView>
     );
 
+    const handleDeleteTask = async (taskId: number, title?: string) => {
+        Alert.alert(
+            'Xác nhận xóa',
+            `Bạn có chắc chắn muốn xóa công việc "${title || ''}"?`,
+            [
+                { text: 'Hủy', style: 'cancel' },
+                {
+                    text: 'Xóa',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            setLoading(true);
+                            await deleteTask(taskId);
+                            Alert.alert('Thành công', 'Đã xóa công việc');
+                            await loadProjectData();
+                        } catch (err: any) {
+                            console.error('Delete task error', err);
+                            const backendMsg = err?.response?.data?.message || err?.message;
+                            Alert.alert('Lỗi', backendMsg || 'Không thể xóa công việc');
+                        } finally {
+                            setLoading(false);
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     const renderTaskItem = ({ item }: { item: Task }) => (
-        <TouchableOpacity
-            style={styles.taskItem}
-            onPress={() => router.push(`/(manager)/task-detail?id=${item.id}`)}
-        >
-            <View style={styles.taskHeader}>
-                <Text style={styles.taskName} numberOfLines={2}>{item.tentask}</Text>
-                <View style={[styles.taskStatusBadge, { backgroundColor: getTaskStatusColor(item.trangThai) }]}>
-                    <Text style={styles.taskStatusText}>{item.trangThai}</Text>
+        <View style={[styles.card, { flexDirection: 'row', alignItems: 'stretch' }]}> 
+            <TouchableOpacity
+                style={{ flex: 1 }}
+                activeOpacity={0.95}
+                onPress={() => router.push(`/(manager)/task-detail?id=${item.id}`)}
+            >
+                <View style={styles.cardTopBadges}>
+                    <View style={[styles.statusBadgeSmall, { backgroundColor: getTaskStatusColor(item.trangThai) }]}>
+                        <Text style={styles.statusTextSmall}>{item.trangThai || 'Chưa rõ'}</Text>
+                    </View>
+                    {(item as any).mucDoUuTien ? (
+                        <View style={[styles.priorityBadge, { backgroundColor: (item as any).mucDoUuTien === 'high' ? '#ef4444' : (item as any).mucDoUuTien === 'medium' ? '#f59e0b' : '#10b981' }]}>
+                            <Text style={styles.badgeText}>{(item as any).mucDoUuTien === 'high' ? 'Cao' : (item as any).mucDoUuTien === 'medium' ? 'Trung bình' : 'Thấp'}</Text>
+                        </View>
+                    ) : null}
                 </View>
-            </View>
-            {item.nguoiDuocGiao && (
-                <Text style={styles.taskAssignee}>👤 {item.nguoiDuocGiao.hoten}</Text>
-            )}
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
-                <TouchableOpacity style={styles.viewSubtasksBtn} onPress={() => router.push(`/(manager)/task-detail?id=${item.id}`)}>
-                    <Text style={styles.viewSubtasksBtnText}>Xem công việc con</Text>
+
+                <View style={styles.cardMain}>
+                    <Text style={styles.cardTitleLarge} numberOfLines={2}>{item.tentask}</Text>
+                    { (item as any).mota ? <Text style={styles.cardDesc} numberOfLines={2}>{(item as any).mota}</Text> : null }
+
+                    {item.nguoiDuocGiao && (
+                        <Text style={styles.assigneeText}>👤 Người thực hiện: <Text style={{fontWeight:'700'}}>{item.nguoiDuocGiao.hoten}</Text></Text>
+                    )}
+
+                    <View style={styles.cardFooterRowRight}>
+                        {(item as any).ngayBatDau ? <Text style={styles.dateText}>⏱ {new Date((item as any).ngayBatDau).toLocaleDateString('vi-VN')}</Text> : null}
+                        {(item as any).ngayKetThuc ? <Text style={[styles.dateText, { marginLeft: 12 }]}>📅 {new Date((item as any).ngayKetThuc).toLocaleDateString('vi-VN')}</Text> : null}
+                    </View>
+                </View>
+            </TouchableOpacity>
+
+            <View style={{ justifyContent: 'center', paddingLeft: 8 }}>
+                <TouchableOpacity
+                    style={styles.removeBtnInline}
+                    onPress={() => handleDeleteTask(item.id, item.tentask)}
+                >
+                    <Text style={styles.removeBtnSmallText}>Xóa</Text>
                 </TouchableOpacity>
             </View>
-        </TouchableOpacity>
+        </View>
     );
 
     const renderTasks = () => (
@@ -651,46 +704,86 @@ export default function ProjectDetail() {
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>Tạo công việc mới</Text>
-                        <TextInput placeholder="Tiêu đề" value={newTitle} onChangeText={setNewTitle} style={styles.input} />
-                        <TextInput placeholder="Mô tả" value={newDesc} onChangeText={setNewDesc} style={[styles.input, { height: 80 }]} multiline />
-                        <TextInput placeholder="Ngày bắt đầu (YYYY-MM-DD)" value={newStartDate} onChangeText={setNewStartDate} style={styles.input} />
-                        <TextInput placeholder="Ngày kết thúc (YYYY-MM-DD)" value={newDueDate} onChangeText={setNewDueDate} style={styles.input} />
+                        <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: '75%' }}>
+                            <TextInput placeholder="Tiêu đề" value={newTitle} onChangeText={setNewTitle} style={styles.input} />
+                            <TextInput placeholder="Mô tả" value={newDesc} onChangeText={setNewDesc} style={[styles.input, { height: 80 }]} multiline />
+                            
+                            <Text style={{ fontWeight: '700', marginBottom: 6, color: '#374151' }}>Ngày bắt đầu</Text>
+                            <TouchableOpacity onPress={() => setShowStartDatePicker(true)} style={styles.datePickerButton}>
+                                <Text style={[styles.datePickerText, !newStartDate && { color: '#9ca3af' }]}>
+                                    {newStartDate ? `📅 ${new Date(newStartDate).toLocaleDateString('vi-VN')}` : '📅 Chọn ngày bắt đầu'}
+                                </Text>
+                            </TouchableOpacity>
+                            {showStartDatePicker && (
+                                <DateTimePicker
+                                    value={newStartDate ? new Date(newStartDate) : new Date()}
+                                    mode="date"
+                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                    onChange={(event, selectedDate) => {
+                                        setShowStartDatePicker(Platform.OS === 'ios');
+                                        if (selectedDate) {
+                                            setNewStartDate(selectedDate.toISOString().split('T')[0]);
+                                        }
+                                    }}
+                                />
+                            )}
+                            
+                            <Text style={{ fontWeight: '700', marginBottom: 6, color: '#374151' }}>Ngày kết thúc</Text>
+                            <TouchableOpacity onPress={() => setShowEndDatePicker(true)} style={styles.datePickerButton}>
+                                <Text style={[styles.datePickerText, !newDueDate && { color: '#9ca3af' }]}>
+                                    {newDueDate ? `📅 ${new Date(newDueDate).toLocaleDateString('vi-VN')}` : '📅 Chọn ngày kết thúc'}
+                                </Text>
+                            </TouchableOpacity>
+                            {showEndDatePicker && (
+                                <DateTimePicker
+                                    value={newDueDate ? new Date(newDueDate) : new Date()}
+                                    mode="date"
+                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                    onChange={(event, selectedDate) => {
+                                        setShowEndDatePicker(Platform.OS === 'ios');
+                                        if (selectedDate) {
+                                            setNewDueDate(selectedDate.toISOString().split('T')[0]);
+                                        }
+                                    }}
+                                />
+                            )}
 
-                        {/* Assignee selection: only group leaders of groupsAttached */}
-                        <Text style={{ marginTop: 6, marginBottom: 6, fontWeight: '700', color: '#374151' }}>Người thực hiện (Chọn trưởng nhóm)</Text>
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
-                            {(() => {
-                                const seen = new Set();
-                                const leaders = (groupsAttached || []).map((g: any) => g.leader || g.truong || g.leaderInfo || null).filter(Boolean).reduce((acc: any[], l: any) => {
-                                    const id = l.id || l.userId || l.leaderId || l.uid;
-                                    if (!id || seen.has(id)) return acc;
-                                    seen.add(id);
-                                    acc.push({ id, name: l.hoten || l.name || l.fullName || l.hoTen || 'Không rõ' });
-                                    return acc;
-                                }, [] as any[]);
-                                if (!leaders || leaders.length === 0) return <Text style={{ color: '#6b7280' }}>Không có trưởng nhóm để chọn</Text>;
-                                return leaders.map((L: any) => (
-                                    <TouchableOpacity key={L.id} onPress={() => setSelectedAssigneeId(Number(L.id))} style={[styles.tagPill, selectedAssigneeId === Number(L.id) ? { backgroundColor: '#1e40af' } : { backgroundColor: '#eef2ff' }]}>
-                                        <Text style={{ color: selectedAssigneeId === Number(L.id) ? '#fff' : '#111827', fontWeight: '600' }}>{L.name}</Text>
-                                    </TouchableOpacity>
-                                ));
-                            })()}
-                        </View>
+                            {/* Assignee selection: only group leaders of groupsAttached */}
+                            <Text style={{ marginTop: 6, marginBottom: 6, fontWeight: '700', color: '#374151' }}>Người thực hiện (Chọn trưởng nhóm)</Text>
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+                                {(() => {
+                                    const seen = new Set();
+                                    const leaders = (groupsAttached || []).map((g: any) => g.leader || g.truong || g.leaderInfo || null).filter(Boolean).reduce((acc: any[], l: any) => {
+                                        const id = l.id || l.userId || l.leaderId || l.uid;
+                                        if (!id || seen.has(id)) return acc;
+                                        seen.add(id);
+                                        acc.push({ id, name: l.hoten || l.name || l.fullName || l.hoTen || 'Không rõ' });
+                                        return acc;
+                                    }, [] as any[]);
+                                    if (!leaders || leaders.length === 0) return <Text style={{ color: '#6b7280' }}>Không có trưởng nhóm để chọn</Text>;
+                                    return leaders.map((L: any) => (
+                                        <TouchableOpacity key={L.id} onPress={() => setSelectedAssigneeId(Number(L.id))} style={[styles.tagPill, selectedAssigneeId === Number(L.id) ? { backgroundColor: '#1e40af' } : { backgroundColor: '#eef2ff' }]}>
+                                            <Text style={{ color: selectedAssigneeId === Number(L.id) ? '#fff' : '#111827', fontWeight: '600' }}>{L.name}</Text>
+                                        </TouchableOpacity>
+                                    ));
+                                })()}
+                            </View>
 
-                        {/* Priority */}
-                        <Text style={{ marginTop: 6, marginBottom: 6, fontWeight: '700', color: '#374151' }}>Mức độ ưu tiên</Text>
-                        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-                            {Object.keys(PRIORITY_LEVELS).map((k) => {
-                                const key = (PRIORITY_LEVELS as any)[k];
-                                return (
-                                    <TouchableOpacity key={key} onPress={() => setNewPriority(key)} style={[styles.priorityOption, newPriority === key ? { backgroundColor: '#1e40af' } : { backgroundColor: '#f3f4f6' }] }>
-                                        <Text style={{ color: newPriority === key ? '#fff' : '#111827', fontWeight: '600' }}>{(PRIORITY_LABELS as any)[key]}</Text>
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </View>
+                            {/* Priority */}
+                            <Text style={{ marginTop: 6, marginBottom: 6, fontWeight: '700', color: '#374151' }}>Mức độ ưu tiên</Text>
+                            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+                                {Object.keys(PRIORITY_LEVELS).map((k) => {
+                                    const key = (PRIORITY_LEVELS as any)[k];
+                                    return (
+                                        <TouchableOpacity key={key} onPress={() => setNewPriority(key)} style={[styles.priorityOption, newPriority === key ? { backgroundColor: '#1e40af' } : { backgroundColor: '#f3f4f6' }] }>
+                                            <Text style={{ color: newPriority === key ? '#fff' : '#111827', fontWeight: '600' }}>{(PRIORITY_LABELS as any)[key]}</Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
 
-                        <TextInput placeholder="Ghi chú (tuỳ chọn)" value={newNotes} onChangeText={setNewNotes} style={[styles.input, { height: 80 }]} multiline />
+                            <TextInput placeholder="Ghi chú (tuỳ chọn)" value={newNotes} onChangeText={setNewNotes} style={[styles.input, { height: 80 }]} multiline />
+                        </ScrollView>
                         <View style={styles.modalActions}>
                             <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#9ca3af' }]} onPress={() => setShowCreateModal(false)}>
                                 <Text style={styles.modalBtnText}>Hủy</Text>
@@ -1136,5 +1229,45 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         borderRadius: 8,
     },
+    datePickerButton: {
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 14,
+        marginBottom: 16,
+        backgroundColor: '#f9fafb',
+    },
+    datePickerText: {
+        fontSize: 14,
+        color: '#111827',
+        fontWeight: '500',
+    },
+    /* Card styles (match subtask list) */
+    card: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 6,
+        elevation: 2,
+    },
+    cardTopBadges: { flexDirection: 'row', gap: 8, paddingTop: 6, paddingLeft: 2 },
+    statusBadgeSmall: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
+    statusTextSmall: { color: '#fff', fontSize: 12, fontWeight: '700' },
+    priorityBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+    badgeText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+    cardMain: { paddingHorizontal: 4, paddingTop: 8 },
+    cardTitleLarge: { fontSize: 16, fontWeight: '800', color: '#0f172a', marginBottom: 6 },
+    cardDesc: { marginTop: 6, color: '#6b7280', fontSize: 13 },
+    projectTag: { color: '#3b82f6', fontSize: 13, fontWeight: '600' },
+    assigneeText: { color: '#6b7280', fontSize: 13, marginTop: 6 },
+    cardFooterRowRight: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 8 },
+    dateText: { color: '#6b7280', fontSize: 12 },
     /* add/remove buttons removed: groups tab now displays only attached groups */
 });

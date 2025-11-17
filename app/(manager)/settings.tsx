@@ -10,10 +10,14 @@ import {
     TouchableOpacity,
     Alert,
     Switch,
+    Modal,
+    TextInput,
+    Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import { getMyProfile } from '@/src/axios/api';
 import api from '@/src/axios/config';
 import { API_CONFIG } from '@/src/config/api';
@@ -34,6 +38,13 @@ export default function SettingsPage() {
     const [profile, setProfile] = useState<Profile | null>(null);
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
     const [darkModeEnabled, setDarkModeEnabled] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editName, setEditName] = useState('');
+    const [editPhone, setEditPhone] = useState('');
+    const [editEmail, setEditEmail] = useState('');
+    const [updating, setUpdating] = useState(false);
+    const [selectedAvatar, setSelectedAvatar] = useState<string | null>(null);
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
     useEffect(() => {
         loadProfile();
@@ -109,6 +120,102 @@ export default function SettingsPage() {
         Alert.alert('Thông báo', 'Chế độ tối sẽ được áp dụng trong phiên bản sau');
     };
 
+    const pickAvatar = async () => {
+        try {
+            const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            
+            if (permissionResult.granted === false) {
+                Alert.alert('Thông báo', 'Bạn cần cấp quyền truy cập thư viện ảnh');
+                return;
+            }
+
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['images'],
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.8,
+            });
+
+            if (!result.canceled && result.assets && result.assets.length > 0) {
+                const asset = result.assets[0];
+                setSelectedAvatar(asset.uri);
+            }
+        } catch (error) {
+            console.error('Error picking avatar:', error);
+            Alert.alert('Lỗi', 'Không thể chọn ảnh');
+        }
+    };
+
+    const handleEditProfile = () => {
+        if (profile) {
+            setEditName(profile.hoten || '');
+            setEditPhone(profile.sdt || '');
+            setEditEmail(profile.email || '');
+            setSelectedAvatar(null);
+            setShowEditModal(true);
+        }
+    };
+
+    const handleUpdateProfile = async () => {
+        try {
+            if (!editName.trim()) {
+                Alert.alert('Lỗi', 'Vui lòng nhập họ tên');
+                return;
+            }
+
+            setUpdating(true);
+
+            // Upload avatar if selected
+            if (selectedAvatar) {
+                setUploadingAvatar(true);
+                const formData = new FormData();
+                
+                const filename = selectedAvatar.split('/').pop() || 'avatar.jpg';
+                const match = /\.([\w]+)$/.exec(filename);
+                const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+                formData.append('avatar', {
+                    uri: selectedAvatar,
+                    name: filename,
+                    type: type,
+                } as any);
+
+                try {
+                    await api.post('/users/me/avatar', formData, {
+                        headers: {
+                            'Content-Type': 'multipart/form-data',
+                        },
+                    });
+                } catch (avatarError) {
+                    console.error('Error uploading avatar:', avatarError);
+                    Alert.alert('Cảnh báo', 'Ảnh đại diện không được tải lên, nhưng thông tin khác sẽ được cập nhật');
+                } finally {
+                    setUploadingAvatar(false);
+                }
+            }
+
+            // Update other profile info
+            const payload: any = {
+                hoten: editName.trim(),
+            };
+
+            if (editPhone.trim()) payload.sdt = editPhone.trim();
+            if (editEmail.trim()) payload.email = editEmail.trim();
+
+            await api.put('/users/me', payload);
+            
+            Alert.alert('Thành công', 'Cập nhật thông tin thành công');
+            setShowEditModal(false);
+            await loadProfile();
+        } catch (error: any) {
+            console.error('Error updating profile:', error);
+            const message = error?.response?.data?.message || error?.message || 'Không thể cập nhật thông tin';
+            Alert.alert('Lỗi', message);
+        } finally {
+            setUpdating(false);
+        }
+    };
+
     const handleLogout = async () => {
         Alert.alert(
             'Xác nhận đăng xuất',
@@ -161,6 +268,12 @@ export default function SettingsPage() {
                                     {profile.manv && <Text style={styles.profileCode}>{profile.manv}</Text>}
                                     {profile.chucvu && <Text style={styles.profileRole}>{profile.chucvu}</Text>}
                                 </View>
+                                <TouchableOpacity 
+                                    style={styles.editButton}
+                                    onPress={handleEditProfile}
+                                >
+                                    <Ionicons name="create-outline" size={20} color="#f59e0b" />
+                                </TouchableOpacity>
                             </View>
 
                             <View style={styles.profileDetails}>
@@ -263,6 +376,108 @@ export default function SettingsPage() {
                     </View>
                 </View>
 
+                {/* Edit Profile Modal */}
+                <Modal visible={showEditModal} animationType="slide" transparent>
+                    <View style={modalStyles.modalOverlay}>
+                        <View style={modalStyles.modalContent}>
+                            <Text style={modalStyles.modalTitle}>Chỉnh sửa thông tin</Text>
+                            
+                            <ScrollView showsVerticalScrollIndicator={false}>
+                                {/* Avatar Picker */}
+                                <View style={modalStyles.avatarSection}>
+                                    <TouchableOpacity 
+                                        style={modalStyles.avatarPickerContainer}
+                                        onPress={pickAvatar}
+                                    >
+                                        {selectedAvatar ? (
+                                            <Image source={{ uri: selectedAvatar }} style={modalStyles.avatarPreview} />
+                                        ) : profile?.avatarUrl ? (
+                                            <Image source={{ uri: profile.avatarUrl }} style={modalStyles.avatarPreview} />
+                                        ) : (
+                                            <View style={modalStyles.avatarPlaceholderModal}>
+                                                <Text style={modalStyles.avatarInitialModal}>
+                                                    {(editName || profile?.hoten || '?').charAt(0).toUpperCase()}
+                                                </Text>
+                                            </View>
+                                        )}
+                                        <View style={modalStyles.avatarOverlay}>
+                                            <Ionicons name="camera" size={24} color="#fff" />
+                                            <Text style={modalStyles.avatarOverlayText}>Đổi ảnh</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                    {uploadingAvatar && (
+                                        <View style={modalStyles.uploadingOverlay}>
+                                            <ActivityIndicator size="small" color="#f59e0b" />
+                                            <Text style={modalStyles.uploadingText}>Đang tải lên...</Text>
+                                        </View>
+                                    )}
+                                </View>
+
+                                <View style={modalStyles.formGroup}>
+                                    <Text style={modalStyles.label}>Họ và tên *</Text>
+                                    <TextInput
+                                        style={modalStyles.input}
+                                        placeholder="Nhập họ tên"
+                                        value={editName}
+                                        onChangeText={setEditName}
+                                    />
+                                </View>
+
+                                <View style={modalStyles.formGroup}>
+                                    <Text style={modalStyles.label}>Số điện thoại</Text>
+                                    <TextInput
+                                        style={modalStyles.input}
+                                        placeholder="Nhập số điện thoại"
+                                        keyboardType="phone-pad"
+                                        value={editPhone}
+                                        onChangeText={setEditPhone}
+                                    />
+                                </View>
+
+                                <View style={modalStyles.formGroup}>
+                                    <Text style={modalStyles.label}>Email</Text>
+                                    <TextInput
+                                        style={modalStyles.input}
+                                        placeholder="Nhập email"
+                                        keyboardType="email-address"
+                                        autoCapitalize="none"
+                                        value={editEmail}
+                                        onChangeText={setEditEmail}
+                                    />
+                                </View>
+
+                                <View style={modalStyles.infoBox}>
+                                    <Ionicons name="information-circle" size={18} color="#3b82f6" />
+                                    <Text style={modalStyles.infoText}>
+                                        Mã nhân viên và chức vụ không thể thay đổi
+                                    </Text>
+                                </View>
+                            </ScrollView>
+
+                            <View style={modalStyles.modalActions}>
+                                <TouchableOpacity 
+                                    style={[modalStyles.modalBtn, { backgroundColor: '#9ca3af' }]} 
+                                    onPress={() => setShowEditModal(false)}
+                                    disabled={updating}
+                                >
+                                    <Text style={modalStyles.modalBtnText}>Hủy</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity 
+                                    style={[modalStyles.modalBtn, { backgroundColor: '#f59e0b' }]} 
+                                    onPress={handleUpdateProfile}
+                                    disabled={updating}
+                                >
+                                    {updating ? (
+                                        <ActivityIndicator color="#fff" size="small" />
+                                    ) : (
+                                        <Text style={[modalStyles.modalBtnText, { color: '#fff' }]}>Cập nhật</Text>
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
+
                 {/* Logout Button */}
                 <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
                     <Ionicons name="log-out" size={20} color="#fff" />
@@ -319,6 +534,16 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 20,
+    },
+    editButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#fef3c7',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#fbbf24',
     },
     avatar: {
         width: 72,
@@ -447,5 +672,142 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
         color: '#fff',
+    },
+});
+
+const modalStyles = StyleSheet.create({
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 16,
+    },
+    modalContent: {
+        width: '100%',
+        maxWidth: 500,
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 20,
+        maxHeight: '80%',
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: '700',
+        color: '#111827',
+        marginBottom: 20,
+        textAlign: 'center',
+    },
+    formGroup: {
+        marginBottom: 16,
+    },
+    label: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#374151',
+        marginBottom: 8,
+    },
+    input: {
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        borderRadius: 10,
+        paddingHorizontal: 12,
+        paddingVertical: Platform.OS === 'ios' ? 12 : 10,
+        fontSize: 15,
+        color: '#111827',
+        backgroundColor: '#f9fafb',
+    },
+    infoBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#dbeafe',
+        padding: 12,
+        borderRadius: 8,
+        gap: 8,
+        marginTop: 8,
+    },
+    infoText: {
+        flex: 1,
+        fontSize: 13,
+        color: '#1e40af',
+        lineHeight: 18,
+    },
+    modalActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 12,
+        marginTop: 20,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: '#e5e7eb',
+    },
+    modalBtn: {
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 10,
+        minWidth: 100,
+        alignItems: 'center',
+    },
+    modalBtnText: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#111827',
+    },
+    avatarSection: {
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    avatarPickerContainer: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        overflow: 'hidden',
+        position: 'relative',
+        borderWidth: 2,
+        borderColor: '#f59e0b',
+    },
+    avatarPreview: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 50,
+    },
+    avatarPlaceholderModal: {
+        width: '100%',
+        height: '100%',
+        backgroundColor: '#f59e0b',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    avatarInitialModal: {
+        color: '#fff',
+        fontSize: 32,
+        fontWeight: '800',
+    },
+    avatarOverlay: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        paddingVertical: 6,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    avatarOverlayText: {
+        color: '#fff',
+        fontSize: 11,
+        fontWeight: '600',
+        marginTop: 2,
+    },
+    uploadingOverlay: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginTop: 8,
+    },
+    uploadingText: {
+        fontSize: 13,
+        color: '#f59e0b',
+        fontWeight: '600',
     },
 });

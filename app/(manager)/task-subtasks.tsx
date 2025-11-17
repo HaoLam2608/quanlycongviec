@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { SafeAreaView, StyleSheet, Text, View, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity, Modal, TextInput, Alert, Platform } from 'react-native';
+import { SafeAreaView, StyleSheet, Text, View, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity, Modal, TextInput, Alert, Platform, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { getTaskById, createSubtask } from '@/src/axios/api';
+import { getTaskById, createSubtask, deleteSubtask } from '@/src/axios/api';
 import { getGroups } from '@/src/axios/adminApi';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PageHeader } from '../../components/ui/PageHeader';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface Subtask {
     id: number;
@@ -25,15 +26,21 @@ export default function TaskSubtasks() {
     const [refreshing, setRefreshing] = useState(false);
     const [taskName, setTaskName] = useState<string>('Công việc con');
     const [subtasks, setSubtasks] = useState<Subtask[]>([]);
+    const [parentStartDate, setParentStartDate] = useState<string>('');
+    const [parentDueDate, setParentDueDate] = useState<string>('');
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [newTitle, setNewTitle] = useState('');
     const [newDesc, setNewDesc] = useState('');
     const [newDueDate, setNewDueDate] = useState('');
     const [newStartDate, setNewStartDate] = useState('');
+    const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+    const [showEndDatePicker, setShowEndDatePicker] = useState(false);
     const [selectedAssigneeId, setSelectedAssigneeId] = useState<number | null>(null);
     const [newStatus, setNewStatus] = useState<string>('Chưa bắt đầu');
     const [newNotes, setNewNotes] = useState('');
     const [availableAssignees, setAvailableAssignees] = useState<Array<{id:number; hoten:string}>>([]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filter, setFilter] = useState<string>('all');
 
     useEffect(() => {
         if (taskId) loadSubtasks();
@@ -47,6 +54,11 @@ export default function TaskSubtasks() {
             const taskObj = data && data.id ? data : (data.task || data.data || null);
             if (taskObj) {
                 setTaskName(taskObj.tentask || taskObj.ten || 'Công việc con');
+                // save parent task start date for client-side validation
+                const pStart = taskObj.ngayBatDau || taskObj.startDate || taskObj.ngaybatdau || taskObj.start_date || '';
+                setParentStartDate(pStart ? (pStart.split && pStart.split('T') ? pStart.split('T')[0] : String(pStart)) : '');
+                const pEnd = taskObj.ngayKetThuc || taskObj.dueDate || taskObj.ngayketthuc || taskObj.end_date || '';
+                setParentDueDate(pEnd ? (pEnd.split && pEnd.split('T') ? pEnd.split('T')[0] : String(pEnd)) : '');
                 setSubtasks(Array.isArray(taskObj.subtasks) ? taskObj.subtasks : (taskObj.children || []));
                 // load groups for this project's duanId to build assignee list
                 try {
@@ -103,13 +115,60 @@ export default function TaskSubtasks() {
         loadSubtasks();
     };
 
+    // Xóa subtask (sử dụng API deleteSubtask(taskId, subtaskId))
+    const handleDeleteSubtask = async (subtaskId: number, subtaskName?: string) => {
+        Alert.alert(
+            'Xác nhận xóa',
+            `Bạn có chắc chắn muốn xóa công việc con "${subtaskName || ''}"?`,
+            [
+                { text: 'Hủy', style: 'cancel' },
+                {
+                    text: 'Xóa',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await deleteSubtask(taskId, subtaskId);
+                            Alert.alert('Thành công', 'Đã xóa công việc con');
+                            setRefreshing(true);
+                            await loadSubtasks();
+                        } catch (error: any) {
+                            console.error('Delete subtask error', error);
+                            Alert.alert('Lỗi', error?.message || 'Không thể xóa công việc con');
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    const getErrorMessage = (err: any) => {
+        if (!err) return 'Không thể tạo công việc con';
+        return err?.response?.data?.error || err?.response?.data?.message || err?.data?.error || err?.data?.message || err?.error || err?.message || String(err);
+    };
+
     const handleCreateSubtask = async () => {
         try {
             if (!newTitle.trim()) return Alert.alert('Lỗi', 'Vui lòng nhập tiêu đề công việc con');
             if (!newDesc.trim()) return Alert.alert('Lỗi', 'Vui lòng nhập mô tả công việc con');
             if (!selectedAssigneeId) return Alert.alert('Lỗi', 'Vui lòng chọn người thực hiện');
-            if (!newStartDate.trim()) return Alert.alert('Lỗi', 'Vui lòng nhập ngày bắt đầu (YYYY-MM-DD)');
-            if (!newDueDate.trim()) return Alert.alert('Lỗi', 'Vui lòng nhập ngày kết thúc (YYYY-MM-DD)');
+            if (!newStartDate.trim()) return Alert.alert('Lỗi', 'Vui lòng chọn ngày bắt đầu');
+            if (!newDueDate.trim()) return Alert.alert('Lỗi', 'Vui lòng chọn ngày kết thúc');
+            // Client-side validation: subtask start must be >= parent task start
+            if (parentStartDate) {
+                const parent = new Date(parentStartDate);
+                const s = new Date(newStartDate);
+                if (isNaN(parent.getTime()) === false && isNaN(s.getTime()) === false && s < parent) {
+                    return Alert.alert('Lỗi', `Ngày bắt đầu của công việc nhỏ phải lớn hơn hoặc bằng ngày bắt đầu của công việc chính (${new Date(parentStartDate).toLocaleDateString('vi-VN')})`);
+                }
+            }
+            // Client-side validation: subtask due date must be <= parent task due date
+            if (parentDueDate) {
+                const parentEnd = new Date(parentDueDate);
+                const due = new Date(newDueDate);
+                if (isNaN(parentEnd.getTime()) === false && isNaN(due.getTime()) === false && due > parentEnd) {
+                    return Alert.alert('Lỗi', `Ngày kết thúc của công việc nhỏ không được muộn hơn ngày kết thúc của công việc chính (${new Date(parentDueDate).toLocaleDateString('vi-VN')})`);
+                }
+            }
             // validate date order
             const s = new Date(newStartDate);
             const e = new Date(newDueDate);
@@ -137,9 +196,26 @@ export default function TaskSubtasks() {
             await loadSubtasks();
         } catch (err: any) {
             console.error('Create subtask error', err);
-            Alert.alert('Lỗi', err?.message || 'Không thể tạo công việc con');
+            const msg = getErrorMessage(err);
+            Alert.alert('Lỗi', msg || 'Không thể tạo công việc con');
         }
     };
+
+    // Filter and search logic
+    const filteredSubtasks = subtasks.filter(task => {
+        // Filter by status
+        const matchesStatus = filter === 'all' || task.trangThai === filter;
+        
+        // Filter by search query
+        const matchesSearch = searchQuery.trim() === '' || 
+            task.tenSubtask?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            task.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            task.mota?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (task as any).nguoiThucHien?.hoten?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (task as any).nguoiDuocGiao?.hoten?.toLowerCase().includes(searchQuery.toLowerCase());
+        
+        return matchesStatus && matchesSearch;
+    });
 
     if (loading) {
         return (
@@ -158,56 +234,130 @@ export default function TaskSubtasks() {
             <PageHeader title={taskName || 'Công việc con'} />
 
             {/* Sub header to indicate this is subtask list */}
-            <View style={styles.subHeaderRow}>
+            {/* <View style={styles.subHeaderRow}>
                 <View style={styles.subHeaderPill}><Text style={styles.subHeaderPillText}>Danh sách công việc con</Text></View>
                 <Text style={styles.subHeaderInfo}>Công việc cha: {taskName}</Text>
+            </View> */}
+
+            {/* Search Bar */}
+            <View style={styles.searchContainer}>
+                <View style={styles.searchInputWrapper}>
+                    <Text style={styles.searchIcon}>🔍</Text>
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Tìm kiếm công việc con, người thực hiện..."
+                        placeholderTextColor="#9ca3af"
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                    />
+                    {searchQuery.length > 0 && (
+                        <TouchableOpacity 
+                            onPress={() => setSearchQuery('')}
+                            style={styles.clearButton}
+                        >
+                            <Text style={styles.clearIcon}>✕</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+            </View>
+
+            {/* Filter tabs */}
+            <View style={styles.filterContainer}>
+                <TouchableOpacity
+                    style={[styles.filterTab, filter === 'all' && styles.filterTabActive]}
+                    onPress={() => setFilter('all')}
+                >
+                    <Text style={[styles.filterText, filter === 'all' && styles.filterTextActive]}>
+                        Tất cả ({subtasks.length})
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.filterTab, filter === 'Chưa bắt đầu' && styles.filterTabActive]}
+                    onPress={() => setFilter('Chưa bắt đầu')}
+                >
+                    <Text style={[styles.filterText, filter === 'Chưa bắt đầu' && styles.filterTextActive]}>
+                        Chưa bắt đầu
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.filterTab, filter === 'Đang chạy' && styles.filterTabActive]}
+                    onPress={() => setFilter('Đang chạy')}
+                >
+                    <Text style={[styles.filterText, filter === 'Đang chạy' && styles.filterTextActive]}>
+                        Đang làm
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.filterTab, filter === 'Hoàn thành' && styles.filterTabActive]}
+                    onPress={() => setFilter('Hoàn thành')}
+                >
+                    <Text style={[styles.filterText, filter === 'Hoàn thành' && styles.filterTextActive]}>
+                        Hoàn thành
+                    </Text>
+                </TouchableOpacity>
             </View>
 
             <FlatList
-                data={subtasks}
+                data={filteredSubtasks}
                 keyExtractor={(item) => (item.id || Math.random()).toString()}
                 renderItem={({ item }) => (
-                    <TouchableOpacity
-                        style={styles.card}
-                        activeOpacity={0.9}
-                        onPress={() => router.push({ pathname: '/(manager)/subtask-detail', params: { id: String(item.id), taskId: String((item as any).taskId || '') } } as any)}
-                    >
-                        <View style={styles.cardTopBadges}>
-                            <View style={[styles.statusBadgeSmall, { backgroundColor: item.trangThai === 'Hoàn thành' ? '#10b981' : item.trangThai === 'Đang chạy' ? '#f59e0b' : '#6b7280' }]}>
-                                <Text style={styles.statusTextSmall}>{item.trangThai || 'Chưa rõ'}</Text>
-                            </View>
-                            {(item as any).mucDoUuTien ? (
-                                <View style={[styles.priorityBadge, { backgroundColor: (item as any).mucDoUuTien === 'high' ? '#ef4444' : (item as any).mucDoUuTien === 'medium' ? '#f59e0b' : '#10b981' }]}>
-                                    <Text style={styles.badgeText}>{(item as any).mucDoUuTien === 'high' ? 'Cao' : (item as any).mucDoUuTien === 'medium' ? 'Trung bình' : 'Thấp'}</Text>
+                    <View style={[styles.card, { flexDirection: 'row', alignItems: 'stretch' }]}> 
+                        <TouchableOpacity
+                            style={{ flex: 1 }}
+                            activeOpacity={0.9}
+                            onPress={() => router.push({ pathname: '/(manager)/subtask-detail', params: { id: String(item.id), taskId: String((item as any).taskId || '') } } as any)}
+                        >
+                            <View style={styles.cardTopBadges}>
+                                <View style={[styles.statusBadgeSmall, { backgroundColor: item.trangThai === 'Hoàn thành' ? '#10b981' : item.trangThai === 'Đang chạy' ? '#f59e0b' : '#6b7280' }]}>
+                                    <Text style={styles.statusTextSmall}>{item.trangThai || 'Chưa rõ'}</Text>
                                 </View>
-                            ) : null}
-                        </View>
-
-                        <View style={styles.cardMain}>
-                            <Text style={styles.cardTitleLarge} numberOfLines={2}>{item.tenSubtask || item.name || 'Không có tên'}</Text>
-                            { (item as any).mota ? <Text style={styles.cardDesc} numberOfLines={2}>{(item as any).mota}</Text> : null }
-
-                            <View style={styles.cardFooterRow}>
-                                <Text style={styles.projectTag}>🗂️ Công việc cha: {taskName}</Text>
+                                {(item as any).mucDoUuTien ? (
+                                    <View style={[styles.priorityBadge, { backgroundColor: (item as any).mucDoUuTien === 'high' ? '#ef4444' : (item as any).mucDoUuTien === 'medium' ? '#f59e0b' : '#10b981' }]}>
+                                        <Text style={styles.badgeText}>{(item as any).mucDoUuTien === 'high' ? 'Cao' : (item as any).mucDoUuTien === 'medium' ? 'Trung bình' : 'Thấp'}</Text>
+                                    </View>
+                                ) : null}
                             </View>
 
-                            <View style={styles.cardFooterRow}> 
-                                {( (item as any).nguoiThucHien?.hoten || (item as any).nguoiDuocGiao?.hoten ) && (
-                                    <Text style={styles.assigneeText}>👤 Người thực hiện: <Text style={{fontWeight:'700'}}>{(item as any).nguoiThucHien?.hoten || (item as any).nguoiDuocGiao?.hoten}</Text></Text>
-                                )}
-                            </View>
+                            <View style={styles.cardMain}>
+                                <Text style={styles.cardTitleLarge} numberOfLines={2}>{item.tenSubtask || item.name || 'Không có tên'}</Text>
+                                { (item as any).mota ? <Text style={styles.cardDesc} numberOfLines={2}>{(item as any).mota}</Text> : null }
 
-                            <View style={styles.cardFooterRowRight}>
-                                {(item as any).ngayBatDau ? <Text style={styles.dateText}>⏱ {new Date((item as any).ngayBatDau).toLocaleDateString('vi-VN')}</Text> : null}
-                                {(item as any).ngayKetThuc ? <Text style={[styles.dateText, { marginLeft: 12 }]}>📅 {new Date((item as any).ngayKetThuc).toLocaleDateString('vi-VN')}</Text> : null}
+                                <View style={styles.cardFooterRow}>
+                                    <Text style={styles.projectTag}>🗂️ Công việc cha: {taskName}</Text>
+                                </View>
+
+                                <View style={styles.cardFooterRow}> 
+                                    {( (item as any).nguoiThucHien?.hoten || (item as any).nguoiDuocGiao?.hoten ) && (
+                                        <Text style={styles.assigneeText}>👤 Người thực hiện: <Text style={{fontWeight:'700'}}>{(item as any).nguoiThucHien?.hoten || (item as any).nguoiDuocGiao?.hoten}</Text></Text>
+                                    )}
+                                </View>
+
+                                <View style={styles.cardFooterRowRight}>
+                                    {(item as any).ngayBatDau ? <Text style={styles.dateText}>⏱ {new Date((item as any).ngayBatDau).toLocaleDateString('vi-VN')}</Text> : null}
+                                    {(item as any).ngayKetThuc ? <Text style={[styles.dateText, { marginLeft: 12 }]}>📅 {new Date((item as any).ngayKetThuc).toLocaleDateString('vi-VN')}</Text> : null}
+                                </View>
                             </View>
-                        </View>
-                    </TouchableOpacity>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={{ alignSelf: 'center', marginLeft: 8, backgroundColor: '#ef4444', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12 }}
+                            onPress={() => handleDeleteSubtask(item.id, item.tenSubtask || item.name)}
+                        >
+                            <Text style={{ color: '#fff', fontWeight: '700' }}>Xóa</Text>
+                        </TouchableOpacity>
+                    </View>
                 )}
                 ListEmptyComponent={() => (
                     <View style={styles.emptyContainer}>
                         <Text style={styles.emptyIcon}>📋</Text>
-                        <Text style={styles.emptyText}>Không có công việc con</Text>
+                        <Text style={styles.emptyTitle}>Không có công việc con</Text>
+                        <Text style={styles.emptyText}>
+                            {searchQuery.trim() !== '' 
+                                ? `Không tìm thấy kết quả cho "${searchQuery}"`
+                                : filter !== 'all'
+                                ? `Không có công việc con "${filter}"`
+                                : 'Chưa có công việc con nào được tạo'
+                            }
+                        </Text>
                     </View>
                 )}
                 contentContainerStyle={{ padding: 16 }}
@@ -225,32 +375,72 @@ export default function TaskSubtasks() {
                 <View style={modalStyles.modalOverlay}>
                             <View style={modalStyles.modalContent}>
                                 <Text style={modalStyles.modalTitle}>Tạo công việc con</Text>
-                                <TextInput placeholder="Tiêu đề" value={newTitle} onChangeText={setNewTitle} style={modalStyles.input} />
-                                <TextInput placeholder="Mô tả" value={newDesc} onChangeText={setNewDesc} style={[modalStyles.input, { height: 80 }]} multiline />
-                                <TextInput placeholder="Ngày bắt đầu (YYYY-MM-DD)" value={newStartDate} onChangeText={setNewStartDate} style={modalStyles.input} />
-                                <TextInput placeholder="Ngày kết thúc (YYYY-MM-DD)" value={newDueDate} onChangeText={setNewDueDate} style={modalStyles.input} />
+                                <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: '75%' }}>
+                                    <TextInput placeholder="Tiêu đề" value={newTitle} onChangeText={setNewTitle} style={modalStyles.input} />
+                                    <TextInput placeholder="Mô tả" value={newDesc} onChangeText={setNewDesc} style={[modalStyles.input, { height: 80 }]} multiline />
+                                    
+                                    <Text style={{ fontWeight: '700', marginBottom: 6, color: '#374151' }}>Ngày bắt đầu</Text>
+                                    <TouchableOpacity onPress={() => setShowStartDatePicker(true)} style={modalStyles.dateButton}>
+                                        <Text style={modalStyles.dateButtonText}>
+                                            {newStartDate ? new Date(newStartDate).toLocaleDateString('vi-VN') : '📅 Chọn ngày bắt đầu'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                    {showStartDatePicker && (
+                                        <DateTimePicker
+                                            value={newStartDate ? new Date(newStartDate) : new Date()}
+                                            mode="date"
+                                            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                            onChange={(event, selectedDate) => {
+                                                setShowStartDatePicker(Platform.OS === 'ios');
+                                                if (selectedDate) {
+                                                    setNewStartDate(selectedDate.toISOString().split('T')[0]);
+                                                }
+                                            }}
+                                        />
+                                    )}
 
-                                <Text style={{ fontWeight: '700', marginBottom: 6, color: '#374151' }}>Người thực hiện (chỉ các thành viên dự án)</Text>
-                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 }}>
-                                    {availableAssignees.length === 0 ? (
-                                        <Text style={{ color: '#6b7280' }}>Không có thành viên dự án</Text>
-                                    ) : availableAssignees.map(a => (
-                                        <TouchableOpacity key={a.id} onPress={() => setSelectedAssigneeId(a.id)} style={[modalStyles.pill, selectedAssigneeId === a.id ? { backgroundColor: '#1e40af' } : { backgroundColor: '#f3f4f6' }]}>
-                                            <Text style={{ color: selectedAssigneeId === a.id ? '#fff' : '#111827', fontWeight: '600' }}>{a.hoten}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
+                                    <Text style={{ fontWeight: '700', marginBottom: 6, color: '#374151' }}>Ngày kết thúc</Text>
+                                    <TouchableOpacity onPress={() => setShowEndDatePicker(true)} style={modalStyles.dateButton}>
+                                        <Text style={modalStyles.dateButtonText}>
+                                            {newDueDate ? new Date(newDueDate).toLocaleDateString('vi-VN') : '📅 Chọn ngày kết thúc'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                    {showEndDatePicker && (
+                                        <DateTimePicker
+                                            value={newDueDate ? new Date(newDueDate) : new Date()}
+                                            mode="date"
+                                            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                            onChange={(event, selectedDate) => {
+                                                setShowEndDatePicker(Platform.OS === 'ios');
+                                                if (selectedDate) {
+                                                    setNewDueDate(selectedDate.toISOString().split('T')[0]);
+                                                }
+                                            }}
+                                        />
+                                    )}
 
-                                <Text style={{ fontWeight: '700', marginBottom: 6, color: '#374151' }}>Trạng thái</Text>
-                                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
-                                    {['Chưa bắt đầu','Đang chạy','Hoàn thành'].map(s => (
-                                        <TouchableOpacity key={s} onPress={() => setNewStatus(s)} style={[modalStyles.statusOption, newStatus === s ? { backgroundColor: '#1e40af' } : { backgroundColor: '#f3f4f6' }]}>
-                                            <Text style={{ color: newStatus === s ? '#fff' : '#111827', fontWeight: '600' }}>{s}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
+                                    <Text style={{ fontWeight: '700', marginBottom: 6, color: '#374151' }}>Người thực hiện (chỉ các thành viên dự án)</Text>
+                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 }}>
+                                        {availableAssignees.length === 0 ? (
+                                            <Text style={{ color: '#6b7280' }}>Không có thành viên dự án</Text>
+                                        ) : availableAssignees.map(a => (
+                                            <TouchableOpacity key={a.id} onPress={() => setSelectedAssigneeId(a.id)} style={[modalStyles.pill, selectedAssigneeId === a.id ? { backgroundColor: '#1e40af' } : { backgroundColor: '#f3f4f6' }]}>
+                                                <Text style={{ color: selectedAssigneeId === a.id ? '#fff' : '#111827', fontWeight: '600' }}>{a.hoten}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
 
-                                <TextInput placeholder="Ghi chú (tuỳ chọn)" value={newNotes} onChangeText={setNewNotes} style={[modalStyles.input, { height: 80 }]} multiline />
+                                    <Text style={{ fontWeight: '700', marginBottom: 6, color: '#374151' }}>Trạng thái</Text>
+                                    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+                                        {['Chưa bắt đầu','Đang chạy','Hoàn thành'].map(s => (
+                                            <TouchableOpacity key={s} onPress={() => setNewStatus(s)} style={[modalStyles.statusOption, newStatus === s ? { backgroundColor: '#1e40af' } : { backgroundColor: '#f3f4f6' }]}>
+                                                <Text style={{ color: newStatus === s ? '#fff' : '#111827', fontWeight: '600' }}>{s}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+
+                                    <TextInput placeholder="Ghi chú (tuỳ chọn)" value={newNotes} onChangeText={setNewNotes} style={[modalStyles.input, { height: 80 }]} multiline />
+                                </ScrollView>
                         <View style={modalStyles.modalActions}>
                             <TouchableOpacity style={[modalStyles.modalBtn, { backgroundColor: '#9ca3af' }]} onPress={() => setShowCreateModal(false)}>
                                 <Text style={modalStyles.modalBtnText}>Hủy</Text>
@@ -270,12 +460,76 @@ const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#f8f9fa' },
     loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     loadingText: { marginTop: 12, color: '#6b7280' },
+    searchContainer: {
+        backgroundColor: '#fff',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e5e7eb',
+    },
+    searchInputWrapper: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f3f4f6',
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: Platform.OS === 'ios' ? 12 : 8,
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+    },
+    searchIcon: {
+        fontSize: 18,
+        marginRight: 8,
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 14,
+        color: '#111827',
+        padding: 0,
+    },
+    clearButton: {
+        padding: 4,
+        marginLeft: 8,
+    },
+    clearIcon: {
+        fontSize: 16,
+        color: '#6b7280',
+        fontWeight: '700',
+    },
+    filterContainer: {
+        flexDirection: 'row',
+        padding: 12,
+        backgroundColor: '#fff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#e5e7eb',
+        gap: 8,
+    },
+    filterTab: {
+        flex: 1,
+        paddingVertical: 8,
+        paddingHorizontal: 8,
+        borderRadius: 8,
+        backgroundColor: '#f3f4f6',
+        alignItems: 'center',
+    },
+    filterTabActive: {
+        backgroundColor: '#3b82f6',
+    },
+    filterText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#6b7280',
+    },
+    filterTextActive: {
+        color: '#fff',
+    },
     subtaskCard: { backgroundColor: '#fff', padding: 16, borderRadius: 12, marginBottom: 12, borderWidth:1, borderColor:'#e5e7eb' },
     subtaskName: { fontSize: 16, fontWeight: '600', color: '#1f2937' },
     subtaskStatus: { marginTop: 6, fontSize: 13, color: '#6b7280' },
     emptyContainer: { alignItems: 'center', paddingVertical: 60 },
     emptyIcon: { fontSize: 48, marginBottom: 12 },
-    emptyText: { color: '#6b7280' },
+    emptyTitle: { fontSize: 18, fontWeight: '700', color: '#1f2937', marginBottom: 8 },
+    emptyText: { fontSize: 14, color: '#6b7280', textAlign: 'center' },
     /* Card styles */
     card: {
         backgroundColor: '#fff',
@@ -403,7 +657,20 @@ const modalStyles = StyleSheet.create({
         paddingVertical: 8,
         paddingHorizontal: 12,
         borderRadius: 8,
-    }
+    },
+    dateButton: {
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 12,
+        marginBottom: 12,
+        backgroundColor: '#fff',
+    },
+    dateButtonText: {
+        fontSize: 14,
+        color: '#111827',
+    },
 });
 
 // (fab and meta styles are included in StyleSheet above)

@@ -14,18 +14,8 @@ const api = axios.create({
 api.interceptors.request.use(
   async (config) => {
     console.log(`🔄 API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
-    try {
-      if (config.data && typeof config.data === 'object') {
-        console.log('📤 Request data keys:', Object.keys(config.data));
-      } else {
-        console.log('📤 Request data:', config.data);
-      }
-    } catch (e) {
-      console.warn('Unable to preview request data for logging', e);
-    }
-    console.log('📤 Request data:', config.data);
-    console.log('📤 Request headers before auth:', config.headers);
     
+    // Get token first
     try {
       const token = await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
       if (token) {
@@ -35,12 +25,23 @@ api.interceptors.request.use(
       console.error('Error getting token from storage:', error);
     }
     
-    // Xử lý multipart/form-data uploads
-    if (config.data instanceof FormData || 
-        (config.headers && config.headers['Content-Type'] === 'multipart/form-data')) {
-      // Xóa Content-Type để axios tự set boundary
+    // Handle FormData - must be done AFTER setting auth header
+    if (config.data instanceof FormData) {
+      console.log('📤 FormData detected - removing Content-Type for auto boundary');
+      // Remove Content-Type to let browser/axios set it with boundary
       delete config.headers['Content-Type'];
-      console.log('📤 FormData detected, Content-Type removed for auto boundary');
+    }
+    
+    try {
+      if (config.data && typeof config.data === 'object' && !(config.data instanceof FormData)) {
+        console.log('📤 Request data keys:', Object.keys(config.data));
+      } else if (config.data instanceof FormData) {
+        console.log('📤 Request data: FormData (cannot log contents)');
+      } else {
+        console.log('📤 Request data:', config.data);
+      }
+    } catch (e) {
+      console.warn('Unable to preview request data for logging', e);
     }
     
     console.log('📤 Final request headers:', config.headers);

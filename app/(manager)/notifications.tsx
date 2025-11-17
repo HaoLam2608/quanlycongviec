@@ -9,6 +9,8 @@ import {
     RefreshControl,
     Alert,
     ActivityIndicator,
+    TextInput,
+    Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -27,6 +29,8 @@ export default function NotificationsPage() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filter, setFilter] = useState<string>('all'); // 'all', 'unread', 'task', 'project', 'approval', 'system'
 
     useEffect(() => {
         loadNotifications();
@@ -106,6 +110,21 @@ export default function NotificationsPage() {
         }
     };
 
+    // Filter and search logic
+    const filteredNotifications = notifications.filter(notification => {
+        // Filter by type or read status
+        const matchesFilter = filter === 'all' || 
+            filter === 'unread' && !notification.isRead ||
+            notification.type === filter;
+        
+        // Filter by search query
+        const matchesSearch = searchQuery.trim() === '' || 
+            notification.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            notification.message.toLowerCase().includes(searchQuery.toLowerCase());
+        
+        return matchesFilter && matchesSearch;
+    });
+
     const NotificationCard = ({ notification }: { notification: Notification }) => {
         const color = getNotificationColor(notification.type);
         
@@ -159,6 +178,87 @@ export default function NotificationsPage() {
                 )}
             </View>
 
+            {/* Search Bar */}
+            <View style={styles.searchContainer}>
+                <View style={styles.searchInputWrapper}>
+                    <Ionicons name="search" size={18} color="#9ca3af" style={{ marginRight: 8 }} />
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Tìm kiếm thông báo..."
+                        placeholderTextColor="#9ca3af"
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                    />
+                    {searchQuery.length > 0 && (
+                        <TouchableOpacity 
+                            onPress={() => setSearchQuery('')}
+                            style={styles.clearButton}
+                        >
+                            <Ionicons name="close-circle" size={18} color="#6b7280" />
+                        </TouchableOpacity>
+                    )}
+                </View>
+                
+                {/* Compact Filter Dropdown */}
+                <View style={styles.filterDropdownContainer}>
+                    <Ionicons name="filter" size={16} color="#6b7280" style={{ marginRight: 6 }} />
+                    <ScrollView 
+                        horizontal 
+                        showsHorizontalScrollIndicator={false}
+                        style={{ flex: 1 }}
+                    >
+                        <TouchableOpacity
+                            style={[styles.compactFilterTab, filter === 'all' && styles.compactFilterTabActive]}
+                            onPress={() => setFilter('all')}
+                        >
+                            <Text style={[styles.compactFilterText, filter === 'all' && styles.compactFilterTextActive]}>
+                                Tất cả
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.compactFilterTab, filter === 'unread' && styles.compactFilterTabActive]}
+                            onPress={() => setFilter('unread')}
+                        >
+                            <Text style={[styles.compactFilterText, filter === 'unread' && styles.compactFilterTextActive]}>
+                                Chưa đọc
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.compactFilterTab, filter === 'task' && styles.compactFilterTabActive]}
+                            onPress={() => setFilter('task')}
+                        >
+                            <Text style={[styles.compactFilterText, filter === 'task' && styles.compactFilterTextActive]}>
+                                Công việc
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.compactFilterTab, filter === 'project' && styles.compactFilterTabActive]}
+                            onPress={() => setFilter('project')}
+                        >
+                            <Text style={[styles.compactFilterText, filter === 'project' && styles.compactFilterTextActive]}>
+                                Dự án
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.compactFilterTab, filter === 'approval' && styles.compactFilterTabActive]}
+                            onPress={() => setFilter('approval')}
+                        >
+                            <Text style={[styles.compactFilterText, filter === 'approval' && styles.compactFilterTextActive]}>
+                                Duyệt
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.compactFilterTab, filter === 'system' && styles.compactFilterTabActive]}
+                            onPress={() => setFilter('system')}
+                        >
+                            <Text style={[styles.compactFilterText, filter === 'system' && styles.compactFilterTextActive]}>
+                                Hệ thống
+                            </Text>
+                        </TouchableOpacity>
+                    </ScrollView>
+                </View>
+            </View>
+
             {/* Notifications List */}
             <ScrollView
                 style={styles.content}
@@ -182,8 +282,21 @@ export default function NotificationsPage() {
                         <Text style={styles.emptyTitle}>Chưa có thông báo</Text>
                         <Text style={styles.emptyText}>Thông báo mới sẽ xuất hiện ở đây</Text>
                     </View>
+                ) : filteredNotifications.length === 0 ? (
+                    <View style={styles.emptyContainer}>
+                        <Ionicons name="search-outline" size={64} color="#d1d5db" />
+                        <Text style={styles.emptyTitle}>Không tìm thấy kết quả</Text>
+                        <Text style={styles.emptyText}>
+                            {searchQuery.trim() !== '' 
+                                ? `Không có thông báo nào khớp với "${searchQuery}"`
+                                : filter === 'unread'
+                                ? 'Không có thông báo chưa đọc'
+                                : `Không có thông báo loại "${filter}"`
+                            }
+                        </Text>
+                    </View>
                 ) : (
-                    notifications.map((notification) => (
+                    filteredNotifications.map((notification) => (
                         <NotificationCard key={notification.id} notification={notification} />
                     ))
                 )}
@@ -231,6 +344,92 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: '600',
         color: '#f59e0b',
+    },
+    searchContainer: {
+        backgroundColor: '#fff',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e5e7eb',
+    },
+    searchInputWrapper: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f3f4f6',
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: Platform.OS === 'ios' ? 12 : 8,
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        marginBottom: 10,
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 14,
+        color: '#111827',
+        padding: 0,
+    },
+    clearButton: {
+        padding: 4,
+        marginLeft: 8,
+    },
+    filterDropdownContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f9fafb',
+        borderRadius: 8,
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+    },
+    compactFilterTab: {
+        paddingVertical: 4,
+        paddingHorizontal: 10,
+        borderRadius: 6,
+        backgroundColor: 'transparent',
+        marginRight: 6,
+    },
+    compactFilterTabActive: {
+        backgroundColor: '#f59e0b',
+    },
+    compactFilterText: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#6b7280',
+    },
+    compactFilterTextActive: {
+        color: '#fff',
+    },
+    filterScrollContainer: {
+        backgroundColor: '#fff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#e5e7eb',
+    },
+    filterContainer: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        gap: 4,
+    },
+    filterTab: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+        borderRadius: 12,
+        backgroundColor: '#f3f4f6',
+        marginRight: 6,
+    },
+    filterTabActive: {
+        backgroundColor: '#f59e0b',
+    },
+    filterText: {
+        fontSize: 11,
+        fontWeight: '600',
+        color: '#6b7280',
+    },
+    filterTextActive: {
+        color: '#fff',
     },
     content: {
         flex: 1,

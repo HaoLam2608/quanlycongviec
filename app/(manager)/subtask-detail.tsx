@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView, StyleSheet, Text, View, ScrollView, ActivityIndicator, RefreshControl, TextInput, TouchableOpacity, Modal, Platform, Alert } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { getTaskById, getWorklogs, updateSubtask } from '@/src/axios/api';
 import api from '@/src/axios/config';
 import { PageHeader } from '../../components/ui/PageHeader';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import CommentSection from '@/components/CommentSection';
 
 interface Subtask {
     id: number;
@@ -13,8 +16,8 @@ interface Subtask {
     mucDoUuTien?: string;
     ngayBatDau?: string;
     ngayKetThuc?: string;
-    nguoiDuocGiao?: { hoten?: string; manv?: string };
-    nguoiGiao?: { hoten?: string; manv?: string };
+    nguoiDuocGiao?: { id?: number; hoten?: string; manv?: string };
+    nguoiGiao?: { id?: number; hoten?: string; manv?: string };
 }
 
 export default function SubtaskDetail() {
@@ -25,15 +28,14 @@ export default function SubtaskDetail() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [subtask, setSubtask] = useState<Subtask | null>(null);
-    const [comments, setComments] = useState<any[]>([]);
-    const [commentsLoading, setCommentsLoading] = useState(false);
-    const [newComment, setNewComment] = useState('');
-    const [postingComment, setPostingComment] = useState(false);
 
     const [logs, setLogs] = useState<any[]>([]);
     const [logsLoading, setLogsLoading] = useState(false);
     const [showLogForm, setShowLogForm] = useState(false);
     const [logText, setLogText] = useState('');
+    const [logDate, setLogDate] = useState(new Date());
+    const [logHours, setLogHours] = useState('');
+    const [showLogDatePicker, setShowLogDatePicker] = useState(false);
     const [postingLog, setPostingLog] = useState(false);
     // Edit subtask modal state
     const [showEditModal, setShowEditModal] = useState(false);
@@ -41,10 +43,19 @@ export default function SubtaskDetail() {
     const [editDesc, setEditDesc] = useState('');
     const [editStart, setEditStart] = useState('');
     const [editEnd, setEditEnd] = useState('');
+    const [showEditStartDatePicker, setShowEditStartDatePicker] = useState(false);
+    const [showEditEndDatePicker, setShowEditEndDatePicker] = useState(false);
     const [editPriority, setEditPriority] = useState<string>('medium');
     const [editNotes, setEditNotes] = useState('');
     const [updatingSubtask, setUpdatingSubtask] = useState(false);
     const [currentParentTaskId, setCurrentParentTaskId] = useState<number | null>(parentTaskId ? Number(parentTaskId) : null);
+    
+    // Assignee change for subtask
+    const [editAssigneeId, setEditAssigneeId] = useState<number | null>(null);
+    const [projectMembers, setProjectMembers] = useState<any[]>([]);
+    const [loadingMembers, setLoadingMembers] = useState(false);
+    const [showAssigneeModal, setShowAssigneeModal] = useState(false);
+    const [projectId, setProjectId] = useState<number | null>(null);
 
     useEffect(() => {
         if (id) load();
@@ -61,8 +72,13 @@ export default function SubtaskDetail() {
                     const found = (taskObj.subtasks || taskObj.children || []).find((s: any) => String(s.id) === String(id));
                     if (found) {
                         setSubtask(found);
-                        // load comments and logs for this subtask
-                        fetchComments();
+                        // Get project ID from parent task
+                        if (taskObj.duanId) {
+                            setProjectId(taskObj.duanId);
+                        } else if (taskObj.duan?.id) {
+                            setProjectId(taskObj.duan.id);
+                        }
+                        // load logs for this subtask
                         fetchLogs();
                         return;
                     }
@@ -73,29 +89,19 @@ export default function SubtaskDetail() {
             const data = await getTaskById(id);
             const s = data && data.id ? data : (data.task || data.data || null);
             setSubtask(s);
+            // Try to get project ID
+            if (s?.duanId) {
+                setProjectId(s.duanId);
+            } else if (s?.duan?.id) {
+                setProjectId(s.duan.id);
+            }
             // load related data
-            fetchComments();
             fetchLogs();
         } catch (err) {
             console.error('Error loading subtask', err);
         } finally {
             setLoading(false);
             setRefreshing(false);
-        }
-    };
-
-    const fetchComments = async () => {
-        try {
-            setCommentsLoading(true);
-            const res = await api.get(`/comments/subtask/${id}`);
-            const data = res.data || res;
-            // backend might return array or { comments: [...] }
-            const arr = Array.isArray(data) ? data : (data.comments || data.data || []);
-            setComments(arr);
-        } catch (err) {
-            console.error('Error loading comments', err);
-        } finally {
-            setCommentsLoading(false);
         }
     };
 
@@ -113,31 +119,47 @@ export default function SubtaskDetail() {
         }
     };
 
-    const handlePostComment = async () => {
-        if (!newComment.trim()) return;
-        try {
-            setPostingComment(true);
-            await api.post('/comments', { subtaskId: Number(id), content: newComment.trim() });
-            setNewComment('');
-            await fetchComments();
-        } catch (err) {
-            console.error('Error posting comment', err);
-        } finally {
-            setPostingComment(false);
-        }
-    };
-
     const handlePostLog = async () => {
-        if (!logText.trim()) return;
+        if (!logText.trim()) {
+            Alert.alert('Lỗi', 'Vui lòng nhập nội dung nhật ký');
+            return;
+        }
+        if (!logHours || Number(logHours) <= 0) {
+            Alert.alert('Lỗi', 'Số giờ phải lớn hơn 0');
+            return;
+        }
         try {
             setPostingLog(true);
-            // Try to create a simple worklog entry; backend may extract user from token
-            await api.post('/worklogs', { subtaskId: Number(id), hours: 0, note: logText.trim(), date: new Date().toISOString() });
+
+            // get userId from storage - backend requires userId as part of body
+            const userIdStr = await AsyncStorage.getItem('userId');
+            if (!userIdStr) {
+                Alert.alert('Lỗi', 'Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.');
+                return;
+            }
+
+            const payload = {
+                userId: Number(userIdStr),
+                subtaskId: Number(id),
+                hours: Number(logHours),
+                note: logText.trim(),
+                // send date as YYYY-MM-DD
+                date: logDate.toISOString().split('T')[0],
+            } as any;
+
+            console.log('📤 Request data:', payload);
+
+            await api.post('/worklogs', payload);
             setLogText('');
+            setLogHours('');
+            setLogDate(new Date());
             setShowLogForm(false);
             await fetchLogs();
-        } catch (err) {
+            Alert.alert('Thành công', 'Đã ghi nhật ký hoạt động');
+        } catch (err: any) {
             console.error('Error posting log', err);
+            const serverMsg = err?.response?.data?.error || err?.response?.data?.message || err?.message || String(err);
+            Alert.alert('Lỗi', serverMsg || 'Không thể thêm nhật ký');
         } finally {
             setPostingLog(false);
         }
@@ -146,6 +168,57 @@ export default function SubtaskDetail() {
     const onRefresh = () => {
         setRefreshing(true);
         load();
+    };
+
+    const loadProjectMembers = async (projectIdParam: number) => {
+        try {
+            setLoadingMembers(true);
+            // Get all groups
+            const groupResponse = await api.get(`/groups`);
+            const data = groupResponse.data || groupResponse;
+            const allGroups = data.groups || data || [];
+            
+            // Get all regular members (not leaders) from groups in this project
+            const members: any[] = [];
+            
+            for (const group of allGroups) {
+                // Check if this group is assigned to the project
+                const hasProject = group.projects?.some((p: any) => p.id === projectIdParam) || 
+                                  group.groupProjects?.some((gp: any) => gp.projectId === projectIdParam && gp.status === 'active');
+                
+                if (hasProject && group.members && Array.isArray(group.members)) {
+                    // Get all members except the leader
+                    for (const member of group.members) {
+                        const memberId = member.userId || member.id;
+                        const isLeader = group.leaderId === memberId;
+                        
+                        // Skip if this is the leader
+                        if (isLeader) continue;
+                        
+                        // Check if already added (avoid duplicates)
+                        const existingMember = members.find(m => m.id === memberId);
+                        if (!existingMember) {
+                            const memberData = member.user || member;
+                            members.push({
+                                id: memberId,
+                                userId: memberId,
+                                hoten: memberData.hoten || 'Không rõ tên',
+                                manv: memberData.manv || '',
+                                user: memberData,
+                                groupName: group.name,
+                            });
+                        }
+                    }
+                }
+            }
+            
+            setProjectMembers(members);
+        } catch (error) {
+            console.error('Error loading project members:', error);
+            Alert.alert('Lỗi', 'Không thể tải danh sách thành viên');
+        } finally {
+            setLoadingMembers(false);
+        }
     };
 
     if (loading) {
@@ -197,10 +270,15 @@ export default function SubtaskDetail() {
                         setEditEnd(subtask.ngayKetThuc || '');
                         setEditPriority((subtask as any).mucDoUuTien || 'medium');
                         setEditNotes((subtask as any).ghiChu || '');
+                        setEditAssigneeId((subtask as any).nguoiThucHienId || (subtask as any).nguoiDuocGiaoId || subtask.nguoiDuocGiao?.id || null);
                         // ensure we have parent task id
                         if (!currentParentTaskId) {
                             const maybeTaskId = (subtask as any).taskId || (subtask as any).task?.id;
                             if (maybeTaskId) setCurrentParentTaskId(Number(maybeTaskId));
+                        }
+                        // Load members if we have project ID
+                        if (projectId) {
+                            loadProjectMembers(projectId);
                         }
                         setShowEditModal(true);
                     }}>
@@ -254,10 +332,49 @@ export default function SubtaskDetail() {
                     <View style={modalStyles.modalOverlay}>
                         <View style={modalStyles.modalContent}>
                             <Text style={modalStyles.modalTitle}>Sửa công việc nhỏ</Text>
-                            <TextInput placeholder="Tiêu đề" value={editTitle} onChangeText={setEditTitle} style={modalStyles.input} />
-                            <TextInput placeholder="Mô tả" value={editDesc} onChangeText={setEditDesc} style={[modalStyles.input, { height: 80 }]} multiline />
-                            <TextInput placeholder="Ngày bắt đầu (YYYY-MM-DD)" value={editStart} onChangeText={setEditStart} style={modalStyles.input} />
-                            <TextInput placeholder="Ngày kết thúc (YYYY-MM-DD)" value={editEnd} onChangeText={setEditEnd} style={modalStyles.input} />
+                            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: '70%' }}>
+                                <TextInput placeholder="Tiêu đề" value={editTitle} onChangeText={setEditTitle} style={modalStyles.input} />
+                                <TextInput placeholder="Mô tả" value={editDesc} onChangeText={setEditDesc} style={[modalStyles.input, { height: 80 }]} multiline />
+                                
+                                <Text style={{ fontWeight: '700', marginBottom: 6, color: '#374151' }}>Ngày bắt đầu</Text>
+                                <TouchableOpacity onPress={() => setShowEditStartDatePicker(true)} style={modalStyles.dateButton}>
+                                    <Text style={[modalStyles.dateButtonText, !editStart && { color: '#9ca3af' }]}>
+                                        {editStart ? `📅 ${new Date(editStart).toLocaleDateString('vi-VN')}` : '📅 Chọn ngày bắt đầu'}
+                                    </Text>
+                                </TouchableOpacity>
+                                {showEditStartDatePicker && (
+                                    <DateTimePicker
+                                        value={editStart ? new Date(editStart) : new Date()}
+                                        mode="date"
+                                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                        onChange={(event, selectedDate) => {
+                                            setShowEditStartDatePicker(Platform.OS === 'ios');
+                                            if (selectedDate) {
+                                                setEditStart(selectedDate.toISOString().split('T')[0]);
+                                            }
+                                        }}
+                                    />
+                                )}
+                                
+                                <Text style={{ fontWeight: '700', marginBottom: 6, color: '#374151' }}>Ngày kết thúc</Text>
+                                <TouchableOpacity onPress={() => setShowEditEndDatePicker(true)} style={modalStyles.dateButton}>
+                                    <Text style={[modalStyles.dateButtonText, !editEnd && { color: '#9ca3af' }]}>
+                                        {editEnd ? `📅 ${new Date(editEnd).toLocaleDateString('vi-VN')}` : '📅 Chọn ngày kết thúc'}
+                                    </Text>
+                                </TouchableOpacity>
+                                {showEditEndDatePicker && (
+                                    <DateTimePicker
+                                        value={editEnd ? new Date(editEnd) : new Date()}
+                                        mode="date"
+                                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                        onChange={(event, selectedDate) => {
+                                            setShowEditEndDatePicker(Platform.OS === 'ios');
+                                            if (selectedDate) {
+                                                setEditEnd(selectedDate.toISOString().split('T')[0]);
+                                            }
+                                        }}
+                                    />
+                                )}
 
                             <Text style={{ fontWeight: '700', marginBottom: 6, color: '#374151' }}>Mức độ ưu tiên</Text>
                             <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
@@ -269,8 +386,26 @@ export default function SubtaskDetail() {
                             </View>
 
                             <TextInput placeholder="Ghi chú (tuỳ chọn)" value={editNotes} onChangeText={setEditNotes} style={[modalStyles.input, { height: 80 }]} multiline />
+                            
+                            <Text style={{ fontWeight: '700', marginBottom: 6, color: '#374151' }}>Người phụ trách</Text>
+                            <TouchableOpacity 
+                                onPress={() => setShowAssigneeModal(true)} 
+                                style={modalStyles.assigneeButton}
+                            >
+                                <Text style={modalStyles.assigneeButtonText}>
+                                    {editAssigneeId 
+                                        ? (projectMembers.find(m => (m.userId || m.id) === editAssigneeId)?.hoten || 
+                                           (subtask as any).nguoiThucHien?.hoten ||
+                                           subtask.nguoiDuocGiao?.hoten || 'Chọn người phụ trách')
+                                        : ((subtask as any).nguoiThucHien?.hoten || subtask.nguoiDuocGiao?.hoten || 'Chọn người phụ trách')
+                                    }
+                                </Text>
+                                <Text style={{ fontSize: 18, color: '#6b7280' }}>›</Text>
+                            </TouchableOpacity>
+                            {loadingMembers && <ActivityIndicator size="small" color="#3b82f6" style={{ marginTop: 8 }} />}
+                        </ScrollView>
 
-                            <View style={modalStyles.modalActions}>
+                        <View style={modalStyles.modalActions}>
                                 <TouchableOpacity style={[modalStyles.modalBtn, { backgroundColor: '#9ca3af' }]} onPress={() => setShowEditModal(false)}>
                                     <Text style={modalStyles.modalBtnText}>Hủy</Text>
                                 </TouchableOpacity>
@@ -283,25 +418,58 @@ export default function SubtaskDetail() {
                                         if (isNaN(s.getTime()) || isNaN(e.getTime()) || s > e) return Alert.alert('Lỗi', 'Ngày bắt đầu phải trước hoặc bằng ngày kết thúc');
                                     }
                                     if (!currentParentTaskId) return Alert.alert('Lỗi', 'Không xác định công việc cha');
-                                    try {
-                                        setUpdatingSubtask(true);
-                                        const payload: any = {
-                                            tenSubtask: editTitle,
-                                            mota: editDesc,
-                                            ngayBatDau: editStart || undefined,
-                                            ngayKetThuc: editEnd || undefined,
-                                            mucDoUuTien: editPriority || undefined,
-                                            ghiChu: editNotes || undefined,
-                                        };
-                                        await updateSubtask(Number(currentParentTaskId), Number(id), payload);
-                                        Alert.alert('Thành công', 'Cập nhật công việc nhỏ thành công');
-                                        setShowEditModal(false);
-                                        await load();
-                                    } catch (err:any) {
-                                        console.error('Update subtask error', err);
-                                        Alert.alert('Lỗi', err?.message || 'Không thể cập nhật công việc nhỏ');
-                                    } finally {
-                                        setUpdatingSubtask(false);
+                                    
+                                    // Check if assignee changed
+                                    const currentAssigneeId = (subtask as any).nguoiThucHienId || (subtask as any).nguoiDuocGiaoId || subtask.nguoiDuocGiao?.id;
+                                    const assigneeChanged = editAssigneeId !== null && editAssigneeId !== currentAssigneeId;
+                                    
+                                    if (assigneeChanged) {
+                                        const newAssignee = projectMembers.find(m => (m.userId || m.id) === editAssigneeId);
+                                        const currentAssigneeName = (subtask as any).nguoiThucHien?.hoten || subtask.nguoiDuocGiao?.hoten || 'người hiện tại';
+                                        const newAssigneeName = newAssignee?.hoten || 'người mới';
+                                        
+                                        Alert.alert(
+                                            'Xác nhận đổi người phụ trách',
+                                            `Bạn có chắc chắn muốn đổi người phụ trách từ "${currentAssigneeName}" sang "${newAssigneeName}"?`,
+                                            [
+                                                { text: 'Hủy', style: 'cancel' },
+                                                { 
+                                                    text: 'Xác nhận', 
+                                                    onPress: () => performSubtaskUpdate()
+                                                }
+                                            ]
+                                        );
+                                    } else {
+                                        performSubtaskUpdate();
+                                    }
+                                    
+                                    async function performSubtaskUpdate() {
+                                        try {
+                                            setUpdatingSubtask(true);
+                                            const payload: any = {
+                                                tenSubtask: editTitle,
+                                                mota: editDesc,
+                                                ngayBatDau: editStart || undefined,
+                                                ngayKetThuc: editEnd || undefined,
+                                                mucDoUuTien: editPriority || undefined,
+                                                ghiChu: editNotes || undefined,
+                                            };
+                                            
+                                            // Add assignee if changed
+                                            if (editAssigneeId !== null && editAssigneeId !== currentAssigneeId) {
+                                                payload.nguoiThucHienId = editAssigneeId;
+                                            }
+                                            
+                                            await updateSubtask(Number(currentParentTaskId), Number(id), payload);
+                                            Alert.alert('Thành công', 'Cập nhật công việc nhỏ thành công');
+                                            setShowEditModal(false);
+                                            await load();
+                                        } catch (err:any) {
+                                            console.error('Update subtask error', err);
+                                            Alert.alert('Lỗi', err?.message || 'Không thể cập nhật công việc nhỏ');
+                                        } finally {
+                                            setUpdatingSubtask(false);
+                                        }
                                     }
                                 }} disabled={updatingSubtask}>
                                     {updatingSubtask ? <ActivityIndicator color="#fff" /> : <Text style={[modalStyles.modalBtnText, { color: '#fff' }]}>Lưu</Text>}
@@ -311,52 +479,172 @@ export default function SubtaskDetail() {
                     </View>
                 </Modal>
 
-                {/* Comments */}
-                <View style={[styles.section, styles.commentsContainer]}>
-                    <Text style={styles.sectionTitle}>💬 Bình luận</Text>
-                    <View style={styles.commentInputRow}>
-                        <TextInput value={newComment} onChangeText={setNewComment} placeholder="Viết bình luận..." style={styles.commentInput} multiline />
-                        <TouchableOpacity style={styles.commentButton} onPress={handlePostComment} disabled={postingComment}>
-                            <Text style={styles.commentButtonText}>{postingComment ? 'Đang gửi...' : 'Gửi'}</Text>
+                {/* Assignee Selection Modal */}
+                <Modal visible={showAssigneeModal} animationType="slide" transparent>
+                    <View style={modalStyles.modalOverlay}>
+                        <View style={modalStyles.modalContent}>
+                            <Text style={modalStyles.modalTitle}>Chọn người phụ trách</Text>
+                            <Text style={{ fontSize: 12, color: '#6b7280', marginBottom: 12 }}>
+                                Chỉ thành viên (không phải nhóm trưởng) được hiển thị
+                            </Text>
+                            <ScrollView style={{ maxHeight: 400 }}>
+                                {projectMembers.length === 0 ? (
+                                    <View style={{ padding: 20, alignItems: 'center' }}>
+                                        <Text style={{ color: '#6b7280' }}>Không có thành viên nào</Text>
+                                    </View>
+                                ) : (
+                                    projectMembers.map((member) => {
+                                        const memberId = member.userId || member.id;
+                                        const memberName = member.hoten || 'Không rõ tên';
+                                        const memberCode = member.manv || '';
+                                        const isSelected = editAssigneeId === memberId;
+                                        
+                                        return (
+                                            <TouchableOpacity
+                                                key={memberId}
+                                                style={[
+                                                    modalStyles.memberItem,
+                                                    isSelected && modalStyles.memberItemSelected
+                                                ]}
+                                                onPress={() => {
+                                                    setEditAssigneeId(memberId);
+                                                    setShowAssigneeModal(false);
+                                                }}
+                                            >
+                                                <View style={modalStyles.memberAvatar}>
+                                                    <Text style={modalStyles.memberInitial}>
+                                                        {memberName.charAt(0).toUpperCase()}
+                                                    </Text>
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={modalStyles.memberName}>{memberName}</Text>
+                                                    {memberCode && (
+                                                        <Text style={modalStyles.memberCode}>{memberCode}</Text>
+                                                    )}
+                                                    <Text style={modalStyles.memberRole}>👤 Thành viên - {member.groupName}</Text>
+                                                </View>
+                                                {isSelected && (
+                                                    <Text style={{ fontSize: 20, color: '#3b82f6' }}>✓</Text>
+                                                )}
+                                            </TouchableOpacity>
+                                        );
+                                    })
+                                )}
+                            </ScrollView>
+                            <TouchableOpacity 
+                                style={[modalStyles.modalBtn, { backgroundColor: '#9ca3af', marginTop: 12 }]} 
+                                onPress={() => setShowAssigneeModal(false)}
+                            >
+                                <Text style={modalStyles.modalBtnText}>Đóng</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </Modal>
+
+                {/* Logs - Moved before Comments */}
+                <View style={[styles.section, styles.logsContainer]}>
+                    <Text style={styles.sectionTitle}>🕘 Nhật ký hoạt động</Text>
+                    
+                    {/* Enhanced Log Form */}
+                    <View style={styles.worklogForm}>
+                        <View style={styles.worklogRow}>
+                            <View style={styles.worklogField}>
+                                <Text style={styles.worklogLabel}>Ngày</Text>
+                                <TouchableOpacity 
+                                    onPress={() => setShowLogDatePicker(true)} 
+                                    style={styles.dateInput}
+                                >
+                                    <Text style={styles.dateInputText}>
+                                        📅 {logDate.toLocaleDateString('vi-VN')}
+                                    </Text>
+                                </TouchableOpacity>
+                                {showLogDatePicker && (
+                                    <DateTimePicker
+                                        value={logDate}
+                                        mode="date"
+                                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                        onChange={(event, selectedDate) => {
+                                            setShowLogDatePicker(Platform.OS === 'ios');
+                                            if (selectedDate) {
+                                                setLogDate(selectedDate);
+                                            }
+                                        }}
+                                    />
+                                )}
+                            </View>
+                            <View style={styles.worklogField}>
+                                <Text style={styles.worklogLabel}>Số giờ</Text>
+                                <TextInput 
+                                    value={logHours}
+                                    onChangeText={setLogHours}
+                                    placeholder="0"
+                                    keyboardType="decimal-pad"
+                                    style={styles.hoursInput}
+                                />
+                            </View>
+                        </View>
+                        <Text style={styles.worklogLabel}>Nội dung</Text>
+                        <TextInput 
+                            value={logText} 
+                            onChangeText={setLogText} 
+                            placeholder="Mô tả công việc đã làm..."
+                            style={styles.worklogTextArea}
+                            multiline
+                        />
+                        <TouchableOpacity 
+                            style={styles.worklogButton} 
+                            onPress={handlePostLog} 
+                            disabled={postingLog}
+                        >
+                            <Text style={styles.worklogButtonText}>
+                                {postingLog ? '⏳ Đang gửi...' : '✅ Gửi nhật ký'}
+                            </Text>
                         </TouchableOpacity>
                     </View>
-                    {commentsLoading ? <ActivityIndicator size="small" color="#2563eb" /> : null}
-                    {comments.length === 0 && !commentsLoading ? (
-                        <Text style={{ color: '#6b7280' }}>Chưa có bình luận</Text>
+
+                    {/* Logs List */}
+                    {logsLoading ? (
+                        <ActivityIndicator size="small" color="#2563eb" style={{ marginTop: 12 }} />
+                    ) : logs.length === 0 ? (
+                        <Text style={styles.emptyLogText}>Chưa có nhật ký hoạt động nào</Text>
                     ) : (
-                        <View>
-                            {comments.map((item:any) => (
-                                <View key={String(item.id)} style={styles.commentItem}>
-                                    <Text style={styles.commentAuthor}>{item.author?.hoten || item.authorName || item.manv || 'Người dùng'}</Text>
-                                    <Text style={styles.commentTime}>{item.createdAt ? new Date(item.createdAt).toLocaleString('vi-VN') : ''}</Text>
-                                    <Text style={styles.commentContent}>{item.content}</Text>
+                        <View style={styles.logsList}>
+                            {logs.map((l: any) => (
+                                <View key={l.id || l._id || String(Math.random())} style={styles.logItem}>
+                                    <View style={styles.logHeader}>
+                                        {l.date && (
+                                            <View style={styles.logDateBadge}>
+                                                <Text style={styles.logDateText}>
+                                                    📅 {new Date(l.date).toLocaleDateString('vi-VN')}
+                                                </Text>
+                                            </View>
+                                        )}
+                                        {l.hours && (
+                                            <View style={styles.logHoursBadge}>
+                                                <Text style={styles.logHoursText}>
+                                                    ⏱️ {l.hours}h
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                    <Text style={styles.logText}>
+                                        {l.message || l.note || l.action || JSON.stringify(l)}
+                                    </Text>
+                                    <Text style={styles.logTime}>
+                                        {l.createdAt ? new Date(l.createdAt).toLocaleString('vi-VN') : 
+                                         (l.time ? new Date(l.time).toLocaleDateString('vi-VN') : '')}
+                                    </Text>
                                 </View>
                             ))}
                         </View>
                     )}
                 </View>
 
-                {/* Logs */}
-                <View style={[styles.section, styles.logsContainer]}>
-                    <Text style={styles.sectionTitle}>🕘 Nhật ký hoạt động</Text>
-                    <View style={styles.commentInputRow}>
-                        <TextInput value={logText} onChangeText={setLogText} placeholder="Ghi nhật ký..." style={styles.commentInput} multiline />
-                        <TouchableOpacity style={styles.commentButton} onPress={handlePostLog} disabled={postingLog}>
-                            <Text style={styles.commentButtonText}>{postingLog ? 'Đang gửi...' : 'Gửi'}</Text>
-                        </TouchableOpacity>
-                    </View>
-                    {logsLoading ? <ActivityIndicator size="small" color="#2563eb" /> : null}
-                    {logs.length === 0 && !logsLoading ? <Text style={{ color: '#6b7280' }}>Chưa có nhật ký</Text> : (
-                        <View>
-                            {logs.map((l:any)=>(
-                                <View key={l.id || l._id || String(Math.random())} style={styles.logItem}>
-                                    <Text style={styles.logText}>{l.message || l.note || l.action || JSON.stringify(l)}</Text>
-                                    <Text style={styles.logTime}>{l.createdAt ? new Date(l.createdAt).toLocaleString('vi-VN') : (l.time ? new Date(l.time).toLocaleDateString('vi-VN') : '')}</Text>
-                                </View>
-                            ))}
-                        </View>
-                    )}
-                </View>
+                {/* Comments Section */}
+                <CommentSection 
+                    subtaskId={subtask.id} 
+                    onCommentAdded={load}
+                />
 
             </ScrollView>
         </SafeAreaView>
@@ -425,13 +713,136 @@ const styles = StyleSheet.create({
 
     /* Logs */
     logsContainer: { marginBottom: 24 },
-    logItem: { backgroundColor: '#fff', padding: 10, borderRadius: 8, borderWidth: 1, borderColor: '#e6eef8', marginBottom: 8 },
-    logText: { color: '#374151' },
-    logTime: { color: '#6b7280', fontSize: 12, marginTop: 6 },
-    /* Logs input uses same styles as comments; no extra action buttons */
-    logInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-    logButton: { backgroundColor: '#2563eb', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, marginLeft: 8 },
-    logButtonText: { color: '#fff', fontWeight: '700' },
+    worklogForm: {
+        backgroundColor: '#fff',
+        padding: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        marginBottom: 16,
+    },
+    worklogRow: {
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 12,
+    },
+    worklogField: {
+        flex: 1,
+    },
+    worklogLabel: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#374151',
+        marginBottom: 6,
+    },
+    dateInput: {
+        backgroundColor: '#f9fafb',
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        borderRadius: 8,
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+    },
+    dateInputText: {
+        fontSize: 14,
+        color: '#111827',
+    },
+    hoursInput: {
+        backgroundColor: '#f9fafb',
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        borderRadius: 8,
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+        fontSize: 14,
+        color: '#111827',
+    },
+    worklogTextArea: {
+        backgroundColor: '#f9fafb',
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        borderRadius: 8,
+        paddingVertical: 12,
+        paddingHorizontal: 12,
+        fontSize: 14,
+        color: '#111827',
+        minHeight: 80,
+        textAlignVertical: 'top',
+        marginBottom: 12,
+    },
+    worklogButton: {
+        backgroundColor: '#3b82f6',
+        paddingVertical: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    worklogButtonText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '700',
+    },
+    logsList: {
+        marginTop: 16,
+    },
+    logItem: {
+        backgroundColor: '#fff',
+        padding: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        marginBottom: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+    },
+    logHeader: {
+        flexDirection: 'row',
+        gap: 8,
+        marginBottom: 8,
+    },
+    logDateBadge: {
+        backgroundColor: '#dbeafe',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 6,
+    },
+    logDateText: {
+        color: '#1e40af',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    logHoursBadge: {
+        backgroundColor: '#dcfce7',
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 6,
+    },
+    logHoursText: {
+        color: '#166534',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    logText: {
+        color: '#374151',
+        fontSize: 14,
+        lineHeight: 20,
+        marginBottom: 6,
+    },
+    logTime: {
+        color: '#9ca3af',
+        fontSize: 11,
+        fontStyle: 'italic',
+    },
+    emptyLogText: {
+        color: '#9ca3af',
+        fontSize: 14,
+        textAlign: 'center',
+        marginTop: 16,
+        fontStyle: 'italic',
+    },
 });
 
 const modalStyles = StyleSheet.create({
@@ -486,5 +897,81 @@ const modalStyles = StyleSheet.create({
         paddingVertical: 8,
         paddingHorizontal: 12,
         borderRadius: 8,
-    }
+    },
+    dateButton: {
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 14,
+        marginBottom: 16,
+        backgroundColor: '#f9fafb',
+    },
+    dateButtonText: {
+        fontSize: 14,
+        color: '#111827',
+        fontWeight: '500',
+    },
+    assigneeButton: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 14,
+        marginBottom: 16,
+        backgroundColor: '#f9fafb',
+    },
+    assigneeButtonText: {
+        fontSize: 14,
+        color: '#111827',
+        fontWeight: '500',
+    },
+    memberItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        borderRadius: 8,
+        marginBottom: 8,
+        backgroundColor: '#f9fafb',
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+    },
+    memberItemSelected: {
+        backgroundColor: '#dbeafe',
+        borderColor: '#3b82f6',
+        borderWidth: 2,
+    },
+    memberAvatar: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#10b981',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    memberInitial: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#fff',
+    },
+    memberName: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#111827',
+        marginBottom: 2,
+    },
+    memberCode: {
+        fontSize: 12,
+        color: '#6b7280',
+        marginBottom: 2,
+    },
+    memberRole: {
+        fontSize: 11,
+        color: '#10b981',
+        fontWeight: '600',
+    },
 });
