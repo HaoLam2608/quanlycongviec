@@ -362,6 +362,35 @@ exports.removeGroupFromProject = async (req, res) => {
     }
 };
 
+// Delete group (permanent)
+exports.deleteGroup = async (req, res) => {
+    const t = await sequelize.transaction();
+    try {
+        const id = req.params.id;
+        const group = await Group.findByPk(id);
+        if (!group) {
+            await t.rollback();
+            return res.status(404).json({ message: 'Không tìm thấy nhóm' });
+        }
+
+        // Remove related records first to be explicit
+        await GroupMember.destroy({ where: { groupId: id }, transaction: t });
+        const { GroupProject } = require('../models');
+        await GroupProject.destroy({ where: { groupId: id }, transaction: t });
+        await GroupProjectHistory.destroy({ where: { groupId: id }, transaction: t }).catch(() => {});
+
+        // Finally remove the group
+        await group.destroy({ transaction: t });
+
+        await t.commit();
+        res.json({ message: 'Đã xóa nhóm thành công' });
+    } catch (e) {
+        console.error('Error deleting group:', e);
+        await t.rollback();
+        res.status(500).json({ message: 'Lỗi server khi xóa nhóm' });
+    }
+};
+
 // Complete project for group
 exports.completeProject = async (req, res) => {
     try {

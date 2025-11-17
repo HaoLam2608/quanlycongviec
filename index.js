@@ -15,9 +15,33 @@ const path = require('path');
 app.use(cors({
     origin: '*', // Chấp nhận request từ mọi nguồn
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'], // Chấp nhận các phương thức này
-    allowedHeaders: ['Content-Type', 'Authorization'] // Cho phép các header này
+    allowedHeaders: '*', // Cho phép tất cả headers (including multipart boundary)
+    credentials: true,
+    exposedHeaders: ['Content-Range', 'X-Content-Range']
 }));
-app.use(bodyParser.json());
+
+// Log all incoming requests
+app.use((req, res, next) => {
+    console.log(`${req.method} ${req.url} - Content-Type: ${req.headers['content-type'] || 'none'}`);
+    next();
+});
+
+// Body parser middleware - only parse if NOT multipart/form-data
+app.use((req, res, next) => {
+    const contentType = req.headers['content-type'] || '';
+    if (contentType.includes('multipart/form-data')) {
+        // Skip body parsing for multipart - let multer handle it
+        return next();
+    }
+    // Apply body parser for other content types
+    if (contentType.includes('application/json')) {
+        return bodyParser.json()(req, res, next);
+    }
+    if (contentType.includes('application/x-www-form-urlencoded')) {
+        return bodyParser.urlencoded({ extended: true })(req, res, next);
+    }
+    next();
+});
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -41,8 +65,12 @@ app.use('/documents', (req, res, next) => { req.upload = upload; next(); }, docu
 app.use('/members', require('./routes/memberRoutes'));
 // notification routes
 app.use('/notifications', require('./routes/notificationRoutes'));
-// comment routes (comments about employees)
-app.use('/comments', require('./routes/commentRoutes'));
+// comment routes (comments about employees) - with request logging
+app.use('/comments', (req, res, next) => {
+    console.log(`📨 Comment route: ${req.method} ${req.url}`);
+    console.log('📨 Content-Type:', req.headers['content-type']);
+    next();
+}, require('./routes/commentRoutes'));
 // assignment routes (propose/accept/decline)
 app.use('/assignments', require('./routes/assignmentRoutes'));
 // approval routes (for task/subtask completion approval)

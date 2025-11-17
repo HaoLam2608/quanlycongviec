@@ -564,27 +564,31 @@ exports.updateTaskStatus = async (req, res) => {
             finalStatus = 'Chờ xác nhận hoàn thành';
             updateData.trangThai = finalStatus;
             
-            // Tạo thông báo cho manager/admin
-            const { Notification, UserNotification } = require('../models');
-            
-            // Tìm manager/admin để gửi thông báo (người giao task)
-            const notification = await Notification.create({
-                title: `Yêu cầu phê duyệt hoàn thành: "${task.tentask}"`,
-                content: `${req.user.hoten || req.user.manv} đã đánh dấu công việc "${task.tentask}" là hoàn thành và yêu cầu phê duyệt.`,
-                type: 'task',
-                priority: 'medium',
-                status: 'published',
-                targetAudience: 'specific',
-                authorId: userId,
-                publishedAt: new Date()
-            });
+            // Tạo thông báo cho người giao (wrapped in try/catch to avoid breaking status update)
+            try {
+                const { Notification, UserNotification } = require('../models');
+                // targetAudience must be one of allowed values (model validates), use 'manager' here
+                const notification = await Notification.create({
+                    title: `Yêu cầu phê duyệt hoàn thành: "${task.tentask}"`,
+                    content: `${req.user.hoten || req.user.manv} đã đánh dấu công việc "${task.tentask}" là hoàn thành và yêu cầu phê duyệt.`,
+                    type: 'task',
+                    priority: 'medium',
+                    status: 'published',
+                    targetAudience: 'manager',
+                    authorId: userId,
+                    publishedAt: new Date()
+                });
 
-            // Gửi cho người giao task
-            await UserNotification.create({
-                userId: task.nguoiGiaoId,
-                notificationId: notification.id,
-                isRead: false
-            });
+                // Create a per-user notification for the task owner
+                await UserNotification.create({
+                    userId: task.nguoiGiaoId,
+                    notificationId: notification.id,
+                    isRead: false
+                });
+            } catch (notifErr) {
+                console.error('Failed to create notification for task completion request:', notifErr && notifErr.message ? notifErr.message : notifErr);
+                // continue without failing the whole status update
+            }
 
         } else {
             // Admin/Manager có thể đặt trạng thái trực tiếp
@@ -596,10 +600,9 @@ exports.updateTaskStatus = async (req, res) => {
             if (trangThai === 'Hoàn thành') {
                 updateData.ngayHoanThanh = new Date();
                 updateData.tienDo = 100;
-                if (['admin', 'manager'].includes(userRole)) {
-                    updateData.approvedBy = userId;
-                    updateData.approvalDate = new Date();
-                }
+                // Do not set approval audit fields here unless the Task model/migration defines them.
+                // If approval tracking is required, add columns to Task model and migrations,
+                // or use the dedicated approval endpoints to record approver metadata.
             }
         }
 
@@ -616,11 +619,6 @@ exports.updateTaskStatus = async (req, res) => {
                 {
                     model: User,
                     as: 'nguoiGiao',
-                    attributes: ['id', 'hoten', 'manv']
-                },
-                {
-                    model: User,
-                    as: 'approver',
                     attributes: ['id', 'hoten', 'manv']
                 },
                 {
@@ -645,6 +643,8 @@ exports.updateTaskStatus = async (req, res) => {
         });
     } catch (error) {
         console.error('Update task status error:', error);
-        res.status(500).json({ error: 'Lỗi khi cập nhật trạng thái công việc' });
+        console.error(error.stack);
+        // Return the actual error message to client for easier debugging during development.
+        res.status(500).json({ error: 'Lỗi khi cập nhật trạng thái công việc', details: error.message });
     }
 };

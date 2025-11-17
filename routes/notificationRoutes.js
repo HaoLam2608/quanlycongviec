@@ -50,4 +50,9 @@ router.post('/:id/mark-read',
     notificationController.markAsRead
 );
 
+router.post('/mark-all-read',
+    auth,
+    notificationController.markAllAsRead
+);
+
 module.exports = router;

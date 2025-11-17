@@ -19,7 +19,8 @@ router.get('/', authenticateToken, checkPermission('groups', 'read'), groupContr
 router.get('/:id', authenticateToken, checkPermission('groups', 'read'), groupController.getGroup);
 router.post('/', authenticateToken, checkPermission('groups', 'create'), groupController.createGroup);
 router.put('/:id', authenticateToken, checkPermission('groups', 'update'), groupController.updateGroup);
-// Xóa route delete - không cho phép xóa nhóm
+// Xóa nhóm (vĩnh viễn)
+router.delete('/:id', authenticateToken, checkPermission('groups', 'delete'), groupController.deleteGroup);
 
 // Members
 router.post('/:id/members', authenticateToken, checkPermission('groups', 'update'), groupController.addMembers);

@@ -96,10 +96,19 @@ const createMentionNotifications = async (comment, authorId, mentionedUserIds) =
 
 const createComment = async (req, res) => {
   try {
+    console.log('📨 Received comment request');
+    console.log('👤 User:', req.user ? req.user.id : 'not authenticated');
+    console.log('📦 Body:', JSON.stringify(req.body, null, 2));
+    console.log('📎 Files received:', req.files ? 'YES' : 'NO');
+    if (req.files) {
+      console.log('📎 Files type:', Array.isArray(req.files) ? 'Array' : 'Object');
+      console.log('📎 Files structure:', Array.isArray(req.files) ? req.files.length : Object.keys(req.files));
+    }
+    
     const authorId = req.user && req.user.id;
     if (!authorId) return res.status(401).json({ message: 'Unauthorized' });
 
-    const { taskId, subtaskId, content } = req.body;
+    const { taskId, subtaskId, content, mentions: mentionsStr } = req.body;
     
     // Validate: must have either taskId or subtaskId
     if (!taskId && !subtaskId) {
@@ -107,7 +116,17 @@ const createComment = async (req, res) => {
     }
     
     // Must have either content or files
-    if (!content && (!req.files || req.files.length === 0)) {
+    const allFiles = [];
+    if (req.files) {
+      if (Array.isArray(req.files)) {
+        allFiles.push(...req.files);
+      } else {
+        if (req.files['images']) allFiles.push(...req.files['images']);
+        if (req.files['files']) allFiles.push(...req.files['files']);
+      }
+    }
+    
+    if (!content && allFiles.length === 0) {
       return res.status(400).json({ message: 'Content or attachments required' });
     }
 
@@ -123,10 +142,10 @@ const createComment = async (req, res) => {
 
     // Handle file attachments - convert to base64
     let attachments = null;
-    if (req.files && req.files.length > 0) {
-      console.log('Processing files:', req.files.length);
+    if (allFiles.length > 0) {
+      console.log('Processing files:', allFiles.length);
       try {
-        attachments = req.files.map(file => {
+        attachments = allFiles.map(file => {
           console.log('Processing file:', file.originalname, 'size:', file.size, 'mimetype:', file.mimetype);
           
           // Check file size (limit to 1MB for base64 storage in MySQL)
@@ -164,8 +183,18 @@ const createComment = async (req, res) => {
       totalSize: attachments ? JSON.stringify(attachments).length : 0
     });
 
-    // Extract mentions from content
-    const mentions = extractMentions(content);
+    // Parse mentions from body (sent as JSON string) or extract from content
+    let mentions = [];
+    if (mentionsStr) {
+      try {
+        mentions = JSON.parse(mentionsStr);
+      } catch (e) {
+        console.warn('Failed to parse mentions JSON, extracting from content');
+        mentions = extractMentions(content);
+      }
+    } else {
+      mentions = extractMentions(content);
+    }
     console.log('Extracted mentions:', mentions);
 
     const comment = await Comment.create({ 

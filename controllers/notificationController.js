@@ -489,3 +489,74 @@ exports.markAsRead = async (req, res) => {
         });
     }
 };
+
+// Mark all notifications as read for user
+exports.markAllAsRead = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // Load user with role
+        const userWithRole = await User.findByPk(userId, {
+            include: [{
+                model: require('../models').Role,
+                as: 'role',
+                attributes: ['name']
+            }]
+        });
+
+        const userRole = userWithRole?.role?.name || 'member';
+        const mappedRole = userRole === 'employee' ? 'member' : userRole;
+
+        // Get all notifications for this user (role-based + user-specific)
+        const roleNotifications = await Notification.findAll({
+            where: {
+                status: 'published',
+                [Op.or]: [
+                    { targetAudience: { [Op.like]: '%all%' } },
+                    { targetAudience: { [Op.like]: `%${mappedRole}%` } }
+                ]
+            },
+            attributes: ['id']
+        });
+
+        const userNotifs = await Notification.findAll({
+            include: [{
+                model: UserNotification,
+                as: 'UserNotifications',
+                where: { userId },
+                required: true
+            }],
+            where: { status: 'published' },
+            attributes: ['id']
+        });
+
+        // Merge notification IDs
+        const allNotifIds = [...new Set([
+            ...roleNotifications.map(n => n.id),
+            ...userNotifs.map(n => n.id)
+        ])];
+
+        // Mark all as read in UserNotification table
+        for (const notifId of allNotifIds) {
+            await UserNotification.upsert({
+                userId,
+                notificationId: notifId,
+                isRead: true,
+                meta: null
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Đã đánh dấu tất cả thông báo là đã đọc',
+            count: allNotifIds.length
+        });
+    } catch (error) {
+        console.error('Error marking all as read:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi đánh dấu tất cả đã đọc',
+            error: error.message
+        });
+    }
+};
