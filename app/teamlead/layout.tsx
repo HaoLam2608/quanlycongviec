@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react"
 import api from '@/axios/config'
 import { useRouter } from "next/navigation"
 import { usePathname } from "next/navigation"
-import { Home, Users, CheckSquare, ClipboardCheck, BarChart3, User, Settings, LogOut, Menu, X, ListTodo, FileText, Award, Briefcase } from "lucide-react"
+import { Home, Users, CheckSquare, ClipboardCheck, BarChart3, User, Settings, LogOut, Menu, X, ListTodo, FileText, Briefcase } from "lucide-react"
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import AuthGuard from "@/components/auth/AuthGuard"
 import { useToastContext } from "@/components/providers/toast-provider"
@@ -21,7 +21,6 @@ const navigation = [
     { name: "Task", href: "/teamlead/tasks", icon: ListTodo },
     { name: "Công việc con", href: "/teamlead/subtasks", icon: CheckSquare },
     { name: "Tài liệu", href: "/teamlead/documents", icon: FileText },
-    { name: "Hiệu suất", href: "/teamlead/performance", icon: Award },
     { name: "Phê duyệt", href: "/teamlead/approvals", icon: ClipboardCheck },
     { name: "Báo cáo", href: "/teamlead/reports", icon: BarChart3 },
     { name: "Hồ sơ", href: "/teamlead/profile", icon: User },

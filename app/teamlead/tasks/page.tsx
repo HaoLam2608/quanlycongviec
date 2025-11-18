@@ -3,7 +3,8 @@ import { useState, useEffect } from "react"
 import { Search, Plus, Filter, Clock, Users, Calendar, AlertCircle, CheckCircle2, Folder, Edit, Trash2, Eye, Building2, X, ArrowLeft } from "lucide-react"
 import api from "@/axios/config"
 import { useToastContext } from '@/components/providers/toast-provider'
-import { showConfirm } from '@/lib/notifications'
+import { showConfirm, showWarning } from '@/lib/notifications'
+import { updateTask } from "@/axios/api"
 
 interface Task {
     id: number
@@ -20,6 +21,7 @@ interface Task {
     duan?: { id: number; tenduan: string }
     duanId?: number
     subtasks?: any[]
+    assignments?: any[]  // Thêm field để kiểm tra trạng thái chấp nhận
 }
 
 interface Project {
@@ -65,6 +67,33 @@ export default function TeamLeadTasksPage() {
     const [showSubtaskListModal, setShowSubtaskListModal] = useState(false)
     const [showSubtaskDetailModal, setShowSubtaskDetailModal] = useState(false)
     const [selectedSubtask, setSelectedSubtask] = useState<any>(null)
+    
+    // Edit task modal states
+    const [showEditTaskModal, setShowEditTaskModal] = useState(false)
+    const [editingTask, setEditingTask] = useState<Task | null>(null)
+    const [editTaskForm, setEditTaskForm] = useState({
+        name: '',
+        description: '',
+        priority: 'medium',
+        startDate: '',
+        dueDate: ''
+    })
+    
+    // Edit subtask modal states
+    const [showEditSubtaskModal, setShowEditSubtaskModal] = useState(false)
+    const [editingSubtask, setEditingSubtask] = useState<any>(null)
+    const [editSubtaskForm, setEditSubtaskForm] = useState({
+        tenSubtask: '',
+        mota: '',
+        ngayBatDau: '',
+        ngayKetThuc: '',
+        nguoiThucHienId: '',
+        ghiChu: ''
+    })
+
+    useEffect(() => {
+        console.log('Edit subtask form updated:', editSubtaskForm)
+    }, [editSubtaskForm])
 
     useEffect(() => {
         loadTasks()
@@ -91,9 +120,16 @@ export default function TeamLeadTasksPage() {
                 tasks.map(async (task: Task) => {
                     try {
                         const subtaskRes = await api.get(`/tasks/${task.id}/subtasks`)
+                        const subtasks = subtaskRes.data.subtasks || subtaskRes.data || []
+                        
+                        // Debug: Log để kiểm tra subtasks có assignments không
+                        if (subtasks.length > 0) {
+                            console.log(`Task ${task.id} subtasks:`, subtasks)
+                        }
+                        
                         return {
                             ...task,
-                            subtasks: subtaskRes.data.subtasks || subtaskRes.data || []
+                            subtasks: subtasks
                         }
                     } catch (error) {
                         console.error(`Load subtasks error for task ${task.id}:`, error)
@@ -158,7 +194,32 @@ export default function TeamLeadTasksPage() {
         }
     }
 
-    const openSubtaskModal = async (task: Task) => {
+    const loadGroupMembersForTask = async (task: Task | null | undefined, fallbackMember?: any) => {
+        console.log('Loading group members for task', task?.id, 'project', task?.duanId)
+        try {
+            const res = await api.get('/groups/my-group')
+            let allMembers = res.data.groups?.flatMap((g: any) => g.members || []) || []
+
+            if (fallbackMember?.id) {
+                const exists = allMembers.some((m: any) => m.id === fallbackMember.id)
+                if (!exists) {
+                    allMembers = [...allMembers, {
+                        id: fallbackMember.id,
+                        hoten: fallbackMember.hoten,
+                        manv: fallbackMember.manv,
+                        email: fallbackMember.email
+                    }]
+                }
+            }
+
+            console.log('Group members loaded:', allMembers)
+            setGroupMembers(allMembers)
+        } catch (error) {
+            console.error('Load members error:', error)
+        }
+    }
+
+    const openSubtaskModal = (task: Task) => {
         setSelectedTask(task)
         setSubtaskFormData({
             tenSubtask: '',
@@ -168,18 +229,8 @@ export default function TeamLeadTasksPage() {
             nguoiThucHienId: '',
             ghiChu: ''
         })
-        
-        // Load group members if task has a project
-        if (task.duanId) {
-            try {
-                const res = await api.get(`/groups/my-group`)
-                const allMembers = res.data.groups?.flatMap((g: any) => g.members || []) || []
-                setGroupMembers(allMembers)
-            } catch (error) {
-                console.error('Load members error:', error)
-            }
-        }
-        
+
+        loadGroupMembersForTask(task)
         setShowSubtaskModal(true)
     }
 
@@ -201,7 +252,9 @@ export default function TeamLeadTasksPage() {
     }
     
     const openSubtaskListModal = (task: Task) => {
+        console.log('Open subtask list for task', task.id, task.subtasks)
         setSelectedTask(task)
+        loadGroupMembersForTask(task)
         setShowSubtaskListModal(true)
     }
     
@@ -239,9 +292,42 @@ export default function TeamLeadTasksPage() {
             return
         }
         
-        if (!subtaskFormData.ngayBatDau) {
-            showError('Vui lòng chọn ngày bắt đầu')
+        if (!subtaskFormData.nguoiThucHienId) {
+            showError('Vui lòng chọn người thực hiện')
             return
+        }
+        
+        if (!subtaskFormData.ngayBatDau) {
+            showWarning('Vui lòng chọn ngày bắt đầu cho công việc con')
+            return
+        }
+
+        const subStart = new Date(subtaskFormData.ngayBatDau)
+        if (isNaN(subStart.getTime())) {
+            showWarning('Ngày bắt đầu không hợp lệ')
+            return
+        }
+
+        // If task has a start date, ensure subStart >= task.start
+        if (selectedTask?.ngayBatDau) {
+            const taskStart = new Date(selectedTask.ngayBatDau)
+            if (!isNaN(taskStart.getTime()) && subStart < taskStart) {
+                showWarning('Ngày bắt đầu của công việc con phải lớn hơn hoặc bằng ngày bắt đầu của công việc chính')
+                return
+            }
+        }
+
+        // If task has an end date, ensure subStart < task.end
+        if (selectedTask?.ngayKetThuc) {
+            const taskEnd = new Date(selectedTask.ngayKetThuc)
+            if (isNaN(taskEnd.getTime())) {
+                showWarning('Ngày kết thúc của công việc chính không hợp lệ')
+                return
+            }
+            if (!(subStart < taskEnd)) {
+                showWarning('Ngày bắt đầu của công việc con phải nhỏ hơn ngày kết thúc của công việc chính')
+                return
+            }
         }
 
         try {
@@ -257,10 +343,204 @@ export default function TeamLeadTasksPage() {
             await api.post(`/tasks/${selectedTask?.id}/subtasks`, payload)
             showSuccess('Tạo công việc con thành công!')
             closeSubtaskModal()
-            loadTasks()
+            
+            // Reload tasks to get updated data with assignments
+            await loadTasks()
+            
+            // If modal is still showing selected task, reload it with assignments
+            if (selectedTask) {
+                try {
+                    const taskRes = await api.get(`/tasks/${selectedTask.id}`)
+                    const taskWithAssignments = taskRes.data
+                    
+                    // Load subtasks
+                    const subtaskRes = await api.get(`/tasks/${selectedTask.id}/subtasks`)
+                    const updatedTask = {
+                        ...taskWithAssignments,
+                        subtasks: subtaskRes.data.subtasks || subtaskRes.data || []
+                    }
+                    setSelectedTask(updatedTask)
+                } catch (error) {
+                    console.error('Error reloading task:', error)
+                }
+            }
         } catch (error: any) {
             console.error('Create subtask error:', error)
-            showError(error.response?.data?.error || 'Lỗi khi tạo công việc con')
+            const errData: any = error.response?.data
+            if (errData && (errData.details || errData.error || errData.message || errData.sequelizeErrors)) {
+                console.error('Backend error details:', errData)
+                const details = errData.details || errData.error || errData.message || (Array.isArray(errData.sequelizeErrors) ? errData.sequelizeErrors.join('; ') : undefined)
+                showError('Lỗi khi tạo công việc con: ' + (details || 'Xem console để biết thêm chi tiết'))
+            } else {
+                showError(error.response?.data?.error || 'Lỗi khi tạo công việc con')
+            }
+        }
+    }
+
+    const openEditTaskModal = (task: Task) => {
+        setEditingTask(task)
+        setEditTaskForm({
+            name: task.tentask || '',
+            description: task.moTa || '',
+            priority: task.mucDoUuTien || 'medium',
+            startDate: task.ngayBatDau ? new Date(task.ngayBatDau).toISOString().split('T')[0] : '',
+            dueDate: task.ngayKetThuc ? new Date(task.ngayKetThuc).toISOString().split('T')[0] : ''
+        })
+        setShowEditTaskModal(true)
+    }
+
+    const handleUpdateTask = async (e: React.FormEvent) => {
+        e.preventDefault()
+        
+        if (!editingTask) return
+
+        // Validate dates
+        const taskStart = editTaskForm.startDate ? new Date(editTaskForm.startDate) : null
+        const taskEnd = editTaskForm.dueDate ? new Date(editTaskForm.dueDate) : null
+        
+        if (taskStart && taskEnd && taskStart > taskEnd) {
+            showWarning('Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc!')
+            return
+        }
+
+        // Check if task belongs to a project
+        if (editingTask.duanId && editingTask.duan) {
+            try {
+                const projectRes = await api.get(`/duans/${editingTask.duanId}`)
+                const project = projectRes.data
+                
+                const projectStart = project.ngaybatdau ? new Date(project.ngaybatdau) : null
+                const projectEnd = project.ngayketthuc ? new Date(project.ngayketthuc) : null
+                
+                if (projectStart && taskStart && taskStart < projectStart) {
+                    showWarning('Ngày bắt đầu của công việc phải lớn hơn hoặc bằng ngày bắt đầu của dự án!')
+                    return
+                }
+                if (projectEnd && taskEnd && taskEnd > projectEnd) {
+                    showWarning('Ngày kết thúc của công việc phải nhỏ hơn hoặc bằng ngày kết thúc của dự án!')
+                    return
+                }
+            } catch (error) {
+                console.error('Error fetching project:', error)
+            }
+        }
+        
+        try {
+            await updateTask(editingTask.id, {
+                tentask: editTaskForm.name,
+                mota: editTaskForm.description,
+                mucDoUuTien: editTaskForm.priority,
+                ngayBatDau: editTaskForm.startDate,
+                ngayKetThuc: editTaskForm.dueDate
+            })
+            
+            showSuccess('Cập nhật công việc thành công!')
+            setShowEditTaskModal(false)
+            setEditingTask(null)
+            loadTasks()
+        } catch (error: any) {
+            console.error('Update task error:', error)
+            showError(error.response?.data?.message || 'Lỗi khi cập nhật công việc!')
+        }
+    }
+
+    const openEditSubtaskModal = (subtask: any) => {
+        loadGroupMembersForTask(selectedTask, subtask?.nguoiThucHien)
+        const assigneeId = subtask?.nguoiThucHienId ?? subtask?.nguoiThucHien?.id ?? ''
+        console.log('Open edit subtask modal assigneeId:', assigneeId, 'subtask:', subtask)
+
+        setEditingSubtask(subtask)
+        setEditSubtaskForm({
+            tenSubtask: subtask.tenSubtask || '',
+            mota: subtask.mota || '',
+            ngayBatDau: subtask.ngayBatDau ? new Date(subtask.ngayBatDau).toISOString().split('T')[0] : '',
+            ngayKetThuc: subtask.ngayKetThuc ? new Date(subtask.ngayKetThuc).toISOString().split('T')[0] : '',
+            nguoiThucHienId: assigneeId ? String(assigneeId) : '',
+            ghiChu: subtask.ghiChu || ''
+        })
+        setShowEditSubtaskModal(true)
+    }
+
+    const handleUpdateSubtask = async (e: React.FormEvent) => {
+        e.preventDefault()
+        
+        if (!editingSubtask || !selectedTask) return
+
+        // Validate
+        if (!editSubtaskForm.tenSubtask.trim()) {
+            showError('Vui lòng nhập tên công việc con')
+            return
+        }
+
+        if (!editSubtaskForm.nguoiThucHienId) {
+            showError('Vui lòng chọn người thực hiện')
+            return
+        }
+
+        try {
+            const payload = {
+                tenSubtask: editSubtaskForm.tenSubtask,
+                mota: editSubtaskForm.mota || null,
+                ngayBatDau: editSubtaskForm.ngayBatDau || null,
+                ngayKetThuc: editSubtaskForm.ngayKetThuc || null,
+                nguoiThucHienId: parseInt(editSubtaskForm.nguoiThucHienId),
+                ghiChu: editSubtaskForm.ghiChu || null
+            }
+
+            await api.put(`/tasks/${selectedTask.id}/subtasks/${editingSubtask.id}`, payload)
+            showSuccess('Cập nhật công việc con thành công!')
+            setShowEditSubtaskModal(false)
+            setEditingSubtask(null)
+            
+            // Reload tasks and update selected task
+            await loadTasks()
+            
+            if (selectedTask) {
+                try {
+                    const subtaskRes = await api.get(`/tasks/${selectedTask.id}/subtasks`)
+                    const updatedTask = {
+                        ...selectedTask,
+                        subtasks: subtaskRes.data.subtasks || subtaskRes.data || []
+                    }
+                    setSelectedTask(updatedTask)
+                } catch (error) {
+                    console.error('Error reloading subtasks:', error)
+                }
+            }
+        } catch (error: any) {
+            console.error('Update subtask error:', error)
+            showError(error.response?.data?.message || 'Lỗi khi cập nhật công việc con!')
+        }
+    }
+
+    const handleDeleteSubtask = async (subtaskId: number) => {
+        if (!selectedTask) return
+
+        const confirmed = await showConfirm('Bạn có chắc muốn xóa công việc con này?')
+        if (!confirmed) return
+
+        try {
+            await api.delete(`/tasks/${selectedTask.id}/subtasks/${subtaskId}`)
+            showSuccess('Xóa công việc con thành công!')
+            
+            // Reload tasks and update selected task
+            await loadTasks()
+            
+            if (selectedTask) {
+                try {
+                    const subtaskRes = await api.get(`/tasks/${selectedTask.id}/subtasks`)
+                    const updatedTask = {
+                        ...selectedTask,
+                        subtasks: subtaskRes.data.subtasks || subtaskRes.data || []
+                    }
+                    setSelectedTask(updatedTask)
+                } catch (error) {
+                    console.error('Error reloading subtasks:', error)
+                }
+            }
+        } catch (error: any) {
+            console.error('Delete subtask error:', error)
+            showError(error.response?.data?.message || 'Lỗi khi xóa công việc con!')
         }
     }
 
@@ -510,12 +790,32 @@ export default function TeamLeadTasksPage() {
                                                     {getPriorityLabel(task.mucDoUuTien)}
                                                 </span>
                                             )}
-                                            {task.nguoiThucHien && (
-                                                <span className="flex items-center gap-1.5 text-gray-700">
-                                                    <Users className="w-4 h-4" />
-                                                    {task.nguoiThucHien.hoten}
-                                                </span>
-                                            )}
+                                            {/* Hiển thị người thực hiện hoặc trạng thái chờ xác nhận */}
+                                            {(() => {
+                                                // Kiểm tra xem có assignment pending không
+                                                const hasPendingAssignment = task.assignments?.some(
+                                                    (a: any) => a.status === 'pending'
+                                                )
+                                                
+                                                if (hasPendingAssignment) {
+                                                    // Hiển thị trạng thái "Đang chờ xác nhận"
+                                                    return (
+                                                        <span className="flex items-center gap-1.5 px-3 py-1 bg-orange-50 text-orange-700 rounded-lg border border-orange-200">
+                                                            <Clock className="w-4 h-4" />
+                                                            Đang chờ xác nhận
+                                                        </span>
+                                                    )
+                                                } else if (task.nguoiThucHien) {
+                                                    // Hiển thị tên người thực hiện khi đã chấp nhận
+                                                    return (
+                                                        <span className="flex items-center gap-1.5 text-gray-700">
+                                                            <Users className="w-4 h-4" />
+                                                            {task.nguoiThucHien.hoten}
+                                                        </span>
+                                                    )
+                                                }
+                                                return null
+                                            })()}
                                             {task.duan && (
                                                 <span className="flex items-center gap-1.5 text-purple-700 bg-purple-50 px-2 py-1 rounded-lg">
                                                     <Building2 className="w-4 h-4" />
@@ -542,6 +842,13 @@ export default function TeamLeadTasksPage() {
                                             title="Xem chi tiết"
                                         >
                                             <Eye size={18} />
+                                        </button>
+                                        <button 
+                                            onClick={() => openEditTaskModal(task)}
+                                            className="p-2 hover:bg-yellow-100 text-yellow-600 rounded-lg transition-all"
+                                            title="Chỉnh sửa"
+                                        >
+                                            <Edit size={18} />
                                         </button>
                                         <button 
                                             onClick={() => handleDeleteTask(task.id)}
@@ -698,24 +1005,51 @@ export default function TeamLeadTasksPage() {
                                         </div>
                                     )}
 
-                                    {/* Assignee */}
-                                    {selectedTask.nguoiThucHien && (
-                                        <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
-                                            <label className="text-sm font-medium text-gray-500 mb-3 block flex items-center gap-2">
-                                                <Users className="w-4 h-4" />
-                                                Người thực hiện
-                                            </label>
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                                                    {selectedTask.nguoiThucHien.hoten.charAt(0)}
+                                    {/* Assignee - Hiển thị người thực hiện hoặc trạng thái chờ xác nhận */}
+                                    {(() => {
+                                        const hasPendingAssignment = selectedTask.assignments?.some(
+                                            (a: any) => a.status === 'pending'
+                                        )
+                                        
+                                        if (hasPendingAssignment) {
+                                            return (
+                                                <div className="bg-orange-50 p-4 rounded-xl border border-orange-200">
+                                                    <label className="text-sm font-medium text-gray-500 mb-3 block flex items-center gap-2">
+                                                        <Clock className="w-4 h-4" />
+                                                        Người thực hiện
+                                                    </label>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-orange-500 rounded-full flex items-center justify-center">
+                                                            <Clock className="w-6 h-6 text-white" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-semibold text-gray-900">Đang chờ xác nhận</p>
+                                                            <p className="text-sm text-gray-600">Đã gửi đến: {selectedTask.assignments?.find((a: any) => a.status === 'pending')?.assignedUser?.hoten || 'N/A'}</p>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <p className="font-semibold text-gray-900">{selectedTask.nguoiThucHien.hoten}</p>
-                                                    <p className="text-sm text-gray-500">Mã NV: {selectedTask.nguoiThucHien.manv}</p>
+                                            )
+                                        } else if (selectedTask.nguoiThucHien) {
+                                            return (
+                                                <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                                                    <label className="text-sm font-medium text-gray-500 mb-3 block flex items-center gap-2">
+                                                        <Users className="w-4 h-4" />
+                                                        Người thực hiện
+                                                    </label>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
+                                                            {selectedTask.nguoiThucHien.hoten.charAt(0)}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-semibold text-gray-900">{selectedTask.nguoiThucHien.hoten}</p>
+                                                            <p className="text-sm text-gray-500">Mã NV: {selectedTask.nguoiThucHien.manv}</p>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </div>
-                                    )}
+                                            )
+                                        }
+                                        return null
+                                    })()}
 
                                     {/* Subtasks Summary */}
                                     {selectedTask.subtasks && selectedTask.subtasks.length > 0 && (
@@ -775,18 +1109,6 @@ export default function TeamLeadTasksPage() {
                                     >
                                         <Eye className="w-5 h-5" />
                                         Xem danh sách subtask ({selectedTask.subtasks?.length || 0})
-                                    </button>
-                                )}
-                                {selectedTask && (
-                                    <button
-                                        onClick={() => {
-                                            closeModal()
-                                            openSubtaskModal(selectedTask)
-                                        }}
-                                        className="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all font-medium flex items-center gap-2"
-                                    >
-                                        <Plus className="w-4 h-4" />
-                                        Tạo công việc con
                                     </button>
                                 )}
                             </div>
@@ -877,19 +1199,26 @@ export default function TeamLeadTasksPage() {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">Người thực hiện</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Người thực hiện <span className="text-red-500">*</span>
+                                </label>
                                 <select
                                     value={subtaskFormData.nguoiThucHienId}
                                     onChange={(e) => setSubtaskFormData({...subtaskFormData, nguoiThucHienId: e.target.value})}
+                                    required
                                     className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 outline-none bg-white"
                                 >
-                                    <option value="">Tự nhận (mặc định)</option>
+                                    <option value="">Chọn người thực hiện...</option>
                                     {groupMembers.map(member => (
                                         <option key={member.id} value={String(member.id)}>
                                             {member.hoten} ({member.manv})
                                         </option>
                                     ))}
                                 </select>
+                                <p className="text-xs text-gray-500 mt-1.5 flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    Nhân viên sẽ nhận thông báo và cần chấp nhận công việc
+                                </p>
                             </div>
 
                             <div>
@@ -956,58 +1285,136 @@ export default function TeamLeadTasksPage() {
                         </div>
 
                         {/* Modal Body */}
-                        <div className="flex-1 overflow-y-auto p-6">
+                        <div className="flex-1 overflow-y-auto p-6 bg-gradient-to-br from-gray-50 to-blue-50">
                             {selectedTask.subtasks && selectedTask.subtasks.length > 0 ? (
-                                <div className="space-y-3">
+                                <div className="space-y-4">
                                     {selectedTask.subtasks.map((subtask: any, index: number) => (
                                         <div 
                                             key={subtask.id}
-                                            onClick={() => {
-                                                closeSubtaskListModal()
-                                                openSubtaskDetailModal(subtask)
-                                            }}
-                                            className="bg-white border-2 border-gray-200 rounded-xl p-4 hover:border-indigo-300 hover:shadow-md transition-all cursor-pointer"
+                                            className="group bg-white border-2 border-gray-200 rounded-2xl p-5 hover:border-indigo-400 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
                                         >
-                                            <div className="flex items-start justify-between">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-3 mb-2">
-                                                        <span className="text-xs font-bold text-gray-400">#{index + 1}</span>
-                                                        <h3 className="text-lg font-semibold text-gray-900">{subtask.tenSubtask}</h3>
+                                            <div className="flex items-start gap-4">
+                                                {/* Number Badge */}
+                                                <div className="flex-shrink-0">
+                                                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                                                        <span className="text-white font-bold text-lg">#{index + 1}</span>
                                                     </div>
+                                                </div>
+                                                
+                                                {/* Content */}
+                                                <div className="flex-1 min-w-0">
+                                                    {/* Title */}
+                                                    <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors">
+                                                        {subtask.tenSubtask}
+                                                    </h3>
+                                                    
+                                                    {/* Description */}
                                                     {subtask.mota && (
-                                                        <p className="text-sm text-gray-600 mb-3 line-clamp-2">{subtask.mota}</p>
+                                                        <p className="text-sm text-gray-600 mb-3 line-clamp-2 leading-relaxed">
+                                                            {subtask.mota}
+                                                        </p>
                                                     )}
-                                                    <div className="flex items-center gap-4 flex-wrap">
-                                                        <div className={`px-3 py-1 rounded-lg text-xs font-semibold ${
-                                                            subtask.trangThai === 'Hoàn thành' ? 'bg-green-100 text-green-700' :
-                                                            subtask.trangThai === 'Đang chạy' ? 'bg-blue-100 text-blue-700' :
-                                                            'bg-gray-100 text-gray-700'
+                                                    
+                                                    {/* Info Tags */}
+                                                    <div className="flex items-center gap-3 flex-wrap">
+                                                        {/* Status Badge */}
+                                                        <div className={`px-4 py-1.5 rounded-full text-xs font-bold shadow-sm ${
+                                                            subtask.trangThai === 'Hoàn thành' ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white' :
+                                                            subtask.trangThai === 'Đang chạy' ? 'bg-gradient-to-r from-blue-400 to-cyan-500 text-white' :
+                                                            subtask.trangThai === 'Chờ xác nhận hoàn thành' ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white' :
+                                                            'bg-gradient-to-r from-gray-300 to-gray-400 text-gray-700'
                                                         }`}>
                                                             {subtask.trangThai}
                                                         </div>
-                                                        {subtask.nguoiThucHien && (
-                                                            <div className="flex items-center gap-2 text-xs text-gray-600">
-                                                                <Users className="w-3 h-3" />
-                                                                <span>{subtask.nguoiThucHien.hoten}</span>
-                                                            </div>
-                                                        )}
+                                                        
+                                                        {/* Assignee - Kiểm tra assignment status */}
+                                                        {(() => {
+                                                            const hasPendingAssignment = subtask.assignments?.some(
+                                                                (a: any) => a.status === 'pending'
+                                                            )
+                                                            
+                                                            if (hasPendingAssignment) {
+                                                                return (
+                                                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-full border border-orange-200">
+                                                                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center">
+                                                                            <Clock className="w-3 h-3 text-white" />
+                                                                        </div>
+                                                                        <span className="text-xs font-semibold text-orange-700">Đang chờ xác nhận</span>
+                                                                    </div>
+                                                                )
+                                                            } else if (subtask.nguoiThucHien) {
+                                                                return (
+                                                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-full border border-blue-200">
+                                                                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                                                                            <Users className="w-3 h-3 text-white" />
+                                                                        </div>
+                                                                        <span className="text-xs font-semibold text-blue-700">{subtask.nguoiThucHien.hoten}</span>
+                                                                    </div>
+                                                                )
+                                                            }
+                                                            return null
+                                                        })()}
+                                                        
+                                                        {/* Due Date */}
                                                         {subtask.ngayKetThuc && (
-                                                            <div className="flex items-center gap-2 text-xs text-gray-600">
-                                                                <Calendar className="w-3 h-3" />
-                                                                <span>{new Date(subtask.ngayKetThuc).toLocaleDateString('vi-VN')}</span>
+                                                            <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-full border border-orange-200">
+                                                                <Calendar className="w-3 h-3 text-orange-600" />
+                                                                <span className="text-xs font-semibold text-orange-700">
+                                                                    {new Date(subtask.ngayKetThuc).toLocaleDateString('vi-VN', {
+                                                                        day: '2-digit',
+                                                                        month: '2-digit',
+                                                                        year: 'numeric'
+                                                                    })}
+                                                                </span>
                                                             </div>
                                                         )}
                                                     </div>
                                                 </div>
-                                                <Eye className="w-5 h-5 text-indigo-500 flex-shrink-0 ml-4" />
+                                                
+                                                {/* Action Buttons */}
+                                                <div className="flex-shrink-0 flex items-center gap-2">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            closeSubtaskListModal()
+                                                            openEditSubtaskModal(subtask)
+                                                        }}
+                                                        className="w-10 h-10 rounded-lg bg-yellow-50 flex items-center justify-center hover:bg-yellow-100 transition-colors group/edit"
+                                                        title="Chỉnh sửa"
+                                                    >
+                                                        <Edit className="w-5 h-5 text-yellow-600 group-hover/edit:scale-110 transition-transform" />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            handleDeleteSubtask(subtask.id)
+                                                        }}
+                                                        className="w-10 h-10 rounded-lg bg-red-50 flex items-center justify-center hover:bg-red-100 transition-colors group/delete"
+                                                        title="Xóa"
+                                                    >
+                                                        <Trash2 className="w-5 h-5 text-red-600 group-hover/delete:scale-110 transition-transform" />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            openSubtaskDetailModal(subtask)
+                                                        }}
+                                                        className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center hover:bg-indigo-100 transition-colors group/view"
+                                                    >
+                                                        <Eye className="w-5 h-5 text-indigo-500 group-hover/view:scale-110 transition-transform" />
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
                             ) : (
-                                <div className="text-center py-12">
-                                    <CheckCircle2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                                    <p className="text-gray-500">Chưa có công việc con nào</p>
+                                <div className="text-center py-16">
+                                    <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                                        <CheckCircle2 className="w-12 h-12 text-gray-400" />
+                                    </div>
+                                    <h3 className="text-lg font-semibold text-gray-700 mb-2">Chưa có công việc con</h3>
+                                    <p className="text-sm text-gray-500">Hãy tạo công việc con để bắt đầu làm việc</p>
                                 </div>
                             )}
                         </div>
@@ -1024,12 +1431,26 @@ export default function TeamLeadTasksPage() {
                                 <ArrowLeft className="w-4 h-4" />
                                 Quay lại
                             </button>
-                            <button
-                                onClick={closeSubtaskListModal}
-                                className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
-                            >
-                                Đóng
-                            </button>
+                            <div className="flex gap-3">
+                                {selectedTask && (
+                                    <button
+                                        onClick={() => {
+                                            closeSubtaskListModal()
+                                            openSubtaskModal(selectedTask)
+                                        }}
+                                        className="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all font-medium flex items-center gap-2 shadow-lg"
+                                    >
+                                        <Plus className="w-5 h-5" />
+                                        Tạo công việc con
+                                    </button>
+                                )}
+                                <button
+                                    onClick={closeSubtaskListModal}
+                                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                                >
+                                    Đóng
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1119,12 +1540,16 @@ export default function TeamLeadTasksPage() {
                             </div>
 
                             {/* Assignee */}
-                            {selectedSubtask.nguoiThucHien && (
-                                <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
-                                    <label className="text-sm font-medium text-gray-500 mb-3 block flex items-center gap-2">
-                                        <Users className="w-4 h-4" />
-                                        Người thực hiện
-                                    </label>
+                            <div className={`p-4 rounded-xl border ${
+                                selectedSubtask.nguoiThucHien 
+                                    ? 'bg-blue-50 border-blue-200' 
+                                    : 'bg-yellow-50 border-yellow-300'
+                            }`}>
+                                <label className="text-sm font-medium text-gray-500 mb-3 block flex items-center gap-2">
+                                    <Users className="w-4 h-4" />
+                                    Người thực hiện
+                                </label>
+                                {selectedSubtask.nguoiThucHien ? (
                                     <div className="flex items-center gap-3">
                                         <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
                                             {selectedSubtask.nguoiThucHien.hoten.charAt(0)}
@@ -1134,8 +1559,18 @@ export default function TeamLeadTasksPage() {
                                             <p className="text-sm text-gray-500">Mã NV: {selectedSubtask.nguoiThucHien.manv}</p>
                                         </div>
                                     </div>
-                                </div>
-                            )}
+                                ) : (
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-12 h-12 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
+                                            <Clock className="w-6 h-6 text-white" />
+                                        </div>
+                                        <div>
+                                            <p className="font-semibold text-gray-900">Chờ xác nhận</p>
+                                            <p className="text-sm text-gray-600">Đang chờ nhân viên chấp nhận công việc</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
 
                             {/* Notes */}
                             {selectedSubtask.ghiChu && (
@@ -1175,6 +1610,254 @@ export default function TeamLeadTasksPage() {
                                 Đóng
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Task Modal */}
+            {showEditTaskModal && editingTask && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+                        {/* Modal Header */}
+                        <div className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white p-6 flex items-center justify-between">
+                            <div>
+                                <h2 className="text-2xl font-bold">Chỉnh sửa công việc</h2>
+                                <p className="text-yellow-100 text-sm mt-1">Cập nhật thông tin công việc</p>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setShowEditTaskModal(false)
+                                    setEditingTask(null)
+                                }}
+                                className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <form onSubmit={handleUpdateTask} className="flex-1 overflow-y-auto p-6 space-y-5">
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Tên công việc *
+                                </label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={editTaskForm.name}
+                                    onChange={(e) => setEditTaskForm({ ...editTaskForm, name: e.target.value })}
+                                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-all"
+                                    placeholder="Nhập tên công việc"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Mô tả
+                                </label>
+                                <textarea
+                                    value={editTaskForm.description}
+                                    onChange={(e) => setEditTaskForm({ ...editTaskForm, description: e.target.value })}
+                                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-all resize-none"
+                                    placeholder="Mô tả công việc"
+                                    rows={4}
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Ngày bắt đầu
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={editTaskForm.startDate}
+                                        onChange={(e) => setEditTaskForm({ ...editTaskForm, startDate: e.target.value })}
+                                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-all"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Ngày kết thúc
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={editTaskForm.dueDate}
+                                        onChange={(e) => setEditTaskForm({ ...editTaskForm, dueDate: e.target.value })}
+                                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-all"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Độ ưu tiên *
+                                </label>
+                                <select
+                                    required
+                                    value={editTaskForm.priority}
+                                    onChange={(e) => setEditTaskForm({ ...editTaskForm, priority: e.target.value })}
+                                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-500 transition-all"
+                                >
+                                    <option value="low">Thấp</option>
+                                    <option value="medium">Trung bình</option>
+                                    <option value="high">Cao</option>
+                                </select>
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowEditTaskModal(false)
+                                        setEditingTask(null)
+                                    }}
+                                    className="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-xl font-semibold hover:bg-gray-300 transition-all"
+                                >
+                                    Hủy
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="flex-1 px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-xl font-semibold hover:shadow-lg hover:from-yellow-600 hover:to-orange-600 transition-all"
+                                >
+                                    Lưu thay đổi
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Subtask Modal */}
+            {showEditSubtaskModal && editingSubtask && (
+                <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                        <form onSubmit={handleUpdateSubtask}>
+                            {/* Modal Header */}
+                            <div className="border-b border-gray-200 p-6 bg-gradient-to-r from-yellow-50 to-orange-50">
+                                <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                                    <Edit className="w-7 h-7 text-yellow-600" />
+                                    Chỉnh sửa công việc con
+                                </h2>
+                            </div>
+
+                            {/* Modal Body */}
+                            <div className="p-6 space-y-5">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Tên công việc con <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={editSubtaskForm.tenSubtask}
+                                        onChange={(e) => setEditSubtaskForm({...editSubtaskForm, tenSubtask: e.target.value})}
+                                        className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none transition-all"
+                                        placeholder="Nhập tên công việc con..."
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả</label>
+                                    <textarea
+                                        value={editSubtaskForm.mota}
+                                        onChange={(e) => setEditSubtaskForm({...editSubtaskForm, mota: e.target.value})}
+                                        rows={3}
+                                        className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none transition-all resize-none"
+                                        placeholder="Nhập mô tả công việc..."
+                                    />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Ngày bắt đầu</label>
+                                        <input
+                                            type="date"
+                                            value={editSubtaskForm.ngayBatDau}
+                                            onChange={(e) => setEditSubtaskForm({...editSubtaskForm, ngayBatDau: e.target.value})}
+                                            className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none transition-all"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Ngày kết thúc</label>
+                                        <input
+                                            type="date"
+                                            value={editSubtaskForm.ngayKetThuc}
+                                            onChange={(e) => setEditSubtaskForm({...editSubtaskForm, ngayKetThuc: e.target.value})}
+                                            className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none transition-all"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Người thực hiện <span className="text-red-500">*</span>
+                                    </label>
+                                    <select
+                                        value={editSubtaskForm.nguoiThucHienId}
+                                        onChange={(e) => setEditSubtaskForm({...editSubtaskForm, nguoiThucHienId: e.target.value})}
+                                        className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none transition-all"
+                                        required
+                                    >
+                                        <option value="">-- Chọn người thực hiện --</option>
+                                        {groupMembers.map((member: any) => (
+                                            <option key={member.id} value={String(member.id)}>
+                                                {member.hoten} ({member.manv})
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-gray-500 mt-1.5 flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        Nhân viên sẽ nhận thông báo nếu thay đổi người thực hiện
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Ghi chú</label>
+                                    <textarea
+                                        value={editSubtaskForm.ghiChu}
+                                        onChange={(e) => setEditSubtaskForm({...editSubtaskForm, ghiChu: e.target.value})}
+                                        rows={2}
+                                        className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none transition-all resize-none"
+                                        placeholder="Nhập ghi chú..."
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div className="border-t border-gray-200 p-4 bg-gray-50 flex justify-between gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowEditSubtaskModal(false)
+                                        setEditingSubtask(null)
+                                        setShowSubtaskListModal(true)
+                                    }}
+                                    className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium flex items-center gap-2"
+                                >
+                                    <ArrowLeft className="w-4 h-4" />
+                                    Quay lại
+                                </button>
+                                <div className="flex gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setShowEditSubtaskModal(false)
+                                            setEditingSubtask(null)
+                                        }}
+                                        className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                                    >
+                                        Hủy
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="px-6 py-2 bg-gradient-to-r from-yellow-500 to-orange-600 text-white rounded-lg hover:from-yellow-600 hover:to-orange-700 transition-all font-medium"
+                                    >
+                                        Lưu thay đổi
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}

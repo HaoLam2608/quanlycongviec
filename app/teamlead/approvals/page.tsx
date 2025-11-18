@@ -8,6 +8,7 @@ import { showConfirm } from '@/lib/notifications'
 interface PendingSubtask {
     id: number
     ten: string
+    tenSubtask?: string
     trangThai: string
     ngayKetThuc?: string
     ngayBatDau?: string
@@ -22,6 +23,7 @@ export default function TeamLeadApprovalsPage() {
     const [pendingSubtasks, setPendingSubtasks] = useState<PendingSubtask[]>([])
     const [loading, setLoading] = useState(true)
     const [processingId, setProcessingId] = useState<number | null>(null)
+    const [infoMessage, setInfoMessage] = useState<string | null>(null)
 
     useEffect(() => {
         loadPendingApprovals()
@@ -31,13 +33,26 @@ export default function TeamLeadApprovalsPage() {
         setLoading(true)
         try {
             const res = await api.get('/approvals/pending')
-            const subtasks = res.data.subtasks || res.data || []
-            // Ensure it's an array
-            setPendingSubtasks(Array.isArray(subtasks) ? subtasks : [])
+            const dataWrapper = res.data?.data ?? res.data ?? {}
+            const rawSubtasks = Array.isArray(dataWrapper.subtasks) ? dataWrapper.subtasks : []
+
+            const normalizedSubtasks: PendingSubtask[] = rawSubtasks.map((item: any) => ({
+                ...item,
+                ten: item.ten || item.tenSubtask || item.tensubtask || 'Chưa đặt tên',
+                trangThai: item.trangThai || item.status || 'Không rõ',
+                task: item.task ? {
+                    ...item.task,
+                    tentask: item.task.tentask || item.task.tenTask || item.task.name || 'Chưa đặt tên'
+                } : undefined
+            }))
+
+            setPendingSubtasks(normalizedSubtasks)
+            setInfoMessage(res.data?.message || null)
         } catch (error: any) {
             console.error('Load approvals error:', error)
             showError(error.response?.data?.message || 'Lỗi tải danh sách phê duyệt')
             setPendingSubtasks([]) // Set empty array on error
+            setInfoMessage(null)
         } finally {
             setLoading(false)
         }
@@ -93,6 +108,9 @@ export default function TeamLeadApprovalsPage() {
                             <p className="text-sm text-gray-500 mt-0.5">
                                 {pendingSubtasks.length} công việc đang chờ phê duyệt
                             </p>
+                            {infoMessage && (
+                                <p className="text-xs text-amber-600 mt-1">{infoMessage}</p>
+                            )}
                         </div>
                     </div>
                     <button
