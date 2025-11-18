@@ -104,9 +104,9 @@ exports.createSubtask = async (req, res) => {
             reqUserId: req.user && req.user.id
         });
 
-        // Ensure we never insert a NULL into nguoiThucHienId when DB still enforces NOT NULL.
-        // Prefer initialAssigneeId when set; otherwise fallback to creator (self-assign).
-        const safeAssigneeId = initialAssigneeId != null ? initialAssigneeId : (req.user && req.user.id ? req.user.id : null);
+        // If assigning to someone else, keep nguoiThucHienId as null until they accept
+        // Only set assignee if they are self-assigning or no assignee specified
+        const safeAssigneeId = initialAssigneeId;
 
         const newSubtask = await Subtask.create({
             tenSubtask,
