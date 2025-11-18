@@ -13,8 +13,8 @@ const {
 // All approval routes require authentication
 router.use(authenticateToken);
 
-// Middleware to check if user is admin or manager
-const checkAdminOrManager = async (req, res, next) => {
+// Middleware to check if user is admin, manager, or teamleader
+const checkApprovalPermission = async (req, res, next) => {
     const { User, Role } = require('../models');
     try {
         const user = await User.findByPk(req.user.id, {
@@ -26,20 +26,20 @@ const checkAdminOrManager = async (req, res, next) => {
         }
         
         const roleName = user.role.name;
-        if (roleName !== 'admin' && roleName !== 'manager') {
-            return res.status(403).json({ message: 'Chỉ Admin hoặc Manager mới có quyền phê duyệt' });
+        if (roleName !== 'admin' && roleName !== 'manager' && roleName !== 'teamleader') {
+            return res.status(403).json({ message: 'Chỉ Admin, Manager hoặc Team Leader mới có quyền phê duyệt' });
         }
         
         req.user = user; // Update req.user with full user info
-        next();
+        next()
     } catch (error) {
-        console.error('checkAdminOrManager error:', error);
+        console.error('checkApprovalPermission error:', error);
         return res.status(500).json({ message: 'Lỗi hệ thống' });
     }
 };
 
-// Get pending approvals (admin and manager only)
-router.get('/pending', checkAdminOrManager, getPendingApprovals);
+// Get pending approvals (admin, manager, and teamleader)
+router.get('/pending', checkApprovalPermission, getPendingApprovals);
 
 // Approve/reject task completion
 router.post('/tasks/:taskId/approve', approveTaskCompletion);

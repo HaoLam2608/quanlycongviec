@@ -5,6 +5,7 @@ module.exports = (sequelize, DataTypes) => {
         static associate(models) {
             Document.belongsTo(models.DuAn, { foreignKey: 'duanId', as: 'duan' });
             Document.belongsTo(models.User, { foreignKey: 'userId', as: 'uploader' });
+            Document.belongsTo(models.Group, { foreignKey: 'groupId', as: 'group' });
         }
     }
     Document.init(
@@ -16,6 +17,7 @@ module.exports = (sequelize, DataTypes) => {
             data: DataTypes.BLOB('long'),
             duanId: DataTypes.INTEGER,
             userId: DataTypes.INTEGER,
+            groupId: DataTypes.INTEGER,
             description: DataTypes.TEXT,
         },
         {

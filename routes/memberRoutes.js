@@ -10,7 +10,8 @@ const {
     getMemberTasks,
     getMemberProjects,
     updateMemberTaskStatus,
-    updateMemberSubtaskStatus
+    updateMemberSubtaskStatus,
+    getTeamPerformance
 } = require('../controllers/memberController');
 
 // Apply authentication middleware to all routes
@@ -44,5 +45,8 @@ router.patch('/tasks/:taskId/subtasks/:subtaskId/status', updateMemberSubtaskSta
 
 // Project endpoints
 router.get('/projects', getMemberProjects);
+
+// Team performance (for teamleads)
+router.get('/performance', getTeamPerformance);
 
 module.exports = router;

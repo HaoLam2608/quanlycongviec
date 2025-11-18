@@ -435,3 +435,122 @@ exports.completeProject = async (req, res) => {
         res.status(500).json({ message: 'Lỗi server' });
     }
 };
+
+// Get my groups (for teamleader) - supports multiple groups
+exports.getMyGroup = async (req, res) => {
+    try {
+        console.log('🔍 getMyGroup called by user:', req.user);
+        
+        // Tìm tất cả nhóm mà user là leader (bao gồm cả active và closed)
+        const groups = await Group.findAll({
+            where: { leaderId: req.user.id },
+            include: [
+                {
+                    model: User,
+                    as: 'leader',
+                    attributes: ['id', 'hoten', 'manv', 'email', 'sdt', 'chucvu']
+                },
+                {
+                    model: User,
+                    as: 'members',
+                    attributes: ['id', 'hoten', 'manv', 'email', 'sdt', 'chucvu'],
+                    through: { attributes: [] }
+                },
+                {
+                    model: require('../models').GroupProject,
+                    as: 'groupProjects',
+                    required: false,
+                    include: [{
+                        model: DuAn,
+                        as: 'project',
+                        attributes: ['id', 'tenduan', 'moTa', 'status']
+                    }]
+                }
+            ],
+            order: [
+                ['status', 'DESC'], // active trước, closed sau
+                ['createdAt', 'DESC']
+            ]
+        });
+
+        if (groups.length === 0) {
+            return res.status(404).json({ message: 'Bạn chưa được gán làm trưởng nhóm nào' });
+        }
+
+        const activeGroups = groups.filter(g => g.status === 'active');
+        const closedGroups = groups.filter(g => g.status === 'closed');
+
+        console.log(`✅ Found ${groups.length} groups for teamleader (${activeGroups.length} active, ${closedGroups.length} closed)`);
+        res.json({ 
+            groups,
+            activeGroups,
+            closedGroups,
+            // Backward compatibility: trả về nhóm active đầu tiên nếu có
+            group: activeGroups[0] || groups[0]
+        });
+    } catch (error) {
+        console.error('❌ getMyGroup error:', error);
+        res.status(500).json({ message: 'Lỗi server', error: error.message });
+    }
+};
+
+// Get group projects (for teamleader) - Lấy danh sách dự án của nhóm
+exports.getGroupProjects = async (req, res) => {
+    try {
+        console.log('🔍 getGroupProjects called by user:', req.user.id);
+        
+        // Tìm tất cả nhóm mà user là leader
+        const groups = await Group.findAll({
+            where: { leaderId: req.user.id },
+            attributes: ['id', 'name', 'status']
+        });
+
+        if (groups.length === 0) {
+            return res.status(404).json({ message: 'Bạn chưa được gán làm trưởng nhóm nào' });
+        }
+
+        const groupIds = groups.map(g => g.id);
+        const { GroupProject } = require('../models');
+
+        // Lấy tất cả dự án của các nhóm (cả active và completed)
+        const groupProjects = await GroupProject.findAll({
+            where: { groupId: groupIds },
+            include: [
+                {
+                    model: DuAn,
+                    as: 'project',
+                    attributes: ['id', 'tenduan', 'mota', 'ngaybatdau', 'ngayketthuc', 'status'],
+                    include: [{
+                        model: User,
+                        as: 'nguoiDamNhan',
+                        attributes: ['id', 'hoten', 'manv', 'email']
+                    }]
+                },
+                {
+                    model: Group,
+                    attributes: ['id', 'name', 'status']
+                }
+            ],
+            order: [
+                ['status', 'DESC'], // active trước
+                ['createdAt', 'DESC']
+            ]
+        });
+
+        // Phân loại dự án
+        const activeProjects = groupProjects.filter(gp => gp.status === 'active');
+        const completedProjects = groupProjects.filter(gp => gp.status === 'completed');
+
+        console.log(`✅ Found ${groupProjects.length} projects (${activeProjects.length} active, ${completedProjects.length} completed)`);
+        
+        res.json({
+            projects: groupProjects,
+            activeProjects,
+            completedProjects,
+            groups
+        });
+    } catch (error) {
+        console.error('❌ getGroupProjects error:', error);
+        res.status(500).json({ message: 'Lỗi server', error: error.message });
+    }
+};

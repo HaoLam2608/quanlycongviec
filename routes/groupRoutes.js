@@ -14,9 +14,16 @@ router.post('/add-to-project', authenticateToken, checkPermission('groups', 'upd
 // Xóa nhóm khỏi dự án (group_projects)
 router.post('/remove-from-project', authenticateToken, checkPermission('groups', 'update'), groupController.removeGroupFromProject);
 
+// Get my group (for teamleader) - must be BEFORE /:id
+router.get('/my-group', authenticateToken, groupController.getMyGroup);
+
+// Get group projects (for teamleader)
+router.get('/my-projects', authenticateToken, groupController.getGroupProjects);
+
 // CRUD groups
 router.get('/', authenticateToken, checkPermission('groups', 'read'), groupController.getGroups);
 router.get('/:id', authenticateToken, checkPermission('groups', 'read'), groupController.getGroup);
+
 router.post('/', authenticateToken, checkPermission('groups', 'create'), groupController.createGroup);
 router.put('/:id', authenticateToken, checkPermission('groups', 'update'), groupController.updateGroup);
 // Xóa nhóm (vĩnh viễn)

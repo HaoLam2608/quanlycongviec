@@ -16,17 +16,26 @@ module.exports = {
         const teamleaderId = roles[0].id;
         
         // Get permissions that teamleader should have
-        // Teamleader can manage their group, subtasks, approve subtasks, and view reports
+        // Teamleader can manage their group, tasks, subtasks, approve worklogs, manage documents, view performance
         const permissionNames = [
-            'groups:read',      // Xem nhóm
-            'tasks:read',       // Xem tasks
-            'tasks:update',     // Cập nhật tasks (cần cho approve)
-            'subtasks:read',    // Xem subtasks
-            'subtasks:update',  // Cập nhật subtasks (cần cho approve)
-            'projects:read',    // Xem projects
-            'reports:read',     // Xem reports
-            'approvals:read',   // Xem approvals
-            'approvals:create'  // Tạo approvals (phê duyệt)
+            'groups:read',        // Xem nhóm
+            'tasks:read',         // Xem tasks
+            'tasks:create',       // Tạo tasks
+            'tasks:update',       // Cập nhật tasks
+            'subtasks:read',      // Xem subtasks
+            'subtasks:create',    // Tạo subtasks
+            'subtasks:update',    // Cập nhật subtasks
+            'subtasks:delete',    // Xóa subtasks
+            'projects:read',      // Xem projects
+            'reports:read',       // Xem reports
+            'approvals:read',     // Xem approvals
+            'approvals:create',   // Tạo approvals (phê duyệt)
+            'worklogs:read',      // Xem worklogs
+            'worklogs:approve',   // Duyệt worklogs
+            'documents:read',     // Xem tài liệu
+            'documents:create',   // Tải lên tài liệu
+            'documents:delete',   // Xóa tài liệu
+            'members:read'        // Xem thông tin thành viên (cho performance)
         ];
         
         const permissions = await queryInterface.sequelize.query(
@@ -41,6 +50,12 @@ module.exports = {
         
         console.log(`✅ Found ${permissions.length} permissions for teamleader`);
         
+        // Remove existing role-permission mappings for teamleader
+        await queryInterface.sequelize.query(
+            `DELETE FROM RolePermissions WHERE roleId = ${teamleaderId}`,
+            { type: QueryTypes.DELETE }
+        );
+        
         const now = new Date();
         const rolePermissions = permissions.map(p => ({
             roleId: teamleaderId,
@@ -49,23 +64,22 @@ module.exports = {
             updatedAt: now
         }));
         
-        // Delete existing permissions for teamleader
-        await queryInterface.bulkDelete('RolePermissions', { roleId: teamleaderId });
-        
-        // Insert new permissions
         await queryInterface.bulkInsert('RolePermissions', rolePermissions);
-        
         console.log(`✅ Assigned ${rolePermissions.length} permissions to teamleader role`);
     },
-    
+
     async down(queryInterface, Sequelize) {
         const roles = await queryInterface.sequelize.query(
             "SELECT id FROM Roles WHERE name = 'teamleader'",
             { type: QueryTypes.SELECT }
         );
         
-        if (roles.length) {
-            await queryInterface.bulkDelete('RolePermissions', { roleId: roles[0].id });
-        }
+        if (!roles.length) return;
+        
+        const teamleaderId = roles[0].id;
+        await queryInterface.sequelize.query(
+            `DELETE FROM RolePermissions WHERE roleId = ${teamleaderId}`,
+            { type: QueryTypes.DELETE }
+        );
     }
 };

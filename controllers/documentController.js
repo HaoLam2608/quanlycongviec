@@ -80,3 +80,61 @@ exports.downloadDocument = async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 };
+
+// Get documents for teamlead's group
+exports.getGroupDocuments = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        // Find groups where user is leader
+        const { Group } = require('../models');
+        const groups = await Group.findAll({
+            where: { leaderId: userId },
+            attributes: ['id']
+        });
+
+        if (!groups || groups.length === 0) {
+            return res.json({ documents: [] });
+        }
+
+        const groupIds = groups.map(g => g.id);
+
+        // Get all documents for these groups
+        const documents = await Document.findAll({
+            where: { 
+                groupId: groupIds 
+            },
+            include: [
+                { 
+                    model: User, 
+                    as: 'uploader', 
+                    attributes: ['id', 'manv', 'hoten'] 
+                },
+                {
+                    model: Group,
+                    as: 'group',
+                    attributes: ['id', 'name']
+                }
+            ],
+            order: [['createdAt', 'DESC']]
+        });
+
+        // Transform to match frontend interface
+        const result = documents.map(doc => ({
+            id: doc.id,
+            tenTaiLieu: doc.originalname,
+            moTa: doc.description,
+            duongDan: doc.filename,
+            kichThuoc: doc.size,
+            loaiTaiLieu: doc.mimetype,
+            uploadedBy: doc.uploader,
+            createdAt: doc.createdAt
+        }));
+
+        res.json({ documents: result });
+    } catch (err) {
+        console.error('Get group documents error:', err);
+        console.error('Error details:', err.stack);
+        res.status(500).json({ error: err.message, details: err.stack });
+    }
+};

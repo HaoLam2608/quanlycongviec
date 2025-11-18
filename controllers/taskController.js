@@ -308,15 +308,42 @@ exports.updateTask = async (req, res) => {
         const { id } = req.params;
         const updateData = req.body;
 
-        const task = await Task.findByPk(id);
+        const task = await Task.findByPk(id, {
+            include: [{
+                model: DuAn,
+                as: 'duan',
+                attributes: ['id', 'userId'] // userId là manager của dự án
+            }]
+        });
+        
         if (!task) {
             return res.status(404).json({ error: 'Không tìm thấy công việc' });
         }
 
-        // Kiểm tra quyền cập nhật (chỉ người tạo hoặc người được giao mới được cập nhật)
-        if (task.nguoiGiaoId !== req.user.id && task.nguoiDuocGiaoId !== req.user.id) {
+        console.log('🔍 [updateTask] Checking permissions:', {
+            taskId: id,
+            userId: req.user.id,
+            userRole: req.user.role?.name,
+            nguoiGiaoId: task.nguoiGiaoId,
+            nguoiDuocGiaoId: task.nguoiDuocGiaoId,
+            projectManagerId: task.duan?.userId
+        });
+
+        // Kiểm tra quyền cập nhật:
+        // 1. Người tạo task (nguoiGiaoId)
+        // 2. Người được giao task (nguoiDuocGiaoId)
+        // 3. Manager của dự án chứa task này
+        // 4. Admin (đã được kiểm tra ở middleware checkPermission)
+        const isTaskCreator = task.nguoiGiaoId === req.user.id;
+        const isTaskAssignee = task.nguoiDuocGiaoId === req.user.id;
+        const isProjectManager = task.duan && task.duan.userId === req.user.id;
+        
+        if (!isTaskCreator && !isTaskAssignee && !isProjectManager) {
+            console.log('❌ [updateTask] Permission denied');
             return res.status(403).json({ error: 'Không có quyền cập nhật công việc này' });
         }
+
+        console.log('✅ [updateTask] Permission granted');
 
         // Tự động cập nhật ngày hoàn thành khi trạng thái là "Hoàn thành"
         if (updateData.trangThai === 'Hoàn thành' && !updateData.ngayHoanThanh) {
@@ -360,6 +387,7 @@ exports.updateTask = async (req, res) => {
             ]
         });
 
+        console.log('✅ [updateTask] Task updated successfully');
         res.json({
             message: 'Cập nhật công việc thành công',
             task: updatedTask

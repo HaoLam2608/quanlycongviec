@@ -11,8 +11,9 @@ router.post('/upload', authenticateToken, (req, res, next) => {
         next();
     });
 }, documentController.uploadDocument);
+router.get('/group-documents', authenticateToken, documentController.getGroupDocuments);
 router.get('/list', authenticateToken, documentController.listDocuments);
-router.get('/download/:id', authenticateToken, documentController.downloadDocument);
-router.delete('/delete/:id', authenticateToken, documentController.deleteDocument);
+router.get('/:id/download', authenticateToken, documentController.downloadDocument);
+router.delete('/:id', authenticateToken, documentController.deleteDocument);
 
 module.exports = router;

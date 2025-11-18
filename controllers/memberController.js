@@ -902,6 +902,200 @@ const updateMemberSubtaskStatus = async (req, res) => {
     }
 };
 
+// Get team members performance for teamlead
+const getTeamPerformance = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        console.log('Getting team performance for user:', userId);
+        
+        // Find groups where user is leader
+        const db = require('../models');
+        const Group = db.Group;
+        
+        const groups = await Group.findAll({
+            where: { leaderId: userId },
+            include: [{
+                model: User,
+                as: 'members',
+                through: { attributes: [] },
+                attributes: ['id', 'hoten', 'manv']
+            }]
+        });
+
+        console.log('Found groups:', groups.length);
+
+        if (!groups || groups.length === 0) {
+            console.log('No groups found for this teamlead');
+            return res.json({ members: [] });
+        }
+
+        // Get all unique member IDs from all groups
+        const memberIds = new Set();
+        groups.forEach(group => {
+            if (group.members && Array.isArray(group.members)) {
+                group.members.forEach(member => memberIds.add(member.id));
+            }
+        });
+
+        const memberIdsArray = Array.from(memberIds);
+        console.log('Found members:', memberIdsArray.length);
+
+        if (memberIdsArray.length === 0) {
+            return res.json({ members: [] });
+        }
+
+        // Calculate performance for each member
+        const membersPerformance = await Promise.all(memberIdsArray.map(async (memberId) => {
+            try {
+                const user = await User.findByPk(memberId, {
+                    attributes: ['id', 'hoten', 'manv']
+                });
+
+                if (!user) return null;
+
+                // Get tasks stats
+                const totalTasks = await Subtask.count({
+                    where: { nguoiThucHienId: memberId }
+                });
+
+                const completedTasks = await Subtask.count({
+                    where: {
+                        nguoiThucHienId: memberId,
+                        trangThai: 'Hoàn thành'
+                    }
+                });
+
+                const pendingTasks = await Subtask.count({
+                    where: {
+                        nguoiThucHienId: memberId,
+                        trangThai: { [Op.in]: ['Chưa làm', 'Đang làm'] }
+                    }
+                });
+
+                // Get worklogs stats
+                const worklogs = await Worklog.findAll({
+                    where: {
+                        userId: memberId,
+                        trangThai: 'approved'
+                    },
+                    attributes: ['gioLam']
+                });
+                const totalHours = worklogs.reduce((sum, w) => sum + (w.gioLam || 0), 0);
+
+                // Get subtasks by priority
+                const highPriorityTasks = await Subtask.count({
+                    where: {
+                        nguoiThucHienId: memberId,
+                        mucDoUuTien: 'Cao'
+                    }
+                });
+
+                const mediumPriorityTasks = await Subtask.count({
+                    where: {
+                        nguoiThucHienId: memberId,
+                        mucDoUuTien: 'Trung bình'
+                    }
+                });
+
+                const lowPriorityTasks = await Subtask.count({
+                    where: {
+                        nguoiThucHienId: memberId,
+                        mucDoUuTien: 'Thấp'
+                    }
+                });
+
+                // Calculate average completion time
+                const completedSubtasks = await Subtask.findAll({
+                    where: {
+                        nguoiThucHienId: memberId,
+                        trangThai: 'Hoàn thành'
+                    },
+                    attributes: ['createdAt', 'updatedAt'],
+                    limit: 10,
+                    order: [['updatedAt', 'DESC']]
+                });
+
+                let averageCompletionTime = 0;
+                if (completedSubtasks.length > 0) {
+                    const totalTime = completedSubtasks.reduce((sum, task) => {
+                        const diff = new Date(task.updatedAt) - new Date(task.createdAt);
+                        return sum + (diff / (1000 * 60 * 60)); // Convert to hours
+                    }, 0);
+                    averageCompletionTime = Math.round(totalTime / completedSubtasks.length);
+                }
+
+                // Calculate quality score
+                const qualityScore = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+                // Calculate on-time rate
+                const tasksWithDeadline = await Subtask.findAll({
+                    where: {
+                        nguoiThucHienId: memberId,
+                        trangThai: 'Hoàn thành',
+                        ngayKetThuc: { [Op.ne]: null }
+                    },
+                    attributes: ['ngayKetThuc', 'updatedAt']
+                });
+
+                let onTimeCount = 0;
+                tasksWithDeadline.forEach(task => {
+                    if (new Date(task.updatedAt) <= new Date(task.ngayKetThuc)) {
+                        onTimeCount++;
+                    }
+                });
+                const onTimeRate = tasksWithDeadline.length > 0 
+                    ? Math.round((onTimeCount / tasksWithDeadline.length) * 100) 
+                    : 100;
+
+                // Get recent activity
+                const recentActivity = await Subtask.findAll({
+                    where: { nguoiThucHienId: memberId },
+                    order: [['updatedAt', 'DESC']],
+                    limit: 5,
+                    attributes: ['id', 'ten', 'trangThai', 'updatedAt']
+                });
+
+                return {
+                    userId: user.id,
+                    hoten: user.hoten,
+                    manv: user.manv,
+                    totalTasks,
+                    completedTasks,
+                    pendingTasks,
+                    totalHours,
+                    averageCompletionTime,
+                    qualityScore,
+                    onTimeRate,
+                    tasksByPriority: {
+                        high: highPriorityTasks,
+                        medium: mediumPriorityTasks,
+                        low: lowPriorityTasks
+                    },
+                    recentActivity: recentActivity.map(activity => ({
+                        date: activity.updatedAt,
+                        type: 'subtask',
+                        description: `${activity.ten} - ${activity.trangThai}`
+                    }))
+                };
+            } catch (memberErr) {
+                console.error(`Error processing member ${memberId}:`, memberErr);
+                return null;
+            }
+        }));
+
+        // Filter out nulls
+        const validMembers = membersPerformance.filter(m => m !== null);
+
+        console.log('Returning performance data for', validMembers.length, 'members');
+        res.json({ members: validMembers });
+    } catch (err) {
+        console.error('Get team performance error:', err);
+        console.error('Error stack:', err.stack);
+        res.status(500).json({ error: err.message, stack: process.env.NODE_ENV === 'development' ? err.stack : undefined });
+    }
+};
+
 module.exports = {
     getMemberStats,
     getTodayTasks,
@@ -911,5 +1105,6 @@ module.exports = {
     getMemberTasks,
     getMemberProjects,
     updateMemberTaskStatus,
-    updateMemberSubtaskStatus
+    updateMemberSubtaskStatus,
+    getTeamPerformance
 };

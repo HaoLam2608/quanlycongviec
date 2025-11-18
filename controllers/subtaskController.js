@@ -299,7 +299,12 @@ exports.updateSubtask = async (req, res) => {
             include: [{
                 model: Task,
                 as: 'task',
-                attributes: ['nguoiGiaoId', 'nguoiDuocGiaoId']
+                attributes: ['nguoiGiaoId', 'nguoiDuocGiaoId', 'duanId'],
+                include: [{
+                    model: DuAn,
+                    as: 'duan',
+                    attributes: ['id', 'userId'] // userId là manager của dự án
+                }]
             }]
         });
 
@@ -307,14 +312,35 @@ exports.updateSubtask = async (req, res) => {
             return res.status(404).json({ error: 'Không tìm thấy công việc nhỏ' });
         }
 
-        // Kiểm tra quyền cập nhật (người thực hiện, người giao task hoặc người được giao task chính)
-        const canUpdate = subtask.nguoiThucHienId === req.user.id ||
-            subtask.task.nguoiGiaoId === req.user.id ||
-            subtask.task.nguoiDuocGiaoId === req.user.id;
+        console.log('🔍 [updateSubtask] Checking permissions:', {
+            subtaskId: id,
+            userId: req.user.id,
+            userRole: req.user.role?.name,
+            nguoiThucHienId: subtask.nguoiThucHienId,
+            taskNguoiGiaoId: subtask.task?.nguoiGiaoId,
+            taskNguoiDuocGiaoId: subtask.task?.nguoiDuocGiaoId,
+            projectManagerId: subtask.task?.duan?.userId
+        });
+
+        // Kiểm tra quyền cập nhật:
+        // 1. Người thực hiện subtask (nguoiThucHienId)
+        // 2. Người giao task cha (nguoiGiaoId)
+        // 3. Người được giao task cha (nguoiDuocGiaoId)
+        // 4. Manager của dự án chứa task này
+        // 5. Admin (đã được kiểm tra ở middleware)
+        const isSubtaskAssignee = subtask.nguoiThucHienId === req.user.id;
+        const isTaskCreator = subtask.task?.nguoiGiaoId === req.user.id;
+        const isTaskAssignee = subtask.task?.nguoiDuocGiaoId === req.user.id;
+        const isProjectManager = subtask.task?.duan && subtask.task.duan.userId === req.user.id;
+
+        const canUpdate = isSubtaskAssignee || isTaskCreator || isTaskAssignee || isProjectManager;
 
         if (!canUpdate) {
+            console.log('❌ [updateSubtask] Permission denied');
             return res.status(403).json({ error: 'Không có quyền cập nhật công việc nhỏ này' });
         }
+
+        console.log('✅ [updateSubtask] Permission granted');
 
         // Tự động cập nhật ngày hoàn thành khi trạng thái là "Hoàn thành"
         if (updateData.trangThai === 'Hoàn thành' && !updateData.ngayHoanThanh) {
@@ -601,16 +627,27 @@ exports.getMySubtasks = async (req, res) => {
             order: [['createdAt', 'DESC']]
         });
 
-        // Format dữ liệu để dễ sử dụng cho frontend
-        const formattedSubtasks = subtasks.map(subtask => ({
-            id: subtask.id,
-            tenSubtask: subtask.tenSubtask,
-            trangThai: subtask.trangThai,
-            taskId: subtask.task.id,
-            tentask: subtask.task.tentask,
-            duanId: subtask.task.duan?.id || null,
-            tenduan: subtask.task.duan?.tenduan || null
-        }));
+        console.log('✅ [getMySubtasks] Found subtasks:', subtasks.length);
+        if (subtasks.length > 0) {
+            console.log('📋 [getMySubtasks] Sample subtask:', JSON.stringify(subtasks[0], null, 2));
+        }
+
+        // Return full subtask data with nested task object for frontend compatibility
+        const formattedSubtasks = subtasks.map(subtask => {
+            const subtaskData = subtask.toJSON();
+            return {
+                ...subtaskData,
+                // Ensure task object is properly nested
+                task: subtaskData.task ? {
+                    id: subtaskData.task.id,
+                    tentask: subtaskData.task.tentask,
+                    duan: subtaskData.task.duan ? {
+                        id: subtaskData.task.duan.id,
+                        tenduan: subtaskData.task.duan.tenduan
+                    } : null
+                } : null
+            };
+        });
 
         res.json({
             message: 'Lấy danh sách subtasks thành công',
@@ -619,6 +656,67 @@ exports.getMySubtasks = async (req, res) => {
     } catch (error) {
         console.error('Get my subtasks error:', error);
         res.status(500).json({ error: 'Lỗi khi lấy danh sách subtasks của bạn' });
+    }
+};
+
+// Lấy danh sách subtasks của nhóm (for teamleader)
+exports.getGroupSubtasks = async (req, res) => {
+    try {
+        console.log('🔍 getGroupSubtasks called by user:', req.user);
+        const userId = req.user.id;
+
+        // Tìm nhóm mà user là leader
+        const { Group, GroupMember } = require('../models');
+        const group = await Group.findOne({
+            where: { leaderId: userId, status: 'active' },
+            include: [{
+                model: User,
+                as: 'members',
+                attributes: ['id'],
+                through: { attributes: [] }
+            }]
+        });
+
+        if (!group) {
+            return res.status(404).json({ message: 'Bạn chưa được gán làm trưởng nhóm nào' });
+        }
+
+        // Lấy danh sách member IDs
+        const memberIds = group.members.map(m => m.id);
+        console.log('📋 Group members:', memberIds);
+
+        // Lấy tất cả subtasks của các members trong nhóm
+        const subtasks = await Subtask.findAll({
+            where: { nguoiThucHienId: memberIds },
+            include: [
+                {
+                    model: Task,
+                    as: 'task',
+                    attributes: ['id', 'tentask', 'duanId', 'trangThai'],
+                    include: [{
+                        model: DuAn,
+                        as: 'duan',
+                        attributes: ['id', 'tenduan']
+                    }]
+                },
+                {
+                    model: User,
+                    as: 'nguoiThucHien',
+                    attributes: ['id', 'hoten', 'manv']
+                }
+            ],
+            order: [['createdAt', 'DESC']]
+        });
+
+        console.log('✅ Found subtasks for group:', subtasks.length);
+
+        res.json({
+            message: 'Lấy danh sách subtasks của nhóm thành công',
+            subtasks: subtasks.map(s => s.toJSON())
+        });
+    } catch (error) {
+        console.error('❌ getGroupSubtasks error:', error);
+        res.status(500).json({ error: 'Lỗi khi lấy danh sách subtasks của nhóm', message: error.message });
     }
 };
 

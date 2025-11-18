@@ -5,12 +5,76 @@ const { Op } = require('sequelize');
 const getPendingApprovals = async (req, res) => {
     try {
         const { type = 'all' } = req.query; // 'all', 'tasks', 'subtasks'
+        const userId = req.user.id;
+        const userRole = req.user.role?.name;
         
-        const pendingStatus = 'Chờ xác nhận hoàn thành';
+        console.log('🔍 getPendingApprovals - User:', userId, 'Role:', userRole);
+        
+        const pendingStatus = 'Đang chờ duyệt';
         
         let tasks = [];
         let subtasks = [];
         
+        // Nếu là teamleader, chỉ lấy subtasks của nhóm mình quản lý
+        if (userRole === 'teamleader') {
+            const { Group } = require('../models');
+            const group = await Group.findOne({
+                where: { leaderId: userId, status: 'active' },
+                include: [{
+                    model: User,
+                    as: 'members',
+                    attributes: ['id'],
+                    through: { attributes: [] }
+                }]
+            });
+
+            if (!group) {
+                return res.json({
+                    success: true,
+                    data: { tasks: [], subtasks: [], total: 0 },
+                    message: 'Bạn chưa được gán làm trưởng nhóm'
+                });
+            }
+
+            const memberIds = group.members.map(m => m.id);
+            console.log('📋 TeamLeader group members:', memberIds);
+
+            subtasks = await Subtask.findAll({
+                where: { 
+                    trangThai: pendingStatus,
+                    nguoiThucHienId: memberIds
+                },
+                include: [
+                    {
+                        model: User,
+                        as: 'nguoiThucHien',
+                        attributes: ['id', 'manv', 'hoten'],
+                        required: false
+                    },
+                    {
+                        model: Task,
+                        as: 'task',
+                        attributes: ['id', 'tentask'],
+                        required: false,
+                        include: [{
+                            model: DuAn,
+                            as: 'duan',
+                            attributes: ['id', 'tenduan'],
+                            required: false
+                        }]
+                    }
+                ],
+                order: [['updatedAt', 'DESC']]
+            });
+
+            console.log('✅ Found pending subtasks for teamleader:', subtasks.length);
+            return res.json({
+                success: true,
+                data: { tasks: [], subtasks, total: subtasks.length }
+            });
+        }
+        
+        // Admin và Manager có thể xem tất cả
         if (type === 'all' || type === 'tasks') {
             try {
                 tasks = await Task.findAll({
@@ -39,7 +103,6 @@ const getPendingApprovals = async (req, res) => {
                 });
             } catch (taskError) {
                 console.error('Error fetching tasks:', taskError.message);
-                // Continue even if tasks fail
             }
         }
         
@@ -59,21 +122,18 @@ const getPendingApprovals = async (req, res) => {
                             as: 'task',
                             attributes: ['id', 'tentask'],
                             required: false,
-                            include: [
-                                {
-                                    model: DuAn,
-                                    as: 'duan',
-                                    attributes: ['id', 'tenduan'],
-                                    required: false
-                                }
-                            ]
+                            include: [{
+                                model: DuAn,
+                                as: 'duan',
+                                attributes: ['id', 'tenduan'],
+                                required: false
+                            }]
                         }
                     ],
                     order: [['updatedAt', 'DESC']]
                 });
             } catch (subtaskError) {
                 console.error('Error fetching subtasks:', subtaskError.message);
-                // Continue even if subtasks fail
             }
         }
         
@@ -100,7 +160,9 @@ const getPendingApprovals = async (req, res) => {
 const approveTaskCompletion = async (req, res) => {
     try {
         const { taskId } = req.params;
-        const { note } = req.body;
+        const { note, approved, reason } = req.body;
+        
+        console.log('🔍 [approveTaskCompletion] Request:', { taskId, approved, note, reason });
         
         const task = await Task.findByPk(taskId);
         if (!task) {
@@ -111,6 +173,25 @@ const approveTaskCompletion = async (req, res) => {
             return res.status(400).json({ message: 'Công việc không ở trạng thái chờ phê duyệt' });
         }
         
+        // Check if this is a rejection (approved === false)
+        if (approved === false) {
+            console.log('❌ [approveTaskCompletion] Rejecting task completion');
+            task.trangThai = 'Đang chạy'; // Return to in-progress
+            task.rejectedBy = req.user.id;
+            task.rejectedAt = new Date();
+            task.rejectionReason = reason || note || null;
+            task.requestedCompletionAt = null;
+            await task.save();
+            
+            console.log('✅ [approveTaskCompletion] Task rejected, status:', task.trangThai);
+            return res.json({ 
+                message: 'Đã từ chối yêu cầu hoàn thành',
+                task 
+            });
+        }
+        
+        // Otherwise, approve the completion
+        console.log('✅ [approveTaskCompletion] Approving task completion');
         task.trangThai = 'Hoàn thành';
         task.ngayKetThuc = new Date();
         task.approvedBy = req.user.id;
@@ -118,6 +199,7 @@ const approveTaskCompletion = async (req, res) => {
         task.approvalNote = note || null;
         await task.save();
         
+        console.log('✅ [approveTaskCompletion] Task approved, status:', task.trangThai);
         res.json({ 
             message: 'Đã phê duyệt hoàn thành công việc',
             task 
@@ -168,7 +250,9 @@ const rejectTaskCompletion = async (req, res) => {
 const approveSubtaskCompletion = async (req, res) => {
     try {
         const { subtaskId } = req.params;
-        const { note } = req.body;
+        const { note, approved, reason } = req.body;
+        
+        console.log('🔍 [approveSubtaskCompletion] Request:', { subtaskId, approved, note, reason });
         
         const subtask = await Subtask.findByPk(subtaskId);
         if (!subtask) {
@@ -179,6 +263,25 @@ const approveSubtaskCompletion = async (req, res) => {
             return res.status(400).json({ message: 'Công việc con không ở trạng thái chờ phê duyệt' });
         }
         
+        // Check if this is a rejection (approved === false)
+        if (approved === false) {
+            console.log('❌ [approveSubtaskCompletion] Rejecting subtask completion');
+            subtask.trangThai = 'Đang chạy'; // Return to in-progress
+            subtask.rejectedBy = req.user.id;
+            subtask.rejectedAt = new Date();
+            subtask.rejectionReason = reason || note || null;
+            subtask.requestedCompletionAt = null;
+            await subtask.save();
+            
+            console.log('✅ [approveSubtaskCompletion] Subtask rejected, status:', subtask.trangThai);
+            return res.json({ 
+                message: 'Đã từ chối yêu cầu hoàn thành',
+                subtask 
+            });
+        }
+        
+        // Otherwise, approve the completion
+        console.log('✅ [approveSubtaskCompletion] Approving subtask completion');
         subtask.trangThai = 'Hoàn thành';
         subtask.ngayKetThuc = new Date();
         subtask.approvedBy = req.user.id;
@@ -186,6 +289,7 @@ const approveSubtaskCompletion = async (req, res) => {
         subtask.approvalNote = note || null;
         await subtask.save();
         
+        console.log('✅ [approveSubtaskCompletion] Subtask approved, status:', subtask.trangThai);
         res.json({ 
             message: 'Đã phê duyệt hoàn thành công việc con',
             subtask 

@@ -69,11 +69,25 @@ router.delete('/:id',
 );
 
 // ============ SUBTASK ROUTES ============
+// NOTE: Specific paths MUST come before dynamic params like /:taskId
 
 // Lấy subtasks của tôi (user hiện tại) với thông tin task và dự án
 router.get('/subtasks/my-subtasks',
     authenticateToken,
     subtaskController.getMySubtasks
+);
+
+// Lấy subtasks của nhóm (for teamleader)
+router.get('/subtasks/group-subtasks',
+    authenticateToken,
+    subtaskController.getGroupSubtasks
+);
+
+// Sắp xếp lại thứ tự subtasks - MUST be before /:taskId/subtasks/:id
+router.put('/:taskId/subtasks/reorder',
+    authenticateToken,
+    allowOwnerOrPermission('tasks', 'update'),
+    subtaskController.reorderSubtasks
 );
 
 // Lấy subtasks của một task
@@ -102,13 +116,6 @@ router.delete('/:taskId/subtasks/:id',
     authenticateToken,
     allowOwnerOrPermission('tasks', 'delete'),
     subtaskController.deleteSubtask
-);
-
-// Sắp xếp lại thứ tự subtasks
-router.put('/:taskId/subtasks/reorder',
-    authenticateToken,
-    allowOwnerOrPermission('tasks', 'update'),
-    subtaskController.reorderSubtasks
 );
 
 module.exports = router;
