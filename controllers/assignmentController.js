@@ -94,13 +94,15 @@ exports.acceptAssignment = async (req, res) => {
         await assignment.update({ status: 'accepted' });
 
         // Assign to task/subtask
-        if (assignment.taskId) {
-            const task = await Task.findByPk(assignment.taskId);
-            if (task) await task.update({ nguoiDuocGiaoId: userId });
-        }
+        // Only update the specific item being assigned, not the parent task
         if (assignment.subtaskId) {
+            // If assigning a subtask, only update the subtask
             const sub = await Subtask.findByPk(assignment.subtaskId);
             if (sub) await sub.update({ nguoiThucHienId: userId });
+        } else if (assignment.taskId) {
+            // Only update task if this is a direct task assignment (no subtaskId)
+            const task = await Task.findByPk(assignment.taskId);
+            if (task) await task.update({ nguoiDuocGiaoId: userId });
         }
 
         // Notify manager about acceptance
