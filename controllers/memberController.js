@@ -662,12 +662,27 @@ const getMemberProjects = async (req, res) => {
             attributes: ['id']
         });
 
+        // Also include projects where the user has tasks assigned (distinct duanId)
+        const taskProjectRows = await Task.findAll({
+            where: { nguoiDuocGiaoId: userId, duanId: { [Op.ne]: null } },
+            attributes: ['duanId'],
+            group: ['duanId']
+        });
+        const taskProjectIds = taskProjectRows.map(t => t.duanId).filter(Boolean);
+
         const allProjectIds = [...new Set([
             ...projectIds,
-            ...directProjects.map(p => p.id)
+            ...directProjects.map(p => p.id),
+            ...taskProjectIds
         ])];
 
-        console.log('📂 [getMemberProjects] All project IDs for user:', allProjectIds);
+        console.log('📂 [getMemberProjects] All project IDs for user (groups/direct/tasks):', allProjectIds);
+
+        // If no projects found, return early to avoid building a WHERE IN (NULL) query
+        if (!allProjectIds || allProjectIds.length === 0) {
+            console.log('ℹ️ [getMemberProjects] No project IDs found for user, returning empty list');
+            return res.json([]);
+        }
 
         // Get detailed project information
         const projects = await DuAn.findAll({
