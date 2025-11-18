@@ -1,17 +1,17 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
+    Alert,
+    RefreshControl,
     SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
-    View,
     TouchableOpacity,
-    RefreshControl,
-    Alert,
-    ActivityIndicator,
+    View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../src/axios/config';
 import GroupFormModal from './components/GroupFormModal';
 
@@ -25,6 +25,7 @@ interface Group {
 }
 
 export default function GroupsManagement() {
+    const router = useRouter();
     const [groups, setGroups] = useState<Group[]>([]);
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
@@ -80,33 +81,36 @@ export default function GroupsManagement() {
         );
     };
 
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'active':
-                return '#10b981';
-            case 'inactive':
-                return '#6b7280';
-            default:
-                return '#f59e0b';
+    // Robust closed detection similar to manager's view: check multiple flags and strings
+    const isGroupClosed = (g: any) => {
+        if (!g) return false;
+        const closedFlags = [g.closed, g.isClosed, g.dong, g.trangthai, g.status, g.state, g.is_closed, g.closedAt, g.closed_at];
+        for (const v of closedFlags) {
+            if (v === true) return true;
+            if (v === '1' || v === 1) return true;
+            if (typeof v === 'string') {
+                const s = v.toLowerCase();
+                if (s.includes('đã đóng') || s.includes('da dong') || s.includes('closed') || s.includes('dong') || s.includes('da_dong')) return true;
+            }
         }
+        // also treat explicit inactive/da_dong statuses as closed
+        if (g.status && (g.status === 'inactive' || g.status === 'da_dong' || g.status === 'closed')) return true;
+        return false;
     };
 
-    const getStatusText = (status: string) => {
-        switch (status) {
-            case 'active':
-                return 'Hoạt động';
-            case 'inactive':
-                return 'Không hoạt động';
-            default:
-                return 'Chờ duyệt';
-        }
+    const getStatusColor = (g: any) => {
+        return isGroupClosed(g) ? '#6b7280' : '#10b981';
+    };
+
+    const getStatusText = (g: any) => {
+        return isGroupClosed(g) ? 'Đã đóng' : 'Hoạt động';
     };
 
     const GroupCard = ({ group }: { group: Group }) => {
-        const statusColor = getStatusColor(group.status);
+        const statusColor = getStatusColor(group);
         
         return (
-            <View style={styles.groupCard}>
+            <TouchableOpacity style={styles.groupCard} activeOpacity={0.9} onPress={() => (router as any).push(`/(admin)/group-detail?id=${group.id}`)}>
                 <View style={styles.groupHeader}>
                     <View style={styles.groupIcon}>
                         <Ionicons name="layers" size={24} color="#f59e0b" />
@@ -117,9 +121,9 @@ export default function GroupsManagement() {
                             {group.description || 'Không có mô tả'}
                         </Text>
                     </View>
-                    <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
+                        <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
                         <Text style={[styles.statusText, { color: statusColor }]}>
-                            {getStatusText(group.status)}
+                            {getStatusText(group)}
                         </Text>
                     </View>
                 </View>
@@ -132,6 +136,12 @@ export default function GroupsManagement() {
                         </Text>
                     </View>
                     <View style={styles.groupActions}>
+                        <TouchableOpacity
+                            style={[styles.actionBtn, styles.detailBtn]}
+                            onPress={() => (router as any).push(`/(admin)/group-detail?id=${group.id}`)}
+                        >
+                            <Ionicons name="chevron-forward-outline" size={18} color="#111827" />
+                        </TouchableOpacity>
                         <TouchableOpacity
                             style={styles.actionBtn}
                             onPress={() => {
@@ -149,7 +159,7 @@ export default function GroupsManagement() {
                         </TouchableOpacity>
                     </View>
                 </View>
-            </View>
+            </TouchableOpacity>
         );
     };
 
@@ -165,15 +175,15 @@ export default function GroupsManagement() {
             <View style={styles.statsContainer}>
                 <View style={[styles.statCard, { backgroundColor: '#d1fae5' }]}>
                     <Text style={styles.statValue}>
-                        {groups.filter(g => g.status === 'active').length}
+                        {groups.filter(g => !isGroupClosed(g)).length}
                     </Text>
                     <Text style={styles.statLabel}>Hoạt động</Text>
                 </View>
                 <View style={[styles.statCard, { backgroundColor: '#e5e7eb' }]}>
                     <Text style={styles.statValue}>
-                        {groups.filter(g => g.status === 'inactive').length}
+                        {groups.filter(g => isGroupClosed(g)).length}
                     </Text>
-                    <Text style={styles.statLabel}>Không hoạt động</Text>
+                    <Text style={styles.statLabel}>Đã đóng</Text>
                 </View>
             </View>
 
@@ -351,6 +361,9 @@ const styles = StyleSheet.create({
         backgroundColor: '#eff6ff',
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    detailBtn: {
+        backgroundColor: '#f3f4f6',
     },
     deleteBtn: {
         backgroundColor: '#fee2e2',

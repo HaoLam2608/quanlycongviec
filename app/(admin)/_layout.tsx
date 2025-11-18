@@ -36,6 +36,14 @@ export default function AdminLayout() {
                 }}
             />
             <Stack.Screen
+                name="project-detail"
+                options={{
+                    title: 'Chi tiết dự án',
+                    headerStyle: { backgroundColor: '#ef4444' },
+                    headerTintColor: '#fff'
+                }}
+            />
+            <Stack.Screen
                 name="groups"
                 options={{
                     title: 'Quản lý nhóm',
@@ -44,9 +52,33 @@ export default function AdminLayout() {
                 }}
             />
             <Stack.Screen
+                name="group-detail"
+                options={{
+                    title: 'Chi tiết nhóm',
+                    headerStyle: { backgroundColor: '#ef4444' },
+                    headerTintColor: '#fff'
+                }}
+            />
+            <Stack.Screen
                 name="approvals"
                 options={{
                     title: 'Phê duyệt',
+                    headerStyle: { backgroundColor: '#ef4444' },
+                    headerTintColor: '#fff'
+                }}
+            />
+            <Stack.Screen
+                name="kanban"
+                options={{
+                    title: 'Kanban',
+                    headerStyle: { backgroundColor: '#ef4444' },
+                    headerTintColor: '#fff'
+                }}
+            />
+            <Stack.Screen
+                name="timeline"
+                options={{
+                    title: 'Lịch',
                     headerStyle: { backgroundColor: '#ef4444' },
                     headerTintColor: '#fff'
                 }}

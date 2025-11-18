@@ -1,18 +1,18 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
+    Alert,
+    RefreshControl,
     SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
-    View,
-    TouchableOpacity,
     TextInput,
-    RefreshControl,
-    Alert,
-    ActivityIndicator,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../src/axios/config';
 import ProjectFormModal from './components/ProjectFormModal';
 
@@ -32,6 +32,7 @@ interface Project {
 }
 
 export default function ProjectsManagement() {
+    const router = useRouter();
     const [projects, setProjects] = useState<Project[]>([]);
     const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -141,7 +142,7 @@ export default function ProjectsManagement() {
         const statusColor = getStatusColor(project.status);
         
         return (
-            <View style={styles.projectCard}>
+            <TouchableOpacity style={styles.projectCard} activeOpacity={0.95} onPress={() => router.push(`/(admin)/project-detail?id=${project.id}`)}>
                 <View style={styles.projectHeader}>
                     <View style={styles.projectIcon}>
                         <Ionicons name="folder" size={24} color="#10b981" />
@@ -180,6 +181,13 @@ export default function ProjectsManagement() {
                         <Text style={styles.actionButtonText}>Sửa</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
+                        style={[styles.actionButton, { backgroundColor: '#eef2ff' }]}
+                        onPress={() => router.push(`/(admin)/project-detail?id=${project.id}`)}
+                    >
+                        <Ionicons name="document-text-outline" size={18} color="#1e40af" />
+                        <Text style={[styles.actionButtonText, { color: '#1e40af' }]}>Chi tiết</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
                         style={[styles.actionButton, styles.deleteActionButton]}
                         onPress={() => handleDeleteProject(project)}
                     >
@@ -187,7 +195,7 @@ export default function ProjectsManagement() {
                         <Text style={[styles.actionButtonText, { color: '#ef4444' }]}>Xóa</Text>
                     </TouchableOpacity>
                 </View>
-            </View>
+            </TouchableOpacity>
         );
     };
 

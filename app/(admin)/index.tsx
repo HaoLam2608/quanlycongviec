@@ -155,6 +155,20 @@ export default function AdminDashboard() {
             count: stats.pendingApprovals
         },
         { 
+            title: 'Kanban',
+            icon: 'grid',
+            route: '/(admin)/kanban',
+            color: '#06b6d4',
+            count: null
+        },
+        { 
+            title: 'Lịch',
+            icon: 'calendar',
+            route: '/(admin)/timeline',
+            color: '#8b5cf6',
+            count: null
+        },
+        { 
             title: 'Báo cáo', 
             icon: 'bar-chart', 
             route: '/(admin)/reports',

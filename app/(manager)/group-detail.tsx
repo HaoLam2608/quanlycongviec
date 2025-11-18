@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { SafeAreaView, StyleSheet, Text, View, ActivityIndicator, TouchableOpacity, FlatList } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
 import { getGroup } from '@/src/axios/adminApi';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { PageHeader } from '../../components/ui/PageHeader';
 
 interface Member {

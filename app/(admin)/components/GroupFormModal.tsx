@@ -47,8 +47,15 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
         status: 'active',
     });
     const [users, setUsers] = useState<User[]>([]);
+    const [groupCounts, setGroupCounts] = useState<Record<number, number>>({});
+    const [leaderActiveMap, setLeaderActiveMap] = useState<Record<number, boolean>>({});
+    const [excludedMembers, setExcludedMembers] = useState<Array<{ id: number; name: string; reason: string }>>([]);
+    const [showExcludedMembers, setShowExcludedMembers] = useState(false);
+    const [excludedLeaders, setExcludedLeaders] = useState<Array<{ id: number; name: string; reason: string }>>([]);
+    const [showExcludedLeaders, setShowExcludedLeaders] = useState(false);
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<any>({});
+    const [prereqErrors, setPrereqErrors] = useState<string[]>([]);
     const [showMemberSelector, setShowMemberSelector] = useState(false);
 
     useEffect(() => {
@@ -66,8 +73,18 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
             } else {
                 resetForm();
             }
+            // clear prereq errors when modal opens
+            setPrereqErrors([]);
+            // compute group participation stats used to filter leaders/members in selectors
+            computeGroupParticipationStats(group?.id ?? null).catch(e => console.error('compute stats failed', e));
         }
     }, [visible, group]);
+
+    // Re-check prerequisites when leader changes
+    useEffect(() => {
+        if (!visible) return;
+        if (formData.leaderId) checkLeaderPrerequisites(formData.leaderId);
+    }, [formData.leaderId]);
 
     const loadUsers = async () => {
         try {
@@ -75,6 +92,68 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
             setUsers(response.data.users || response.data || []);
         } catch (error) {
             console.error('Error loading users:', error);
+        }
+    };
+
+    // Compute how many active groups each user participates in and which users are active leaders
+    const computeGroupParticipationStats = async (currentGroupId: number | null) => {
+        try {
+            const resp = await api.get('/groups');
+            const groups: any[] = resp.data.groups || [];
+
+            const counts: Record<number, number> = {};
+            const leaderMap: Record<number, boolean> = {};
+
+            for (const g of groups) {
+                // skip closed groups
+                if (g.status === 'closed') continue;
+                // Count leader
+                if (g.leader && g.leader.id) {
+                    // If editing, ignore the current group when counting so current leader isn't blocked
+                    if (currentGroupId == null || String(g.id) !== String(currentGroupId)) {
+                        leaderMap[g.leader.id] = true;
+                    }
+                }
+                // Count members
+                const seen = new Set<number>();
+                if (g.leader && g.leader.id) seen.add(g.leader.id);
+                const memberList = g.members || [];
+                for (const m of memberList) {
+                    if (m && m.id) seen.add(m.id);
+                }
+                for (const uid of Array.from(seen)) {
+                    // If editing, exclude current group's counts for fairness
+                    if (currentGroupId != null && String(g.id) === String(currentGroupId)) continue;
+                    counts[uid] = (counts[uid] || 0) + 1;
+                }
+            }
+
+            setGroupCounts(counts);
+            setLeaderActiveMap(leaderMap);
+
+            // build excluded lists for UI (members and leaders)
+            const exclMembers: Array<{ id: number; name: string; reason: string }> = [];
+            const exclLeads: Array<{ id: number; name: string; reason: string }> = [];
+            // For members: if count >=2 and not already member of current group
+            for (const u of (users || [])) {
+                const cnt = counts[u.id] || 0;
+                const alreadyMember = group && Array.isArray(group.members) && group.members.some((m:any)=>m.id===u.id);
+                if (cnt >= 2 && !alreadyMember && getRoleName(u) === 'employee') {
+                    exclMembers.push({ id: u.id, name: u.hoten || String(u.id), reason: 'Đã tham gia >= 2 nhóm' });
+                }
+                // For leaders: if manager but leaderActiveMap true and not current leader
+                if (getRoleName(u) === 'manager') {
+                    if (leaderMap[u.id] && !(group && group.leaderId === u.id)) {
+                        exclLeads.push({ id: u.id, name: u.hoten || String(u.id), reason: 'Đang là trưởng nhóm khác' });
+                    }
+                }
+            }
+            setExcludedMembers(exclMembers);
+            setExcludedLeaders(exclLeads);
+        } catch (e) {
+            console.error('Error computing group participation stats:', e);
+            setGroupCounts({});
+            setLeaderActiveMap({});
         }
     };
 
@@ -101,7 +180,7 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
         }
 
         setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
+        return Object.keys(newErrors).length === 0 && prereqErrors.length === 0;
     };
 
     const toggleMember = (userId: number) => {
@@ -125,6 +204,13 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
     };
 
     const handleSubmit = async () => {
+        // ensure leader prerequisites are OK before proceeding
+        const leaderProblems = await checkLeaderPrerequisites(formData.leaderId);
+        if (leaderProblems && leaderProblems.length > 0) {
+            Alert.alert('Không thể tạo/ cập nhật nhóm', leaderProblems.join('\n'));
+            return;
+        }
+
         if (!validateForm()) {
             Alert.alert('Lỗi', 'Vui lòng kiểm tra lại thông tin');
             return;
@@ -341,6 +427,46 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
         }
     }
 
+    // Check server-side prerequisites for leader before creating/updating group
+    const checkLeaderPrerequisites = async (leaderId: number) => {
+        const msgs: string[] = [];
+        if (!leaderId) {
+            setPrereqErrors(msgs);
+            return msgs;
+        }
+
+        try {
+            const resp = await api.get('/groups');
+            const groups: any[] = resp.data.groups || [];
+
+            // 1) Check if leader already leads an active group
+            const existingLeaderGroup = groups.find(g => g.leader && g.leader.id === leaderId && g.status !== 'closed');
+            if (existingLeaderGroup) {
+                msgs.push(`Người này đã là trưởng nhóm của nhóm "${existingLeaderGroup.name}"`);
+            }
+
+            // 2) Check if leader is already member of an active group
+            const memberGroup = groups.find(g => (Array.isArray(g.members) && g.members.some((m:any)=>m.id===leaderId)) && g.status !== 'closed');
+            if (memberGroup) {
+                msgs.push(`Người này đang là thành viên của nhóm "${memberGroup.name}"`);
+            }
+
+            // 3) (Optional) Check leader role (ensure selected user is manager)
+            const leader = users.find(u => u.id === leaderId);
+            const roleName = getRoleName(leader);
+            if (roleName && roleName !== 'manager') {
+                msgs.push('Người được chọn không phải là trưởng nhóm (vai trò không phù hợp)');
+            }
+        } catch (e) {
+            console.error('Error checking leader prerequisites:', e);
+            // don't block creation on fetch error, but warn
+            msgs.push('Không thể kiểm tra điều kiện nhóm (lỗi kết nối)');
+        }
+
+        setPrereqErrors(msgs);
+        return msgs;
+    };
+
     return (
         <Modal
             visible={visible}
@@ -399,18 +525,50 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
                                     style={styles.picker}
                                 >
                                     <Picker.Item label="Chọn trưởng nhóm" value={0} />
-                                    {users
+                                    {(() => {
+                                        const leaderOptions = users
                                             .filter(u => getRoleName(u) === 'manager')
-                                            .map((user) => (
+                                            .filter(u => {
+                                                if (u.id === formData.leaderId) return true;
+                                                return !leaderActiveMap[u.id];
+                                            });
+
+                                        if (!leaderOptions || leaderOptions.length === 0) {
+                                            return <Picker.Item label="Không có trưởng nhóm hợp lệ" value={0} />;
+                                        }
+
+                                        return leaderOptions.map((user) => (
                                             <Picker.Item 
                                                 key={user.id} 
                                                 label={`${user.hoten} (${user.manv})`} 
                                                 value={user.id} 
                                             />
-                                        ))}
+                                        ));
+                                    })()}
                                 </Picker>
                             </View>
-                            {errors.leaderId && <Text style={styles.errorText}>{errors.leaderId}</Text>}
+                                {errors.leaderId && <Text style={styles.errorText}>{errors.leaderId}</Text>}
+                                {prereqErrors.length > 0 && (
+                                    <View style={{ marginTop: 8 }}>
+                                        {prereqErrors.map((m, i) => (
+                                            <Text key={i} style={[styles.errorText, { color: '#b45309' }]}>{m}</Text>
+                                        ))}
+                                    </View>
+                                )}
+                                {excludedLeaders.length > 0 && (
+                                    <View style={{ marginTop: 8 }}>
+                                        <TouchableOpacity onPress={() => setShowExcludedLeaders(s => !s)}>
+                                            <Text style={{ color: '#6b7280' }}>{showExcludedLeaders ? 'Ẩn trưởng nhóm bị ẩn' : `Có ${excludedLeaders.length} trưởng nhóm bị ẩn (đang làm trưởng nhóm khác) — xem`}</Text>
+                                        </TouchableOpacity>
+                                        {showExcludedLeaders && (
+                                            <View style={{ marginTop: 8 }}>
+                                                {excludedLeaders.map((ex) => (
+                                                    <Text key={ex.id} style={[styles.errorText, { color: '#9ca3af' }]}>{ex.name} — {ex.reason}</Text>
+                                                ))}
+                                            </View>
+                                        )}
+                                    </View>
+                                )}
                         </View>
 
                         {/* Thành viên */}
@@ -439,9 +597,27 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
                                     nestedScrollEnabled={true}
                                     keyboardShouldPersistTaps="handled"
                                 >
-                                    {users
-                                        .filter(u => u.id !== formData.leaderId && getRoleName(u) === 'employee')
-                                        .map((user) => (
+                                    {(() => {
+                                        const filteredMembers = users
+                                            .filter(u => {
+                                                // exclude leader and non-employees
+                                                if (u.id === formData.leaderId) return false;
+                                                if (getRoleName(u) !== 'employee') return false;
+                                                // allow if user is already selected in this group's members (editing) or if their active count < 2
+                                                const cnt = groupCounts[u.id] || 0;
+                                                const alreadySelected = formData.memberIds.includes(u.id) || (group && Array.isArray(group.members) && group.members.some((m:any)=>m.id===u.id));
+                                                return alreadySelected || cnt < 2;
+                                            });
+
+                                        if (!filteredMembers || filteredMembers.length === 0) {
+                                            return (
+                                                <View style={{ padding: 12 }}>
+                                                    <Text style={{ color: '#9ca3af' }}>Không có thành viên phù hợp</Text>
+                                                </View>
+                                            );
+                                        }
+
+                                        return filteredMembers.map((user) => (
                                             <TouchableOpacity
                                                 key={user.id}
                                                 style={styles.memberItem}
@@ -456,8 +632,26 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
                                                     {user.hoten} ({user.manv})
                                                 </Text>
                                             </TouchableOpacity>
-                                        ))}
+                                        ));
+                                    })()}
                                 </ScrollView>
+                            )}
+                            {excludedMembers.length > 0 && (
+                                <View style={{ paddingTop: 8 }}>
+                                    <TouchableOpacity onPress={() => setShowExcludedMembers(s => !s)}>
+                                        <Text style={{ color: '#6b7280' }}>{showExcludedMembers ? 'Ẩn người bị ẩn' : `Đã ẩn ${excludedMembers.length} người (đã tham gia >=2 nhóm) — xem`}</Text>
+                                    </TouchableOpacity>
+                                    {showExcludedMembers && (
+                                        <View style={{ marginTop: 8 }}>
+                                            {excludedMembers.map((ex) => (
+                                                <View key={ex.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6 }}>
+                                                    <View style={[styles.checkbox, { backgroundColor: '#d1d5db' }]} />
+                                                    <Text style={{ marginLeft: 8, color: '#9ca3af' }}>{ex.name} — {ex.reason}</Text>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    )}
+                                </View>
                             )}
                         </View>
 
@@ -487,9 +681,9 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
                             <Text style={styles.cancelButtonText}>Hủy</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            style={[styles.button, styles.submitButton]}
+                            style={[styles.button, styles.submitButton, (loading || prereqErrors.length > 0) && styles.buttonDisabled]}
                             onPress={handleSubmit}
-                            disabled={loading}
+                            disabled={loading || prereqErrors.length > 0}
                         >
                             {loading ? (
                                 <ActivityIndicator color="#fff" />
@@ -651,5 +845,8 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: '600',
+    },
+    buttonDisabled: {
+        opacity: 0.6,
     },
 });
