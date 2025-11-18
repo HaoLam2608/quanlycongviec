@@ -182,6 +182,8 @@ export default function ProjectDetailPage() {
     const [selectedSubtask, setSelectedSubtask] = useState<any>(null);
     const [isAddGroupModalOpen, setIsAddGroupModalOpen] = useState(false)
     const [selectedTask, setSelectedTask] = useState<any>(null)
+    const [isEditTaskModalOpen, setIsEditTaskModalOpen] = useState(false);
+    const [editTask, setEditTask] = useState<any>(null);
     const [project, setProject] = useState<any>(null);
     const [tasks, setTasks] = useState<any[]>([]);
     const [users, setUsers] = useState<any[]>([]);
@@ -297,6 +299,15 @@ export default function ProjectDetailPage() {
         startDate: "",
         endDate: "",
     });
+    
+    const [editTaskForm, setEditTaskForm] = useState({
+        name: "",
+        description: "",
+        assigneeId: "",
+        priority: "medium",
+        dueDate: "",
+        startDate: "",
+    });
 
     // Effect to populate edit subtask form when a subtask is selected for editing
     useEffect(() => {
@@ -310,6 +321,20 @@ export default function ProjectDetailPage() {
             });
         }
     }, [selectedSubtask]);
+
+    // Effect to populate edit task form when a task is selected for editing
+    useEffect(() => {
+        if (editTask) {
+            setEditTaskForm({
+                name: editTask.tentask || "",
+                description: editTask.mota || "",
+                assigneeId: editTask.nguoiDuocGiaoId?.toString() || "",
+                priority: editTask.mucDoUuTien || "medium",
+                startDate: editTask.ngayBatDau ? new Date(editTask.ngayBatDau).toISOString().slice(0, 10) : "",
+                dueDate: editTask.ngayKetThuc ? new Date(editTask.ngayKetThuc).toISOString().slice(0, 10) : "",
+            });
+        }
+    }, [editTask]);
 
 
 
@@ -892,8 +917,14 @@ export default function ProjectDetailPage() {
                                                                 onClick={() => handleViewTaskDetail(task)}
                                                                 className="w-full px-3 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg text-xs font-medium hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 flex items-center justify-center gap-1 shadow-md hover:shadow-lg"
                                                             >
-                                                                Xem chi tiết
+                                                                Chi tiết
                                                                 <ChevronRight size={14} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => { setEditTask(task); setIsEditTaskModalOpen(true); }}
+                                                                className="w-full px-3 py-2 bg-yellow-400 text-white rounded-lg text-xs font-medium hover:bg-yellow-500 transition-all duration-200 flex items-center justify-center gap-1 shadow-md hover:shadow-lg"
+                                                            >
+                                                                Chỉnh sửa
                                                             </button>
                                                             <button
                                                                 onClick={() => setExpandedWorklogTaskId(expandedWorklogTaskId === task.id ? null : task.id)}
@@ -929,7 +960,7 @@ export default function ProjectDetailPage() {
                                 <h2 className="text-2xl font-bold text-foreground">Nhóm làm việc</h2>
                                 <div className="flex gap-3">
                                     <Link
-                                        href="/admin/groups"
+                                        href="/manager/groups"
                                         className="px-4 py-2 bg-gray-500 text-white rounded-lg font-semibold hover:bg-gray-600 transition-all flex items-center gap-2"
                                     >
                                         <Users size={18} />
@@ -1667,6 +1698,143 @@ export default function ProjectDetailPage() {
                         <button
                             type="button"
                             onClick={() => setIsEditSubtaskModalOpen(false)}
+                            className="flex-1 px-6 py-3 bg-secondary text-foreground rounded-xl font-semibold hover:bg-secondary/80 transition-all"
+                        >
+                            Hủy
+                        </button>
+                        <button
+                            type="submit"
+                            className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all"
+                        >
+                            Lưu thay đổi
+                        </button>
+                    </div>
+                </form>
+            </Modal>
+
+            {/* Edit Task Modal */}
+            <Modal isOpen={isEditTaskModalOpen} onClose={() => setIsEditTaskModalOpen(false)} title="Chỉnh sửa công việc">
+                <form
+                    onSubmit={async (e) => {
+                        e.preventDefault();
+                        // Kiểm tra ngày bắt đầu và kết thúc của task phải nằm trong khoảng ngày của dự án
+                        const projectStart = project?.ngaybatdau ? new Date(project.ngaybatdau) : null;
+                        const projectEnd = project?.ngayketthuc ? new Date(project.ngayketthuc) : null;
+                        const taskStart = editTaskForm.startDate ? new Date(editTaskForm.startDate) : null;
+                        const taskEnd = editTaskForm.dueDate ? new Date(editTaskForm.dueDate) : null;
+                        
+                        if (projectStart && taskStart && taskStart < projectStart) {
+                            showWarning('Ngày bắt đầu của công việc phải lớn hơn hoặc bằng ngày bắt đầu của dự án!');
+                            return;
+                        }
+                        if (projectEnd && taskEnd && taskEnd > projectEnd) {
+                            showWarning('Ngày kết thúc của công việc phải nhỏ hơn hoặc bằng ngày kết thúc của dự án!');
+                            return;
+                        }
+                        if (taskStart && taskEnd && taskStart > taskEnd) {
+                            showWarning('Ngày bắt đầu của công việc phải nhỏ hơn hoặc bằng ngày kết thúc!');
+                            return;
+                        }
+                        
+                        try {
+                            await updateTask(editTask.id, {
+                                tentask: editTaskForm.name,
+                                mota: editTaskForm.description,
+                                mucDoUuTien: editTaskForm.priority,
+                                ngayBatDau: editTaskForm.startDate,
+                                ngayKetThuc: editTaskForm.dueDate,
+                                nguoiDuocGiaoId: Number(editTaskForm.assigneeId),
+                            });
+                            const tasksData = await getTasksByProject(id as string);
+                            setTasks(tasksData.tasks || []);
+                            setIsEditTaskModalOpen(false);
+                            setEditTask(null);
+                            showSuccess('Cập nhật công việc thành công!');
+                        } catch (error) {
+                            showError('Lỗi khi cập nhật công việc!');
+                        }
+                    }}
+                    className="space-y-5"
+                >
+                    <div>
+                        <label className="block text-sm font-semibold text-foreground mb-2">Tên công việc *</label>
+                        <input
+                            type="text"
+                            required
+                            value={editTaskForm.name}
+                            onChange={(e) => setEditTaskForm({ ...editTaskForm, name: e.target.value })}
+                            className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                            placeholder="Nhập tên công việc"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-semibold text-foreground mb-2">Mô tả</label>
+                        <textarea
+                            value={editTaskForm.description}
+                            onChange={(e) => setEditTaskForm({ ...editTaskForm, description: e.target.value })}
+                            className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all resize-none"
+                            placeholder="Mô tả công việc"
+                            rows={3}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-semibold text-foreground mb-2">Người phụ trách *</label>
+                        <select
+                            required
+                            value={editTaskForm.assigneeId}
+                            onChange={(e) => setEditTaskForm({ ...editTaskForm, assigneeId: e.target.value })}
+                            className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                        >
+                            <option value="">Chọn người phụ trách</option>
+                            {teamLeaders.map((member) => (
+                                <option key={member.id} value={member.id}>
+                                    {member.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-semibold text-foreground mb-2">Ngày bắt đầu</label>
+                            <input
+                                type="date"
+                                value={editTaskForm.startDate}
+                                onChange={(e) => setEditTaskForm({ ...editTaskForm, startDate: e.target.value })}
+                                className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold text-foreground mb-2">Hạn chót</label>
+                            <input
+                                type="date"
+                                value={editTaskForm.dueDate}
+                                onChange={(e) => setEditTaskForm({ ...editTaskForm, dueDate: e.target.value })}
+                                className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-semibold text-foreground mb-2">Độ ưu tiên *</label>
+                        <select
+                            required
+                            value={editTaskForm.priority}
+                            onChange={(e) => setEditTaskForm({ ...editTaskForm, priority: e.target.value })}
+                            className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                        >
+                            <option value="low">Thấp</option>
+                            <option value="medium">Trung bình</option>
+                            <option value="high">Cao</option>
+                        </select>
+                    </div>
+
+                    <div className="flex gap-3 pt-4">
+                        <button
+                            type="button"
+                            onClick={() => setIsEditTaskModalOpen(false)}
                             className="flex-1 px-6 py-3 bg-secondary text-foreground rounded-xl font-semibold hover:bg-secondary/80 transition-all"
                         >
                             Hủy

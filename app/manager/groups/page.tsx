@@ -1,16 +1,41 @@
 "use client"
 import { useEffect, useState } from 'react'
-import { Users, FolderKanban, RefreshCw, Search, ChevronRight, UserCheck } from 'lucide-react'
-import { getGroups } from '@/axios/adminApi'
+import { Users, FolderKanban, RefreshCw, Search, ChevronRight, UserCheck, Plus, Edit } from 'lucide-react'
+import { getGroups, closeGroup } from '@/axios/adminApi'
+import { useToastContext } from '@/components/providers/toast-provider'
+import { showConfirm } from '@/lib/notifications'
+import GroupForm from '@/components/admin/GroupForm'
 import api from '@/axios/config'
 import Link from 'next/link'
 
+interface GroupProject {
+    id: number;
+    projectId: number;
+    status: string;
+    project?: { id: number; tenduan: string };
+}
+interface Group {
+    id: number;
+    name: string;
+    description?: string;
+    duan?: { id: number; tenduan: string };
+    duanId?: number;
+    leader?: { id: number; hoten: string; manv: string };
+    leaderId?: number;
+    members?: { id: number; hoten: string; manv: string }[];
+    groupProjects?: GroupProject[];
+    status?: string;
+}
+
 export default function ManagerGroupsPage() {
-    const [groups, setGroups] = useState<any[]>([])
+    const { showSuccess, showError } = useToastContext()
+    const [groups, setGroups] = useState<Group[]>([])
     const [loading, setLoading] = useState(false)
     const [duanFilter, setDuanFilter] = useState<string>('')
     const [searchQuery, setSearchQuery] = useState<string>('')
     const [projects, setProjects] = useState<any[]>([])
+    const [openModal, setOpenModal] = useState(false)
+    const [editGroup, setEditGroup] = useState<Group | null>(null)
 
     const loadGroups = async () => {
         setLoading(true)
@@ -18,7 +43,8 @@ export default function ManagerGroupsPage() {
             const res = await getGroups(duanFilter ? { duanId: Number(duanFilter) } : undefined)
             setGroups(res.groups || [])
         } catch (e: any) {
-            console.error('Lỗi tải nhóm', e)
+            const errorMessage = e.response?.data?.message || e.message || 'Lỗi tải nhóm'
+            showError(errorMessage)
             setGroups([])
         } finally { setLoading(false) }
     }
@@ -36,6 +62,11 @@ export default function ManagerGroupsPage() {
         g.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         g.leader?.hoten.toLowerCase().includes(searchQuery.toLowerCase())
     )
+
+    const handleEdit = (g: Group) => { 
+        setEditGroup(g)
+        setOpenModal(true)
+    }
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6">
@@ -60,6 +91,13 @@ export default function ManagerGroupsPage() {
                             >
                                 <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                                 <span>Làm mới</span>
+                            </button>
+                            <button
+                                onClick={() => { setEditGroup(null); setOpenModal(true); }}
+                                className="px-6 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-semibold shadow-lg shadow-green-500/25 hover:shadow-xl hover:from-green-600 hover:to-emerald-700 transition-all flex items-center gap-2 text-sm"
+                            >
+                                <Plus size={16} />
+                                <span>Thêm nhóm</span>
                             </button>
                         </div>
                     </div>
@@ -133,6 +171,15 @@ export default function ManagerGroupsPage() {
                                     {searchQuery ? 'Thử tìm kiếm với từ khóa khác' : 'Không có nhóm nào phù hợp với bộ lọc hiện tại'}
                                 </p>
                             </div>
+                            {!searchQuery && !duanFilter && (
+                                <button
+                                    onClick={() => { setEditGroup(null); setOpenModal(true); }}
+                                    className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl hover:from-green-600 hover:to-emerald-700 transition-all flex items-center gap-2 text-sm mt-2"
+                                >
+                                    <Plus size={18} />
+                                    <span>Tạo nhóm đầu tiên</span>
+                                </button>
+                            )}
                         </div>
                     </div>
                 ) : (
@@ -140,7 +187,7 @@ export default function ManagerGroupsPage() {
                         {filteredGroups.map(g => {
                             const activeProjects = Array.isArray(g.groupProjects) ? g.groupProjects.filter((gp: any) => gp.status === 'active') : []
                             return (
-                                <div key={g.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl hover:border-blue-200 transition-all duration-300 overflow-hidden group">
+                                <div key={g.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl hover:border-blue-200 transition-all duration-300 overflow-hidden group flex flex-col">
                                     <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-500 p-6 pb-4">
                                         <div className="flex items-start justify-between mb-2">
                                             <div className="flex items-center gap-3 flex-1">
@@ -160,7 +207,7 @@ export default function ManagerGroupsPage() {
                                         </div>
                                     </div>
                                     
-                                    <div className="p-6 space-y-4">
+                                    <div className="p-6 space-y-4 flex-1 flex flex-col">
                                         {/* Leader */}
                                         <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl">
                                             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-md">
@@ -213,14 +260,25 @@ export default function ManagerGroupsPage() {
                                             )}
                                         </div>
 
-                                        {/* View Details Button */}
-                                        <Link 
-                                            href={`/manager/groups/${g.id}`}
-                                            className="flex items-center justify-center gap-2 w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl text-sm font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-md hover:shadow-lg group-hover:scale-105"
-                                        >
-                                            <span>Xem chi tiết</span>
-                                            <ChevronRight className="w-4 h-4" />
-                                        </Link>
+                                        {/* Action Buttons */}
+                                        <div className="mt-auto pt-2 flex gap-2">
+                                            <Link 
+                                                href={`/manager/groups/${g.id}`}
+                                                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl text-sm font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-md hover:shadow-lg"
+                                            >
+                                                <span>Xem chi tiết</span>
+                                                <ChevronRight className="w-4 h-4" />
+                                            </Link>
+                                            <button
+                                                onClick={() => handleEdit(g)}
+                                                disabled={g.status === 'closed'}
+                                                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-blue-200 text-blue-600 rounded-xl font-semibold text-sm hover:bg-blue-50 hover:border-blue-300 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
+                                                title={g.status === 'closed' ? 'Không thể chỉnh sửa nhóm đã đóng' : 'Chỉnh sửa nhóm'}
+                                            >
+                                                <Edit size={16} />
+                                                <span>Chỉnh sửa</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             )
@@ -228,6 +286,21 @@ export default function ManagerGroupsPage() {
                     </div>
                 )}
             </div>
+
+            {/* GroupForm Modal */}
+            <GroupForm 
+                isOpen={openModal}
+                onClose={() => {
+                    setOpenModal(false)
+                    setEditGroup(null)
+                }}
+                onSuccess={() => {
+                    setOpenModal(false)
+                    setEditGroup(null)
+                    loadGroups()
+                }}
+                editGroup={editGroup}
+            />
         </div>
     )
 }

@@ -8,7 +8,7 @@ import { notificationUserAPI, type Notification } from '@/axios/notificationAPI'
 import { useRouter } from 'next/navigation'
 
 interface NotificationBellProps {
-    userRole: 'admin' | 'manager' | 'member'
+    userRole: 'admin' | 'manager' | 'member' | 'teamleader'
 }
 
 const getNotificationIcon = (type: string) => {
