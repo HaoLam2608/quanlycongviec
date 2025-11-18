@@ -59,8 +59,8 @@ export function LoginForm() {
         router.push("/manager")
       }
       else if (res.role === "teamleader") {
-        // Teamleader uses employee interface (member page)
-        router.push("/member")
+        // Teamleader has dedicated interface
+        router.push("/teamlead")
       }
       else if (res.role === "employee") {
         router.push("/member")

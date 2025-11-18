@@ -7,7 +7,7 @@ import { vi } from 'date-fns/locale'
 import { notificationUserAPI, type Notification } from '@/axios/notificationAPI'
 
 interface NotificationBellProps {
-    userRole: 'admin' | 'manager' | 'member'
+    userRole: 'admin' | 'manager' | 'member' | 'teamleader'
 }
 
 const getNotificationIcon = (type: string) => {

@@ -22,9 +22,9 @@ const menuCategories = [
         title: "Quản lý",
         items: [
             { name: "Dự án", href: "/manager/projects", icon: FolderKanban },
-            { name: "Nhiệm vụ", href: "/manager/tasks", icon: CheckSquare },
+            { name: "Công việc", href: "/manager/tasks", icon: CheckSquare },
             { name: "Phê duyệt", href: "/manager/approvals", icon: CheckSquare },
-            { name: "Nhân sự", href: "/manager/groups", icon: Users },
+            { name: "Nhóm", href: "/manager/groups", icon: Users },
         ],
     },
     {

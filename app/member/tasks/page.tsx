@@ -208,8 +208,13 @@ export default function MyTasksPage() {
 
     const updateTaskStatus = async (taskId: number, newStatus: string, type: 'task' | 'subtask') => {
         try {
+            console.log('🔄 [updateTaskStatus] Starting update:', { taskId, newStatus, type });
+            
             if (type === 'task') {
+                console.log('📤 [updateTaskStatus] Calling updateMemberTaskStatus...');
                 const response = await updateMemberTaskStatus(taskId, newStatus)
+                console.log('✅ [updateTaskStatus] Response:', response);
+                
                 // Backend returns actual status (may be "Chờ xác nhận hoàn thành" instead of "Hoàn thành")
                 const actualStatus = response.task?.trangThai || (newStatus === 'Hoàn thành' ? 'Chờ xác nhận hoàn thành' : newStatus)
 
@@ -228,31 +233,57 @@ export default function MyTasksPage() {
                     showSuccess('Cập nhật trạng thái thành công')
                 }
             } else {
-                const task = subtasks.find(st => st.id === taskId)
-                if (task?.task) {
-                    const response = await updateMemberSubtaskStatus(task.task.id, taskId, newStatus)
-                    // Backend returns actual status (may be "Chờ xác nhận hoàn thành" instead of "Hoàn thành")
-                    const actualStatus = response.subtask?.trangThai || (newStatus === 'Hoàn thành' ? 'Chờ xác nhận hoàn thành' : newStatus)
+                console.log('🔍 [updateTaskStatus] Finding subtask in list...');
+                const subtask = subtasks.find(st => st.id === taskId)
+                console.log('📋 [updateTaskStatus] Found subtask:', subtask);
+                
+                if (!subtask) {
+                    console.error('❌ [updateTaskStatus] Subtask not found in list:', taskId);
+                    showError('Không tìm thấy công việc con');
+                    return;
+                }
+                
+                if (!subtask.task) {
+                    console.error('❌ [updateTaskStatus] Subtask has no parent task:', subtask);
+                    showError('Công việc con không có task cha');
+                    return;
+                }
+                
+                console.log('📤 [updateTaskStatus] Calling updateMemberSubtaskStatus...', {
+                    taskId: subtask.task.id,
+                    subtaskId: taskId,
+                    newStatus
+                });
+                
+                const response = await updateMemberSubtaskStatus(subtask.task.id, taskId, newStatus)
+                console.log('✅ [updateTaskStatus] Response:', response);
+                
+                // Backend returns actual status (may be "Chờ xác nhận hoàn thành" instead of "Hoàn thành")
+                const actualStatus = response.subtask?.trangThai || (newStatus === 'Hoàn thành' ? 'Chờ xác nhận hoàn thành' : newStatus)
 
-                    setSubtasks(subtasks.map(subtask =>
-                        subtask.id === taskId
-                            ? { ...subtask, trangThai: actualStatus }
-                            : subtask
-                    ))
+                setSubtasks(subtasks.map(st =>
+                    st.id === taskId
+                        ? { ...st, trangThai: actualStatus }
+                        : st
+                ))
 
-                    // Show success message
-                    if (actualStatus === 'Chờ xác nhận hoàn thành') {
-                        showSuccess('Đã gửi yêu cầu xác nhận hoàn thành. Chờ quản lý phê duyệt.')
-                    } else if (newStatus === 'Đang chạy') {
-                        showSuccess('Đã bắt đầu công việc')
-                    } else {
-                        showSuccess('Cập nhật trạng thái thành công')
-                    }
+                // Show success message
+                if (actualStatus === 'Chờ xác nhận hoàn thành') {
+                    showSuccess('Đã gửi yêu cầu xác nhận hoàn thành. Chờ quản lý phê duyệt.')
+                } else if (newStatus === 'Đang chạy') {
+                    showSuccess('Đã bắt đầu công việc')
+                } else {
+                    showSuccess('Cập nhật trạng thái thành công')
                 }
             }
         } catch (error: any) {
-            console.error('Error updating status:', error)
-            showError(error.response?.data?.message || 'Không thể cập nhật trạng thái')
+            console.error('❌ [updateTaskStatus] Error updating status:', error);
+            console.error('❌ [updateTaskStatus] Error details:', {
+                message: error.message,
+                response: error.response?.data,
+                status: error.response?.status
+            });
+            showError(error.response?.data?.message || error.message || 'Không thể cập nhật trạng thái')
         }
     }
 
