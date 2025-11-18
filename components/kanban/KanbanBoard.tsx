@@ -191,6 +191,44 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, onTaskClick
     }
   };
 
+  // Column drag & drop (reorder columns)
+  const [draggedColumnId, setDraggedColumnId] = useState<string | null>(null);
+
+  const handleColumnDragStart = (e: React.DragEvent, colId: string) => {
+    setDraggedColumnId(colId);
+    e.dataTransfer.effectAllowed = 'move';
+    // set plain data so some browsers allow drop
+    try { e.dataTransfer.setData('text/plain', colId); } catch (err) { /* ignore */ }
+  };
+
+  const handleColumnDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleColumnDrop = (e: React.DragEvent, targetColId: string) => {
+    e.preventDefault();
+    if (!draggedColumnId || draggedColumnId === targetColId) return;
+
+    const fromIndex = columns.findIndex(c => c.id === draggedColumnId);
+    const toIndex = columns.findIndex(c => c.id === targetColId);
+    if (fromIndex === -1 || toIndex === -1) return;
+
+    const next = [...columns];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    setColumns(next);
+
+    // persist
+    try {
+      const key = `kanban_columns_${projectId}`;
+      localStorage.setItem(key, JSON.stringify(next));
+    } catch (err) {
+      // ignore
+    }
+    setDraggedColumnId(null);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -243,7 +281,15 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, onTaskClick
             console.log(`🔍 Rendering column ${column.status} with ${tasksForColumn.length} tasks:`, tasksForColumn);
 
             return (
-              <div key={column.id} className="flex-1 min-w-[240px]">
+              <div
+                key={column.id}
+                className="flex-1 min-w-[240px]"
+                draggable
+                onDragStart={(e) => handleColumnDragStart(e, column.id)}
+                onDragOver={handleColumnDragOver}
+                onDrop={(e) => handleColumnDrop(e, column.id)}
+                aria-grabbed={draggedColumnId === column.id}
+              >
                 <KanbanColumn
                   title={column.title}
                   status={column.status}

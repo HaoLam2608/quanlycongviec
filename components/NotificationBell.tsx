@@ -5,6 +5,7 @@ import { Bell, X, Circle, AlertCircle, Info, CheckCircle2 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { notificationUserAPI, type Notification } from '@/axios/notificationAPI'
+import { useRouter } from 'next/navigation'
 
 interface NotificationBellProps {
     userRole: 'admin' | 'manager' | 'member'
@@ -62,9 +63,10 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
     const [declineReason, setDeclineReason] = useState('')
     const [processingAction, setProcessingAction] = useState(false)
     const [loading, setLoading] = useState(false)
-    const [activeTab, setActiveTab] = useState<'general' | 'assignments'>('general')
+    const [activeTab, setActiveTab] = useState<'general' | 'assignments' | 'tasks'>('general')
     const [assignmentStatus, setAssignmentStatus] = useState<string | null>(null)
     const [assignmentAssigneeName, setAssignmentAssigneeName] = useState<string | null>(null)
+    const [taskNotifications, setTaskNotifications] = useState<Notification[]>([])
 
     const fetchNotifications = async () => {
         try {
@@ -73,10 +75,19 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
             if (response.success) {
                 setNotifications(response.data)
             }
+
+            // fetch task-only notifications for the "Công việc" tab
+            try {
+                const taskResp = await notificationUserAPI.getMyNotifications({ limit: 50, type: 'task' })
+                if (taskResp.success) setTaskNotifications(taskResp.data)
+                else setTaskNotifications([])
+            } catch (e) {
+                console.warn('Unable to fetch task notifications', e)
+                setTaskNotifications([])
+            }
         } catch (error: any) {
             console.error('❌ Error fetching notifications:', error)
             // Gracefully handle errors without crashing the app
-            // If it's a network error or 403/401, just set empty notifications
             if (error?.response?.status === 403) {
                 console.warn('⚠️ Permission denied for notifications - user may not have access')
             } else if (error?.response?.status === 401) {
@@ -84,7 +95,8 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
             } else if (error?.code === 'ECONNREFUSED' || error?.message?.includes('Network Error')) {
                 console.warn('⚠️ Backend server not running - notifications unavailable')
             }
-            setNotifications([]) // Set empty array instead of keeping undefined
+            setNotifications([])
+            setTaskNotifications([])
         } finally {
             setLoading(false)
         }
@@ -106,22 +118,31 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
         return () => clearTimeout(timer)
     }, [])
 
+    // router for navigation when clicking task notifications
+    const router = useRouter()
+
     // Calculate unread count using isRead from server
     const unreadCount = notifications.filter(n => !n.isRead).length
 
     // Separate notifications into general and assignments
     const assignmentNotifications = notifications.filter(n => n.userMeta?.assignmentId)
     const generalNotifications = notifications.filter(n => !n.userMeta?.assignmentId)
+    // Task tab uses server-filtered notifications
+    const tasksNotifications = taskNotifications
 
-    const activeNotifications = activeTab === 'assignments' ? assignmentNotifications : generalNotifications
+    const activeNotifications = activeTab === 'assignments' ? assignmentNotifications : activeTab === 'tasks' ? tasksNotifications : generalNotifications
     const generalUnreadCount = generalNotifications.filter(n => !n.isRead).length
     const assignmentUnreadCount = assignmentNotifications.filter(n => !n.isRead).length
+    const tasksUnreadCount = tasksNotifications.filter(n => !n.isRead).length
 
     const markAsRead = async (notificationId: string) => {
         try {
             await notificationUserAPI.markAsRead(notificationId)
             // Update local state to reflect the change immediately
             setNotifications(prev =>
+                prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
+            )
+            setTaskNotifications(prev =>
                 prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
             )
         } catch (error) {
@@ -131,15 +152,23 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
 
     const markAllAsRead = async () => {
         try {
-            // Mark all unread notifications as read
-            const unreadNotifications = (activeTab === 'general' ? generalNotifications : assignmentNotifications)
-                .filter(n => !n.isRead)
+            // Pick unread notifications based on active tab
+            let unreadNotifications: Notification[] = []
+            if (activeTab === 'general') unreadNotifications = generalNotifications.filter(n => !n.isRead)
+            else if (activeTab === 'assignments') unreadNotifications = assignmentNotifications.filter(n => !n.isRead)
+            else if (activeTab === 'tasks') unreadNotifications = tasksNotifications.filter(n => !n.isRead)
 
             const promises = unreadNotifications.map(n => notificationUserAPI.markAsRead(n.id))
             await Promise.all(promises)
 
-            // Update local state
+            // Update local state for both lists
             setNotifications(prev =>
+                prev.map(n => {
+                    const shouldMarkRead = unreadNotifications.some(un => un.id === n.id)
+                    return shouldMarkRead ? { ...n, isRead: true } : n
+                })
+            )
+            setTaskNotifications(prev =>
                 prev.map(n => {
                     const shouldMarkRead = unreadNotifications.some(un => un.id === n.id)
                     return shouldMarkRead ? { ...n, isRead: true } : n
@@ -173,6 +202,22 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
         } else {
             setAssignmentStatus(null)
             setAssignmentAssigneeName(null)
+        }
+
+        // If notification has task/subtask metadata, deep-link into manager tasks page
+        const relatedTaskId = notification.userMeta?.taskId || notification.userMeta?.relatedTaskId
+        const relatedSubtaskId = notification.userMeta?.subtaskId || notification.userMeta?.relatedSubtaskId
+        const relatedCommentId = notification.userMeta?.relatedId || notification.userMeta?.commentId
+
+        if (relatedTaskId || relatedSubtaskId) {
+            const params = new URLSearchParams()
+            if (relatedTaskId) params.set('taskId', String(relatedTaskId))
+            if (relatedSubtaskId) params.set('subtaskId', String(relatedSubtaskId))
+            if (relatedCommentId) params.set('commentId', String(relatedCommentId))
+            // navigate and close the panel
+            setIsOpen(false)
+            router.push(`/manager/tasks?${params.toString()}`)
+            return
         }
 
         setSelectedNotification(notification)
@@ -231,9 +276,9 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                     id="notification-bell-button"
                 >
                     <Bell className="w-5 h-5" />
-                    {(generalUnreadCount + assignmentUnreadCount) > 0 && (
+                    {(generalUnreadCount + assignmentUnreadCount + tasksUnreadCount) > 0 && (
                         <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
-                            {(generalUnreadCount + assignmentUnreadCount) > 9 ? '9+' : (generalUnreadCount + assignmentUnreadCount)}
+                            {(generalUnreadCount + assignmentUnreadCount + tasksUnreadCount) > 9 ? '9+' : (generalUnreadCount + assignmentUnreadCount + tasksUnreadCount)}
                         </span>
                     )}
                 </button>
@@ -247,7 +292,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                                     <span className="text-xs text-gray-500">{unreadCount} chưa đọc</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    {(activeTab === 'general' ? generalUnreadCount : assignmentUnreadCount) > 0 && (
+                                    {((activeTab === 'general' ? generalUnreadCount : activeTab === 'assignments' ? assignmentUnreadCount : tasksUnreadCount)) > 0 && (
                                         <button
                                             onClick={markAllAsRead}
                                             className="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded-md border border-blue-100 hover:bg-blue-100"
@@ -296,6 +341,20 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                                         </span>
                                     )}
                                 </button>
+                                <button
+                                    onClick={() => setActiveTab('tasks')}
+                                    className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'tasks'
+                                        ? 'bg-white text-blue-600'
+                                        : 'text-gray-600 hover:bg-gray-100'
+                                        }`}
+                                >
+                                    Công việc
+                                    {tasksUnreadCount > 0 && (
+                                        <span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-medium text-white bg-red-500 rounded-full">
+                                            {tasksUnreadCount > 9 ? '9+' : tasksUnreadCount}
+                                        </span>
+                                    )}
+                                </button>
                             </div>
                         </div>
 
@@ -305,7 +364,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-3"></div>
                                     <p>Đang tải thông báo...</p>
                                 </div>
-                            ) : (activeTab === 'general' ? generalNotifications : assignmentNotifications).length === 0 ? (
+                            ) : (activeTab === 'general' ? generalNotifications : activeTab === 'assignments' ? assignmentNotifications : tasksNotifications).length === 0 ? (
                                 <div className="p-8 text-center text-gray-500">
                                     <Bell className="w-10 h-10 mx-auto mb-3 text-gray-300" />
                                     <p className="font-medium text-gray-700">Không có thông báo</p>
@@ -313,7 +372,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                                 </div>
                             ) : (
                                 <div className="divide-y">
-                                    {(activeTab === 'general' ? generalNotifications : assignmentNotifications).map((notification) => {
+                                    {(activeTab === 'general' ? generalNotifications : activeTab === 'assignments' ? assignmentNotifications : tasksNotifications).map((notification) => {
                                         const isRead = notification.isRead
                                         return (
                                             <div

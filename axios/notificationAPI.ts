@@ -98,6 +98,7 @@ export const notificationUserAPI = {
     getMyNotifications: async (params?: {
         page?: number
         limit?: number
+        type?: string
     }) => {
         const response = await axiosInstance.get('/notifications/user', { params })
         return response.data
