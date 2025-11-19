@@ -18,7 +18,7 @@ const navigation = [
     { name: "Dashboard", href: "/teamlead", icon: Home },
     { name: "Nhóm của tôi", href: "/teamlead/group", icon: Users },
     { name: "Dự án", href: "/teamlead/projects", icon: Briefcase },
-    { name: "Task", href: "/teamlead/tasks", icon: ListTodo },
+    { name: "Công việc chính", href: "/teamlead/tasks", icon: ListTodo },
     { name: "Công việc con", href: "/teamlead/subtasks", icon: CheckSquare },
     { name: "Tài liệu", href: "/teamlead/documents", icon: FileText },
     { name: "Phê duyệt", href: "/teamlead/approvals", icon: ClipboardCheck },

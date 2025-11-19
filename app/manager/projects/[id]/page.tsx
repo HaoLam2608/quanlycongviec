@@ -465,10 +465,19 @@ export default function ProjectDetailPage() {
         avatar: user.hoten?.charAt(0)?.toUpperCase() || "U"
     }));
 
-    // Lọc chỉ những người có role 'teamleader' để dùng cho trường 'Người phụ trách'
-    const teamLeaders = users
-        .filter((u: any) => u.role && (u.role.name === 'teamleader' || u.role.name === 'leader' || u.chucvu === 'Trưởng nhóm'))
-        .map((user: any) => ({ id: user.id, name: user.hoten, role: user.chucvu }));
+    // Lọc chỉ những team leader của các nhóm đang tham gia dự án
+    const teamLeaders = projectGroups
+        .filter((group: any) => group.leader) // Chỉ lấy nhóm có leader
+        .map((group: any) => ({
+            id: group.leader.id || group.leaderId,
+            name: group.leader.hoten || group.leader.name,
+            role: group.leader.chucvu || group.leader.role || 'Team Leader',
+            groupName: group.name // Thêm tên nhóm để hiển thị
+        }))
+        // Loại bỏ trùng lặp nếu một leader quản lý nhiều nhóm
+        .filter((leader, index, self) => 
+            index === self.findIndex((l) => l.id === leader.id)
+        );
 
 
     const getGroupMembersForTask = (task: any): Array<{ id: any; name: string; role?: any }> => {

@@ -1,10 +1,14 @@
 "use client"
 import { useState, useEffect } from "react"
-import { Search, Plus, Filter, Clock, Users, Calendar, AlertCircle, CheckCircle2, Folder, Edit, Trash2, Eye, Building2, X, ArrowLeft } from "lucide-react"
+import { Search, Plus, Filter, Clock, Users, Calendar, AlertCircle, CheckCircle2, Folder, Edit, Trash2, Eye, Building2, X, ArrowLeft, MessageSquare, ListChecks } from "lucide-react"
 import api from "@/axios/config"
 import { useToastContext } from '@/components/providers/toast-provider'
 import { showConfirm, showWarning } from '@/lib/notifications'
 import { updateTask } from "@/axios/api"
+import CommentTask from "@/components/comment-task"
+import WorklogTask from "@/components/worklog-task"
+import CommentSubtask from "@/components/comment-subtask"
+import WorklogSubtask from "@/components/worklog-subtask"
 
 interface Task {
     id: number
@@ -90,6 +94,12 @@ export default function TeamLeadTasksPage() {
         nguoiThucHienId: '',
         ghiChu: ''
     })
+    
+    // Comment and Worklog expand states
+    const [expandedCommentTaskId, setExpandedCommentTaskId] = useState<number | null>(null)
+    const [expandedWorklogTaskId, setExpandedWorklogTaskId] = useState<number | null>(null)
+    const [expandedCommentSubtaskId, setExpandedCommentSubtaskId] = useState<number | null>(null)
+    const [expandedWorklogSubtaskId, setExpandedWorklogSubtaskId] = useState<number | null>(null)
 
     useEffect(() => {
         console.log('Edit subtask form updated:', editSubtaskForm)
@@ -624,8 +634,8 @@ export default function TeamLeadTasksPage() {
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Quản lý Task</h1>
-                    <p className="text-gray-600 mt-1">Quản lý các task lớn và tạo subtask cho nhóm</p>
+                    <h1 className="text-3xl font-bold text-gray-900">Quản lý công việc chính</h1>
+                    <p className="text-gray-600 mt-1">Quản lý các công việc lớn và tạo công việc nhỏ cho nhóm</p>
                 </div>
                 <button
                     onClick={() => loadTasks()}
@@ -1092,6 +1102,14 @@ export default function TeamLeadTasksPage() {
                                     <div className="text-center pt-2 border-t border-gray-200">
                                         <p className="text-xs text-gray-400">Task ID: #{selectedTask.id}</p>
                                     </div>
+                                    
+                                    {/* Worklog and Comment sections for Task - Always visible */}
+                                    <div className="mt-4 pt-4 border-t border-gray-200 bg-blue-50 rounded-lg p-4">
+                                        <WorklogTask taskId={selectedTask.id} taskStatus={selectedTask.trangThai} />
+                                    </div>
+                                    <div className="mt-4 bg-purple-50 rounded-lg p-4">
+                                        <CommentTask taskId={selectedTask.id} taskStatus={selectedTask.trangThai} />
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -1403,8 +1421,40 @@ export default function TeamLeadTasksPage() {
                                                     >
                                                         <Eye className="w-5 h-5 text-indigo-500 group-hover/view:scale-110 transition-transform" />
                                                     </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            setExpandedWorklogSubtaskId(expandedWorklogSubtaskId === subtask.id ? null : subtask.id)
+                                                        }}
+                                                        className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center hover:bg-blue-100 transition-colors group/worklog"
+                                                        title="Nhật ký công việc"
+                                                    >
+                                                        <ListChecks className="w-5 h-5 text-blue-600 group-hover/worklog:scale-110 transition-transform" />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            setExpandedCommentSubtaskId(expandedCommentSubtaskId === subtask.id ? null : subtask.id)
+                                                        }}
+                                                        className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center hover:bg-purple-100 transition-colors group/comment"
+                                                        title="Bình luận"
+                                                    >
+                                                        <MessageSquare className="w-5 h-5 text-purple-600 group-hover/comment:scale-110 transition-transform" />
+                                                    </button>
                                                 </div>
                                             </div>
+                                            
+                                            {/* Worklog and Comment sections for Subtask */}
+                                            {expandedWorklogSubtaskId === subtask.id && (
+                                                <div className="mt-4 pt-4 border-t border-gray-200 bg-blue-50/50 rounded-lg p-4">
+                                                    <WorklogSubtask subtaskId={subtask.id} subtaskStatus={subtask.trangThai} />
+                                                </div>
+                                            )}
+                                            {expandedCommentSubtaskId === subtask.id && (
+                                                <div className="mt-4 pt-4 border-t border-gray-200 bg-purple-50/50 rounded-lg p-4">
+                                                    <CommentSubtask subtaskId={subtask.id} subtaskStatus={subtask.trangThai} />
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>

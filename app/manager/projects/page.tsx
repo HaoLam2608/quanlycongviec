@@ -106,13 +106,7 @@ export default function PMProjectsPage() {
                     </h1>
                     <p className="text-muted-foreground">Theo dõi tiến độ và quản lý các dự án của bạn</p>
                 </div>
-                <button
-                    onClick={() => setIsCreateModalOpen(true)}
-                    className="px-6 py-3 bg-gradient-to-r from-[#003D82] to-[#0052A3] text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-300 hover:-translate-y-0.5 flex items-center gap-2"
-                >
-                    <Plus size={20} />
-                    Tạo dự án mới
-                </button>
+                
             </div>
 
             {/* Projects Grid */}

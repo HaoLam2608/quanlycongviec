@@ -323,50 +323,50 @@ export default function TeamLeadSubtasksPage() {
                                 {items.map(subtask => (
                                     <div
                                         key={subtask.id}
-                                        className="p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all border border-gray-200 cursor-move"
+                                        className="p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all border border-gray-200 cursor-move shadow-sm hover:shadow-md"
                                         draggable
                                         onDragStart={() => handleDragStart(subtask)}
                                         onDragEnd={handleDragEnd}
                                     >
-                                        <div className={`inline-block px-2 py-1 rounded-lg text-xs font-semibold border mb-2 ${getStatusColor(subtask.trangThai)}`}>
+                                        <div className={`inline-block px-3 py-1 rounded-md text-xs font-semibold border mb-2 ${getStatusColor(subtask.trangThai)}`}>
                                             {subtask.trangThai}
                                         </div>
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold ${subtask.itemType === 'task' ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200'}`}>
+                                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold ${subtask.itemType === 'task' ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-emerald-100 text-emerald-700 border border-emerald-200'}`}>
                                                 {subtask.itemType === 'task' ? (
                                                     <ClipboardList className="w-3 h-3" />
                                                 ) : (
                                                     <CheckSquare className="w-3 h-3" />
                                                 )}
-                                                {subtask.itemType === 'task' ? 'Công việc chính' : 'Công việc con'}
+                                                {subtask.itemType === 'task' ? 'CV chính' : 'CV con'}
                                             </span>
                                             {subtask.duan && (
-                                                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-purple-50 text-purple-700 border border-purple-200 truncate max-w-[150px]">
                                                     {subtask.duan.tenduan}
                                                 </span>
                                             )}
                                         </div>
-                                        <h4 className="font-semibold text-gray-900 mb-2 line-clamp-2">{subtask.ten}</h4>
+                                        <h4 className="font-semibold text-gray-900 mb-3 line-clamp-2 text-sm leading-snug">{subtask.ten}</h4>
                                         <div className="space-y-2 text-xs text-gray-600">
                                             {subtask.itemType === 'subtask' ? (
                                                 <div className="flex items-center gap-2">
-                                                    <CheckSquare className="w-4 h-4 text-purple-600" />
+                                                    <CheckSquare className="w-4 h-4 text-purple-600 flex-shrink-0" />
                                                     <span className="truncate">{subtask.task?.tentask || 'N/A'}</span>
                                                 </div>
                                             ) : (
                                                 <div className="flex items-center gap-2">
-                                                    <ClipboardList className="w-4 h-4 text-indigo-600" />
+                                                    <ClipboardList className="w-4 h-4 text-indigo-600 flex-shrink-0" />
                                                     <span className="truncate">Công việc chính</span>
                                                 </div>
                                             )}
                                             {subtask.nguoiThucHien && (
                                                 <div className="flex items-center gap-2">
-                                                    <User className="w-4 h-4 text-blue-600" />
+                                                    <User className="w-4 h-4 text-blue-600 flex-shrink-0" />
                                                     <span className="truncate">{subtask.nguoiThucHien.hoten}</span>
                                                 </div>
                                             )}
                                             <div className="flex items-center gap-2">
-                                                <Calendar className="w-4 h-4 text-amber-600" />
+                                                <Calendar className="w-4 h-4 text-amber-600 flex-shrink-0" />
                                                 <span>{formatDate(subtask.ngayKetThuc)}</span>
                                             </div>
                                         </div>

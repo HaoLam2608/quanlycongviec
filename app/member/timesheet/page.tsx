@@ -161,6 +161,10 @@ export default function TimesheetPage() {
         setLoadingSubtasks(true)
         try {
             const response = await getMySubtasks()
+            console.log('📋 Loaded subtasks:', response.subtasks)
+            if (response.subtasks && response.subtasks.length > 0) {
+                console.log('📌 Sample subtask:', response.subtasks[0])
+            }
             setMySubtasks(response.subtasks || [])
         } catch (error) {
             console.error('Error loading subtasks:', error)
@@ -419,13 +423,17 @@ export default function TimesheetPage() {
     const handleSubtaskSelection = (subtaskId: number | null) => {
         if (subtaskId) {
             const selectedSubtask = mySubtasks.find(s => s.id === subtaskId)
+            console.log('🔍 Selected subtask:', selectedSubtask)
 
             if (selectedSubtask) {
+                const projectName = selectedSubtask.tenduan || "Không có dự án"
+                console.log('📦 Project name:', projectName)
+                
                 setNewWorklog(prev => ({
                     ...prev,
                     selectedSubtaskId: subtaskId,
                     taskName: selectedSubtask.tenSubtask,
-                    project: selectedSubtask.tenduan || "Không có dự án"
+                    project: projectName
                 }))
             }
         } else {
@@ -523,9 +531,12 @@ export default function TimesheetPage() {
                 // Auto-fill task name and project when subtask is selected
                 if (field === 'selectedSubtaskId' && value) {
                     const selectedSubtask = mySubtasks.find(s => s.id === value)
+                    console.log('🔍 [Batch] Selected subtask:', selectedSubtask)
+                    
                     if (selectedSubtask) {
                         updated.taskName = selectedSubtask.tenSubtask
                         updated.project = selectedSubtask.tenduan || "Không có dự án"
+                        console.log('📦 [Batch] Project:', updated.project)
                     }
                 }
 
