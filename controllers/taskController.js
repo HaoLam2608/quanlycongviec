@@ -422,6 +422,133 @@ exports.deleteTask = async (req, res) => {
     }
 };
 
+// Lấy danh sách tasks của nhóm (teamleader)
+exports.getGroupTasks = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { Group } = require('../models');
+
+        const group = await Group.findOne({
+            where: { leaderId: userId, status: 'active' },
+            include: [{
+                model: User,
+                as: 'members',
+                attributes: ['id', 'hoten', 'manv'],
+                through: { attributes: [] }
+            }]
+        });
+
+        if (!group) {
+            return res.status(404).json({
+                message: 'Bạn chưa được gán làm trưởng nhóm nào'
+            });
+        }
+
+        const memberIds = group.members.map(member => member.id);
+
+        if (memberIds.length === 0) {
+            return res.json({
+                message: 'Nhóm của bạn chưa có thành viên',
+                group: {
+                    id: group.id,
+                    name: group.name
+                },
+                members: [],
+                tasks: []
+            });
+        }
+
+        const tasks = await Task.findAll({
+            where: { nguoiDuocGiaoId: memberIds },
+            include: [
+                {
+                    model: User,
+                    as: 'nguoiDuocGiao',
+                    attributes: ['id', 'hoten', 'manv']
+                },
+                {
+                    model: User,
+                    as: 'nguoiGiao',
+                    attributes: ['id', 'hoten', 'manv']
+                },
+                {
+                    model: DuAn,
+                    as: 'duan',
+                    attributes: ['id', 'tenduan']
+                },
+                {
+                    model: Subtask,
+                    as: 'subtasks',
+                    attributes: ['id', 'tenSubtask', 'trangThai', 'nguoiThucHienId'],
+                    include: [{
+                        model: User,
+                        as: 'nguoiThucHien',
+                        attributes: ['id', 'hoten', 'manv'],
+                        required: false
+                    }]
+                }
+            ],
+            order: [
+                ['ngayKetThuc', 'ASC'],
+                ['createdAt', 'DESC']
+            ]
+        });
+
+        const formattedTasks = tasks.map(task => {
+            const taskData = task.toJSON();
+            const subtaskStats = {
+                total: 0,
+                completed: 0,
+                inProgress: 0,
+                pending: 0
+            };
+
+            if (Array.isArray(taskData.subtasks)) {
+                subtaskStats.total = taskData.subtasks.length;
+                taskData.subtasks.forEach(subtask => {
+                    switch (subtask.trangThai) {
+                        case 'Hoàn thành':
+                            subtaskStats.completed += 1;
+                            break;
+                        case 'Đang chạy':
+                            subtaskStats.inProgress += 1;
+                            break;
+                        default:
+                            subtaskStats.pending += 1;
+                            break;
+                    }
+                });
+            }
+
+            const progress = subtaskStats.total > 0
+                ? Math.round((subtaskStats.completed / subtaskStats.total) * 100)
+                : (taskData.tienDo || 0);
+
+            return {
+                ...taskData,
+                progress,
+                subtaskStats
+            };
+        });
+
+        res.json({
+            message: 'Lấy danh sách công việc của nhóm thành công',
+            group: {
+                id: group.id,
+                name: group.name
+            },
+            members: group.members,
+            tasks: formattedTasks
+        });
+    } catch (error) {
+        console.error('getGroupTasks error:', error);
+        res.status(500).json({
+            error: 'Lỗi khi lấy danh sách công việc của nhóm',
+            message: error.message
+        });
+    }
+};
+
 // Lấy tasks được giao cho user hiện tại
 exports.getMyTasks = async (req, res) => {
     try {

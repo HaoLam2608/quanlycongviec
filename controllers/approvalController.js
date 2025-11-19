@@ -10,7 +10,7 @@ const getPendingApprovals = async (req, res) => {
         
         console.log('🔍 getPendingApprovals - User:', userId, 'Role:', userRole);
         
-        const pendingStatus = 'Đang chờ duyệt';
+        const pendingStatuses = ['Đang chờ duyệt', 'Chờ xác nhận hoàn thành'];
         
         let tasks = [];
         let subtasks = [];
@@ -41,7 +41,7 @@ const getPendingApprovals = async (req, res) => {
 
             subtasks = await Subtask.findAll({
                 where: { 
-                    trangThai: pendingStatus,
+                    trangThai: { [Op.in]: pendingStatuses },
                     nguoiThucHienId: memberIds
                 },
                 include: [
@@ -78,7 +78,7 @@ const getPendingApprovals = async (req, res) => {
         if (type === 'all' || type === 'tasks') {
             try {
                 tasks = await Task.findAll({
-                    where: { trangThai: pendingStatus },
+                    where: { trangThai: { [Op.in]: pendingStatuses } },
                     include: [
                         {
                             model: User,
@@ -109,7 +109,7 @@ const getPendingApprovals = async (req, res) => {
         if (type === 'all' || type === 'subtasks') {
             try {
                 subtasks = await Subtask.findAll({
-                    where: { trangThai: pendingStatus },
+                    where: { trangThai: { [Op.in]: pendingStatuses } },
                     include: [
                         {
                             model: User,

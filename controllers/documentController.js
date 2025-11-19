@@ -1,4 +1,6 @@
 const { Document, DuAn, User } = require('../models');
+const { Group, GroupProject, GroupMember } = require('../models');
+const { Op } = require('sequelize');
 const path = require('path');
 const fs = require('fs');
 
@@ -87,22 +89,72 @@ exports.getGroupDocuments = async (req, res) => {
         const userId = req.user.id;
         
         // Find groups where user is leader
-        const { Group } = require('../models');
-        const groups = await Group.findAll({
-            where: { leaderId: userId },
-            attributes: ['id']
+        const leaderGroups = await Group.findAll({
+            where: { leaderId: userId, status: 'active' },
+            attributes: ['id', 'duanId']
         });
 
-        if (!groups || groups.length === 0) {
+        const memberLinks = await GroupMember.findAll({
+            where: { userId },
+            attributes: ['groupId'],
+            raw: true
+        });
+
+        const memberGroupIds = memberLinks.map(link => link.groupId);
+
+        const memberGroups = memberGroupIds.length
+            ? await Group.findAll({
+                where: {
+                    id: { [Op.in]: memberGroupIds },
+                    status: 'active'
+                },
+                attributes: ['id', 'duanId']
+            })
+            : [];
+
+        const allGroups = [...leaderGroups, ...memberGroups];
+
+        if (!allGroups.length) {
             return res.json({ documents: [] });
         }
 
-        const groupIds = groups.map(g => g.id);
+        const groupIds = Array.from(new Set(allGroups.map(g => g.id)));
+
+        const groupProjects = groupIds.length
+            ? await GroupProject.findAll({
+                where: {
+                    groupId: { [Op.in]: groupIds }
+                },
+                attributes: ['projectId', 'status']
+            })
+            : [];
+
+        const directProjectIds = allGroups
+            .map(g => g.duanId)
+            .filter(id => !!id);
+
+        const relatedProjectIds = groupProjects
+            .map(gp => gp.projectId)
+            .filter(id => !!id);
+
+        const projectIds = Array.from(new Set([...directProjectIds, ...relatedProjectIds]));
+
+        const whereConditions = [];
+        if (groupIds.length > 0) {
+            whereConditions.push({ groupId: { [Op.in]: groupIds } });
+        }
+        if (projectIds.length > 0) {
+            whereConditions.push({ duanId: { [Op.in]: projectIds } });
+        }
+
+        if (whereConditions.length === 0) {
+            return res.json({ documents: [] });
+        }
 
         // Get all documents for these groups
         const documents = await Document.findAll({
-            where: { 
-                groupId: groupIds 
+            where: {
+                [Op.or]: whereConditions
             },
             include: [
                 { 
@@ -114,6 +166,11 @@ exports.getGroupDocuments = async (req, res) => {
                     model: Group,
                     as: 'group',
                     attributes: ['id', 'name']
+                },
+                {
+                    model: DuAn,
+                    as: 'duan',
+                    attributes: ['id', 'tenduan']
                 }
             ],
             order: [['createdAt', 'DESC']]
@@ -128,7 +185,15 @@ exports.getGroupDocuments = async (req, res) => {
             kichThuoc: doc.size,
             loaiTaiLieu: doc.mimetype,
             uploadedBy: doc.uploader,
-            createdAt: doc.createdAt
+            createdAt: doc.createdAt,
+            project: doc.duan ? {
+                id: doc.duan.id,
+                tenduan: doc.duan.tenduan
+            } : null,
+            group: doc.group ? {
+                id: doc.group.id,
+                name: doc.group.name
+            } : null
         }));
 
         res.json({ documents: result });

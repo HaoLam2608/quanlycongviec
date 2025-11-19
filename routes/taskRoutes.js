@@ -32,6 +32,12 @@ router.get('/my-tasks',
     taskController.getMyTasks
 );
 
+// Lấy tasks của nhóm (teamleader)
+router.get('/group/tasks',
+    authenticateToken,
+    taskController.getGroupTasks
+);
+
 // Lấy chi tiết một task
 router.get('/:id',
     authenticateToken,

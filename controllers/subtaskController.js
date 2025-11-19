@@ -82,11 +82,9 @@ exports.createSubtask = async (req, res) => {
         if (!nguoiThucHienId) {
             initialAssigneeId = req.user.id;
         } else {
-            // If assigning to self, set assignee immediately
-            if (req.user.id === nguoiThucHienId) {
-                initialAssigneeId = nguoiThucHienId;
-            }
-            // If assigning to someone else, leave initialAssigneeId null (will create an Assignment)
+            // Always set the assignee to the requested person
+            // Assignment status will track whether they've accepted or not
+            initialAssigneeId = nguoiThucHienId;
         }
 
         // Ensure req.user exists (authentication)
@@ -104,8 +102,8 @@ exports.createSubtask = async (req, res) => {
             reqUserId: req.user && req.user.id
         });
 
-        // If assigning to someone else, keep nguoiThucHienId as null until they accept
-        // Only set assignee if they are self-assigning or no assignee specified
+        // Set assignee immediately (database constraint requires non-null)
+        // Assignment status will indicate if they've accepted it
         const safeAssigneeId = initialAssigneeId;
 
         const newSubtask = await Subtask.create({
