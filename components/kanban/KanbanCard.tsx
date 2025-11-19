@@ -1,6 +1,10 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/hooks/use-toast';
+import assignmentAPI from '@/axios/assignmentAPI';
+import taskAPI from '@/axios/taskAPI';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -36,6 +40,7 @@ interface KanbanCardProps {
   onDragStart: (e: React.DragEvent, task: Task) => void;
   onDragEnd: (e: React.DragEvent) => void;
   onClick?: (task: Task) => void;
+  onDeleted?: (taskId: number) => void;
 }
 
 const priorityConfig = {
@@ -44,8 +49,13 @@ const priorityConfig = {
   high: { label: 'Cao', color: 'bg-red-100 text-red-800' },
 };
 
-export const KanbanCard: React.FC<KanbanCardProps> = ({ task, onDragStart, onDragEnd, onClick }) => {
+export const KanbanCard: React.FC<KanbanCardProps> = ({ task, onDragStart, onDragEnd, onClick, onDeleted }) => {
   const priority = priorityConfig[task.mucDoUuTien] || priorityConfig.medium;
+  const [loadingRequest, setLoadingRequest] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const auth = useAuth();
+  const { toast } = useToast();
+  // taskAPI imported above
   
   // Kiểm tra deadline
   const isOverdue = new Date(task.ngayKetThuc) < new Date() && task.trangThai !== 'Hoàn thành';
@@ -121,6 +131,68 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ task, onDragStart, onDra
           </div>
         )}
       </CardContent>
+      {/* Member: request to join button */}
+  {auth && auth.role === 'member' && (!task.nguoiDuocGiao || !task.nguoiDuocGiao.id) && (
+        <div className="px-2 pb-2">
+          <button
+            disabled={loadingRequest}
+            onClick={async (e) => {
+              e.stopPropagation();
+              if (!confirm('Gửi yêu cầu tham gia công việc này tới người quản lý?')) return;
+              try {
+                setLoadingRequest(true);
+                const payload: any = { taskId: task.id };
+                const res = await assignmentAPI.requestToJoin(payload);
+                if (res && res.success) {
+                  toast({ title: 'Đã gửi yêu cầu', description: 'Yêu cầu tham gia đã được gửi tới người quản lý.' });
+                } else {
+                  toast({ title: 'Lỗi', description: (res && res.message) || 'Không thể gửi yêu cầu' });
+                }
+              } catch (err: any) {
+                console.error('requestToJoin error', err);
+                toast({ title: 'Lỗi', description: err?.response?.data?.message || 'Lỗi khi gửi yêu cầu' });
+              } finally {
+                setLoadingRequest(false);
+              }
+            }}
+            className="text-xs text-blue-600 hover:underline"
+          >
+            {loadingRequest ? 'Đang gửi...' : 'Yêu cầu tham gia'}
+          </button>
+        </div>
+      )}
+      {/* Delete button for owner or managers/admins */}
+      {(auth && (String(auth.id) === String(task.nguoiDuocGiao?.id) || ['manager', 'admin'].includes(auth.role || ''))) && (
+        <div className="px-2 pb-2">
+          <button
+            disabled={deleting}
+            onClick={async (e) => {
+              e.stopPropagation();
+              if (!confirm('Bạn có chắc muốn xóa công việc này? (Không thể hoàn tác)')) return;
+              try {
+                setDeleting(true);
+                const res = await taskAPI.deleteTask(task.id);
+                if (res && res.success) {
+                  toast({ title: 'Đã xóa', description: 'Công việc đã được xóa.' });
+                  if (typeof onDeleted === 'function') {
+                    onDeleted(task.id);
+                  }
+                } else {
+                  toast({ title: 'Lỗi', description: (res && res.message) || 'Không thể xóa công việc' });
+                }
+              } catch (err: any) {
+                console.error('deleteTask error', err);
+                toast({ title: 'Lỗi', description: err?.response?.data?.message || 'Lỗi khi xóa công việc' });
+              } finally {
+                setDeleting(false);
+              }
+            }}
+            className="text-xs text-red-600 hover:underline"
+          >
+            {deleting ? 'Đang xóa...' : 'Xóa công việc'}
+          </button>
+        </div>
+      )}
     </Card>
   );
 };

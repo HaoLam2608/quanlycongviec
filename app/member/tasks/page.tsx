@@ -18,6 +18,8 @@ import {
     Paperclip
 } from "lucide-react"
 import { getMySubtasks, updateMemberTaskStatus, updateMemberSubtaskStatus } from "@/axios/api"
+import assignmentAPI from '@/axios/assignmentAPI'
+import { useAuth } from '@/hooks/useAuth'
 import { useToastContext } from '@/components/providers/toast-provider'
 import Modal from "@/components/admin/Modal"
 import WorklogTask from "@/components/worklog-task"
@@ -63,6 +65,7 @@ interface Subtask {
 
 export default function MyTasksPage() {
     const { showSuccess, showError } = useToastContext()
+    const auth = useAuth()
     const [tasks, setTasks] = useState<Task[]>([])
     const [subtasks, setSubtasks] = useState<Subtask[]>([])
     const [loading, setLoading] = useState(true)
@@ -73,6 +76,8 @@ export default function MyTasksPage() {
     const [projectFilter, setProjectFilter] = useState<string>("all")
     const [selectedTask, setSelectedTask] = useState<any>(null)
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
+    const [isAvailableModalOpen, setIsAvailableModalOpen] = useState(false)
+    const [availableItems, setAvailableItems] = useState<Array<{ type: 'task' | 'subtask'; item: any }>>([])
 
     useEffect(() => {
         loadTasks()
@@ -165,7 +170,9 @@ export default function MyTasksPage() {
         type: 'subtask' as const,
         parentTask: subtask.task?.tentask,
         progress: subtask.trangThai === 'Hoàn thành' ? 100 : subtask.trangThai === 'Chờ xác nhận hoàn thành' ? 90 : subtask.trangThai === 'Đang chạy' ? 50 : 0,
-        createdAt: (subtask as any).createdAt || null
+        createdAt: (subtask as any).createdAt || null,
+        // include assignee info so we can hide request button when already assigned
+        assigneeId: (subtask as any).nguoiThucHienId || (subtask as any).nguoiThucHien?.id || null
     }))
 
     // Sort items newest-first. Prefer createdAt if available, otherwise fall back to id descending.
@@ -373,6 +380,33 @@ export default function MyTasksPage() {
                     </div>
                 </div>
 
+                {/* Request available tasks button */}
+                <div className="mb-4 flex justify-end">
+                    <button
+                        onClick={async () => {
+                            // open modal by loading available tasks
+                            try {
+                                setLoading(true)
+                                const res = await (await import('@/axios/availableAPI')).default.getAvailableForRequest()
+                                if (res && res.success) {
+                                    setAvailableItems([...(res.data.tasks || []).map((t: any) => ({ type: 'task', item: t })), ...(res.data.subtasks || []).map((s: any) => ({ type: 'subtask', item: s }))])
+                                    setIsAvailableModalOpen(true)
+                                } else {
+                                    showError(res?.message || 'Không lấy được danh sách công việc')
+                                }
+                            } catch (err: any) {
+                                console.error('load available error', err)
+                                showError('Lỗi khi tải danh sách công việc có thể yêu cầu')
+                            } finally {
+                                setLoading(false)
+                            }
+                        }}
+                        className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
+                    >
+                        Yêu cầu công việc
+                    </button>
+                </div>
+
                 {/* Filters and Search */}
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 mb-6">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -441,6 +475,58 @@ export default function MyTasksPage() {
                                 <div className="flex items-start justify-between">
                                     <div className="flex-1">
                                         <div className="flex items-center gap-3 mb-2">
+                        {/* Available Tasks Modal */}
+                        {isAvailableModalOpen && (
+                            <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
+                                <div className="bg-white rounded-lg w-full max-w-3xl max-h-[80vh] overflow-y-auto shadow-2xl">
+                                    <div className="p-4 border-b flex items-center justify-between">
+                                        <h3 className="font-semibold">Công việc có thể yêu cầu</h3>
+                                        <div className="flex items-center gap-2">
+                                            <button onClick={() => setIsAvailableModalOpen(false)} className="text-sm text-gray-500 hover:text-gray-700">Đóng</button>
+                                        </div>
+                                    </div>
+                                    <div className="p-4 space-y-3">
+                                        {availableItems.length === 0 ? (
+                                            <div className="text-gray-500">Không có công việc nào để yêu cầu</div>
+                                        ) : (
+                                            availableItems.map((ai, idx) => (
+                                                <div key={idx} className="flex items-center justify-between border rounded p-3">
+                                                    <div>
+                                                        <div className="font-medium">{ai.type === 'task' ? ai.item.tentask : ai.item.tenSubtask}</div>
+                                                        <div className="text-sm text-gray-500">{ai.type === 'task' ? (ai.item.duan?.tenduan || '') : (ai.item.task?.tentask || '')}</div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            onClick={async () => {
+                                                                try {
+                                                                    const payload: any = {}
+                                                                    if (ai.type === 'task') payload.taskId = ai.item.id
+                                                                    else payload.subtaskId = ai.item.id
+                                                                    const res = await (await import('@/axios/assignmentAPI')).default.requestToJoin(payload)
+                                                                    if (res && res.success) {
+                                                                        showSuccess('Đã gửi yêu cầu tới người quản lý')
+                                                                        // Optionally remove the item from list
+                                                                        setAvailableItems(prev => prev.filter((_, i) => i !== idx))
+                                                                    } else {
+                                                                        showError(res?.message || 'Không thể gửi yêu cầu')
+                                                                    }
+                                                                } catch (err: any) {
+                                                                    console.error('requestToJoin error', err)
+                                                                    showError('Lỗi khi gửi yêu cầu')
+                                                                }
+                                                            }}
+                                                            className="px-3 py-1 bg-amber-500 text-white rounded hover:bg-amber-600"
+                                                        >
+                                                            Yêu cầu
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                                             <h3 className="text-lg font-semibold text-gray-900">
                                                 {task.type === 'subtask' ? '• ' : ''}{task.title}
                                             </h3>
@@ -548,6 +634,34 @@ export default function MyTasksPage() {
                                             <Eye className="w-4 h-4" />
                                             Chi tiết
                                         </button>
+                                        {/* Request to join button - hidden if already has an assignee */}
+                                        {!task.assigneeId && (
+                                            <button
+                                                onClick={async () => {
+                                                    // For subtasks we send subtaskId and taskId
+                                                    try {
+                                                        const payload: any = {}
+                                                        if (task.type === 'subtask') {
+                                                            payload.subtaskId = task.id
+                                                        } else {
+                                                            payload.taskId = task.id
+                                                        }
+                                                        const res = await assignmentAPI.requestToJoin(payload)
+                                                        if (res && res.success) {
+                                                            showSuccess('Đã gửi yêu cầu tham gia tới người quản lý')
+                                                        } else {
+                                                            showError(res?.message || 'Không thể gửi yêu cầu')
+                                                        }
+                                                    } catch (err: any) {
+                                                        console.error('requestToJoin error', err)
+                                                        showError(err?.response?.data?.message || 'Lỗi khi gửi yêu cầu')
+                                                    }
+                                                }}
+                                                className="px-3 py-1 bg-amber-500 text-white rounded-lg text-sm hover:bg-amber-600 transition-colors flex items-center gap-1"
+                                            >
+                                                Yêu cầu nhận việc
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             </div>

@@ -8,7 +8,6 @@ import {
 } from "lucide-react"
 import { getDashboardStats } from "@/axios/adminApi"
 import { fetchProjects } from "@/axios/api"
-import QuickActions from "@/components/ui/QuickActions"
 
 export default function AdminDashboard() {
     const [users, setUsers] = useState<any[]>([])
@@ -210,7 +209,7 @@ export default function AdminDashboard() {
                             {new Date().toLocaleDateString('vi-VN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                         </p>
                     </div>
-                        <div className="flex gap-3">
+                    <div className="flex gap-3">
                         <button 
                             className="px-6 py-3 bg-white border-2 border-slate-200 text-slate-700 rounded-xl font-semibold hover:shadow-lg transition-all hover:-translate-y-0.5 flex items-center gap-2"
                             onClick={() => window.location.href = '/admin/reports'}
@@ -220,9 +219,6 @@ export default function AdminDashboard() {
                         </button>
                     </div>
                 </div>
-
-                    {/* Quick action buttons (Timeline / My tasks / Documents) */}
-                    <QuickActions />
 
                 {/* Stats Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

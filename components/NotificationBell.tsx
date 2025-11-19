@@ -63,10 +63,10 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
     const [declineReason, setDeclineReason] = useState('')
     const [processingAction, setProcessingAction] = useState(false)
     const [loading, setLoading] = useState(false)
-    const [activeTab, setActiveTab] = useState<'general' | 'assignments' | 'tasks'>('general')
+    const [activeTab, setActiveTab] = useState<'general' | 'assignments'>('general')
     const [assignmentStatus, setAssignmentStatus] = useState<string | null>(null)
     const [assignmentAssigneeName, setAssignmentAssigneeName] = useState<string | null>(null)
-    const [taskNotifications, setTaskNotifications] = useState<Notification[]>([])
+    
 
     const fetchNotifications = async () => {
         try {
@@ -76,15 +76,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                 setNotifications(response.data)
             }
 
-            // fetch task-only notifications for the "Công việc" tab
-            try {
-                const taskResp = await notificationUserAPI.getMyNotifications({ limit: 50, type: 'task' })
-                if (taskResp.success) setTaskNotifications(taskResp.data)
-                else setTaskNotifications([])
-            } catch (e) {
-                console.warn('Unable to fetch task notifications', e)
-                setTaskNotifications([])
-            }
+            // no task-specific fetch — we keep only general and assignment notifications
         } catch (error: any) {
             console.error('❌ Error fetching notifications:', error)
             // Gracefully handle errors without crashing the app
@@ -96,7 +88,6 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                 console.warn('⚠️ Backend server not running - notifications unavailable')
             }
             setNotifications([])
-            setTaskNotifications([])
         } finally {
             setLoading(false)
         }
@@ -121,28 +112,44 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
     // router for navigation when clicking task notifications
     const router = useRouter()
 
-    // Calculate unread count using isRead from server
+    // Calculate unread count using isRead from server (only general + assignments)
     const unreadCount = notifications.filter(n => !n.isRead).length
 
-    // Separate notifications into general and assignments
-    const assignmentNotifications = notifications.filter(n => n.userMeta?.assignmentId)
-    const generalNotifications = notifications.filter(n => !n.userMeta?.assignmentId)
-    // Task tab uses server-filtered notifications
-    const tasksNotifications = taskNotifications
+    // Helper: robustly detect assignment notifications across possible meta shapes
+    const isAssignmentNotification = (n: any) => {
+        const meta = n.userMeta || n.meta || (n.userMeta && n.userMeta.meta) || null;
+        if (!meta) return false;
+        // common keys: assignmentId, assignment_id, or nested assignment object
+        if (meta.assignmentId || meta.assignment_id) return true;
+        if (meta.assignment && (meta.assignment.id || meta.assignmentId)) return true;
+        return false;
+    }
 
-    const activeNotifications = activeTab === 'assignments' ? assignmentNotifications : activeTab === 'tasks' ? tasksNotifications : generalNotifications
+    // If backend sometimes omits meta but uses a title/content convention, also detect by text
+    const looksLikeAssignmentByText = (n: any) => {
+        try {
+            const title = (n.title || '').toString().toLowerCase();
+            const content = (n.content || '').toString().toLowerCase();
+            if (title.includes('giao việc') || title.includes('đề nghị giao việc')) return true;
+            if (content.includes('yêu cầu nhận công việc') || content.includes('yêu cầu nhận')) return true;
+        } catch (err) {
+            // ignore
+        }
+        return false;
+    }
+
+    // Separate notifications into general and assignments using the robust detector
+    const assignmentNotifications = notifications.filter(n => isAssignmentNotification(n) || looksLikeAssignmentByText(n))
+    const generalNotifications = notifications.filter(n => !(isAssignmentNotification(n) || looksLikeAssignmentByText(n)))
+    const activeNotifications = activeTab === 'assignments' ? assignmentNotifications : generalNotifications
     const generalUnreadCount = generalNotifications.filter(n => !n.isRead).length
     const assignmentUnreadCount = assignmentNotifications.filter(n => !n.isRead).length
-    const tasksUnreadCount = tasksNotifications.filter(n => !n.isRead).length
 
     const markAsRead = async (notificationId: string) => {
         try {
             await notificationUserAPI.markAsRead(notificationId)
             // Update local state to reflect the change immediately
             setNotifications(prev =>
-                prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
-            )
-            setTaskNotifications(prev =>
                 prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
             )
         } catch (error) {
@@ -156,7 +163,6 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
             let unreadNotifications: Notification[] = []
             if (activeTab === 'general') unreadNotifications = generalNotifications.filter(n => !n.isRead)
             else if (activeTab === 'assignments') unreadNotifications = assignmentNotifications.filter(n => !n.isRead)
-            else if (activeTab === 'tasks') unreadNotifications = tasksNotifications.filter(n => !n.isRead)
 
             const promises = unreadNotifications.map(n => notificationUserAPI.markAsRead(n.id))
             await Promise.all(promises)
@@ -168,12 +174,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                     return shouldMarkRead ? { ...n, isRead: true } : n
                 })
             )
-            setTaskNotifications(prev =>
-                prev.map(n => {
-                    const shouldMarkRead = unreadNotifications.some(un => un.id === n.id)
-                    return shouldMarkRead ? { ...n, isRead: true } : n
-                })
-            )
+            // no taskNotifications to update
         } catch (error) {
             console.error('Error marking all notifications as read:', error)
         }
@@ -266,6 +267,57 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
         }
     }
 
+    // Manager accepts a member's request-to-join
+    const handleAcceptRequest = async () => {
+        if (!selectedNotification) return
+    const meta: any = (selectedNotification as any).userMeta || (selectedNotification as any).meta
+        if (!meta) return
+        try {
+            setProcessingAction(true)
+            const payload: any = {
+                taskId: meta.taskId,
+                subtaskId: meta.subtaskId,
+                requesterId: meta.requesterId
+            }
+            await notificationUserAPI.acceptRequest(payload)
+            // refresh and close
+            fetchNotifications()
+            setSelectedNotification(null)
+            setDeclineReason('')
+        } catch (err) {
+            console.error('Error accepting request-to-join', err)
+        } finally {
+            setProcessingAction(false)
+        }
+    }
+
+    const handleDeclineRequest = async () => {
+        if (!selectedNotification) return
+    const meta: any = (selectedNotification as any).userMeta || (selectedNotification as any).meta
+        if (!meta) return
+        if (!declineReason.trim()) {
+            alert('Vui lòng nhập lý do từ chối')
+            return
+        }
+        try {
+            setProcessingAction(true)
+            const payload: any = {
+                taskId: meta.taskId,
+                subtaskId: meta.subtaskId,
+                requesterId: meta.requesterId,
+                reason: declineReason
+            }
+            await notificationUserAPI.declineRequest(payload)
+            fetchNotifications()
+            setSelectedNotification(null)
+            setDeclineReason('')
+        } catch (err) {
+            console.error('Error declining request-to-join', err)
+        } finally {
+            setProcessingAction(false)
+        }
+    }
+
     return (
         <>
             <div className="relative">
@@ -276,9 +328,9 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                     id="notification-bell-button"
                 >
                     <Bell className="w-5 h-5" />
-                    {(generalUnreadCount + assignmentUnreadCount + tasksUnreadCount) > 0 && (
+                    {(generalUnreadCount + assignmentUnreadCount) > 0 && (
                         <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
-                            {(generalUnreadCount + assignmentUnreadCount + tasksUnreadCount) > 9 ? '9+' : (generalUnreadCount + assignmentUnreadCount + tasksUnreadCount)}
+                            {(generalUnreadCount + assignmentUnreadCount) > 9 ? '9+' : (generalUnreadCount + assignmentUnreadCount)}
                         </span>
                     )}
                 </button>
@@ -292,7 +344,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                                     <span className="text-xs text-gray-500">{unreadCount} chưa đọc</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    {((activeTab === 'general' ? generalUnreadCount : activeTab === 'assignments' ? assignmentUnreadCount : tasksUnreadCount)) > 0 && (
+                                    {((activeTab === 'general' ? generalUnreadCount : assignmentUnreadCount)) > 0 && (
                                         <button
                                             onClick={markAllAsRead}
                                             className="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded-md border border-blue-100 hover:bg-blue-100"
@@ -334,27 +386,14 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                                         : 'text-gray-600 hover:bg-gray-100'
                                         }`}
                                 >
-                                    Thông báo giao việc
+                                    Thông báo nhận việc
                                     {assignmentUnreadCount > 0 && (
                                         <span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-medium text-white bg-red-500 rounded-full">
                                             {assignmentUnreadCount > 9 ? '9+' : assignmentUnreadCount}
                                         </span>
                                     )}
                                 </button>
-                                <button
-                                    onClick={() => setActiveTab('tasks')}
-                                    className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'tasks'
-                                        ? 'bg-white text-blue-600'
-                                        : 'text-gray-600 hover:bg-gray-100'
-                                        }`}
-                                >
-                                    Công việc
-                                    {tasksUnreadCount > 0 && (
-                                        <span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-medium text-white bg-red-500 rounded-full">
-                                            {tasksUnreadCount > 9 ? '9+' : tasksUnreadCount}
-                                        </span>
-                                    )}
-                                </button>
+                                {/* 'Công việc' tab removed - we keep only general + assignment notifications */}
                             </div>
                         </div>
 
@@ -364,7 +403,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-3"></div>
                                     <p>Đang tải thông báo...</p>
                                 </div>
-                            ) : (activeTab === 'general' ? generalNotifications : activeTab === 'assignments' ? assignmentNotifications : tasksNotifications).length === 0 ? (
+                            ) : activeNotifications.length === 0 ? (
                                 <div className="p-8 text-center text-gray-500">
                                     <Bell className="w-10 h-10 mx-auto mb-3 text-gray-300" />
                                     <p className="font-medium text-gray-700">Không có thông báo</p>
@@ -372,8 +411,9 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                                 </div>
                             ) : (
                                 <div className="divide-y">
-                                    {(activeTab === 'general' ? generalNotifications : activeTab === 'assignments' ? assignmentNotifications : tasksNotifications).map((notification) => {
+                                    {activeNotifications.map((notification) => {
                                         const isRead = notification.isRead
+                                        const displayType = notification.type
                                         return (
                                             <div
                                                 key={notification.id}
@@ -381,7 +421,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                                                 className={`flex gap-3 px-4 py-3 items-start hover:bg-gray-50 cursor-pointer transition-colors ${!isRead ? 'bg-blue-50' : 'bg-white'}`}
                                             >
                                                 <div className="flex-shrink-0">
-                                                    <div className={`w-10 h-10 rounded-md flex items-center justify-center ${notification.type === 'system' ? 'bg-blue-50 text-blue-600' : notification.type === 'project' ? 'bg-green-50 text-green-600' : notification.type === 'task' ? 'bg-orange-50 text-orange-600' : 'bg-purple-50 text-purple-600'}`}>
+                                                    <div className={`w-10 h-10 rounded-md flex items-center justify-center ${displayType === 'system' ? 'bg-blue-50 text-blue-600' : displayType === 'project' ? 'bg-green-50 text-green-600' : displayType === 'task' ? 'bg-orange-50 text-orange-600' : 'bg-purple-50 text-purple-600'}`}>
                                                         {getNotificationIcon(notification.type)}
                                                     </div>
                                                 </div>
@@ -429,11 +469,11 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                         <div className="p-6">
                             <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-2">
-                                    {getNotificationIcon(selectedNotification.type)}
-                                    <span className="text-sm px-2 py-1 bg-gray-100 text-gray-600 rounded-full">
-                                        {getTypeLabel(selectedNotification.type)}
-                                    </span>
-                                </div>
+                                        {getNotificationIcon(selectedNotification.type)}
+                                        <span className="text-sm px-2 py-1 bg-gray-100 text-gray-600 rounded-full">
+                                            {getTypeLabel(selectedNotification.type)}
+                                        </span>
+                                    </div>
                                 <button
                                     onClick={() => {
                                         setSelectedNotification(null)
@@ -476,7 +516,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                                 <div className="flex justify-between text-sm">
                                     <span className="text-gray-500">Loại:</span>
                                     <span className="text-gray-900">
-                                        {getTypeLabel(selectedNotification.type)}
+                                        {getTypeLabel(selectedNotification.userMeta && selectedNotification.userMeta.relatedType === 'comment' ? 'announcement' : selectedNotification.type)}
                                     </span>
                                 </div>
                             </div>
@@ -537,6 +577,49 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                                             Đang tải trạng thái...
                                         </div>
                                     )}
+                                </div>
+                            )}
+
+                            {/* Request-to-join actions (if a member requested to join this task/subtask) */}
+                            {((selectedNotification as any).userMeta?.requestToJoin || (selectedNotification as any).meta?.requestToJoin || (selectedNotification as any).userMeta?.requesterId) && userRole !== 'member' && (
+                                <div className="p-4 border-t space-y-3">
+                                    <div className="text-sm text-gray-700">Nhân viên này đã yêu cầu tham gia công việc. Bạn có muốn chấp nhận?</div>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={handleAcceptRequest}
+                                            disabled={processingAction}
+                                            className="px-3 py-1 bg-green-600 text-white rounded-md text-sm"
+                                        >
+                                            Chấp nhận
+                                        </button>
+                                        <button
+                                            onClick={() => setDeclineReason('')}
+                                            className="px-3 py-1 bg-gray-100 text-gray-800 rounded-md text-sm"
+                                            disabled={processingAction}
+                                        >
+                                            Chuẩn bị từ chối
+                                        </button>
+                                    </div>
+
+                                    {/* Decline area */}
+                                    <div>
+                                        <textarea
+                                            value={declineReason}
+                                            onChange={(e) => setDeclineReason(e.target.value)}
+                                            placeholder="Lý do từ chối (nếu có)"
+                                            className="w-full border rounded-md p-2 text-sm"
+                                            rows={3}
+                                        />
+                                        <div className="flex justify-end mt-2 gap-2">
+                                            <button
+                                                onClick={handleDeclineRequest}
+                                                disabled={processingAction}
+                                                className="px-3 py-1 bg-red-600 text-white rounded-md text-sm"
+                                            >
+                                                Từ chối
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
                         </div>

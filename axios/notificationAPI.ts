@@ -98,7 +98,6 @@ export const notificationUserAPI = {
     getMyNotifications: async (params?: {
         page?: number
         limit?: number
-        type?: string
     }) => {
         const response = await axiosInstance.get('/notifications/user', { params })
         return response.data
@@ -108,23 +107,35 @@ export const notificationUserAPI = {
     markAsRead: async (id: string) => {
         const response = await axiosInstance.post(`/notifications/${id}/mark-read`)
         return response.data
-    }
+    },
 
-    // Accept assignment (if this notification relates to an assignment)
-    ,acceptAssignment: async (assignmentId: string) => {
+    // Accept assignment (if this notification relates to an assignment created by manager)
+    acceptAssignment: async (assignmentId: string) => {
         const response = await axiosInstance.post(`/assignments/${assignmentId}/accept`)
         return response.data
-    }
+    },
 
     // Decline assignment (requires reason)
-    ,declineAssignment: async (assignmentId: string, data: { reason: string }) => {
+    declineAssignment: async (assignmentId: string, data: { reason: string }) => {
         const response = await axiosInstance.post(`/assignments/${assignmentId}/decline`, data)
         return response.data
-    }
+    },
 
     // Get assignment details to check status
-    ,getAssignment: async (assignmentId: string) => {
+    getAssignment: async (assignmentId: string) => {
         const response = await axiosInstance.get(`/assignments/${assignmentId}`)
+        return response.data
+    },
+
+    // Accept a request-to-join (manager action)
+    acceptRequest: async (data: { taskId?: number; subtaskId?: number; requesterId: number }) => {
+        const response = await axiosInstance.post(`/assignments/request/accept`, data)
+        return response.data
+    },
+
+    // Decline a request-to-join (manager action)
+    declineRequest: async (data: { taskId?: number; subtaskId?: number; requesterId: number; reason?: string }) => {
+        const response = await axiosInstance.post(`/assignments/request/decline`, data)
         return response.data
     }
 }

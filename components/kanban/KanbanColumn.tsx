@@ -20,6 +20,7 @@ interface KanbanColumnProps {
   color?: string;
   isCustom?: boolean;
   onDelete?: () => void;
+  onTaskDeleted?: (taskId: number) => void;
 }
 
 const statusColors: Record<string, string> = {
@@ -41,6 +42,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
   color,
   isCustom,
   onDelete,
+  onTaskDeleted,
 }) => {
   return (
     <div className="flex flex-col h-full">
@@ -77,7 +79,16 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
             <div className="flex items-center justify-center h-20 text-gray-400 text-xs">Không có công việc</div>
           ) : (
             tasks.map((task: any) => (
-              <KanbanCard key={task.id} task={task} onDragStart={onDragStart} onDragEnd={onDragEnd} onClick={onTaskClick} />
+              <KanbanCard
+                key={task.id}
+                task={task}
+                onDragStart={onDragStart}
+                onDragEnd={onDragEnd}
+                onClick={onTaskClick}
+                onDeleted={(taskId: number) => {
+                  if (typeof onTaskDeleted === 'function') onTaskDeleted(taskId);
+                }}
+              />
             ))
           )}
         </div>
