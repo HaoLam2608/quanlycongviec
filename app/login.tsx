@@ -85,13 +85,22 @@ export default function LoginScreen() {
                     console.log('👤 User object đã lưu:', userObject);
 
                     // Điều hướng theo role
-                    const userRole = response.role;
-                    switch (userRole) {
+                    const normalizedRole = (response.role || '').toLowerCase();
+                    console.log('🔍 Role từ backend:', response.role);
+                    console.log('🔍 Normalized role:', normalizedRole);
+                    switch (normalizedRole) {
                         case 'admin':
                             router.replace('/(admin)/' as any);
                             break;
                         case 'manager':
                             router.replace('/(manager)/' as any);
+                            break;
+                        case 'teamlead':
+                        case 'teamleader':
+                        case 'team_lead':
+                        case 'team-lead':
+                        case 'team leader':
+                            router.replace('/(teamlead)' as any);
                             break;
                         case 'employee':
                         default:

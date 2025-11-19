@@ -101,6 +101,33 @@ export const fetchProjectsByManager = async (managerId: string | number) => {
     throw err.response?.data || { message: 'Không thể lấy dự án theo manager' };
   }
 };
+
+export const getMyGroup = async () => {
+  try {
+    const res = await api.get('/groups/my-group');
+    return res.data.group || res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Không thể lấy thông tin nhóm' };
+  }
+};
+
+export const getMyProjects = async () => {
+  try {
+    const res = await api.get('/groups/my-projects');
+    return res.data.projects || res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Không thể lấy danh sách dự án của nhóm' };
+  }
+};
+
+export const getGroupDetail = async (groupId: number | string) => {
+  try {
+    const res = await api.get(`/groups/${groupId}`);
+    return res.data.group || res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Không thể lấy chi tiết nhóm' };
+  }
+};
 export const getProjectById = async (id: string) => {
   try {
     const res = await api.get(`/duan/getById/${id}`);
@@ -168,6 +195,15 @@ export const fetchDocuments = async (duanId?: number) => {
     return res.data;
   } catch (err: any) {
     throw err.response?.data || { message: "Không thể lấy danh sách tài liệu" };
+  }
+};
+
+export const getGroupDocuments = async (params?: { projectId?: number; type?: string }) => {
+  try {
+    const res = await api.get('/documents/group-documents', { params });
+    return res.data.documents || res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Không thể lấy tài liệu của nhóm' };
   }
 };
 
@@ -438,6 +474,24 @@ export const deleteSubtask = async (taskId: string | number, subtaskId: number) 
     return res.data;
   } catch (err: any) {
     throw err.response?.data || { message: "Không thể xóa công việc nhỏ" };
+  }
+};
+
+export const getGroupSubtasks = async () => {
+  try {
+    const res = await api.get('/tasks/subtasks/group-subtasks');
+    return res.data.subtasks || res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Không thể lấy danh sách công việc của nhóm' };
+  }
+};
+
+export const updateSubtaskStatus = async (subtaskId: number, trangThai: string) => {
+  try {
+    const res = await api.patch(`/subtasks/${subtaskId}/status`, { trangThai });
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Không thể cập nhật trạng thái công việc nhỏ' };
   }
 };
 

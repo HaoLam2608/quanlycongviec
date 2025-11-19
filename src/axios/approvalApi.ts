@@ -1,42 +1,61 @@
 import api from './config'
 
+type PendingType = 'all' | 'tasks' | 'subtasks'
+
 // API for approval workflow
-export const approvalAPI = {
-    // Get pending approvals (for manager/admin)
-    getPendingApprovals: async (type = 'all') => {
-        try {
-            const res = await api.get(`/approvals/pending?type=${type}`)
-            return res.data
-        } catch (err: any) {
-            throw err.response?.data || { message: "Không thể lấy danh sách chờ phê duyệt" }
-        }
-    },
-
-    // Approve task completion
-    approveTask: async (taskId: number, approved: boolean, reason?: string) => {
-        try {
-            const res = await api.post(`/approvals/tasks/${taskId}/approve`, {
-                approved,
-                reason
-            })
-            return res.data
-        } catch (err: any) {
-            throw err.response?.data || { message: "Không thể phê duyệt công việc" }
-        }
-    },
-
-    // Approve subtask completion  
-    approveSubtask: async (subtaskId: number, approved: boolean, reason?: string) => {
-        try {
-            const res = await api.post(`/approvals/subtasks/${subtaskId}/approve`, {
-                approved,
-                reason
-            })
-            return res.data
-        } catch (err: any) {
-            throw err.response?.data || { message: "Không thể phê duyệt công việc nhỏ" }
-        }
+const getPendingApprovals = async (options?: { type?: PendingType }) => {
+    const queryType = options?.type ?? 'all'
+    try {
+        const res = await api.get('/approvals/pending', {
+            params: { type: queryType }
+        })
+        return res.data
+    } catch (err: any) {
+        throw err.response?.data || { message: 'Không thể lấy danh sách chờ phê duyệt' }
     }
+}
+
+const getAllApprovals = async () => {
+    try {
+        const res = await api.get('/approvals')
+        return res.data
+    } catch (err: any) {
+        if (err.response?.status === 404) {
+            return getPendingApprovals({ type: 'all' })
+        }
+        throw err.response?.data || { message: 'Không thể lấy danh sách phê duyệt' }
+    }
+}
+
+const approveTask = async (taskId: number, approved: boolean, reason?: string) => {
+    try {
+        const res = await api.post(`/approvals/tasks/${taskId}/approve`, {
+            approved,
+            reason
+        })
+        return res.data
+    } catch (err: any) {
+        throw err.response?.data || { message: 'Không thể phê duyệt công việc' }
+    }
+}
+
+const approveSubtask = async (subtaskId: number, approved: boolean, reason?: string) => {
+    try {
+        const res = await api.post(`/approvals/subtasks/${subtaskId}/approve`, {
+            approved,
+            reason
+        })
+        return res.data
+    } catch (err: any) {
+        throw err.response?.data || { message: 'Không thể phê duyệt công việc nhỏ' }
+    }
+}
+
+export const approvalAPI = {
+    getPendingApprovals,
+    getAllApprovals,
+    approveTask,
+    approveSubtask
 }
 
 // Update member task/subtask status API
