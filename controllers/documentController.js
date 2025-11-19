@@ -118,16 +118,12 @@ exports.getGroupDocuments = async (req, res) => {
             return res.json({ documents: [] });
         }
 
-        const groupIds = Array.from(new Set(allGroups.map(g => g.id)));
-
-        const groupProjects = groupIds.length
-            ? await GroupProject.findAll({
-                where: {
-                    groupId: { [Op.in]: groupIds }
-                },
-                attributes: ['projectId', 'status']
-            })
-            : [];
+        const groupProjects = await GroupProject.findAll({
+            where: {
+                groupId: { [Op.in]: allGroups.map(g => g.id) }
+            },
+            attributes: ['projectId', 'status']
+        });
 
         const directProjectIds = allGroups
             .map(g => g.duanId)
@@ -139,33 +135,20 @@ exports.getGroupDocuments = async (req, res) => {
 
         const projectIds = Array.from(new Set([...directProjectIds, ...relatedProjectIds]));
 
-        const whereConditions = [];
-        if (groupIds.length > 0) {
-            whereConditions.push({ groupId: { [Op.in]: groupIds } });
-        }
-        if (projectIds.length > 0) {
-            whereConditions.push({ duanId: { [Op.in]: projectIds } });
-        }
-
-        if (whereConditions.length === 0) {
+        if (projectIds.length === 0) {
             return res.json({ documents: [] });
         }
 
-        // Get all documents for these groups
+        // Get all documents for these projects
         const documents = await Document.findAll({
             where: {
-                [Op.or]: whereConditions
+                duanId: { [Op.in]: projectIds }
             },
             include: [
                 { 
                     model: User, 
                     as: 'uploader', 
                     attributes: ['id', 'manv', 'hoten'] 
-                },
-                {
-                    model: Group,
-                    as: 'group',
-                    attributes: ['id', 'name']
                 },
                 {
                     model: DuAn,
@@ -189,10 +172,6 @@ exports.getGroupDocuments = async (req, res) => {
             project: doc.duan ? {
                 id: doc.duan.id,
                 tenduan: doc.duan.tenduan
-            } : null,
-            group: doc.group ? {
-                id: doc.group.id,
-                name: doc.group.name
             } : null
         }));
 

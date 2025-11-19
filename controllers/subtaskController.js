@@ -630,12 +630,17 @@ exports.getMySubtasks = async (req, res) => {
             console.log('📋 [getMySubtasks] Sample subtask:', JSON.stringify(subtasks[0], null, 2));
         }
 
-        // Return full subtask data with nested task object for frontend compatibility
+        // Return full subtask data with nested task object AND flattened fields for frontend compatibility
         const formattedSubtasks = subtasks.map(subtask => {
             const subtaskData = subtask.toJSON();
             return {
                 ...subtaskData,
-                // Ensure task object is properly nested
+                // Flatten important fields for easy access
+                taskId: subtaskData.task?.id || null,
+                tentask: subtaskData.task?.tentask || null,
+                duanId: subtaskData.task?.duanId || null,
+                tenduan: subtaskData.task?.duan?.tenduan || null,
+                // Keep nested structure for backward compatibility
                 task: subtaskData.task ? {
                     id: subtaskData.task.id,
                     tentask: subtaskData.task.tentask,
@@ -708,9 +713,25 @@ exports.getGroupSubtasks = async (req, res) => {
 
         console.log('✅ Found subtasks for group:', subtasks.length);
 
+        // Format subtasks with flattened fields
+        const formattedSubtasks = subtasks.map(subtask => {
+            const subtaskData = subtask.toJSON();
+            return {
+                ...subtaskData,
+                // Flatten important fields for easy access
+                taskId: subtaskData.task?.id || null,
+                tentask: subtaskData.task?.tentask || null,
+                duanId: subtaskData.task?.duanId || null,
+                tenduan: subtaskData.task?.duan?.tenduan || null,
+                // Keep nested structure for backward compatibility
+                task: subtaskData.task,
+                nguoiThucHien: subtaskData.nguoiThucHien
+            };
+        });
+
         res.json({
             message: 'Lấy danh sách subtasks của nhóm thành công',
-            subtasks: subtasks.map(s => s.toJSON())
+            subtasks: formattedSubtasks
         });
     } catch (error) {
         console.error('❌ getGroupSubtasks error:', error);
