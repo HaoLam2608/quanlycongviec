@@ -179,6 +179,37 @@ class EmailService {
             throw error;
         }
     }
+
+    // Generic notification sender used for ad-hoc notifications (e.g., request to join)
+    async sendGenericNotification(userEmail, userName, subjectText, messageText) {
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: userEmail,
+            subject: subjectText,
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+                    <div style="text-align: center; background-color: #003D82; color: white; padding: 20px; border-radius: 10px 10px 0 0;">
+                        <h1 style="margin: 0;">${subjectText}</h1>
+                    </div>
+                    <div style="padding: 20px; background-color: #f9f9f9;">
+                        <h2 style="color: #003D82;">Xin chào ${userName}!</h2>
+                        <p style="font-size: 16px; line-height: 1.6;">${messageText}</p>
+                        <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+                        <p style="font-size: 14px; color: #666; text-align: center;">Email này được gửi tự động từ Hệ thống Quản lý Công việc.</p>
+                    </div>
+                </div>
+            `
+        };
+
+        try {
+            const result = await this.transporter.sendMail(mailOptions);
+            console.log('Generic notification email sent:', result.messageId);
+            return { success: true, messageId: result.messageId };
+        } catch (error) {
+            console.error('Error sending generic notification email:', error);
+            throw error;
+        }
+    }
 }
 
 module.exports = new EmailService();

@@ -6,7 +6,6 @@ const {
   Task, 
   Subtask, 
   Notification, 
-  UserNotification,
   GroupMember, 
   Assignment,
   DuAn,
@@ -19,80 +18,21 @@ const {
  * Supports: @userId, @[userId], @username
  * Returns array of unique user IDs
  */
-const { Op } = require('sequelize');
-
-/**
- * Extract mentions from text.
- * Supports: @123, @[123], @manv, @hoten (exact match)
- * Returns array of user IDs.
- * This function performs DB lookup for username-like mentions, so it's async.
- */
-const extractMentions = async (text) => {
+const extractMentions = (text) => {
   if (!text) return [];
-
-  const mentionPattern = /@\[?(\d+)\]?|@([\w.@\-\s]+)/g;
+  
+  // Match @userId or @[userId] pattern
+  const mentionPattern = /@\[?(\d+)\]?|@(\w+)/g;
   const mentions = new Set();
-  const nameTokens = new Set();
   let match;
-
+  
   while ((match = mentionPattern.exec(text)) !== null) {
-    const userId = match[1]; // numeric id
-    const nameToken = match[2]; // username/manv/hoten
+    const userId = match[1]; // Direct userId like @123
     if (userId) {
       mentions.add(parseInt(userId));
-    } else if (nameToken) {
-      // trim and push to name tokens to resolve later
-      const cleaned = nameToken.trim();
-      if (cleaned) nameTokens.add(cleaned);
     }
   }
-
-  // Resolve name tokens to user IDs by matching manv, hoten or email exactly
-  if (nameTokens.size > 0) {
-    try {
-      const tokens = Array.from(nameTokens);
-      // 1) try exact matches (manv/hoten/email)
-      const exactUsers = await User.findAll({
-        where: {
-          [Op.or]: [
-            { manv: { [Op.in]: tokens } },
-            { hoten: { [Op.in]: tokens } },
-            { email: { [Op.in]: tokens } }
-          ]
-        },
-        attributes: ['id', 'manv', 'hoten', 'email']
-      });
-      exactUsers.forEach(u => mentions.add(u.id));
-
-      // 2) For tokens not resolved, try partial/case-insensitive LIKE matching
-      const resolvedNames = new Set(exactUsers.map(u => u.manv).filter(Boolean).concat(exactUsers.map(u => u.hoten).filter(Boolean)));
-      const unresolved = tokens.filter(t => !resolvedNames.has(t));
-      if (unresolved.length > 0) {
-        // Build OR clauses for LIKE across fields for all unresolved tokens
-        const likeClauses = [];
-        unresolved.forEach(t => {
-          if (!t || t.length < 2) return; // skip too-short tokens
-          likeClauses.push({ hoten: { [Op.like]: `%${t}%` } });
-          likeClauses.push({ manv: { [Op.like]: `%${t}%` } });
-          likeClauses.push({ email: { [Op.like]: `%${t}%` } });
-        });
-
-        if (likeClauses.length > 0) {
-          const likeUsers = await User.findAll({
-            where: { [Op.or]: likeClauses },
-            attributes: ['id', 'manv', 'hoten', 'email']
-          });
-          likeUsers.forEach(u => mentions.add(u.id));
-          if (likeUsers.length > 0) {
-            console.log('Resolved mention name tokens via LIKE to users:', likeUsers.map(u => ({ id: u.id, manv: u.manv, hoten: u.hoten }))); 
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Error resolving mention names to users:', err);
-    }
-  }
-
+  
   return Array.from(mentions);
 };
 
@@ -121,88 +61,36 @@ const getTaskMembers = async (taskId) => {
  */
 const createMentionNotifications = async (comment, authorId, mentionedUserIds) => {
   if (!mentionedUserIds || mentionedUserIds.length === 0) return;
-
-  try {
-    const author = await User.findByPk(authorId, { attributes: ['hoten'] });
-    const authorName = author?.hoten || 'Người dùng';
-
-    // Determine context and friendly title/content
-    let title = 'Bạn được nhắc đến';
-    let content = '';
-    if (comment.taskId) {
-      const task = await Task.findByPk(comment.taskId, { attributes: ['tentask'] });
-      content = `${authorName} đã nhắc đến bạn trong bình luận của task "${task?.tentask || 'Task'}"`;
-    } else if (comment.subtaskId) {
-      const subtask = await Subtask.findByPk(comment.subtaskId, { attributes: ['tenSubtask'] });
-      content = `${authorName} đã nhắc đến bạn trong bình luận của subtask "${subtask?.tenSubtask || 'Subtask'}"`;
-    } else {
-      content = `${authorName} đã nhắc đến bạn trong một bình luận.`;
-    }
-
-    // Create a Notification record (one parent) and then per-user UserNotification links
-    const notif = await Notification.create({
-      title,
-      content,
-      type: 'task',
-      priority: 'medium',
-      status: 'published',
-      targetAudience: 'member',
-      authorId
-    });
-    console.log('Created parent Notification for mentions:', { id: notif.id, title: notif.title, type: notif.type, targetAudience: notif.targetAudience });
-
-    // Normalize mentionedUserIds: coerce to integers, dedupe, remove author
-    const normalizedIds = Array.from(new Set((mentionedUserIds || [])
-      .map(id => {
-        if (!id && id !== 0) return null;
-        // if object with id property
-        if (typeof id === 'object' && id.id) return Number(id.id);
-        return Number(id);
-      })
-      .filter(n => Number.isInteger(n) && n > 0 && n !== authorId)
-    ));
-
-    if (normalizedIds.length === 0) {
-      console.log('No valid mentioned user IDs after normalization, skipping creating UserNotifications');
-      return;
-    }
-
-    // Prepare UserNotification entries
-    const userNotifRows = normalizedIds.map(uId => ({
-      userId: uId,
-      notificationId: notif.id,
-      isRead: false,
-      meta: {
-        relatedType: 'comment',
-        relatedId: comment.id,
-        taskId: comment.taskId || null,
-        subtaskId: comment.subtaskId || null
-      }
+  
+  const author = await User.findByPk(authorId, { attributes: ['hoten'] });
+  const authorName = author?.hoten || 'Người dùng';
+  
+  // Determine context
+  let contextType = 'comment';
+  let contextId = comment.taskId || comment.subtaskId;
+  let message = '';
+  
+  if (comment.taskId) {
+    const task = await Task.findByPk(comment.taskId, { attributes: ['tencv'] });
+    message = `${authorName} đã nhắc đến bạn trong bình luận của task "${task?.tencv || 'Task'}"`;
+  } else if (comment.subtaskId) {
+    const subtask = await Subtask.findByPk(comment.subtaskId, { attributes: ['tencv'] });
+    message = `${authorName} đã nhắc đến bạn trong bình luận của subtask "${subtask?.tencv || 'Subtask'}"`;
+  }
+  
+  // Create notification for each mentioned user (except author)
+  const notifications = mentionedUserIds
+    .filter(userId => userId !== authorId)
+    .map(userId => ({
+      userId,
+      type: 'mention',
+      message,
+      relatedId: comment.id,
+      relatedType: 'comment'
     }));
-
-    try {
-      // Ask Sequelize to return created rows (Postgres respects returning; MySQL will still create rows)
-      const createdRows = await UserNotification.bulkCreate(userNotifRows, { returning: true });
-      console.log('Created UserNotification rows (ids):', createdRows.map(r => ({ id: r.id, userId: r.userId, notificationId: r.notificationId })) );
-
-      // Verify meta persisted by fetching the rows from DB and logging their meta field
-      try {
-        const persisted = await UserNotification.findAll({
-          where: { notificationId: notif.id },
-          attributes: ['id', 'userId', 'notificationId', 'meta']
-        });
-        console.log('Persisted UserNotification rows (with meta):', persisted.map(p => ({ id: p.id, userId: p.userId, meta: p.meta }))); 
-      } catch (fetchErr) {
-        console.warn('Unable to re-fetch created UserNotification rows for verification:', fetchErr);
-      }
-    } catch (err) {
-      console.error('Error bulk creating UserNotification rows:', err);
-      throw err;
-    }
-  } catch (err) {
-    // Let caller handle errors; log for diagnostics
-    console.error('createMentionNotifications error:', err);
-    throw err;
+  
+  if (notifications.length > 0) {
+    await Notification.bulkCreate(notifications);
   }
 };
 
@@ -235,6 +123,7 @@ const createComment = async (req, res) => {
       } else {
         if (req.files['images']) allFiles.push(...req.files['images']);
         if (req.files['files']) allFiles.push(...req.files['files']);
+          if (req.files['attachments']) allFiles.push(...req.files['attachments']);
       }
     }
     
@@ -302,10 +191,10 @@ const createComment = async (req, res) => {
         mentions = JSON.parse(mentionsStr);
       } catch (e) {
         console.warn('Failed to parse mentions JSON, extracting from content');
-        mentions = await extractMentions(content);
+        mentions = extractMentions(content);
       }
     } else {
-      mentions = await extractMentions(content);
+      mentions = extractMentions(content);
     }
     console.log('Extracted mentions:', mentions);
 
@@ -319,14 +208,10 @@ const createComment = async (req, res) => {
     });
     console.log('Comment created with ID:', comment.id);
     
-    // Create notifications for mentioned users (do not fail comment creation if notifications fail)
+    // Create notifications for mentioned users
     if (mentions.length > 0) {
-      try {
-        await createMentionNotifications(comment, authorId, mentions);
-        console.log('Created mention notifications for users:', mentions);
-      } catch (noteErr) {
-        console.error('createMentionNotifications failed, continuing. Error:', noteErr);
-      }
+      await createMentionNotifications(comment, authorId, mentions);
+      console.log('Created mention notifications for users:', mentions);
     }
     
     // Reload with author info
@@ -447,49 +332,6 @@ const deleteComment = async (req, res) => {
       return res.status(403).json({ message: 'Không có quyền' });
     }
 
-    // Before deleting the comment, remove any UserNotifications / Notifications created for this comment mentions
-    try {
-      // First try: meta JSON matching (works when meta is stored as JSON object)
-      let relatedUserNotifs = await UserNotification.findAll({
-        where: {
-          meta: {
-            relatedType: 'comment',
-            relatedId: comment.id
-          }
-        }
-      });
-
-      // Fallback: if none found, try LIKE search on meta string (covers cases where meta stored as string)
-      if ((!relatedUserNotifs || relatedUserNotifs.length === 0) && UserNotification.sequelize) {
-        try {
-          const pattern = `%"relatedId":%${comment.id}%`;
-          const [rows] = await UserNotification.sequelize.query(
-            'SELECT id, notificationId, userId, meta FROM `UserNotifications` WHERE meta LIKE :pattern',
-            { replacements: { pattern } }
-          );
-          if (rows && rows.length > 0) {
-            // convert raw rows to model-like objects
-            relatedUserNotifs = rows.map(r => ({ id: r.id, notificationId: r.notificationId, userId: r.userId, meta: r.meta }));
-          }
-        } catch (qerr) {
-          console.warn('Fallback meta LIKE query failed:', qerr);
-        }
-      }
-
-      if (relatedUserNotifs && relatedUserNotifs.length > 0) {
-        const notifIds = Array.from(new Set(relatedUserNotifs.map(n => n.notificationId)));
-        const userNotifIds = relatedUserNotifs.map(n => n.id);
-        // delete user-specific rows
-        await UserNotification.destroy({ where: { id: userNotifIds } });
-        // delete parent notifications that were created for these mention events
-        await Notification.destroy({ where: { id: notifIds } });
-        console.log(`Deleted ${userNotifIds.length} UserNotification rows and ${notifIds.length} Notification(s) related to comment ${comment.id}`);
-      }
-    } catch (err) {
-      console.error('Error cleaning up notifications for deleted comment:', err);
-      // continue to delete comment even if cleanup fails
-    }
-
     await comment.destroy();
     return res.json({ message: 'Deleted' });
   } catch (err) {
@@ -570,7 +412,7 @@ const updateComment = async (req, res) => {
 
     // Extract mentions from content
     const oldMentions = comment.mentions ? (Array.isArray(comment.mentions) ? comment.mentions : JSON.parse(comment.mentions)) : [];
-  const newMentions = await extractMentions(content);
+    const newMentions = extractMentions(content);
     const addedMentions = newMentions.filter(id => !oldMentions.includes(id));
     
     console.log('Old mentions:', oldMentions, 'New mentions:', newMentions, 'Added:', addedMentions);
@@ -692,14 +534,15 @@ const getMentionableUsers = async (req, res) => {
       // Get subtask and parent task
       const subtask = await Subtask.findByPk(subtaskId, {
         include: [
-          // Subtask model defines 'nguoiThucHien' as the performer
-          { model: User, as: 'nguoiThucHien', attributes: ['id', 'manv', 'hoten', 'email'] }
+          { model: User, as: 'nguoiGiao', attributes: ['id', 'manv', 'hoten', 'email'] },
+          { model: User, as: 'nguoiDuocGiao', attributes: ['id', 'manv', 'hoten', 'email'] }
         ]
       });
       
       if (subtask) {
-  // Add subtask users (Subtask uses 'nguoiThucHien' as the performer)
-  if (subtask.nguoiThucHien) userMap.set(subtask.nguoiThucHien.id, subtask.nguoiThucHien);
+        // Add subtask users
+        if (subtask.nguoiGiao) userMap.set(subtask.nguoiGiao.id, subtask.nguoiGiao);
+        if (subtask.nguoiDuocGiao) userMap.set(subtask.nguoiDuocGiao.id, subtask.nguoiDuocGiao);
         
         // Get parent task users
         if (subtask.taskId) {

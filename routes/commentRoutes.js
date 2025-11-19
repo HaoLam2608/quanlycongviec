@@ -9,7 +9,8 @@ const commentUpload = require('../config/multerCommentConfig');
 // Files: images (optional), files (optional)
 router.post('/', authenticateToken, commentUpload.fields([
   { name: 'images', maxCount: 5 },
-  { name: 'files', maxCount: 5 }
+  { name: 'files', maxCount: 5 },
+  { name: 'attachments', maxCount: 5 }
 ]), commentController.createComment);
 
 // Update a comment (only author can update)
