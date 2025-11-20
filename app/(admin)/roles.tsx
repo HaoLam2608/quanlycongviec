@@ -1,17 +1,17 @@
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
+    Alert,
+    RefreshControl,
     SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
-    View,
     TouchableOpacity,
-    RefreshControl,
-    Alert,
-    ActivityIndicator,
+    View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../src/axios/config';
 import RoleFormModal from './components/RoleFormModal';
 
@@ -29,6 +29,7 @@ interface Role {
 }
 
 export default function RolesManagement() {
+    const router = useRouter();
     const [roles, setRoles] = useState<Role[]>([]);
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
@@ -105,7 +106,17 @@ export default function RolesManagement() {
         const color = getRoleColor(role.name);
         
         return (
-            <View style={styles.roleCard}>
+            <TouchableOpacity 
+                style={styles.roleCard}
+                onPress={() => {
+                    // Navigate to role detail with role data
+                    router.push({
+                        pathname: '/(admin)/role-detail',
+                        params: { roleId: role.id }
+                    });
+                }}
+                activeOpacity={0.7}
+            >
                 <View style={styles.roleHeader}>
                     <View style={[styles.roleIcon, { backgroundColor: color + '20' }]}>
                         <Ionicons name="shield-checkmark" size={24} color={color} />
@@ -114,6 +125,7 @@ export default function RolesManagement() {
                         <Text style={styles.roleName}>{role.name}</Text>
                         <Text style={styles.roleDescription}>{role.description}</Text>
                     </View>
+                    <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
                 </View>
                 
                 <View style={styles.permissionsSection}>
@@ -155,7 +167,7 @@ export default function RolesManagement() {
                         )}
                     </View>
                 </View>
-            </View>
+            </TouchableOpacity>
         );
     };
 

@@ -1,20 +1,19 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
+    Alert,
+    Image,
+    Modal,
+    RefreshControl,
     SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
-    View,
-    TouchableOpacity,
     TextInput,
-    RefreshControl,
-    Alert,
-    Modal,
-    ActivityIndicator,
-    Image,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../src/axios/config';
 import UserFormModal from './components/UserFormModal';
 
@@ -35,6 +34,7 @@ export default function UsersManagement() {
     const [users, setUsers] = useState<User[]>([]);
     const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
+    const [roleFilter, setRoleFilter] = useState<'all' | 'admin' | 'manager' | 'teamlead' | 'employee'>('all');
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -48,7 +48,7 @@ export default function UsersManagement() {
 
     useEffect(() => {
         filterUsers();
-    }, [searchQuery, users]);
+    }, [searchQuery, users, roleFilter]);
 
     const loadUsers = async () => {
         setLoading(true);
@@ -67,16 +67,30 @@ export default function UsersManagement() {
     };
 
     const filterUsers = () => {
-        if (searchQuery.trim() === '') {
-            setFilteredUsers(users);
-        } else {
-            const filtered = users.filter(user =>
-                user.hoten.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                user.manv.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                user.chucvu?.toLowerCase().includes(searchQuery.toLowerCase())
-            );
-            setFilteredUsers(filtered);
+        const q = searchQuery.trim().toLowerCase();
+
+        // apply role filter first
+        let base = users;
+        if (roleFilter !== 'all') {
+            const rf = roleFilter;
+            if (rf === 'teamlead') {
+                base = users.filter(u => ['teamlead', 'teamleader'].includes((u.role?.name || '').toLowerCase()));
+            } else {
+                base = users.filter(u => (u.role?.name || '').toLowerCase() === rf);
+            }
         }
+
+        if (q === '') {
+            setFilteredUsers(base);
+            return;
+        }
+
+        const filtered = base.filter(user =>
+            (user.hoten || '').toLowerCase().includes(q) ||
+            (user.manv || '').toLowerCase().includes(q) ||
+            (user.chucvu || '').toLowerCase().includes(q)
+        );
+        setFilteredUsers(filtered);
     };
 
     const onRefresh = async () => {
@@ -113,6 +127,9 @@ export default function UsersManagement() {
             case 'admin':
                 return '#8b5cf6';
             case 'manager':
+                return '#06b6d4';
+            case 'teamlead':
+            case 'teamleader':
                 return '#10b981';
             case 'employee':
                 return '#f59e0b';
@@ -127,6 +144,9 @@ export default function UsersManagement() {
                 return 'Quản trị viên';
             case 'manager':
                 return 'Quản lý';
+            case 'teamlead':
+            case 'teamleader':
+                return 'Trưởng nhóm';
             case 'employee':
                 return 'Nhân viên';
             default:
@@ -195,7 +215,25 @@ export default function UsersManagement() {
             {/* Header */}
             <View style={styles.header}>
                 <Text style={styles.title}>Quản lý người dùng</Text>
-                <Text style={styles.subtitle}>Tổng số: {users.length} người dùng</Text>
+                <Text style={styles.subtitle}>Tổng số: {users.length} người dùng · Hiển thị: {filteredUsers.length}</Text>
+            </View>
+
+            {/* Role filter pills (horizontal scroll) */}
+            <View style={styles.filterRow}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity onPress={() => setRoleFilter('all')} style={[styles.pill, roleFilter === 'all' && styles.pillActive]}>
+                        <Text style={[styles.pillText, roleFilter === 'all' && styles.pillTextActive]}>Tất cả</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setRoleFilter('admin')} style={[styles.pill, roleFilter === 'admin' && styles.pillActive]}>
+                        <Text style={[styles.pillText, roleFilter === 'admin' && styles.pillTextActive]}>Admin</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setRoleFilter('teamlead')} style={[styles.pill, roleFilter === 'teamlead' && styles.pillActive]}>
+                        <Text style={[styles.pillText, roleFilter === 'teamlead' && styles.pillTextActive]}>Trưởng nhóm</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setRoleFilter('employee')} style={[styles.pill, roleFilter === 'employee' && styles.pillActive]}>
+                        <Text style={[styles.pillText, roleFilter === 'employee' && styles.pillTextActive]}>Nhân viên</Text>
+                    </TouchableOpacity>
+                </ScrollView>
             </View>
 
             {/* Search Bar */}
@@ -221,11 +259,15 @@ export default function UsersManagement() {
                     <Text style={styles.statLabel}>Admin</Text>
                 </View>
                 <View style={[styles.statCard, { backgroundColor: '#d1fae5' }]}>
-                    <Text style={styles.statValue}>{users.filter(u => u.role.name === 'manager').length}</Text>
+                    <Text style={styles.statValue}>{users.filter(u => (u.role?.name || '').toLowerCase() === 'manager').length}</Text>
                     <Text style={styles.statLabel}>Quản lý</Text>
                 </View>
+                <View style={[styles.statCard, { backgroundColor: '#d1fae5' }]}>
+                    <Text style={styles.statValue}>{users.filter(u => ['teamlead','teamleader'].includes((u.role?.name || '').toLowerCase())).length}</Text>
+                    <Text style={styles.statLabel}>Trưởng nhóm</Text>
+                </View>
                 <View style={[styles.statCard, { backgroundColor: '#fef3c7' }]}>
-                    <Text style={styles.statValue}>{users.filter(u => u.role.name === 'employee').length}</Text>
+                    <Text style={styles.statValue}>{users.filter(u => (u.role?.name || '').toLowerCase() === 'employee').length}</Text>
                     <Text style={styles.statLabel}>Nhân viên</Text>
                 </View>
             </View>
@@ -648,4 +690,16 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         color: '#fff',
     },
+    filterRow: {
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        backgroundColor: '#fff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#e5e7eb',
+    },
+    pillContainer: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+    pill: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: '#f3f4f6', marginRight: 8 },
+    pillActive: { backgroundColor: '#111827' },
+    pillText: { fontSize: 13, color: '#374151' },
+    pillTextActive: { color: '#fff' },
 });

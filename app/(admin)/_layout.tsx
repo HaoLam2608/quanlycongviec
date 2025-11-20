@@ -28,6 +28,13 @@ export default function AdminLayout() {
                 }}
             />
             <Stack.Screen
+                name="role-detail"
+                options={{
+                    title: 'Chi tiết vai trò',
+                    headerShown: false,
+                }}
+            />
+            <Stack.Screen
                 name="projects"
                 options={{
                     title: 'Quản lý dự án',
@@ -39,8 +46,7 @@ export default function AdminLayout() {
                 name="project-detail"
                 options={{
                     title: 'Chi tiết dự án',
-                    headerStyle: { backgroundColor: '#ef4444' },
-                    headerTintColor: '#fff'
+                    headerShown: false,
                 }}
             />
             <Stack.Screen
@@ -55,8 +61,7 @@ export default function AdminLayout() {
                 name="group-detail"
                 options={{
                     title: 'Chi tiết nhóm',
-                    headerStyle: { backgroundColor: '#ef4444' },
-                    headerTintColor: '#fff'
+                    headerShown: false,
                 }}
             />
             <Stack.Screen
@@ -68,25 +73,17 @@ export default function AdminLayout() {
                 }}
             />
             <Stack.Screen
-                name="kanban"
-                options={{
-                    title: 'Kanban',
-                    headerStyle: { backgroundColor: '#ef4444' },
-                    headerTintColor: '#fff'
-                }}
-            />
-            <Stack.Screen
-                name="timeline"
-                options={{
-                    title: 'Lịch',
-                    headerStyle: { backgroundColor: '#ef4444' },
-                    headerTintColor: '#fff'
-                }}
-            />
-            <Stack.Screen
                 name="reports"
                 options={{
                     title: 'Báo cáo hệ thống',
+                    headerStyle: { backgroundColor: '#ef4444' },
+                    headerTintColor: '#fff'
+                }}
+            />
+            <Stack.Screen
+                name="documents"
+                options={{
+                    title: 'Quản lý tài liệu',
                     headerStyle: { backgroundColor: '#ef4444' },
                     headerTintColor: '#fff'
                 }}
