@@ -381,6 +381,16 @@ export const getMyTasks = async (params?: { page?: number; limit?: number; statu
   }
 };
 
+// Lấy tasks của nhóm (dành cho team lead)
+export const getGroupTasks = async () => {
+  try {
+    const res = await api.get('/tasks/group/tasks');
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy danh sách công việc nhóm" };
+  }
+};
+
 // Lấy tasks theo Kanban view
 export const getKanbanTasks = async (projectId: string | number) => {
   try {

@@ -76,6 +76,14 @@ export default function ManagerLayout() {
                 }}
             />
             <Stack.Screen
+                name="documents"
+                options={{
+                    title: 'Quản lý tài liệu',
+                    headerStyle: { backgroundColor: '#f59e0b' },
+                    headerTintColor: '#fff'
+                }}
+            />
+            <Stack.Screen
                 name="profile"
                 options={{
                     title: 'Hồ sơ cá nhân',
