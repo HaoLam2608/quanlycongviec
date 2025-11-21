@@ -648,7 +648,7 @@ exports.registerDevice = async (req, res) => {
 
         const { DeviceToken } = require('../models');
 
-        // Kiểm tra xem device đã tồn tại chưa
+        // Kiểm tra xem device token đã tồn tại cho user này chưa
         let device = await DeviceToken.findOne({
             where: { expoPushToken, userId }
         });
@@ -659,9 +659,26 @@ exports.registerDevice = async (req, res) => {
                 deviceId: deviceId || device.deviceId,
                 platform: platform || device.platform,
                 deviceModel: deviceModel || device.deviceModel,
+                isActive: true,
                 lastActive: new Date()
             });
         } else {
+            // Trước khi tạo token mới cho user này trên device này
+            // Đánh dấu tất cả token từ user khác trên cùng device là inactive
+            if (deviceId) {
+                await DeviceToken.update(
+                    { isActive: false },
+                    {
+                        where: {
+                            deviceId: deviceId,
+                            userId: { [require('sequelize').Op.ne]: userId },
+                            isActive: true
+                        }
+                    }
+                );
+                console.log(`[Multi-Account] Marked tokens inactive for other users on device: ${deviceId}`);
+            }
+
             // Tạo mới device token
             device = await DeviceToken.create({
                 userId,
@@ -800,6 +817,49 @@ exports.triggerDeadlineCheck = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Lỗi khi trigger deadline check',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Deactivate device tokens when user logs out
+ * Can deactivate all tokens for user or specific device
+ */
+exports.deactivateDevice = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { deviceId } = req.body;
+
+        const { DeviceToken } = require('../models');
+
+        let updateCondition = { userId };
+        if (deviceId) {
+            updateCondition.deviceId = deviceId;
+        }
+
+        // Mark tokens as inactive instead of deleting (keeps history)
+        const result = await DeviceToken.update(
+            { isActive: false, lastActive: new Date() },
+            { where: updateCondition }
+        );
+
+        const action = deviceId
+            ? `device ${deviceId}`
+            : 'all devices';
+
+        console.log(`[Logout] User ${userId} deactivated tokens for ${action}`);
+
+        res.json({
+            success: true,
+            message: 'Đã hủy kích hoạt thiết bị thành công',
+            deactivatedCount: result[0]
+        });
+    } catch (error) {
+        console.error('Error deactivating device:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi hủy kích hoạt thiết bị',
             error: error.message
         });
     }

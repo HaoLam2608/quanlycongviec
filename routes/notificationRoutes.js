@@ -61,6 +61,11 @@ router.post('/register-device',
     notificationController.registerDevice
 );
 
+router.post('/deactivate-device',
+    auth,
+    notificationController.deactivateDevice
+);
+
 router.post('/send-push',
     auth,
     checkRole('admin', 'manager'),
