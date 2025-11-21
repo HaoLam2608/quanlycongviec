@@ -737,6 +737,30 @@ export const markAllNotificationsAsRead = async () => {
   }
 };
 
+// Push notification device management
+export const registerPushNotificationDevice = async (data: {
+  expoPushToken: string;
+  deviceId: string;
+  platform: string;
+  deviceModel: string;
+}) => {
+  try {
+    const res = await api.post('/notifications/register-device', data);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể đăng ký thiết bị" };
+  }
+};
+
+export const deactivatePushNotificationDevice = async (data?: { deviceId?: string }) => {
+  try {
+    const res = await api.post('/notifications/deactivate-device', data || {});
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể hủy kích hoạt thiết bị" };
+  }
+};
+
 export const getAssignmentDetails = async (assignmentId: string) => {
   try {
     const res = await api.get(`/assignments/${assignmentId}`);

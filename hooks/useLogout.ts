@@ -1,10 +1,20 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { STORAGE_KEYS } from '../constants/api';
+import { deactivatePushNotificationDevice } from '../src/axios/api';
 
 export function useLogout() {
   const logout = async () => {
     try {
+      // First, deactivate push notification device on backend
+      try {
+        await deactivatePushNotificationDevice();
+        console.log('✅ Device tokens deactivated on backend');
+      } catch (error) {
+        console.warn('⚠️ Warning: Could not deactivate device on backend:', error);
+        // Don't fail logout if this fails - continue with local cleanup
+      }
+
       // Xóa tất cả dữ liệu authentication
       await AsyncStorage.multiRemove([
         STORAGE_KEYS.ACCESS_TOKEN,
