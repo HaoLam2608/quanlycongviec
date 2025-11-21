@@ -4,6 +4,7 @@ import {
     ActivityIndicator,
     Alert,
     Modal,
+    RefreshControl,
     SafeAreaView,
     ScrollView,
     Text,
@@ -14,6 +15,7 @@ import {
 import TaskCard from '../../../components/member/TaskCard';
 import {
     getMySubtasks,
+    getWorklogs,
     updateMemberSubtaskStatus
 } from '../../../src/axios/api';
 import { MemberSubtask } from '../../../types/member';
@@ -28,14 +30,32 @@ export default function MemberTasksScreen() {
     const [selectedTask, setSelectedTask] = useState<any>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [isFilterVisible, setIsFilterVisible] = useState(false);
+    const [worklogs, setWorklogs] = useState<any[]>([]);
+    const [isLoadingWorklogs, setIsLoadingWorklogs] = useState(false);
+    const [showWorklogs, setShowWorklogs] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
         loadTasks();
     }, []);
 
+    // Convert decimal hours to hours:minutes:seconds format
+    const formatHoursToHMS = (decimalHours: number): string => {
+        const hours = Math.floor(decimalHours);
+        const minutes = Math.floor((decimalHours - hours) * 60);
+        const seconds = Math.round(((decimalHours - hours) * 60 - minutes) * 60);
+
+        const parts = [];
+        if (hours > 0) parts.push(`${hours}h`);
+        if (minutes > 0) parts.push(`${minutes}m`);
+        if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
+
+        return parts.join(' ');
+    };
+
     const loadTasks = async () => {
         try {
-            setLoading(true);
+            if (!refreshing) setLoading(true);
             const data = await getMySubtasks();
 
             // Handle response structure - could be array or wrapped in object
@@ -54,8 +74,32 @@ export default function MemberTasksScreen() {
             Alert.alert('Lỗi', 'Không thể tải danh sách công việc con');
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
-    }; const allItems = [
+    };
+
+    const onRefresh = () => {
+        setRefreshing(true);
+        loadTasks();
+    };
+
+    const loadWorklogs = async (subtaskId: number) => {
+        try {
+            setIsLoadingWorklogs(true);
+            const response = await getWorklogs({ subtaskId });
+            const worklogsData = response.worklogs || response || [];
+            setWorklogs(worklogsData);
+            setShowWorklogs(true);
+        } catch (error: any) {
+            console.error('Error loading worklogs:', error);
+            Alert.alert('Lỗi', 'Không thể tải worklog');
+            setWorklogs([]);
+        } finally {
+            setIsLoadingWorklogs(false);
+        }
+    };
+
+    const allItems = [
         ...subtasks.map((subtask: any) => {
             return {
                 id: subtask.id,
@@ -217,7 +261,18 @@ export default function MemberTasksScreen() {
             )}
 
             {/* Tasks List */}
-            <ScrollView style={styles.tasksList} contentContainerStyle={styles.tasksContent}>
+            <ScrollView
+                style={styles.tasksList}
+                contentContainerStyle={styles.tasksContent}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={onRefresh}
+                        colors={['#667eea']}
+                        tintColor="#667eea"
+                    />
+                }
+            >
                 {filteredTasks.length === 0 ? (
                     <View style={styles.emptyContainer}>
                         <Ionicons name="file-tray-outline" size={64} color="#D1D5DB" />
@@ -341,6 +396,85 @@ export default function MemberTasksScreen() {
                                         <Text style={styles.modalSectionValue}>{selectedTask.assignedBy}</Text>
                                     </View>
                                 )}
+
+                                {/* Worklog Section */}
+                                <View style={styles.modalSection}>
+                                    <View style={styles.worklogHeader}>
+                                        <Text style={styles.modalSectionLabel}>Worklog</Text>
+                                        <TouchableOpacity
+                                            style={styles.worklogButton}
+                                            onPress={() => {
+                                                if (showWorklogs) {
+                                                    setShowWorklogs(false);
+                                                } else {
+                                                    loadWorklogs(selectedTask.id);
+                                                }
+                                            }}
+                                            disabled={isLoadingWorklogs}
+                                        >
+                                            {isLoadingWorklogs ? (
+                                                <ActivityIndicator size="small" color="#667eea" />
+                                            ) : (
+                                                <>
+                                                    <Ionicons
+                                                        name={showWorklogs ? 'chevron-up' : 'chevron-down'}
+                                                        size={20}
+                                                        color="#667eea"
+                                                    />
+                                                    <Text style={styles.worklogButtonText}>
+                                                        {showWorklogs ? 'Thu gọn' : 'Xem worklog'}
+                                                    </Text>
+                                                </>
+                                            )}
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    {showWorklogs && (
+                                        <View style={styles.worklogList}>
+                                            {worklogs.length === 0 ? (
+                                                <View style={styles.worklogEmpty}>
+                                                    <Ionicons name="time-outline" size={32} color="#9CA3AF" />
+                                                    <Text style={styles.worklogEmptyText}>Chưa có worklog nào</Text>
+                                                </View>
+                                            ) : (
+                                                worklogs.map((worklog: any) => (
+                                                    <View key={worklog.id} style={styles.worklogItem}>
+                                                        <View style={styles.worklogItemHeader}>
+                                                            <View style={styles.worklogItemInfo}>
+                                                                <Ionicons name="calendar-outline" size={16} color="#6B7280" />
+                                                                <Text style={styles.worklogDate}>
+                                                                    {new Date(worklog.date || worklog.createdAt).toLocaleString('vi-VN', {
+                                                                        year: 'numeric',
+                                                                        month: '2-digit',
+                                                                        day: '2-digit',
+                                                                        hour: '2-digit',
+                                                                        minute: '2-digit',
+                                                                        second: '2-digit',
+                                                                        hour12: false
+                                                                    })}
+                                                                </Text>
+                                                            </View>
+                                                            <View style={styles.worklogItemInfo}>
+                                                                <Ionicons name="time-outline" size={16} color="#667eea" />
+                                                                <Text style={styles.worklogHours}>
+                                                                    {formatHoursToHMS(worklog.hours || worklog.hours_spent || 0)}
+                                                                </Text>
+                                                            </View>
+                                                        </View>
+                                                        {worklog.note && (
+                                                            <Text style={styles.worklogNote}>{worklog.note}</Text>
+                                                        )}
+                                                        {worklog.User?.hoten && (
+                                                            <Text style={styles.worklogUser}>
+                                                                Ghi nhận bởi: {worklog.User.hoten}
+                                                            </Text>
+                                                        )}
+                                                    </View>
+                                                ))
+                                            )}
+                                        </View>
+                                    )}
+                                </View>
                             </ScrollView>
                         )}
                     </View>

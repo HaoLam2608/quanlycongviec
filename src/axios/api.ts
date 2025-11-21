@@ -320,7 +320,6 @@ export const downloadDocument = async (id: number, asDownload = false) => {
 export const getTasksByProject = async (projectId: string | number) => {
   try {
     const res = await api.get(`/tasks/project/${projectId}`);
-    // Backend returns { tasks: [...], pagination: {...} }
     return res.data.tasks || res.data;
   } catch (err: any) {
     throw err.response?.data || { message: "Không thể lấy danh sách công việc" };

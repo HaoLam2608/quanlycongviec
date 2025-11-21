@@ -18,7 +18,9 @@ import {
     View,
 } from 'react-native';
 import { STORAGE_KEYS } from '../constants/api';
+import NotificationService from '../services/notificationService';
 import { loginUser } from '../src/axios/api';
+import { API_CONFIG } from '../src/config/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -83,6 +85,28 @@ export default function LoginScreen() {
 
                     console.log('✅ Đăng nhập thành công:', response);
                     console.log('👤 User object đã lưu:', userObject);
+
+                    // Đăng ký push notification sau khi login
+                    console.log('🔔 [Login] Bắt đầu đăng ký push notification...');
+                    try {
+                        const pushToken = await NotificationService.registerForPushNotificationsAsync();
+                        console.log('🔔 [Login] Push token nhận được:', pushToken);
+
+                        if (pushToken) {
+                            console.log('🔔 [Login] Đang gửi token lên backend...');
+                            await NotificationService.sendTokenToBackend(
+                                pushToken,
+                                API_CONFIG.BASE_URL,
+                                response.accessToken
+                            );
+                            console.log('✅ [Login] Đăng ký push notification thành công!');
+                        } else {
+                            console.log('⚠️ [Login] Không nhận được push token');
+                        }
+                    } catch (notifError) {
+                        console.error('❌ [Login] Lỗi đăng ký push notification:', notifError);
+                        // Không throw error để không ảnh hưởng đến luồng login
+                    }
 
                     // Điều hướng theo role
                     const normalizedRole = (response.role || '').toLowerCase();

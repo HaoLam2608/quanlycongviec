@@ -201,7 +201,8 @@ export const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '90%',
+    maxHeight: '95%',
+    minHeight: '95%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -218,6 +219,7 @@ export const styles = StyleSheet.create({
   },
   modalBody: {
     padding: 20,
+    paddingBottom: 100,
   },
   modalProjectName: {
     fontSize: 24,
@@ -323,6 +325,253 @@ export const styles = StyleSheet.create({
     gap: 8,
   },
   kanbanButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  // Documents section styles
+  documentsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  uploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#667eea',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  uploadButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  documentsLoading: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  documentsLoadingText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  documentsEmpty: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  documentsEmptyText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  documentsList: {
+    gap: 12,
+  },
+  documentItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F9FAFB',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  documentInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  documentDetails: {
+    flex: 1,
+  },
+  documentName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#111827',
+    marginBottom: 2,
+  },
+  documentMeta: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  documentActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  documentActionButton: {
+    padding: 8,
+  },
+  // Calendar styles
+  calendarContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 8,
+  },
+  calendarNav: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  calendarNavButton: {
+    padding: 8,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+  },
+  calendarTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  calendarHeaderCell: {
+    width: `${100 / 7}%`,
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  calendarHeaderText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6B7280',
+  },
+  calendarCell: {
+    width: `${100 / 7}%`,
+    minHeight: 80,
+    padding: 6,
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
+    borderWidth: 0.5,
+    borderColor: '#E5E7EB',
+  },
+  calendarCellToday: {
+    backgroundColor: '#DBEAFE',
+    borderColor: '#3B82F6',
+    borderWidth: 2,
+  },
+  calendarCellHasTasks: {
+    backgroundColor: '#F0F9FF',
+  },
+  calendarDayText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  calendarDayTextToday: {
+    color: '#3B82F6',
+    fontWeight: '700',
+  },
+  calendarTasksContainer: {
+    width: '100%',
+    flexDirection: 'column',
+    gap: 3,
+    marginTop: 2,
+  },
+  calendarTaskDot: {
+    width: '100%',
+    height: 6,
+    borderRadius: 3,
+  },
+  calendarTaskBadge: {
+    backgroundColor: '#667eea',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    minWidth: 20,
+    alignItems: 'center',
+  },
+  calendarTaskCount: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  // Timeline styles
+  timelineContainer: {
+    marginTop: 8,
+  },
+  timelineItem: {
+    position: 'relative',
+    paddingLeft: 24,
+    paddingBottom: 16,
+  },
+  timelineDot: {
+    position: 'absolute',
+    left: 0,
+    top: 4,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#667eea',
+    borderWidth: 3,
+    borderColor: '#EEF2FF',
+  },
+  timelineLine: {
+    position: 'absolute',
+    left: 5,
+    top: 16,
+    bottom: 0,
+    width: 2,
+    backgroundColor: '#E5E7EB',
+  },
+  timelineContent: {
+    backgroundColor: '#F9FAFB',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  timelineTaskTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 8,
+  },
+  timelineTaskMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  timelineMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  timelineMetaText: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  timelineStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  timelineStatusText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  calendarViewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#667eea',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginTop: 12,
+    gap: 8,
+  },
+  calendarViewButtonText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#fff',

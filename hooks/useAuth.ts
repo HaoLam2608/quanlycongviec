@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import { STORAGE_KEYS } from '../constants/api';
+import NotificationService from '../services/notificationService';
+import { API_CONFIG } from '../src/config/api';
 import { AuthState, User } from '../types/auth';
 
 export function useAuth() {
@@ -64,6 +66,7 @@ export function useAuth() {
 
   const login = async (userData: User, tokens: { accessToken: string; refreshToken?: string }) => {
     try {
+      console.log('🔐 [useAuth] Bắt đầu quá trình login...');
       await AsyncStorage.multiSet([
         [STORAGE_KEYS.ACCESS_TOKEN, tokens.accessToken],
         [STORAGE_KEYS.REFRESH_TOKEN, tokens.refreshToken || ''],
@@ -74,14 +77,44 @@ export function useAuth() {
         [STORAGE_KEYS.USER_AVATAR, userData.avatar || '']
       ]);
 
+      console.log('✅ [useAuth] Đã lưu thông tin auth vào AsyncStorage');
+
       setAuthState({
         user: userData,
         isAuthenticated: true,
         isLoading: false,
         error: null
       });
+
+      console.log('✅ [useAuth] Đã cập nhật authState');
+
+      // Đăng ký push notification sau khi login
+      console.log('🔔 [useAuth] Bắt đầu đăng ký push notification...');
+      try {
+        console.log('🔔 [useAuth] Gọi NotificationService.registerForPushNotificationsAsync()...');
+        const pushToken = await NotificationService.registerForPushNotificationsAsync();
+        console.log('🔔 [useAuth] Push token nhận được:', pushToken);
+        
+        if (pushToken) {
+          console.log('🔔 [useAuth] Gửi token lên backend:', API_CONFIG.BASE_URL);
+          await NotificationService.sendTokenToBackend(
+            pushToken,
+            API_CONFIG.BASE_URL,
+            tokens.accessToken
+          );
+          console.log('✅ [useAuth] Hoàn tất đăng ký push notification');
+        } else {
+          console.log('⚠️ [useAuth] Push token là null, bỏ qua gửi lên backend');
+        }
+      } catch (notifError) {
+        console.error('❌ [useAuth] Lỗi đăng ký push notification:', notifError);
+        console.error('❌ [useAuth] Error stack:', notifError instanceof Error ? notifError.stack : 'No stack trace');
+        // Không throw error để không ảnh hưởng đến luồng login
+      }
+      
+      console.log('✅ [useAuth] Hoàn tất login');
     } catch (error) {
-      console.error('Error saving auth data:', error);
+      console.error('❌ [useAuth] Error saving auth data:', error);
       throw new Error('Failed to save authentication data');
     }
   };

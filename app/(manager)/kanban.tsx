@@ -248,7 +248,7 @@ export default function KanbanBoard() {
                 )}
 
                 <Text style={styles.dueDate}>
-                    📅 {formatDate(task.ngayKetThuc)}
+                    📅 {new Date(task.ngayKetThuc).toLocaleDateString('vi-VN')}
                 </Text>
             </TouchableOpacity>
         </ScaleDecorator>

@@ -53,10 +53,10 @@ export default function MemberProfileScreen() {
     // Settings form data
     const [settings, setSettings] = useState({
         emailNotifications: true,
-        pushNotifications: true,
+        pushNotifications: true, // Push notification chung
         taskReminders: true,
         weeklyReports: false,
-        deadlineNotifications: false, // Thông báo deadline
+        deadlineNotifications: false, // Thông báo deadline (local scheduled)
     });
 
     const notificationListener = useRef<Notifications.Subscription | null>(null);
@@ -136,10 +136,16 @@ export default function MemberProfileScreen() {
     // Load notification settings từ storage
     const loadNotificationSettings = async () => {
         try {
-            const saved = await AsyncStorage.getItem('deadlineNotificationsEnabled');
-            if (saved !== null) {
-                setSettings(prev => ({ ...prev, deadlineNotifications: saved === 'true' }));
-            }
+            const [deadlineEnabled, pushEnabled] = await Promise.all([
+                AsyncStorage.getItem('deadlineNotificationsEnabled'),
+                AsyncStorage.getItem('pushNotificationsEnabled')
+            ]);
+
+            setSettings(prev => ({
+                ...prev,
+                deadlineNotifications: deadlineEnabled === 'true',
+                pushNotifications: pushEnabled !== 'false' // Mặc định bật
+            }));
         } catch (error) {
             console.error('Lỗi load notification settings:', error);
         }
@@ -204,7 +210,41 @@ export default function MemberProfileScreen() {
         }
     };
 
-    // Xử lý bật/tắt deadline notifications
+    // Xử lý bật/tắt push notifications chung
+    const handleTogglePushNotifications = async (value: boolean) => {
+        try {
+            if (value) {
+                // Bật push notifications
+                const hasPermission = await notificationService.requestPermissions();
+                if (hasPermission) {
+                    const success = await notificationService.registerAndSendToken();
+
+                    if (success) {
+                        await AsyncStorage.setItem('pushNotificationsEnabled', 'true');
+                        setSettings(prev => ({ ...prev, pushNotifications: true }));
+                        Alert.alert('Thành công', 'Đã bật thông báo push');
+                    } else {
+                        throw new Error('Không thể đăng ký push notification');
+                    }
+                } else {
+                    Alert.alert(
+                        'Cần cấp quyền',
+                        'Vui lòng vào Cài đặt > Ứng dụng > Mobile_qlcv > Thông báo để bật quyền'
+                    );
+                }
+            } else {
+                // Tắt push notifications (không xóa token, chỉ đánh dấu local)
+                await AsyncStorage.setItem('pushNotificationsEnabled', 'false');
+                setSettings(prev => ({ ...prev, pushNotifications: false }));
+                Alert.alert('Đã tắt', 'Đã tắt thông báo push. Bạn sẽ không nhận được thông báo từ server.');
+            }
+        } catch (error: any) {
+            console.error('Lỗi toggle push notifications:', error);
+            Alert.alert('Lỗi', error.message || 'Không thể cập nhật cài đặt thông báo push');
+        }
+    };
+
+    // Xử lý bật/tắt deadline notifications (local scheduled)
     const handleToggleDeadlineNotifications = async (value: boolean) => {
         try {
             if (value) {
@@ -611,36 +651,17 @@ export default function MemberProfileScreen() {
                                     thumbColor="#fff"
                                 />
                             </View>
-                            {/* 
+
                             <View style={styles.settingItem}>
                                 <View style={styles.settingInfo}>
-                                    <Text style={styles.settingLabel}>Push notification</Text>
+                                    <Text style={styles.settingLabel}>Push Notification</Text>
                                     <Text style={styles.settingDescription}>
-                                        Nhận thông báo đẩy trên thiết bị
+                                        Nhận thông báo đẩy từ server (giao việc, thông báo chung)
                                     </Text>
                                 </View>
                                 <Switch
                                     value={settings.pushNotifications}
-                                    onValueChange={(value) =>
-                                        setSettings({ ...settings, pushNotifications: value })
-                                    }
-                                    trackColor={{ false: '#D1D5DB', true: '#667eea' }}
-                                    thumbColor="#fff"
-                                />
-                            </View> */}
-
-                            <View style={styles.settingItem}>
-                                <View style={styles.settingInfo}>
-                                    <Text style={styles.settingLabel}>Nhắc việc</Text>
-                                    <Text style={styles.settingDescription}>
-                                        Nhắc nhở về công việc sắp đến hạn
-                                    </Text>
-                                </View>
-                                <Switch
-                                    value={settings.taskReminders}
-                                    onValueChange={(value) =>
-                                        setSettings({ ...settings, taskReminders: value })
-                                    }
+                                    onValueChange={handleTogglePushNotifications}
                                     trackColor={{ false: '#D1D5DB', true: '#667eea' }}
                                     thumbColor="#fff"
                                 />
@@ -648,9 +669,9 @@ export default function MemberProfileScreen() {
 
                             <View style={styles.settingItem}>
                                 <View style={styles.settingInfo}>
-                                    <Text style={styles.settingLabel}>Thông báo Deadline</Text>
+                                    <Text style={styles.settingLabel}>Thông báo Deadline (Local)</Text>
                                     <Text style={styles.settingDescription}>
-                                        Nhận thông báo 7, 3, 1 ngày trước và vào ngày deadline
+                                        Nhắc nhở deadline 7, 3, 1 ngày trước (local trên điện thoại)
                                     </Text>
                                 </View>
                                 <Switch

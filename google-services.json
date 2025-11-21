@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "418562255892",
+    "project_id": "mobileqlcv",
+    "storage_bucket": "mobileqlcv.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:418562255892:android:5c8f9fa2c69833bd740b01",
+        "android_client_info": {
+          "package_name": "com.haolam2608.Mobile_qlcv"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD5eynIIciZL_lZh1rXLyV6fo2ly3UM1SA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

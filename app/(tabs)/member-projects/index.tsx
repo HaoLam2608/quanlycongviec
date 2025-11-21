@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as DocumentPicker from 'expo-document-picker';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -12,7 +13,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import { getMemberProjects } from '../../../src/axios/api';
+import { deleteDocument, fetchDocuments, getMemberProjects } from '../../../src/axios/api';
 import { MemberProject } from '../../../types/member';
 import { styles } from './index.styles';
 
@@ -24,6 +25,9 @@ export default function MemberProjectsScreen() {
     const [selectedProject, setSelectedProject] = useState<MemberProject | null>(null);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+    const [documents, setDocuments] = useState<any[]>([]);
+    const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
+    const [isUploadingDocument, setIsUploadingDocument] = useState(false);
 
     // Fetch projects from API
     const fetchProjects = async () => {
@@ -75,6 +79,116 @@ export default function MemberProjectsScreen() {
         setIsRefreshing(false);
     };
 
+    // Fetch documents for selected project
+    const fetchProjectDocuments = async (projectId: number) => {
+        try {
+            setIsLoadingDocuments(true);
+            const response = await fetchDocuments(projectId);
+            const docs = response.documents || response || [];
+            setDocuments(docs);
+        } catch (error: any) {
+            console.error('❌ Lỗi lấy tài liệu:', error);
+            Alert.alert('Lỗi', error.message || 'Không thể tải tài liệu');
+            setDocuments([]);
+        } finally {
+            setIsLoadingDocuments(false);
+        }
+    };
+
+
+
+    // Handle document upload
+    const handleUploadDocument = async () => {
+        if (!selectedProject) return;
+
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: '*/*',
+                copyToCacheDirectory: true,
+            });
+
+            if (result.canceled) {
+                return;
+            }
+
+            const file = result.assets[0];
+            if (!file) {
+                Alert.alert('Lỗi', 'Không thể đọc file');
+                return;
+            }
+
+            setIsUploadingDocument(true);
+
+            // Create FormData for upload
+            const formData = new FormData();
+            formData.append('file', {
+                uri: file.uri,
+                type: file.mimeType || 'application/octet-stream',
+                name: file.name,
+            } as any);
+            formData.append('duanId', String(selectedProject.id));
+
+            // Upload using fetch API
+            const token = await require('@react-native-async-storage/async-storage').default.getItem('accessToken');
+            const API_BASE_URL = require('../../../src/config/api').API_CONFIG.BASE_URL;
+
+            const response = await fetch(`${API_BASE_URL}/documents/upload`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: formData,
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Upload thất bại');
+            }
+
+            Alert.alert('Thành công', 'Tải lên tài liệu thành công');
+            await fetchProjectDocuments(selectedProject.id);
+        } catch (error: any) {
+            console.error('❌ Lỗi upload tài liệu:', error);
+            Alert.alert('Lỗi', error.message || 'Không thể tải lên tài liệu');
+        } finally {
+            setIsUploadingDocument(false);
+        }
+    };
+
+    // Handle document delete
+    const handleDeleteDocument = async (documentId: number, documentName: string) => {
+        Alert.alert(
+            'Xác nhận xóa',
+            `Bạn có chắc muốn xóa tài liệu "${documentName}"?`,
+            [
+                { text: 'Hủy', style: 'cancel' },
+                {
+                    text: 'Xóa',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await deleteDocument(documentId);
+                            Alert.alert('Thành công', 'Đã xóa tài liệu');
+                            if (selectedProject) {
+                                await fetchProjectDocuments(selectedProject.id);
+                            }
+                        } catch (error: any) {
+                            console.error('❌ Lỗi xóa tài liệu:', error);
+                            Alert.alert('Lỗi', error.message || 'Không thể xóa tài liệu');
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
+    // Open detail modal and fetch documents
+    const openDetailModal = (project: MemberProject) => {
+        setSelectedProject(project);
+        setIsDetailModalOpen(true);
+        fetchProjectDocuments(project.id);
+    };
+
     // Filter projects based on search query
     const filteredProjects = projects.filter(
         (project) =>
@@ -106,10 +220,7 @@ export default function MemberProjectsScreen() {
             <TouchableOpacity
                 key={project.id}
                 style={styles.projectCard}
-                onPress={() => {
-                    setSelectedProject(project);
-                    setIsDetailModalOpen(true);
-                }}
+                onPress={() => openDetailModal(project)}
             >
                 <View style={styles.projectHeader}>
                     <View style={styles.projectInfo}>
@@ -345,6 +456,98 @@ export default function MemberProjectsScreen() {
                                         </View>
                                     </View>
                                 </View>
+
+                                {/* Documents Section */}
+                                <View style={styles.modalSection}>
+                                    <View style={styles.documentsHeader}>
+                                        <Text style={styles.modalSectionLabel}>Tài liệu dự án</Text>
+                                        <TouchableOpacity
+                                            style={styles.uploadButton}
+                                            onPress={handleUploadDocument}
+                                            disabled={isUploadingDocument}
+                                        >
+                                            {isUploadingDocument ? (
+                                                <ActivityIndicator size="small" color="#fff" />
+                                            ) : (
+                                                <>
+                                                    <Ionicons name="cloud-upload-outline" size={18} color="#fff" />
+                                                    <Text style={styles.uploadButtonText}>Tải lên</Text>
+                                                </>
+                                            )}
+                                        </TouchableOpacity>
+                                    </View>
+
+                                    {isLoadingDocuments ? (
+                                        <View style={styles.documentsLoading}>
+                                            <ActivityIndicator size="small" color="#667eea" />
+                                            <Text style={styles.documentsLoadingText}>Đang tải tài liệu...</Text>
+                                        </View>
+                                    ) : documents.length === 0 ? (
+                                        <View style={styles.documentsEmpty}>
+                                            <Ionicons name="document-outline" size={48} color="#9CA3AF" />
+                                            <Text style={styles.documentsEmptyText}>Chưa có tài liệu nào</Text>
+                                        </View>
+                                    ) : (
+                                        <View style={styles.documentsList}>
+                                            {documents.map((doc) => (
+                                                <View key={doc.id} style={styles.documentItem}>
+                                                    <View style={styles.documentInfo}>
+                                                        <Ionicons
+                                                            name="document-text-outline"
+                                                            size={24}
+                                                            color="#667eea"
+                                                        />
+                                                        <View style={styles.documentDetails}>
+                                                            <Text style={styles.documentName} numberOfLines={1}>
+                                                                {doc.tenTaiLieu || doc.fileName || 'Tài liệu'}
+                                                            </Text>
+                                                            <Text style={styles.documentMeta}>
+                                                                {doc.uploadedBy || 'Không rõ'} •{' '}
+                                                                {doc.createdAt
+                                                                    ? new Date(doc.createdAt).toLocaleDateString('vi-VN')
+                                                                    : 'N/A'}
+                                                            </Text>
+                                                        </View>
+                                                    </View>
+                                                    <View style={styles.documentActions}>
+                                                        <TouchableOpacity
+                                                            style={styles.documentActionButton}
+                                                            onPress={() =>
+                                                                handleDeleteDocument(
+                                                                    doc.id,
+                                                                    doc.tenTaiLieu || doc.fileName || 'tài liệu'
+                                                                )
+                                                            }
+                                                        >
+                                                            <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    )}
+                                </View>
+
+                                {/* Calendar View Button */}
+                                <TouchableOpacity
+                                    style={styles.calendarViewButton}
+                                    onPress={() => {
+                                        if (selectedProject) {
+                                            setIsDetailModalOpen(false);
+                                            router.push({
+                                                pathname: '/(tabs)/member-calendar' as any,
+                                                params: {
+                                                    projectId: selectedProject.id.toString(),
+                                                    projectName: selectedProject.name,
+                                                },
+                                            });
+                                        }
+                                    }}
+                                >
+                                    <Ionicons name="calendar" size={20} color="#fff" />
+                                    <Text style={styles.calendarViewButtonText}>Xem lịch công việc</Text>
+                                    <Ionicons name="chevron-forward" size={20} color="#fff" />
+                                </TouchableOpacity>
                             </ScrollView>
                         )}
                     </View>

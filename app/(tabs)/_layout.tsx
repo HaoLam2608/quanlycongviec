@@ -82,6 +82,13 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
+        name="member-calendar/index"
+        options={{
+          href: null, // Hide from tab bar
+        }}
+      />
+
+      <Tabs.Screen
         name="member-timesheet/index"
         options={{
           title: 'Timesheet',

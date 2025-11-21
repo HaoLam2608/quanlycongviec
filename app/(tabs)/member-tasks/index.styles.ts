@@ -222,4 +222,76 @@ export const styles = StyleSheet.create({
   statusButtonTextActive: {
     color: '#fff',
   },
+  // Worklog section styles
+  worklogHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  worklogButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#EEF2FF',
+  },
+  worklogButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#667eea',
+  },
+  worklogList: {
+    gap: 12,
+  },
+  worklogEmpty: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  worklogEmptyText: {
+    marginTop: 8,
+    fontSize: 14,
+    color: '#9CA3AF',
+  },
+  worklogItem: {
+    backgroundColor: '#F9FAFB',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  worklogItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  worklogItemInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  worklogDate: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  worklogHours: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#667eea',
+  },
+  worklogNote: {
+    fontSize: 14,
+    color: '#374151',
+    marginTop: 4,
+    lineHeight: 20,
+  },
+  worklogUser: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
 });
