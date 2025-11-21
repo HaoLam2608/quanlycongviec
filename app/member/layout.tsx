@@ -328,7 +328,7 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                         </button>
 
                         {/* User menu */}
-                            <div className="relative flex items-center space-x-3">
+                        <div className="relative flex items-center space-x-3">
                             <div>
                                 {currentUser?.avatar ? (
                                     <Avatar className="w-8 h-8">

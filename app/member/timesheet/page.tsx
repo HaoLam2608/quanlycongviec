@@ -68,9 +68,14 @@ interface MySubtask {
     tenSubtask: string
     trangThai: string
     taskId: number
-    tentask: string
-    duanId: number | null
-    tenduan: string | null
+    task?: {
+        id: number
+        tentask: string
+        duan?: {
+            id: number
+            tenduan: string
+        } | null
+    } | null
 }
 
 export default function TimesheetPage() {
@@ -161,10 +166,7 @@ export default function TimesheetPage() {
         setLoadingSubtasks(true)
         try {
             const response = await getMySubtasks()
-            console.log('📋 Loaded subtasks:', response.subtasks)
-            if (response.subtasks && response.subtasks.length > 0) {
-                console.log('📌 Sample subtask:', response.subtasks[0])
-            }
+            console.log('Loaded subtasks:', response.subtasks);
             setMySubtasks(response.subtasks || [])
         } catch (error) {
             console.error('Error loading subtasks:', error)
@@ -355,7 +357,7 @@ export default function TimesheetPage() {
                     id: worklog.subtaskId,
                     name: worklog.taskName,
                     project: worklog.project,
-                    parentTask: parentSubtask?.tentask || 'Unknown Task'
+                    parentTask: parentSubtask?.task?.tentask || 'Unknown Task'
                 }
                 isSubtask = true
             } else {
@@ -407,7 +409,7 @@ export default function TimesheetPage() {
                     ...prev,
                     selectedSubtaskId: subtaskId,
                     currentTask: selectedSubtask.tenSubtask,
-                    currentProject: selectedSubtask.tenduan || "Không có dự án"
+                    currentProject: selectedSubtask.task?.duan?.tenduan || "Không có dự án"
                 }))
             }
         } else {
@@ -423,17 +425,13 @@ export default function TimesheetPage() {
     const handleSubtaskSelection = (subtaskId: number | null) => {
         if (subtaskId) {
             const selectedSubtask = mySubtasks.find(s => s.id === subtaskId)
-            console.log('🔍 Selected subtask:', selectedSubtask)
 
             if (selectedSubtask) {
-                const projectName = selectedSubtask.tenduan || "Không có dự án"
-                console.log('📦 Project name:', projectName)
-                
                 setNewWorklog(prev => ({
                     ...prev,
                     selectedSubtaskId: subtaskId,
                     taskName: selectedSubtask.tenSubtask,
-                    project: projectName
+                    project: selectedSubtask.task?.duan?.tenduan || "Không có dự án"
                 }))
             }
         } else {
@@ -531,12 +529,9 @@ export default function TimesheetPage() {
                 // Auto-fill task name and project when subtask is selected
                 if (field === 'selectedSubtaskId' && value) {
                     const selectedSubtask = mySubtasks.find(s => s.id === value)
-                    console.log('🔍 [Batch] Selected subtask:', selectedSubtask)
-                    
                     if (selectedSubtask) {
                         updated.taskName = selectedSubtask.tenSubtask
-                        updated.project = selectedSubtask.tenduan || "Không có dự án"
-                        console.log('📦 [Batch] Project:', updated.project)
+                        updated.project = selectedSubtask.task?.duan?.tenduan || "Không có dự án"
                     }
                 }
 
@@ -650,7 +645,7 @@ export default function TimesheetPage() {
             id: Date.now().toString(),
             subtaskId,
             taskName: selectedSubtask.tenSubtask,
-            project: selectedSubtask.tenduan || "Không có dự án",
+            project: selectedSubtask.task?.duan?.tenduan || "Không có dự án",
             isRunning: true,
             isPaused: false,
             startTime: new Date(),
@@ -1012,7 +1007,7 @@ export default function TimesheetPage() {
                                             </option>
                                             {mySubtasks.map(subtask => (
                                                 <option key={subtask.id} value={subtask.id}>
-                                                    {subtask.tenSubtask} - {subtask.tentask}
+                                                    {subtask.tenSubtask} - {subtask.task?.tentask || 'N/A'}
                                                 </option>
                                             ))}
                                         </select>
@@ -1096,7 +1091,7 @@ export default function TimesheetPage() {
                                             .filter(subtask => !multiTimers.find(t => t.subtaskId === subtask.id))
                                             .map(subtask => (
                                                 <option key={subtask.id} value={subtask.id}>
-                                                    {subtask.tenSubtask} - {subtask.tentask}
+                                                    {subtask.tenSubtask} - {subtask.task?.tentask || 'N/A'}
                                                 </option>
                                             ))}
                                     </select>
@@ -1577,7 +1572,7 @@ export default function TimesheetPage() {
                                                 </option>
                                                 {mySubtasks.map(subtask => (
                                                     <option key={subtask.id} value={subtask.id}>
-                                                        {subtask.tenSubtask} - {subtask.tentask}
+                                                        {subtask.tenSubtask} - {subtask.task?.tentask || 'N/A'}
                                                     </option>
                                                 ))}
                                             </select>
@@ -1705,7 +1700,7 @@ export default function TimesheetPage() {
                                                                     </option>
                                                                     {mySubtasks.map(subtask => (
                                                                         <option key={subtask.id} value={subtask.id}>
-                                                                            {subtask.tenSubtask} - {subtask.tentask}
+                                                                            {subtask.tenSubtask} - {subtask.task?.tentask || 'N/A'}
                                                                         </option>
                                                                     ))}
                                                                 </select>

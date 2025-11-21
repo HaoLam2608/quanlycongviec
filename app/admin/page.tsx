@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { 
-    Users, Shield, FolderKanban, TrendingUp, Activity, Clock, 
+import {
+    Users, Shield, FolderKanban, TrendingUp, Activity, Clock,
     CheckCircle, AlertCircle, Briefcase, UserCheck, ArrowUpRight,
     ArrowDownRight, Calendar, Target, BarChart3, PieChart, Zap
 } from "lucide-react"
@@ -72,7 +72,7 @@ export default function AdminDashboard() {
             loadStats()
             loadProjects()
         }, 1000) // Increased delay to ensure token is ready
-        
+
         return () => clearTimeout(timer)
     }, [])
 
@@ -80,14 +80,14 @@ export default function AdminDashboard() {
         try {
             const data = await fetchProjects()
             setProjects(data || [])
-            
+
             // Calculate project statistics
             const total = data.length
             const completed = data.filter((p: any) => p.status === 'da_hoan_thanh' || p.status === 'completed').length
             const active = data.filter((p: any) => p.status === 'dang_chay' || p.status === 'in_progress').length
             const pending = data.filter((p: any) => p.status === 'chua_bat_dau' || p.status === 'not_started').length
             const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0
-            
+
             setProjectStats({ total, active, completed, pending, completionRate })
         } catch (error) {
             console.error("Load projects error:", error)
@@ -98,13 +98,13 @@ export default function AdminDashboard() {
         setLoading(true)
         try {
             const role = typeof window !== 'undefined' ? localStorage.getItem('role') : null
-            
+
             // Verify we have admin role
             if (role !== 'admin') {
                 setLoading(false)
                 return
             }
-            
+
             const res = await getDashboardStats()
             const data = res.stats || res
 
@@ -210,7 +210,7 @@ export default function AdminDashboard() {
                         </p>
                     </div>
                     <div className="flex gap-3">
-                        <button 
+                        <button
                             className="px-6 py-3 bg-white border-2 border-slate-200 text-slate-700 rounded-xl font-semibold hover:shadow-lg transition-all hover:-translate-y-0.5 flex items-center gap-2"
                             onClick={() => window.location.href = '/admin/reports'}
                         >
@@ -245,7 +245,7 @@ export default function AdminDashboard() {
                                 >
                                     {/* Background decoration */}
                                     <div className={`absolute top-0 right-0 w-32 h-32 ${stat.bgColor} rounded-full blur-3xl opacity-20 group-hover:opacity-30 transition-opacity`}></div>
-                                    
+
                                     <div className="relative">
                                         <div className="flex items-start justify-between mb-4">
                                             <div
@@ -322,7 +322,7 @@ export default function AdminDashboard() {
                             </h3>
                             <p className="text-blue-100 text-sm">Cập nhật theo thời gian thực</p>
                         </div>
-                        
+
                         <div className="space-y-4">
                             <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
                                 <div className="flex items-center justify-between">
