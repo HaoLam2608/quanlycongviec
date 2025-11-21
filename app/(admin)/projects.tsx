@@ -36,6 +36,7 @@ export default function ProjectsManagement() {
     const [projects, setProjects] = useState<Project[]>([]);
     const [filteredProjects, setFilteredProjects] = useState<Project[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
+    const [projectFilter, setProjectFilter] = useState<'all' | 'not_started' | 'in_progress' | 'completed'>('all');
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [showFormModal, setShowFormModal] = useState(false);
@@ -47,7 +48,20 @@ export default function ProjectsManagement() {
 
     useEffect(() => {
         filterProjects();
-    }, [searchQuery, projects]);
+    }, [searchQuery, projects, projectFilter]);
+
+    const getFilterStatuses = (filter: 'not_started' | 'in_progress' | 'completed') => {
+        switch (filter) {
+            case 'not_started':
+                return ['chua_bat_dau', 'not_started'];
+            case 'in_progress':
+                return ['dang_chay', 'in_progress'];
+            case 'completed':
+                return ['da_hoan_thanh', 'completed'];
+            default:
+                return [];
+        }
+    };
 
     const loadProjects = async () => {
         setLoading(true);
@@ -66,15 +80,25 @@ export default function ProjectsManagement() {
     };
 
     const filterProjects = () => {
-        if (searchQuery.trim() === '') {
-            setFilteredProjects(projects);
-        } else {
-            const filtered = projects.filter(project =>
-                project.tenduan.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                project.mota?.toLowerCase().includes(searchQuery.toLowerCase())
-            );
-            setFilteredProjects(filtered);
+        const q = searchQuery.trim().toLowerCase();
+
+        // apply project status filter first (support multiple status vocabularies)
+        let base = projects;
+        if (projectFilter !== 'all') {
+            const allowed = getFilterStatuses(projectFilter as any);
+            base = projects.filter(p => allowed.includes(p.status));
         }
+
+        if (q === '') {
+            setFilteredProjects(base);
+            return;
+        }
+
+        const filtered = base.filter(project =>
+            project.tenduan.toLowerCase().includes(q) ||
+            (project.mota || '').toLowerCase().includes(q)
+        );
+        setFilteredProjects(filtered);
     };
 
     const onRefresh = async () => {
@@ -142,7 +166,11 @@ export default function ProjectsManagement() {
         const statusColor = getStatusColor(project.status);
         
         return (
-            <TouchableOpacity style={styles.projectCard} activeOpacity={0.95} onPress={() => router.push(`/(admin)/project-detail?id=${project.id}`)}>
+            <TouchableOpacity 
+                style={styles.projectCard}
+                onPress={() => router.push(`/(admin)/project-detail?id=${project.id}`)}
+                activeOpacity={0.7}
+            >
                 <View style={styles.projectHeader}>
                     <View style={styles.projectIcon}>
                         <Ionicons name="folder" size={24} color="#10b981" />
@@ -172,7 +200,8 @@ export default function ProjectsManagement() {
                 <View style={styles.projectFooter}>
                     <TouchableOpacity
                         style={styles.actionButton}
-                        onPress={() => {
+                        onPress={(e) => {
+                            e.stopPropagation();
                             setEditingProject(project);
                             setShowFormModal(true);
                         }}
@@ -181,15 +210,11 @@ export default function ProjectsManagement() {
                         <Text style={styles.actionButtonText}>Sửa</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                        style={[styles.actionButton, { backgroundColor: '#eef2ff' }]}
-                        onPress={() => router.push(`/(admin)/project-detail?id=${project.id}`)}
-                    >
-                        <Ionicons name="document-text-outline" size={18} color="#1e40af" />
-                        <Text style={[styles.actionButtonText, { color: '#1e40af' }]}>Chi tiết</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
                         style={[styles.actionButton, styles.deleteActionButton]}
-                        onPress={() => handleDeleteProject(project)}
+                        onPress={(e) => {
+                            e.stopPropagation();
+                            handleDeleteProject(project);
+                        }}
                     >
                         <Ionicons name="trash-outline" size={18} color="#ef4444" />
                         <Text style={[styles.actionButtonText, { color: '#ef4444' }]}>Xóa</Text>
@@ -243,6 +268,30 @@ export default function ProjectsManagement() {
                     </Text>
                     <Text style={styles.statLabel}>Hoàn thành</Text>
                 </View>
+            </View>
+
+            {/* Filter Pills */}
+            <View style={styles.filterContainer}>
+                <ScrollView 
+                    horizontal 
+                    showsHorizontalScrollIndicator={false} 
+                    contentContainerStyle={styles.filterScrollContent}
+                >
+                    {[
+                        { key: 'all', label: 'Tất cả' },
+                        { key: 'not_started', label: 'Chưa bắt đầu' },
+                        { key: 'in_progress', label: 'Đang chạy' },
+                        { key: 'completed', label: 'Hoàn thành' },
+                    ].map((f) => (
+                        <TouchableOpacity
+                            key={f.key}
+                            style={[styles.pill, projectFilter === (f.key as any) && styles.pillActive]}
+                            onPress={() => setProjectFilter(f.key as any)}
+                        >
+                            <Text style={[styles.pillText, projectFilter === (f.key as any) && styles.pillTextActive]}>{f.label}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
             </View>
 
             {/* Projects List */}
@@ -341,7 +390,7 @@ const styles = StyleSheet.create({
     statsContainer: {
         flexDirection: 'row',
         paddingHorizontal: 16,
-        marginBottom: 16,
+        marginBottom: 8,
     },
     statCard: {
         flex: 1,
@@ -360,6 +409,32 @@ const styles = StyleSheet.create({
         color: '#6b7280',
         marginTop: 4,
         textAlign: 'center',
+    },
+    filterContainer: {
+        paddingHorizontal: 16,
+        marginTop: 6,
+        marginBottom: 6,
+    },
+    filterScrollContent: {
+        paddingVertical: 8,
+    },
+    pill: {
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        backgroundColor: '#f3f4f6',
+        marginRight: 8,
+    },
+    pillActive: {
+        backgroundColor: '#10b981',
+    },
+    pillText: {
+        fontSize: 13,
+        color: '#374151',
+        fontWeight: '600',
+    },
+    pillTextActive: {
+        color: '#fff',
     },
     content: {
         flex: 1,

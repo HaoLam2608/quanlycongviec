@@ -1,17 +1,16 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
+    Alert,
+    RefreshControl,
     SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
-    View,
     TouchableOpacity,
-    RefreshControl,
-    Alert,
-    ActivityIndicator,
+    View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../src/axios/config';
 import NotificationFormModal from './components/NotificationFormModal';
 
@@ -26,22 +25,31 @@ interface Notification {
 
 export default function NotificationsManagement() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [selectedType, setSelectedType] = useState<string>('all');
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingNotification, setEditingNotification] = useState<Notification | null>(null);
 
     useEffect(() => {
-        loadNotifications();
-    }, []);
+        loadNotifications({ type: selectedType === 'all' ? undefined : selectedType });
+    }, [selectedType]);
 
-    const loadNotifications = async () => {
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await loadNotifications({ type: selectedType === 'all' ? undefined : selectedType });
+        setRefreshing(false);
+    };
+
+    // load notifications with optional filters; backend supports `type` and `search`
+    const loadNotifications = async (opts?: { type?: string | undefined }) => {
         setLoading(true);
         try {
-            const response = await api.get('/notifications/admin/all');
+            const params: any = { limit: 100 };
+            if (opts?.type) params.type = opts.type;
 
+            const response = await api.get('/notifications/admin/all', { params });
             if (response.data) {
-                // Backend trả về { success, data, pagination }
                 setNotifications(response.data.data || response.data);
             }
         } catch (error) {
@@ -50,12 +58,6 @@ export default function NotificationsManagement() {
         } finally {
             setLoading(false);
         }
-    };
-
-    const onRefresh = async () => {
-        setRefreshing(true);
-        await loadNotifications();
-        setRefreshing(false);
     };
 
     const handleDeleteNotification = (notification: Notification) => {
@@ -175,6 +177,36 @@ export default function NotificationsManagement() {
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
                 }
             >
+                {/* Filters */}
+                <View style={styles.filterRow}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 8 }}>
+                        <TouchableOpacity
+                            style={[styles.pill, selectedType === 'all' && styles.pillActive]}
+                            onPress={() => setSelectedType('all')}
+                        >
+                            <Text style={[styles.pillText, selectedType === 'all' && styles.pillTextActive]}>Tất cả</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.pill, selectedType === 'task' && styles.pillActive]}
+                            onPress={() => setSelectedType('task')}
+                        >
+                            <Text style={[styles.pillText, selectedType === 'task' && styles.pillTextActive]}>Công việc</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.pill, selectedType === 'project' && styles.pillActive]}
+                            onPress={() => setSelectedType('project')}
+                        >
+                            <Text style={[styles.pillText, selectedType === 'project' && styles.pillTextActive]}>Dự án</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.pill, selectedType === 'system' && styles.pillActive]}
+                            onPress={() => setSelectedType('system')}
+                        >
+                            <Text style={[styles.pillText, selectedType === 'system' && styles.pillTextActive]}>Hệ thống</Text>
+                        </TouchableOpacity>
+                    </ScrollView>
+                </View>
+
                 {loading ? (
                     <View style={styles.loadingContainer}>
                         <ActivityIndicator size="large" color="#f59e0b" />
@@ -355,4 +387,22 @@ const styles = StyleSheet.create({
         color: '#9ca3af',
         marginTop: 16,
     },
+    filterRow: {
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        backgroundColor: '#fff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#e5e7eb',
+    },
+    pillContainer: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+    pill: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: '#f3f4f6', marginRight: 8 },
+    pillActive: { backgroundColor: '#111827' },
+    pillText: { fontSize: 13, color: '#374151' },
+    pillTextActive: { color: '#fff' },
+    projectPickerContainer: { marginTop: 6 },
+    projectLabel: { fontSize: 12, color: '#6b7280', marginBottom: 6 },
+    projectChip: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: '#f3f4f6', marginRight: 8 },
+    projectChipActive: { backgroundColor: '#3b82f6' },
+    projectChipText: { fontSize: 13, color: '#374151' },
+    projectChipTextActive: { color: '#fff' },
 });

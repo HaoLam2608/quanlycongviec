@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -25,12 +24,12 @@ interface Group {
 }
 
 export default function GroupsManagement() {
-    const router = useRouter();
     const [groups, setGroups] = useState<Group[]>([]);
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingGroup, setEditingGroup] = useState<Group | null>(null);
+    const [groupFilter, setGroupFilter] = useState<'all' | 'active' | 'closed'>('all');
 
     useEffect(() => {
         loadGroups();
@@ -81,36 +80,34 @@ export default function GroupsManagement() {
         );
     };
 
-    // Robust closed detection similar to manager's view: check multiple flags and strings
-    const isGroupClosed = (g: any) => {
-        if (!g) return false;
-        const closedFlags = [g.closed, g.isClosed, g.dong, g.trangthai, g.status, g.state, g.is_closed, g.closedAt, g.closed_at];
-        for (const v of closedFlags) {
-            if (v === true) return true;
-            if (v === '1' || v === 1) return true;
-            if (typeof v === 'string') {
-                const s = v.toLowerCase();
-                if (s.includes('đã đóng') || s.includes('da dong') || s.includes('closed') || s.includes('dong') || s.includes('da_dong')) return true;
-            }
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'active':
+                return '#10b981';
+            case 'closed':
+                return '#6b7280';
+            default:
+                return '#6b7280';
         }
-        // also treat explicit inactive/da_dong statuses as closed
-        if (g.status && (g.status === 'inactive' || g.status === 'da_dong' || g.status === 'closed')) return true;
-        return false;
     };
 
-    const getStatusColor = (g: any) => {
-        return isGroupClosed(g) ? '#6b7280' : '#10b981';
-    };
-
-    const getStatusText = (g: any) => {
-        return isGroupClosed(g) ? 'Đã đóng' : 'Hoạt động';
+    const getStatusText = (status: string) => {
+        switch (status) {
+            case 'active':
+                return 'Hoạt động';
+            case 'closed':
+                return 'Đã đóng';
+            default:
+                // Treat any unknown status as closed — UI expects only active / closed
+                return 'Đã đóng';
+        }
     };
 
     const GroupCard = ({ group }: { group: Group }) => {
-        const statusColor = getStatusColor(group);
+        const statusColor = getStatusColor(group.status);
         
         return (
-            <TouchableOpacity style={styles.groupCard} activeOpacity={0.9} onPress={() => (router as any).push(`/(admin)/group-detail?id=${group.id}`)}>
+            <View style={styles.groupCard}>
                 <View style={styles.groupHeader}>
                     <View style={styles.groupIcon}>
                         <Ionicons name="layers" size={24} color="#f59e0b" />
@@ -121,9 +118,9 @@ export default function GroupsManagement() {
                             {group.description || 'Không có mô tả'}
                         </Text>
                     </View>
-                        <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
+                    <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
                         <Text style={[styles.statusText, { color: statusColor }]}>
-                            {getStatusText(group)}
+                            {getStatusText(group.status)}
                         </Text>
                     </View>
                 </View>
@@ -136,12 +133,6 @@ export default function GroupsManagement() {
                         </Text>
                     </View>
                     <View style={styles.groupActions}>
-                        <TouchableOpacity
-                            style={[styles.actionBtn, styles.detailBtn]}
-                            onPress={() => (router as any).push(`/(admin)/group-detail?id=${group.id}`)}
-                        >
-                            <Ionicons name="chevron-forward-outline" size={18} color="#111827" />
-                        </TouchableOpacity>
                         <TouchableOpacity
                             style={styles.actionBtn}
                             onPress={() => {
@@ -159,29 +150,50 @@ export default function GroupsManagement() {
                         </TouchableOpacity>
                     </View>
                 </View>
-            </TouchableOpacity>
+            </View>
         );
     };
+
+    // Apply filter to groups list
+    const filteredGroups = groups.filter(g => {
+        if (groupFilter === 'all') return true;
+        if (groupFilter === 'active') return g.status === 'active';
+        if (groupFilter === 'closed') return g.status === 'closed';
+        return true;
+    });
 
     return (
         <SafeAreaView style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
                 <Text style={styles.title}>Quản lý nhóm</Text>
-                <Text style={styles.subtitle}>Tổng số: {groups.length} nhóm</Text>
+                <Text style={styles.subtitle}>Tổng số: {groups.length} nhóm · Hiển thị: {filteredGroups.length}</Text>
+            </View>
+
+            {/* Filter pills: All / Active / Closed */}
+            <View style={styles.filterRow}>
+                <TouchableOpacity onPress={() => setGroupFilter('all')} style={[styles.filterPill, groupFilter === 'all' && styles.filterPillActive]}>
+                    <Text style={[styles.filterPillText, groupFilter === 'all' && styles.filterPillTextActive]}>Tất cả</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setGroupFilter('active')} style={[styles.filterPill, groupFilter === 'active' && styles.filterPillActive]}>
+                    <Text style={[styles.filterPillText, groupFilter === 'active' && styles.filterPillTextActive]}>Hoạt động</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setGroupFilter('closed')} style={[styles.filterPill, groupFilter === 'closed' && styles.filterPillActive]}>
+                    <Text style={[styles.filterPillText, groupFilter === 'closed' && styles.filterPillTextActive]}>Đã đóng</Text>
+                </TouchableOpacity>
             </View>
 
             {/* Stats */}
             <View style={styles.statsContainer}>
                 <View style={[styles.statCard, { backgroundColor: '#d1fae5' }]}>
                     <Text style={styles.statValue}>
-                        {groups.filter(g => !isGroupClosed(g)).length}
+                        {groups.filter(g => g.status === 'active').length}
                     </Text>
                     <Text style={styles.statLabel}>Hoạt động</Text>
                 </View>
                 <View style={[styles.statCard, { backgroundColor: '#e5e7eb' }]}>
                     <Text style={styles.statValue}>
-                        {groups.filter(g => isGroupClosed(g)).length}
+                        {groups.filter(g => g.status === 'closed').length}
                     </Text>
                     <Text style={styles.statLabel}>Đã đóng</Text>
                 </View>
@@ -205,7 +217,7 @@ export default function GroupsManagement() {
                         <Text style={styles.emptyText}>Chưa có nhóm</Text>
                     </View>
                 ) : (
-                    groups.map((group) => <GroupCard key={group.id} group={group} />)
+                    filteredGroups.map((group) => <GroupCard key={group.id} group={group} />)
                 )}
             </ScrollView>
 
@@ -362,9 +374,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    detailBtn: {
-        backgroundColor: '#f3f4f6',
-    },
     deleteBtn: {
         backgroundColor: '#fee2e2',
     },
@@ -405,5 +414,33 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.3,
         shadowRadius: 8,
         elevation: 8,
+    },
+    filterRow: {
+        flexDirection: 'row',
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        backgroundColor: '#fff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#e5e7eb',
+    },
+    filterPill: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: '#fff',
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+        marginRight: 8,
+    },
+    filterPillActive: {
+        backgroundColor: '#f59e0b',
+        borderColor: '#f59e0b',
+    },
+    filterPillText: {
+        fontSize: 14,
+        color: '#374151',
+    },
+    filterPillTextActive: {
+        color: '#fff',
     },
 });
