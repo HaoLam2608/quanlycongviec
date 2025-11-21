@@ -55,4 +55,23 @@ router.post('/mark-all-read',
     notificationController.markAllAsRead
 );
 
+// Push notification routes
+router.post('/register-device',
+    auth,
+    notificationController.registerDevice
+);
+
+router.post('/send-push',
+    auth,
+    checkRole('admin', 'manager'),
+    notificationController.sendPushNotification
+);
+
+// Deadline reminder routes
+router.post('/admin/trigger-deadline-check',
+    auth,
+    checkRole('admin'),
+    notificationController.triggerDeadlineCheck
+);
+
 module.exports = router;

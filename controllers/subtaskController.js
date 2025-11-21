@@ -1,5 +1,6 @@
 const { Subtask, Task, User, DuAn, Assignment, Notification, UserNotification } = require('../models');
 const emailService = require('../services/emailService');
+const { sendTaskAssignmentPush } = require('../services/pushNotificationService');
 
 // Tạo subtask mới
 exports.createSubtask = async (req, res) => {
@@ -175,6 +176,24 @@ exports.createSubtask = async (req, res) => {
                 } catch (emailError) {
                     console.error('📧 Error sending assignment email:', emailError);
                     // Don't fail the whole request if email fails
+                }
+
+                // Send push notification to assignee
+                try {
+                    const assignee = await User.findByPk(nguoiThucHienId, { attributes: ['hoten', 'manv'] });
+                    const manager = await User.findByPk(req.user.id, { attributes: ['hoten', 'manv'] });
+
+                    if (assignee && manager) {
+                        await sendTaskAssignmentPush(
+                            nguoiThucHienId,
+                            itemName,
+                            manager.hoten || manager.manv
+                        );
+                        console.log(`📱 Push notification sent to user: ${nguoiThucHienId}`);
+                    }
+                } catch (pushError) {
+                    console.error('📱 Error sending push notification:', pushError);
+                    // Don't fail the whole request if push fails
                 }
 
                 assignmentCreated = assignment;

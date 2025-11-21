@@ -90,4 +90,8 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`📱 Mobile (Android Emulator): http://10.0.2.2:${PORT}`);
     console.log(`📱 Mobile (iOS Simulator): http://localhost:${PORT}`);
     console.log(`📱 Mobile (Real Device): http://<YOUR_IP>:${PORT}`);
+
+    // Start deadline notification scheduler
+    const { startDeadlineScheduler } = require('./services/deadlineNotificationScheduler');
+    startDeadlineScheduler();
 });

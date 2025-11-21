@@ -38,14 +38,34 @@ exports.listDocuments = async (req, res) => {
 
         const docs = await Document.findAll({
             where,
+            attributes: ['id', 'filename', 'originalname', 'mimetype', 'size', 'duanId', 'userId', 'description', 'createdAt', 'updatedAt'],
             include: [
                 { model: User, as: 'uploader', attributes: ['id', 'manv', 'hoten'] },
                 { model: DuAn, as: 'duan', attributes: ['id', 'tenduan'] }
             ],
             order: [['createdAt', 'DESC']]
         });
-        res.json(docs);
+
+        // Format response to match frontend expectations
+        const formattedDocs = docs.map(doc => ({
+            id: doc.id,
+            tenTaiLieu: doc.originalname,
+            fileName: doc.originalname,
+            moTa: doc.description,
+            duongDan: doc.filename,
+            kichThuoc: doc.size,
+            loaiTaiLieu: doc.mimetype,
+            uploadedBy: doc.uploader?.hoten || 'Unknown',
+            createdAt: doc.createdAt,
+            project: doc.duan ? {
+                id: doc.duan.id,
+                tenduan: doc.duan.tenduan
+            } : null
+        }));
+
+        res.json({ documents: formattedDocs });
     } catch (err) {
+        console.error('List documents error:', err);
         res.status(500).json({ error: err.message });
     }
 };
@@ -87,7 +107,7 @@ exports.downloadDocument = async (req, res) => {
 exports.getGroupDocuments = async (req, res) => {
     try {
         const userId = req.user.id;
-        
+
         // Find groups where user is leader
         const leaderGroups = await Group.findAll({
             where: { leaderId: userId, status: 'active' },
@@ -135,6 +155,7 @@ exports.getGroupDocuments = async (req, res) => {
 
         const projectIds = Array.from(new Set([...directProjectIds, ...relatedProjectIds]));
 
+        // Only query by projectIds since groupId column may not exist in DB yet
         if (projectIds.length === 0) {
             return res.json({ documents: [] });
         }
@@ -144,11 +165,12 @@ exports.getGroupDocuments = async (req, res) => {
             where: {
                 duanId: { [Op.in]: projectIds }
             },
+            attributes: ['id', 'filename', 'originalname', 'mimetype', 'size', 'duanId', 'userId', 'description', 'createdAt', 'updatedAt'],
             include: [
-                { 
-                    model: User, 
-                    as: 'uploader', 
-                    attributes: ['id', 'manv', 'hoten'] 
+                {
+                    model: User,
+                    as: 'uploader',
+                    attributes: ['id', 'manv', 'hoten']
                 },
                 {
                     model: DuAn,
@@ -163,11 +185,12 @@ exports.getGroupDocuments = async (req, res) => {
         const result = documents.map(doc => ({
             id: doc.id,
             tenTaiLieu: doc.originalname,
+            fileName: doc.originalname,
             moTa: doc.description,
             duongDan: doc.filename,
             kichThuoc: doc.size,
             loaiTaiLieu: doc.mimetype,
-            uploadedBy: doc.uploader,
+            uploadedBy: doc.uploader?.hoten || 'Unknown',
             createdAt: doc.createdAt,
             project: doc.duan ? {
                 id: doc.duan.id,

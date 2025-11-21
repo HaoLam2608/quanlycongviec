@@ -1,5 +1,7 @@
 const { Notification, User, UserNotification } = require('../models');
 const { Op } = require('sequelize');
+const { sendGeneralNotificationPush } = require('../services/pushNotificationService');
+const { sendGeneralNotificationPushViaFirebase } = require('../services/firebasePushService');
 
 // Get all notifications for admin
 exports.getAllNotifications = async (req, res) => {
@@ -350,6 +352,75 @@ exports.toggleNotificationStatus = async (req, res) => {
             }]
         });
 
+        // Nếu xuất bản thông báo, gửi push notification
+        if (action === 'publish') {
+            try {
+                console.log('🔔 [Push] Publishing notification, targetAudience:', notification.targetAudience);
+
+                // Lấy danh sách user cần nhận thông báo dựa vào targetAudience
+                let targetRoles = notification.targetAudience ? notification.targetAudience.split(',').map(r => r.trim()) : [];
+
+                console.log('🔔 [Push] Target roles from notification:', targetRoles);
+
+                // Nếu targetAudience là 'all', lấy tất cả users
+                const isAll = targetRoles.includes('all');
+
+                const { Role } = require('../models');
+                let whereClause = {};
+
+                if (!isAll && targetRoles.length > 0) {
+                    // Map 'member' -> 'employee' vì trong bảng Roles có thể lưu khác
+                    const mappedRoles = targetRoles.map(role => {
+                        if (role === 'member') return 'employee';
+                        return role;
+                    });
+
+                    console.log('🔔 [Push] Mapped roles:', mappedRoles);
+
+                    // Tìm roleIds từ bảng Roles
+                    const roles = await Role.findAll({
+                        where: { name: { [Op.in]: mappedRoles } },
+                        attributes: ['id', 'name']
+                    });
+
+                    console.log('🔔 [Push] Found roles:', roles.map(r => ({ id: r.id, name: r.name })));
+
+                    const roleIds = roles.map(r => r.id);
+                    if (roleIds.length > 0) {
+                        whereClause.roleId = { [Op.in]: roleIds };
+                    }
+                }
+
+                const targetUsers = await User.findAll({
+                    where: whereClause,
+                    attributes: ['id', 'manv', 'roleId']
+                });
+
+                console.log('🔔 [Push] Found target users:', targetUsers.length);
+                if (targetUsers.length > 0) {
+                    console.log('🔔 [Push] Sample users:', targetUsers.slice(0, 3).map(u => ({ id: u.id, manv: u.manv, roleId: u.roleId })));
+                }
+
+                const userIds = targetUsers.map(u => u.id);
+
+                if (userIds.length > 0) {
+                    console.log('🔔 [Push] Sending push to user IDs:', userIds);
+                    // Dùng Firebase thay vì Expo
+                    const result = await sendGeneralNotificationPushViaFirebase(
+                        userIds,
+                        notification.title,
+                        notification.content
+                    );
+                    console.log('🔔 [Push] Send result:', result);
+                } else {
+                    console.log('🔔 [Push] No users to send push notification');
+                }
+            } catch (pushError) {
+                console.error('❌ [Push] Error sending push notification:', pushError);
+                // Không throw error để không ảnh hưởng đến việc xuất bản thông báo
+            }
+        }
+
         res.json({
             success: true,
             message: action === 'publish' ? 'Đã xuất bản thông báo' : 'Đã hủy xuất bản thông báo',
@@ -557,6 +628,178 @@ exports.markAllAsRead = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Lỗi khi đánh dấu tất cả đã đọc',
+            error: error.message
+        });
+    }
+};
+
+// Register device for push notifications
+exports.registerDevice = async (req, res) => {
+    try {
+        const { expoPushToken, deviceId, platform, deviceModel } = req.body;
+        const userId = req.user.id;
+
+        if (!expoPushToken) {
+            return res.status(400).json({
+                success: false,
+                message: 'expoPushToken là bắt buộc'
+            });
+        }
+
+        const { DeviceToken } = require('../models');
+
+        // Kiểm tra xem device đã tồn tại chưa
+        let device = await DeviceToken.findOne({
+            where: { expoPushToken, userId }
+        });
+
+        if (device) {
+            // Cập nhật thông tin device
+            await device.update({
+                deviceId: deviceId || device.deviceId,
+                platform: platform || device.platform,
+                deviceModel: deviceModel || device.deviceModel,
+                lastActive: new Date()
+            });
+        } else {
+            // Tạo mới device token
+            device = await DeviceToken.create({
+                userId,
+                expoPushToken,
+                deviceId: deviceId || 'unknown',
+                platform: platform || 'unknown',
+                deviceModel: deviceModel || 'unknown',
+                isActive: true,
+                lastActive: new Date()
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Đã đăng ký thiết bị thành công',
+            data: device
+        });
+    } catch (error) {
+        console.error('Error registering device:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi đăng ký thiết bị',
+            error: error.message
+        });
+    }
+};
+
+// Send push notification to specific users
+exports.sendPushNotification = async (req, res) => {
+    try {
+        const { userIds, title, body, data } = req.body;
+
+        if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'userIds phải là mảng và không được rỗng'
+            });
+        }
+
+        if (!title || !body) {
+            return res.status(400).json({
+                success: false,
+                message: 'title và body là bắt buộc'
+            });
+        }
+
+        const { DeviceToken } = require('../models');
+        const { Expo } = require('expo-server-sdk');
+
+        // Lấy tất cả device tokens của users
+        const devices = await DeviceToken.findAll({
+            where: {
+                userId: { [Op.in]: userIds },
+                isActive: true
+            }
+        });
+
+        if (devices.length === 0) {
+            return res.json({
+                success: true,
+                message: 'Không có thiết bị nào để gửi',
+                sent: 0
+            });
+        }
+
+        // Khởi tạo Expo SDK
+        const expo = new Expo();
+        const messages = [];
+
+        for (const device of devices) {
+            // Kiểm tra push token hợp lệ
+            if (!Expo.isExpoPushToken(device.expoPushToken)) {
+                console.log(`Push token không hợp lệ: ${device.expoPushToken}`);
+                continue;
+            }
+
+            messages.push({
+                to: device.expoPushToken,
+                sound: 'default',
+                title,
+                body,
+                data: data || {},
+                priority: 'high',
+                channelId: 'default'
+            });
+        }
+
+        // Gửi notifications
+        const chunks = expo.chunkPushNotifications(messages);
+        const tickets = [];
+
+        for (const chunk of chunks) {
+            try {
+                const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+                tickets.push(...ticketChunk);
+            } catch (error) {
+                console.error('Error sending push notification chunk:', error);
+            }
+        }
+
+        res.json({
+            success: true,
+            message: 'Đã gửi push notification',
+            sent: messages.length,
+            tickets: tickets.length
+        });
+    } catch (error) {
+        console.error('Error sending push notification:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi gửi push notification',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Trigger deadline check manually (for testing)
+ */
+exports.triggerDeadlineCheck = async (req, res) => {
+    try {
+        console.log('🔧 [Admin] Manual trigger: Deadline check');
+
+        const { checkAndSendDeadlineNotifications } = require('../services/deadlineNotificationScheduler');
+
+        // Chạy và trả về kết quả
+        const result = await checkAndSendDeadlineNotifications();
+
+        res.json({
+            success: true,
+            message: 'Đã kiểm tra deadline và gửi push notifications',
+            result
+        });
+    } catch (error) {
+        console.error('Error triggering deadline check:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi trigger deadline check',
             error: error.message
         });
     }

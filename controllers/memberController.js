@@ -308,27 +308,7 @@ const getUpcomingTasks = async (req, res) => {
         const futureDate = new Date(today);
         futureDate.setDate(futureDate.getDate() + days);
 
-        // Get tasks with upcoming deadlines
-        const tasks = await Task.findAll({
-            where: {
-                nguoiDuocGiaoId: userId,
-                trangThai: { [Op.ne]: 'Hoàn thành' },
-                ngayKetThuc: {
-                    [Op.gte]: today,
-                    [Op.lte]: futureDate
-                }
-            },
-            include: [
-                {
-                    model: DuAn,
-                    as: 'duan',
-                    attributes: ['id', 'tenduan']
-                }
-            ],
-            order: [['ngayKetThuc', 'ASC']]
-        });
-
-        // Get subtasks with upcoming deadlines
+        // Get only subtasks with upcoming deadlines (không lấy task lớn)
         const subtasks = await Subtask.findAll({
             where: {
                 nguoiThucHienId: userId,
@@ -354,41 +334,31 @@ const getUpcomingTasks = async (req, res) => {
         });
 
         // Calculate days left and format response
-        const upcomingTasks = [
-            ...tasks.map(task => {
-                const deadline = new Date(task.ngayKetThuc);
-                const diffTime = deadline.getTime() - today.getTime();
-                const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const upcomingTasks = subtasks.map(subtask => {
+            const deadline = new Date(subtask.ngayKetThuc);
 
-                return {
-                    id: task.id,
-                    title: task.tentask,
-                    deadline: task.ngayKetThuc,
-                    priority: task.mucDoUuTien || 'medium',
-                    daysLeft,
-                    projectName: task.duan?.tenduan,
-                    status: task.trangThai,
-                    type: 'task'
-                };
-            }),
-            ...subtasks.map(subtask => {
-                const deadline = new Date(subtask.ngayKetThuc);
-                const diffTime = deadline.getTime() - today.getTime();
-                const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            // Set deadline và today về đầu ngày để tính chính xác
+            const deadlineDate = new Date(deadline);
+            deadlineDate.setHours(0, 0, 0, 0);
 
-                return {
-                    id: subtask.id,
-                    title: subtask.tenSubtask,
-                    deadline: subtask.ngayKetThuc,
-                    priority: 'medium', // Subtask không có priority field
-                    daysLeft,
-                    projectName: subtask.task?.duan?.tenduan,
-                    status: subtask.trangThai,
-                    type: 'subtask',
-                    parentTask: subtask.task?.tentask
-                };
-            })
-        ].sort((a, b) => a.daysLeft - b.daysLeft); // Sort by days left
+            const todayDate = new Date(today);
+            todayDate.setHours(0, 0, 0, 0);
+
+            // Tính số ngày chênh lệch (chính xác theo ngày)
+            const daysLeft = Math.round((deadlineDate - todayDate) / (1000 * 60 * 60 * 24));
+
+            return {
+                id: subtask.id,
+                title: subtask.tenSubtask,
+                deadline: subtask.ngayKetThuc,
+                priority: 'medium', // Subtask không có priority field
+                daysLeft,
+                projectName: subtask.task?.duan?.tenduan,
+                status: subtask.trangThai,
+                type: 'subtask',
+                parentTask: subtask.task?.tentask
+            };
+        }).sort((a, b) => a.daysLeft - b.daysLeft); // Sort by days left
 
         res.json(upcomingTasks);
 
@@ -662,27 +632,12 @@ const getMemberProjects = async (req, res) => {
             attributes: ['id']
         });
 
-        // Also include projects where the user has tasks assigned (distinct duanId)
-        const taskProjectRows = await Task.findAll({
-            where: { nguoiDuocGiaoId: userId, duanId: { [Op.ne]: null } },
-            attributes: ['duanId'],
-            group: ['duanId']
-        });
-        const taskProjectIds = taskProjectRows.map(t => t.duanId).filter(Boolean);
-
         const allProjectIds = [...new Set([
             ...projectIds,
-            ...directProjects.map(p => p.id),
-            ...taskProjectIds
+            ...directProjects.map(p => p.id)
         ])];
 
-        console.log('📂 [getMemberProjects] All project IDs for user (groups/direct/tasks):', allProjectIds);
-
-        // If no projects found, return early to avoid building a WHERE IN (NULL) query
-        if (!allProjectIds || allProjectIds.length === 0) {
-            console.log('ℹ️ [getMemberProjects] No project IDs found for user, returning empty list');
-            return res.json([]);
-        }
+        console.log('📂 [getMemberProjects] All project IDs for user:', allProjectIds);
 
         // Get detailed project information
         const projects = await DuAn.findAll({
@@ -917,200 +872,6 @@ const updateMemberSubtaskStatus = async (req, res) => {
     }
 };
 
-// Get team members performance for teamlead
-const getTeamPerformance = async (req, res) => {
-    try {
-        const userId = req.user.id;
-        
-        console.log('Getting team performance for user:', userId);
-        
-        // Find groups where user is leader
-        const db = require('../models');
-        const Group = db.Group;
-        
-        const groups = await Group.findAll({
-            where: { leaderId: userId },
-            include: [{
-                model: User,
-                as: 'members',
-                through: { attributes: [] },
-                attributes: ['id', 'hoten', 'manv']
-            }]
-        });
-
-        console.log('Found groups:', groups.length);
-
-        if (!groups || groups.length === 0) {
-            console.log('No groups found for this teamlead');
-            return res.json({ members: [] });
-        }
-
-        // Get all unique member IDs from all groups
-        const memberIds = new Set();
-        groups.forEach(group => {
-            if (group.members && Array.isArray(group.members)) {
-                group.members.forEach(member => memberIds.add(member.id));
-            }
-        });
-
-        const memberIdsArray = Array.from(memberIds);
-        console.log('Found members:', memberIdsArray.length);
-
-        if (memberIdsArray.length === 0) {
-            return res.json({ members: [] });
-        }
-
-        // Calculate performance for each member
-        const membersPerformance = await Promise.all(memberIdsArray.map(async (memberId) => {
-            try {
-                const user = await User.findByPk(memberId, {
-                    attributes: ['id', 'hoten', 'manv']
-                });
-
-                if (!user) return null;
-
-                // Get tasks stats
-                const totalTasks = await Subtask.count({
-                    where: { nguoiThucHienId: memberId }
-                });
-
-                const completedTasks = await Subtask.count({
-                    where: {
-                        nguoiThucHienId: memberId,
-                        trangThai: 'Hoàn thành'
-                    }
-                });
-
-                const pendingTasks = await Subtask.count({
-                    where: {
-                        nguoiThucHienId: memberId,
-                        trangThai: { [Op.in]: ['Chưa làm', 'Đang làm'] }
-                    }
-                });
-
-                // Get worklogs stats
-                const worklogs = await Worklog.findAll({
-                    where: {
-                        userId: memberId,
-                        trangThai: 'approved'
-                    },
-                    attributes: ['gioLam']
-                });
-                const totalHours = worklogs.reduce((sum, w) => sum + (w.gioLam || 0), 0);
-
-                // Get subtasks by priority
-                const highPriorityTasks = await Subtask.count({
-                    where: {
-                        nguoiThucHienId: memberId,
-                        mucDoUuTien: 'Cao'
-                    }
-                });
-
-                const mediumPriorityTasks = await Subtask.count({
-                    where: {
-                        nguoiThucHienId: memberId,
-                        mucDoUuTien: 'Trung bình'
-                    }
-                });
-
-                const lowPriorityTasks = await Subtask.count({
-                    where: {
-                        nguoiThucHienId: memberId,
-                        mucDoUuTien: 'Thấp'
-                    }
-                });
-
-                // Calculate average completion time
-                const completedSubtasks = await Subtask.findAll({
-                    where: {
-                        nguoiThucHienId: memberId,
-                        trangThai: 'Hoàn thành'
-                    },
-                    attributes: ['createdAt', 'updatedAt'],
-                    limit: 10,
-                    order: [['updatedAt', 'DESC']]
-                });
-
-                let averageCompletionTime = 0;
-                if (completedSubtasks.length > 0) {
-                    const totalTime = completedSubtasks.reduce((sum, task) => {
-                        const diff = new Date(task.updatedAt) - new Date(task.createdAt);
-                        return sum + (diff / (1000 * 60 * 60)); // Convert to hours
-                    }, 0);
-                    averageCompletionTime = Math.round(totalTime / completedSubtasks.length);
-                }
-
-                // Calculate quality score
-                const qualityScore = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-
-                // Calculate on-time rate
-                const tasksWithDeadline = await Subtask.findAll({
-                    where: {
-                        nguoiThucHienId: memberId,
-                        trangThai: 'Hoàn thành',
-                        ngayKetThuc: { [Op.ne]: null }
-                    },
-                    attributes: ['ngayKetThuc', 'updatedAt']
-                });
-
-                let onTimeCount = 0;
-                tasksWithDeadline.forEach(task => {
-                    if (new Date(task.updatedAt) <= new Date(task.ngayKetThuc)) {
-                        onTimeCount++;
-                    }
-                });
-                const onTimeRate = tasksWithDeadline.length > 0 
-                    ? Math.round((onTimeCount / tasksWithDeadline.length) * 100) 
-                    : 100;
-
-                // Get recent activity
-                const recentActivity = await Subtask.findAll({
-                    where: { nguoiThucHienId: memberId },
-                    order: [['updatedAt', 'DESC']],
-                    limit: 5,
-                    attributes: ['id', 'ten', 'trangThai', 'updatedAt']
-                });
-
-                return {
-                    userId: user.id,
-                    hoten: user.hoten,
-                    manv: user.manv,
-                    totalTasks,
-                    completedTasks,
-                    pendingTasks,
-                    totalHours,
-                    averageCompletionTime,
-                    qualityScore,
-                    onTimeRate,
-                    tasksByPriority: {
-                        high: highPriorityTasks,
-                        medium: mediumPriorityTasks,
-                        low: lowPriorityTasks
-                    },
-                    recentActivity: recentActivity.map(activity => ({
-                        date: activity.updatedAt,
-                        type: 'subtask',
-                        description: `${activity.ten} - ${activity.trangThai}`
-                    }))
-                };
-            } catch (memberErr) {
-                console.error(`Error processing member ${memberId}:`, memberErr);
-                return null;
-            }
-        }));
-
-        // Filter out nulls
-        const validMembers = membersPerformance.filter(m => m !== null);
-
-        console.log('Returning performance data for', validMembers.length, 'members');
-        res.json({ members: validMembers });
-    } catch (err) {
-        console.error('Get team performance error:', err);
-        console.error('Error stack:', err.stack);
-        res.status(500).json({ error: err.message, stack: process.env.NODE_ENV === 'development' ? err.stack : undefined });
-    }
-};
-
 module.exports = {
     getMemberStats,
     getTodayTasks,
@@ -1120,6 +881,5 @@ module.exports = {
     getMemberTasks,
     getMemberProjects,
     updateMemberTaskStatus,
-    updateMemberSubtaskStatus,
-    getTeamPerformance
+    updateMemberSubtaskStatus
 };
