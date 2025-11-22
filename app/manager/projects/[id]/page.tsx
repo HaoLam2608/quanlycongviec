@@ -212,10 +212,11 @@ export default function ProjectDetailPage() {
         try {
             await uploadDocument(uploadFile, Number(id), uploadDesc);
             const docs = await fetchDocuments(Number(id));
-            setDocuments(docs);
+            setDocuments(docs.documents || docs || []);
             setIsUploadOpen(false);
             setUploadFile(null);
             setUploadDesc('');
+            showSuccess('Upload tài liệu thành công');
         } catch (err) {
             console.error('Lỗi upload', err);
             showError('Có lỗi khi upload tài liệu');
@@ -364,16 +365,10 @@ export default function ProjectDetailPage() {
                 // load documents for project
                 try {
                     const docs = await fetchDocuments(Number(id));
-                    setDocuments(docs);
+                    setDocuments(docs.documents || docs || []);
                 } catch (err) {
                     console.error('Lỗi load tài liệu', err);
-                }
-                // load documents for project
-                try {
-                    const docs = await fetchDocuments(Number(id));
-                    setDocuments(docs);
-                } catch (err) {
-                    console.error('Lỗi load tài liệu', err);
+                    setDocuments([]);
                 }
             } catch (err) {
                 console.error("Lỗi load dự án:", err);

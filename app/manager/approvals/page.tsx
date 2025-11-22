@@ -4,10 +4,11 @@ import { useState, useEffect } from "react"
 import { 
     Clock, CheckCircle2, XCircle, Eye, FileText, Calendar,
     User, MessageSquare, AlertTriangle, Filter, RefreshCw,
-    CheckCheck, X, Search
+    CheckCheck, X, Search, UserPlus, History, CheckCircle, Trash2
 } from "lucide-react"
 import { approvalAPI } from "@/axios/approvalApi"
 import { useToastContext } from "@/components/providers/toast-provider"
+import { notificationUserAPI } from '@/axios/notificationAPI'
 
 interface PendingTask {
     id: number
@@ -53,20 +54,66 @@ interface PendingSubtask {
     updatedAt: string
 }
 
-export default function ApprovalsPage() {
+interface JoinRequest {
+    id: string
+    title: string
+    content: string
+    createdAt: string
+    isRead: boolean
+    meta: {
+        requestToJoin: boolean
+        taskId?: number
+        subtaskId?: number
+        requesterId: number
+        requesterName?: string
+        processed?: boolean
+        processedAt?: string
+        action?: 'accepted' | 'declined'
+    }
+}
+
+interface ApprovedItem {
+    id: number
+    ten?: string
+    tenSubtask?: string
+    tentask?: string
+    trangThai?: string
+    approvedAt?: string
+    approvedBy?: number
+    acceptedAt?: string
+    acceptedBy?: number
+    nguoiThucHien?: { id: number; hoten: string; manv: string }
+    nguoiDuocGiao?: { id: number; hoten: string; manv: string }
+    assignee?: { id: number; hoten: string; manv: string }
+    approver?: { id: number; hoten: string; manv: string }
+    task?: { id: number; tentask: string; duan?: { id: number; tenduan: string } }
+    subtask?: { id: number; tenSubtask: string; task?: { id: number; tentask: string; duan?: { id: number; tenduan: string } } }
+    duan?: { id: number; tenduan: string }
+    type?: 'task' | 'subtask' | 'assignment'
+}
+
+export default function ManagerApprovalsPage() {
     const [pendingTasks, setPendingTasks] = useState<PendingTask[]>([])
     const [pendingSubtasks, setPendingSubtasks] = useState<PendingSubtask[]>([])
+    const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([])
     const [loading, setLoading] = useState(true)
     const [filter, setFilter] = useState<'all' | 'tasks' | 'subtasks'>('all')
     const [searchTerm, setSearchTerm] = useState('')
     const [selectedItem, setSelectedItem] = useState<any>(null)
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [processingApproval, setProcessingApproval] = useState(false)
+    const [processingRequestId, setProcessingRequestId] = useState<string | null>(null)
+    const [deletingHistoryId, setDeletingHistoryId] = useState<string | null>(null)
     const [rejectReason, setRejectReason] = useState('')
+    const [activeTab, setActiveTab] = useState<'completion' | 'join' | 'history'>('completion')
+    const [approvedHistory, setApprovedHistory] = useState<ApprovedItem[]>([])
+    const [historyFilter, setHistoryFilter] = useState<'all' | 'completion' | 'assignment'>('all')
+    const [loadingHistory, setLoadingHistory] = useState(false)
     const { showSuccess, showError } = useToastContext()
 
     useEffect(() => {
         loadPendingApprovals()
+        loadJoinRequests()
     }, [filter])
 
     const loadPendingApprovals = async () => {
@@ -79,6 +126,58 @@ export default function ApprovalsPage() {
             showError(error.message || 'Không thể tải danh sách phê duyệt')
         } finally {
             setLoading(false)
+        }
+    }
+
+    const loadJoinRequests = async () => {
+        try {
+            const res = await notificationUserAPI.getMyNotifications({ limit: 200 })
+            const items = Array.isArray(res.data) ? res.data : (res.data?.data || res.data || [])
+            const requests = (items || []).filter((n: any) => {
+                const meta = n.userMeta || n.meta || (n.userNotification && n.userNotification.meta)
+                // Chỉ lấy requests chưa processed
+                return meta && (meta.requestToJoin === true || meta.requestToJoin) && !meta.processed
+            }).map((n: any) => ({
+                id: n.id,
+                title: n.title,
+                content: n.content,
+                createdAt: n.createdAt,
+                isRead: n.isRead || (n.userNotification && n.userNotification.isRead) || false,
+                meta: n.userMeta || n.meta || (n.userNotification && n.userNotification.meta)
+            }))
+            setJoinRequests(requests)
+        } catch (error: any) {
+            console.error('Load join requests error:', error)
+            setJoinRequests([])
+        }
+    }
+
+    const loadApprovedHistory = async () => {
+        setLoadingHistory(true)
+        try {
+            const res = await approvalAPI.getApprovedHistory(100)
+            const dataWrapper = res.data ?? res ?? {}
+            const tasks = Array.isArray(dataWrapper.tasks) ? dataWrapper.tasks : []
+            const subtasks = Array.isArray(dataWrapper.subtasks) ? dataWrapper.subtasks : []
+            const assignments = Array.isArray(dataWrapper.assignments) ? dataWrapper.assignments : []
+
+            const allItems: ApprovedItem[] = [
+                ...tasks.map((t: any) => ({ ...t, type: 'task' as const })),
+                ...subtasks.map((s: any) => ({ ...s, type: 'subtask' as const })),
+                ...assignments.map((a: any) => ({ ...a, type: 'assignment' as const }))
+            ].sort((a, b) => {
+                const dateA = new Date(a.approvedAt || a.acceptedAt || 0).getTime()
+                const dateB = new Date(b.approvedAt || b.acceptedAt || 0).getTime()
+                return dateB - dateA
+            })
+            
+            setApprovedHistory(allItems)
+        } catch (error: any) {
+            console.error('Load approved history error:', error)
+            showError(error.message || 'Lỗi tải lịch sử phê duyệt')
+            setApprovedHistory([])
+        } finally {
+            setLoadingHistory(false)
         }
     }
 
@@ -103,6 +202,76 @@ export default function ApprovalsPage() {
         }
     }
 
+    const handleAcceptRequest = async (request: JoinRequest) => {
+        setProcessingRequestId(request.id)
+        try {
+            await notificationUserAPI.acceptRequest({
+                taskId: request.meta.taskId,
+                subtaskId: request.meta.subtaskId,
+                requesterId: request.meta.requesterId
+            })
+            showSuccess('Đã chấp nhận yêu cầu nhận việc')
+            loadJoinRequests()
+        } catch (error: any) {
+            console.error('Accept request error:', error)
+            showError(error.response?.data?.message || 'Lỗi khi chấp nhận yêu cầu')
+        } finally {
+            setProcessingRequestId(null)
+        }
+    }
+
+    const handleDeclineRequest = async (request: JoinRequest) => {
+        const reason = prompt('Lý do từ chối (không bắt buộc)') || ''
+        setProcessingRequestId(request.id)
+        try {
+            await notificationUserAPI.declineRequest({
+                taskId: request.meta.taskId,
+                subtaskId: request.meta.subtaskId,
+                requesterId: request.meta.requesterId,
+                reason
+            })
+            showSuccess('Đã từ chối yêu cầu nhận việc')
+            loadJoinRequests()
+        } catch (error: any) {
+            console.error('Decline request error:', error)
+            showError(error.response?.data?.message || 'Lỗi khi từ chối yêu cầu')
+        } finally {
+            setProcessingRequestId(null)
+        }
+    }
+
+    const handleDeleteRequest = async (requestId: string) => {
+        setProcessingRequestId(requestId)
+        try {
+            await notificationUserAPI.deleteNotification(requestId)
+            showSuccess('Đã xóa thông báo')
+            loadJoinRequests()
+        } catch (error: any) {
+            console.error('Delete request error:', error)
+            showError(error.response?.data?.message || 'Lỗi khi xóa thông báo')
+        } finally {
+            setProcessingRequestId(null)
+        }
+    }
+
+    const handleDeleteHistory = async (item: ApprovedItem) => {
+        const itemId = `${item.type}-${item.id}`
+        setDeletingHistoryId(itemId)
+        try {
+            await approvalAPI.deleteHistory({
+                type: item.type || 'task',
+                id: item.id
+            })
+            showSuccess('Đã xóa lịch sử phê duyệt')
+            loadApprovedHistory()
+        } catch (error: any) {
+            console.error('Delete history error:', error)
+            showError(error.response?.data?.message || 'Lỗi khi xóa lịch sử')
+        } finally {
+            setDeletingHistoryId(null)
+        }
+    }
+
     const openApprovalModal = (item: any, type: 'task' | 'subtask') => {
         setSelectedItem({ ...item, type })
         setIsModalOpen(true)
@@ -122,6 +291,17 @@ export default function ApprovalsPage() {
     )
 
     const totalCount = filteredTasks.length + filteredSubtasks.length
+
+    const filteredHistory = approvedHistory.filter(item => {
+        if (historyFilter === 'all') return true
+        if (historyFilter === 'completion') {
+            return item.type === 'task' || item.type === 'subtask'
+        }
+        if (historyFilter === 'assignment') {
+            return item.type === 'assignment'
+        }
+        return true
+    })
 
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('vi-VN', {
@@ -168,28 +348,114 @@ export default function ApprovalsPage() {
                     <div className="flex items-center justify-between mb-4">
                         <div>
                             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                                Phê duyệt hoàn thành công việc
+                                Phê duyệt công việc
                             </h1>
                             <p className="text-gray-600">
-                                Quản lý các yêu cầu xác nhận hoàn thành từ nhân viên
+                                {activeTab === 'completion' 
+                                    ? 'Quản lý các yêu cầu xác nhận hoàn thành từ nhân viên'
+                                    : activeTab === 'join'
+                                    ? 'Quản lý các yêu cầu nhận công việc từ nhân viên'
+                                    : 'Xem lịch sử các công việc đã được phê duyệt'
+                                }
                             </p>
                         </div>
                         <div className="flex items-center gap-3">
                             <div className="text-right">
                                 <p className="text-sm text-gray-500">Tổng số chờ phê duyệt</p>
-                                <p className="text-2xl font-bold text-orange-600">{totalCount}</p>
+                                <p className="text-2xl font-bold text-orange-600">
+                                    {activeTab === 'completion' ? totalCount : joinRequests.length}
+                                </p>
                             </div>
                             <button
-                                onClick={loadPendingApprovals}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                                onClick={() => {
+                                    loadPendingApprovals()
+                                    loadJoinRequests()
+                                    if (activeTab === 'history') {
+                                        loadApprovedHistory()
+                                    }
+                                }}
+                                disabled={loading || loadingHistory}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
                             >
-                                <RefreshCw className="w-4 h-4" />
+                                <RefreshCw className={`w-4 h-4 ${(loading || loadingHistory) ? 'animate-spin' : ''}`} />
                                 Làm mới
                             </button>
                         </div>
                     </div>
 
+                    {/* Tab Navigation */}
+                    <div className="bg-white rounded-xl p-2 shadow-sm border border-gray-200 mb-4">
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => setActiveTab('completion')}
+                                className={`flex-1 px-4 py-3 rounded-lg font-medium text-sm transition-all ${
+                                    activeTab === 'completion'
+                                        ? 'bg-blue-600 text-white shadow-md'
+                                        : 'text-gray-600 hover:bg-gray-50'
+                                }`}
+                            >
+                                <div className="flex items-center justify-center gap-2">
+                                    <CheckCheck size={18} />
+                                    <span>Phê duyệt hoàn thành</span>
+                                    {totalCount > 0 && (
+                                        <span className={`px-2 py-0.5 rounded-full text-xs ${
+                                            activeTab === 'completion' ? 'bg-white/20' : 'bg-blue-100 text-blue-800'
+                                        }`}>
+                                            {totalCount}
+                                        </span>
+                                    )}
+                                </div>
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('join')}
+                                className={`flex-1 px-4 py-3 rounded-lg font-medium text-sm transition-all ${
+                                    activeTab === 'join'
+                                        ? 'bg-green-600 text-white shadow-md'
+                                        : 'text-gray-600 hover:bg-gray-50'
+                                }`}
+                            >
+                                <div className="flex items-center justify-center gap-2">
+                                    <UserPlus size={18} />
+                                    <span>Yêu cầu nhận việc</span>
+                                    {joinRequests.length > 0 && (
+                                        <span className={`px-2 py-0.5 rounded-full text-xs ${
+                                            activeTab === 'join' ? 'bg-white/20' : 'bg-green-100 text-green-800'
+                                        }`}>
+                                            {joinRequests.length}
+                                        </span>
+                                    )}
+                                </div>
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setActiveTab('history')
+                                    if (approvedHistory.length === 0) {
+                                        loadApprovedHistory()
+                                    }
+                                }}
+                                className={`flex-1 px-4 py-3 rounded-lg font-medium text-sm transition-all ${
+                                    activeTab === 'history'
+                                        ? 'bg-purple-600 text-white shadow-md'
+                                        : 'text-gray-600 hover:bg-gray-50'
+                                }`}
+                            >
+                                <div className="flex items-center justify-center gap-2">
+                                    <History size={18} />
+                                    <span>Lịch sử phê duyệt</span>
+                                    {approvedHistory.length > 0 && (
+                                        <span className={`px-2 py-0.5 rounded-full text-xs ${
+                                            activeTab === 'history' ? 'bg-white/20' : 'bg-purple-100 text-purple-800'
+                                        }`}>
+                                            {approvedHistory.length}
+                                        </span>
+                                    )}
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
                     {/* Filters */}
+                    {activeTab === 'completion' && (
                     <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
                         <div className="flex items-center justify-between gap-4">
                             <div className="flex items-center gap-4">
@@ -215,9 +481,11 @@ export default function ApprovalsPage() {
                             </div>
                         </div>
                     </div>
+                    )}
                 </div>
 
-                {/* Pending Approvals List */}
+                {/* Pending Approvals List - Completion Tab */}
+                {activeTab === 'completion' && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200">
                     <div className="p-6 border-b border-gray-200">
                         <h2 className="text-lg font-semibold text-gray-900">
@@ -376,6 +644,297 @@ export default function ApprovalsPage() {
                         )}
                     </div>
                 </div>
+                )}
+
+                {/* Join Requests Tab */}
+                {activeTab === 'join' && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+                    <div className="p-6 border-b border-gray-200">
+                        <h2 className="text-lg font-semibold text-gray-900">
+                            Yêu cầu nhận công việc ({joinRequests.length})
+                        </h2>
+                    </div>
+
+                    <div className="divide-y divide-gray-200">
+                        {joinRequests.length === 0 ? (
+                            <div className="p-12 text-center">
+                                <UserPlus className="w-16 h-16 text-green-400 mx-auto mb-4" />
+                                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                                    Không có yêu cầu nhận việc
+                                </h3>
+                                <p className="text-gray-500">
+                                    Chưa có nhân viên nào yêu cầu nhận công việc.
+                                </p>
+                            </div>
+                        ) : (
+                            <>
+                                {joinRequests.map(request => {
+                                    const isProcessed = request.meta?.processed === true
+                                    const action = request.meta?.action
+
+                                    return (
+                                    <div key={request.id} className={`p-6 transition-colors ${
+                                        isProcessed ? 'bg-gray-50 opacity-70' : 'hover:bg-gray-50'
+                                    }`}>
+                                        <div className="flex items-start justify-between">
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-3 mb-2">
+                                                    <div className={`w-2 h-2 rounded-full ${
+                                                        isProcessed
+                                                            ? action === 'accepted' ? 'bg-green-500' : 'bg-red-500'
+                                                            : 'bg-blue-500'
+                                                    }`}></div>
+                                                    <h3 className="text-lg font-semibold text-gray-900">
+                                                        {request.title}
+                                                    </h3>
+                                                    {isProcessed ? (
+                                                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                                            action === 'accepted'
+                                                                ? 'bg-green-100 text-green-800'
+                                                                : 'bg-red-100 text-red-800'
+                                                        }`}>
+                                                            {action === 'accepted' ? '✓ Đã chấp nhận' : '✕ Đã từ chối'}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                                                            Chờ xử lý
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                
+                                                <p className="text-gray-600 mb-3">{request.content}</p>
+                                                
+                                                <div className="flex items-center gap-6 text-sm text-gray-500">
+                                                    <div className="flex items-center gap-1">
+                                                        <Clock className="w-4 h-4" />
+                                                        <span>Yêu cầu lúc: {new Date(request.createdAt).toLocaleString('vi-VN')}</span>
+                                                    </div>
+                                                    {isProcessed && request.meta?.processedAt && (
+                                                        <div className="flex items-center gap-1">
+                                                            <CheckCircle2 className="w-4 h-4" />
+                                                            <span>Xử lý lúc: {new Date(request.meta.processedAt).toLocaleString('vi-VN')}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-3 ml-4">
+                                                {isProcessed ? (
+                                                    <button
+                                                        onClick={() => handleDeleteRequest(request.id)}
+                                                        disabled={processingRequestId === request.id}
+                                                        className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 flex items-center gap-1"
+                                                    >
+                                                        <X className="w-4 h-4" />
+                                                        Xóa
+                                                    </button>
+                                                ) : (
+                                                    <>
+                                                        <button
+                                                            onClick={() => handleAcceptRequest(request)}
+                                                            disabled={processingRequestId === request.id}
+                                                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-1"
+                                                        >
+                                                            <CheckCheck className="w-4 h-4" />
+                                                            Chấp nhận
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeclineRequest(request)}
+                                                            disabled={processingRequestId === request.id}
+                                                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-1"
+                                                        >
+                                                            <X className="w-4 h-4" />
+                                                            Từ chối
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )})}
+                            </>
+                        )}
+                    </div>
+                </div>
+                )}
+
+                {/* History Tab */}
+                {activeTab === 'history' && (
+                    <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+                        <div className="p-6 border-b border-gray-200">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-lg font-semibold text-gray-900">
+                                    Lịch sử phê duyệt ({filteredHistory.length})
+                                </h2>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setHistoryFilter('all')}
+                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                            historyFilter === 'all'
+                                                ? 'bg-blue-600 text-white'
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        Tất cả
+                                    </button>
+                                    <button
+                                        onClick={() => setHistoryFilter('completion')}
+                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                            historyFilter === 'completion'
+                                                ? 'bg-blue-600 text-white'
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        Hoàn thành
+                                    </button>
+                                    <button
+                                        onClick={() => setHistoryFilter('assignment')}
+                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                            historyFilter === 'assignment'
+                                                ? 'bg-blue-600 text-white'
+                                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        }`}
+                                    >
+                                        Nhận việc
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-6">
+                            {loadingHistory ? (
+                                <div className="space-y-4">
+                                    {[1, 2, 3].map(i => (
+                                        <div key={i} className="h-40 bg-gray-200 rounded-xl animate-pulse"></div>
+                                    ))}
+                                </div>
+                            ) : filteredHistory.length === 0 ? (
+                                <div className="text-center py-12">
+                                    <History className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                                    <p className="text-gray-500 text-lg font-medium">Chưa có lịch sử phê duyệt</p>
+                                    <p className="text-gray-400 text-sm mt-2">Các công việc đã được phê duyệt sẽ hiển thị ở đây</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {filteredHistory.map((item) => {
+                                        const isAssignment = item.type === 'assignment'
+                                        const itemName = isAssignment
+                                            ? (item.subtask?.tenSubtask || item.task?.tentask || item.ten || 'Chưa đặt tên')
+                                            : item.type === 'task'
+                                                ? (item.ten || item.tentask || 'Chưa đặt tên')
+                                                : (item.tenSubtask || item.ten || 'Chưa đặt tên')
+
+                                        const assignee = item.assignee || item.nguoiDuocGiao || item.nguoiThucHien
+                                        const projectName = isAssignment
+                                            ? (item.subtask?.task?.duan?.tenduan || item.task?.duan?.tenduan)
+                                            : item.type === 'task'
+                                                ? item.duan?.tenduan
+                                                : item.task?.duan?.tenduan
+
+                                        const parentTaskName = isAssignment
+                                            ? item.subtask?.task?.tentask
+                                            : item.type === 'subtask'
+                                                ? item.task?.tentask
+                                                : undefined
+
+                                        const approvalDateRaw = item.approvedAt || item.acceptedAt
+                                        const approvalDateObj = approvalDateRaw ? new Date(approvalDateRaw) : null
+                                        const isValidDate = approvalDateObj && !isNaN(approvalDateObj.getTime())
+                                        const approvalDate = isValidDate
+                                            ? approvalDateObj!.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                                            : 'Chưa có'
+                                        const approvalTime = isValidDate
+                                            ? approvalDateObj!.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+                                            : ''
+
+                                        return (
+                                            <div 
+                                                key={`${item.type}-${item.id}`}
+                                                className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-all"
+                                            >
+                                                <div className="flex items-start justify-between gap-6">
+                                                    <div className="flex-1 space-y-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                                                isAssignment ? 'bg-gradient-to-br from-blue-500 to-blue-600' : 'bg-gradient-to-br from-green-500 to-green-600'
+                                                            }`}>
+                                                                <CheckCircle className="w-5 h-5 text-white" />
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                                    <h3 className="text-lg font-semibold text-gray-900">{itemName}</h3>
+                                                                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                                                        isAssignment ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+                                                                    }`}>
+                                                                        {isAssignment ? '✓ Đã chấp nhận' : '✓ Đã phê duyệt'}
+                                                                    </span>
+                                                                    <span className={`px-2 py-1 rounded-md text-xs font-medium ${
+                                                                        isAssignment ? 'bg-purple-100 text-purple-700' : 'bg-blue-50 text-blue-700'
+                                                                    }`}>
+                                                                        {isAssignment ? 'Yêu cầu nhận việc' : item.type === 'task' ? 'Công việc' : 'Công việc nhỏ'}
+                                                                    </span>
+                                                                </div>
+                                                                {projectName && (
+                                                                    <p className="text-sm text-gray-500">Dự án: {projectName}</p>
+                                                                )}
+                                                                {parentTaskName && (
+                                                                    <p className="text-sm text-gray-500">Thuộc: {parentTaskName}</p>
+                                                                )}
+                                                            </div>
+                                                            <button
+                                                                onClick={() => handleDeleteHistory(item)}
+                                                                disabled={deletingHistoryId === `${item.type}-${item.id}`}
+                                                                className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 transition-all disabled:opacity-50 flex-shrink-0"
+                                                                title="Xóa lịch sử"
+                                                            >
+                                                                <Trash2 size={18} />
+                                                            </button>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                                            {assignee && (
+                                                                <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+                                                                    <User className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                                                                    <div className="min-w-0">
+                                                                        <p className="text-xs text-gray-500">{isAssignment ? 'Người được phân công' : 'Người thực hiện'}</p>
+                                                                        <p className="text-sm font-semibold text-gray-900 truncate">{assignee.hoten}</p>
+                                                                        <p className="text-xs text-gray-500">{assignee.manv}</p>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            {item.approver && (
+                                                                <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                                                                    <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
+                                                                    <div className="min-w-0">
+                                                                        <p className="text-xs text-gray-500">{isAssignment ? 'Người chấp nhận' : 'Người phê duyệt'}</p>
+                                                                        <p className="text-sm font-semibold text-gray-900 truncate">{item.approver.hoten}</p>
+                                                                        <p className="text-xs text-gray-500">{item.approver.manv}</p>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg">
+                                                                <Calendar className="w-5 h-5 text-purple-600 flex-shrink-0" />
+                                                                <div className="min-w-0">
+                                                                    <p className="text-xs text-gray-500">{isAssignment ? 'Thời gian chấp nhận' : 'Thời gian phê duyệt'}</p>
+                                                                    <p className="text-sm font-semibold text-gray-900">{approvalDate}</p>
+                                                                    {approvalTime && (
+                                                                        <p className="text-xs text-gray-500">{approvalTime}</p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
 
                 {/* Approval Modal */}
                 {isModalOpen && selectedItem && (

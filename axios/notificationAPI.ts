@@ -137,5 +137,11 @@ export const notificationUserAPI = {
     declineRequest: async (data: { taskId?: number; subtaskId?: number; requesterId: number; reason?: string }) => {
         const response = await axiosInstance.post(`/assignments/request/decline`, data)
         return response.data
+    },
+
+    // Delete a notification
+    deleteNotification: async (id: string) => {
+        const response = await axiosInstance.delete(`/notifications/${id}`)
+        return response.data
     }
 }

@@ -302,10 +302,11 @@ export default function TeamLeadTasksPage() {
             return
         }
         
-        if (!subtaskFormData.nguoiThucHienId) {
-            showError('Vui lòng chọn người thực hiện')
-            return
-        }
+        // Cho phép tạo subtask không cần chọn người thực hiện (member có thể tự nhận sau)
+        // if (!subtaskFormData.nguoiThucHienId) {
+        //     showError('Vui lòng chọn người thực hiện')
+        //     return
+        // }
         
         if (!subtaskFormData.ngayBatDau) {
             showWarning('Vui lòng chọn ngày bắt đầu cho công việc con')
@@ -1218,15 +1219,14 @@ export default function TeamLeadTasksPage() {
 
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Người thực hiện <span className="text-red-500">*</span>
+                                    Người thực hiện <span className="text-gray-400 text-xs">(Tùy chọn)</span>
                                 </label>
                                 <select
                                     value={subtaskFormData.nguoiThucHienId}
                                     onChange={(e) => setSubtaskFormData({...subtaskFormData, nguoiThucHienId: e.target.value})}
-                                    required
                                     className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 outline-none bg-white"
                                 >
-                                    <option value="">Chọn người thực hiện...</option>
+                                    <option value="">Không chọn - Member tự nhận sau</option>
                                     {groupMembers.map(member => (
                                         <option key={member.id} value={String(member.id)}>
                                             {member.hoten} ({member.manv})
@@ -1235,7 +1235,7 @@ export default function TeamLeadTasksPage() {
                                 </select>
                                 <p className="text-xs text-gray-500 mt-1.5 flex items-center gap-1">
                                     <Clock className="w-3 h-3" />
-                                    Nhân viên sẽ nhận thông báo và cần chấp nhận công việc
+                                    Nếu chọn người: Nhân viên sẽ nhận thông báo. Nếu không: Member có thể tự nhận việc
                                 </p>
                             </div>
 
@@ -1841,7 +1841,7 @@ export default function TeamLeadTasksPage() {
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Người thực hiện <span className="text-red-500">*</span>
+                                        Người thực hiện <span className="text-gray-400 text-xs">(Tùy chọn)</span>
                                     </label>
                                     <select
                                         value={editSubtaskForm.nguoiThucHienId}

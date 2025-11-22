@@ -73,6 +73,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, onTaskClick
     'Hoàn thành': [],
   });
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
+  const [draggedColumn, setDraggedColumn] = useState<Column | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const { showSuccess, showError } = useToast();
@@ -191,6 +192,48 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, onTaskClick
     }
   };
 
+  // Column drag handlers
+  const handleColumnDragStart = (e: React.DragEvent, column: Column) => {
+    setDraggedColumn(column);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', e.currentTarget.innerHTML);
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '0.5';
+    }
+  };
+
+  const handleColumnDragEnd = (e: React.DragEvent) => {
+    if (e.currentTarget instanceof HTMLElement) {
+      e.currentTarget.style.opacity = '1';
+    }
+    setDraggedColumn(null);
+  };
+
+  const handleColumnDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleColumnDrop = (e: React.DragEvent, targetColumn: Column) => {
+    e.preventDefault();
+    
+    if (!draggedColumn || draggedColumn.id === targetColumn.id) {
+      return;
+    }
+
+    const draggedIndex = columns.findIndex(col => col.id === draggedColumn.id);
+    const targetIndex = columns.findIndex(col => col.id === targetColumn.id);
+
+    if (draggedIndex === -1 || targetIndex === -1) return;
+
+    const newColumns = [...columns];
+    newColumns.splice(draggedIndex, 1);
+    newColumns.splice(targetIndex, 0, draggedColumn);
+
+    setColumns(newColumns);
+    showSuccess('Đã thay đổi thứ tự cột');
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -243,7 +286,15 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, onTaskClick
             console.log(`🔍 Rendering column ${column.status} with ${tasksForColumn.length} tasks:`, tasksForColumn);
 
             return (
-              <div key={column.id} className="flex-1 min-w-[240px]">
+              <div 
+                key={column.id} 
+                className="flex-1 min-w-[240px]"
+                draggable={true}
+                onDragStart={(e) => handleColumnDragStart(e, column)}
+                onDragEnd={handleColumnDragEnd}
+                onDragOver={handleColumnDragOver}
+                onDrop={(e) => handleColumnDrop(e, column)}
+              >
                 <KanbanColumn
                   title={column.title}
                   status={column.status}

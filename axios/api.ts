@@ -184,7 +184,7 @@ export const updateMyProfile = async (data: { hoten?: string; sdt?: string; chuc
 
 export const deleteDocument = async (id: number) => {
   try {
-    const res = await api.delete(`/documents/delete/${id}`);
+    const res = await api.delete(`/documents/${id}`);
     return res.data;
   } catch (err: any) {
     throw err.response?.data || { message: 'Không thể xoá tài liệu' };
@@ -193,7 +193,7 @@ export const deleteDocument = async (id: number) => {
 
 export const downloadDocument = async (id: number, asDownload = false) => {
   try {
-    const res = await api.get(`/documents/download/${id}${asDownload ? '?download=1' : ''}`, { responseType: 'blob' });
+    const res = await api.get(`/documents/${id}/download${asDownload ? '?download=1' : ''}`, { responseType: 'blob' });
     // return blob and filename from headers
     const disposition = res.headers['content-disposition'] || '';
     const match = disposition.match(/filename="?([^";]+)"?/);
@@ -464,6 +464,7 @@ export const getMemberTasks = async (filters?: {
   dateFrom?: string;
   dateTo?: string;
   search?: string;
+  includeUnassigned?: boolean;
 }) => {
   try {
     const params = new URLSearchParams();
@@ -478,6 +479,26 @@ export const getMemberTasks = async (filters?: {
     return res.data;
   } catch (err: any) {
     throw err.response?.data || { message: "Không thể lấy danh sách công việc" };
+  }
+};
+
+// Get unassigned subtasks (công việc chưa có người nhận)
+export const getUnassignedSubtasks = async () => {
+  try {
+    const res = await api.get('/members/tasks/unassigned');
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy danh sách công việc chưa có người nhận" };
+  }
+};
+
+// Claim an unassigned subtask (nhận việc)
+export const claimSubtask = async (subtaskId: number) => {
+  try {
+    const res = await api.post(`/members/tasks/subtasks/${subtaskId}/claim`);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể nhận công việc" };
   }
 };
 

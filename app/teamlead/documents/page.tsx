@@ -148,9 +148,28 @@ export default function TeamLeadDocumentsPage() {
         }
     }
 
-    const handleDownload = async (doc: Document) => {
+    const handleView = async (doc: Document) => {
         try {
             const res = await api.get(`/documents/${doc.id}/download`, { responseType: 'blob' })
+            const blob = new Blob([res.data], { type: doc.loaiTaiLieu })
+            const url = window.URL.createObjectURL(blob)
+            
+            // Nếu là ảnh hoặc PDF, mở trong tab mới
+            if (doc.loaiTaiLieu.includes('image') || doc.loaiTaiLieu.includes('pdf')) {
+                window.open(url, '_blank')
+                setTimeout(() => window.URL.revokeObjectURL(url), 10000)
+            } else {
+                // Các file khác thì tải xuống
+                handleDownload(doc)
+            }
+        } catch (error: any) {
+            showError(error.response?.data?.message || 'Lỗi xem tài liệu')
+        }
+    }
+
+    const handleDownload = async (doc: Document) => {
+        try {
+            const res = await api.get(`/documents/${doc.id}/download?download=1`, { responseType: 'blob' })
             const url = window.URL.createObjectURL(new Blob([res.data]))
             const link = document.createElement('a')
             link.href = url
@@ -373,17 +392,30 @@ export default function TeamLeadDocumentsPage() {
                                             {doc.moTa && (
                                                 <p className="text-sm text-gray-700 mb-3 line-clamp-2">{doc.moTa}</p>
                                             )}
-                                            <div className="flex items-center justify-between mb-3 text-xs text-gray-600">
-                                                <span>{doc.uploadedBy?.hoten || 'N/A'}</span>
-                                                <span>{new Date(doc.createdAt).toLocaleDateString('vi-VN')}</span>
+                                            <div className="flex items-center gap-2 mb-3 text-xs">
+                                                <div className="flex items-center gap-1 text-gray-600">
+                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                    </svg>
+                                                    <span className="font-medium">{doc.uploadedBy?.hoten || 'Không rõ'}</span>
+                                                </div>
+                                                <span className="text-gray-400">•</span>
+                                                <span className="text-gray-600">{new Date(doc.createdAt).toLocaleDateString('vi-VN')}</span>
                                             </div>
                                             <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => handleView(doc)}
+                                                    className="flex-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-1 transition-all"
+                                                >
+                                                    <FileText size={16} />
+                                                    Xem
+                                                </button>
                                                 <button
                                                     onClick={() => handleDownload(doc)}
                                                     className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-1 transition-all"
                                                 >
                                                     <Download size={16} />
-                                                    Tải xuống
+                                                    Tải
                                                 </button>
                                                 <button
                                                     onClick={() => handleDelete(doc.id)}

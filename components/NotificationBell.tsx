@@ -66,7 +66,6 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
     const [activeTab, setActiveTab] = useState<'general' | 'assignments'>('general')
     const [assignmentStatus, setAssignmentStatus] = useState<string | null>(null)
     const [assignmentAssigneeName, setAssignmentAssigneeName] = useState<string | null>(null)
-    
 
     const fetchNotifications = async () => {
         try {
@@ -450,11 +449,11 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                                 <button
                                     onClick={() => {
                                         setIsOpen(false)
-                                        // Navigate to full notifications page if exists
+                                        router.push('/notifications')
                                     }}
-                                    className="w-full text-center text-sm text-blue-600 hover:text-blue-800 font-medium"
+                                    className="w-full text-center text-sm text-blue-600 hover:text-blue-800 font-medium py-2 rounded"
                                 >
-                                    Xem tất cả thông báo
+                                    Xem tất cả
                                 </button>
                             </div>
                         )}
@@ -581,47 +580,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                             )}
 
                             {/* Request-to-join actions (if a member requested to join this task/subtask) */}
-                            {((selectedNotification as any).userMeta?.requestToJoin || (selectedNotification as any).meta?.requestToJoin || (selectedNotification as any).userMeta?.requesterId) && userRole !== 'member' && (
-                                <div className="p-4 border-t space-y-3">
-                                    <div className="text-sm text-gray-700">Nhân viên này đã yêu cầu tham gia công việc. Bạn có muốn chấp nhận?</div>
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={handleAcceptRequest}
-                                            disabled={processingAction}
-                                            className="px-3 py-1 bg-green-600 text-white rounded-md text-sm"
-                                        >
-                                            Chấp nhận
-                                        </button>
-                                        <button
-                                            onClick={() => setDeclineReason('')}
-                                            className="px-3 py-1 bg-gray-100 text-gray-800 rounded-md text-sm"
-                                            disabled={processingAction}
-                                        >
-                                            Chuẩn bị từ chối
-                                        </button>
-                                    </div>
-
-                                    {/* Decline area */}
-                                    <div>
-                                        <textarea
-                                            value={declineReason}
-                                            onChange={(e) => setDeclineReason(e.target.value)}
-                                            placeholder="Lý do từ chối (nếu có)"
-                                            className="w-full border rounded-md p-2 text-sm"
-                                            rows={3}
-                                        />
-                                        <div className="flex justify-end mt-2 gap-2">
-                                            <button
-                                                onClick={handleDeclineRequest}
-                                                disabled={processingAction}
-                                                className="px-3 py-1 bg-red-600 text-white rounded-md text-sm"
-                                            >
-                                                Từ chối
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
+                            {/* Removed for manager and teamleader - they should use the approvals page */}
                         </div>
                     </div>
                 </div>

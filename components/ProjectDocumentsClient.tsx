@@ -25,6 +25,26 @@ export default function ProjectDocumentsClient({ projectId }: { projectId: numbe
         return () => { mounted = false }
     }, [projectId])
 
+    const handleView = async (doc: any) => {
+        try {
+            const res = await downloadDocument(doc.id, false)
+            const blob = res.blob
+            const url = URL.createObjectURL(blob)
+            
+            const fileType = doc.loaiTaiLieu || doc.mimetype || ''
+            
+            if (fileType.includes('image') || fileType.includes('pdf')) {
+                window.open(url, '_blank')
+                setTimeout(() => URL.revokeObjectURL(url), 100)
+            } else {
+                handleDownload(doc.id)
+            }
+        } catch (err) {
+            console.error('View error', err)
+            window.alert('Không thể xem tài liệu')
+        }
+    }
+
     const handleDownload = async (id: number) => {
         try {
             const res = await downloadDocument(id, true)
@@ -51,12 +71,22 @@ export default function ProjectDocumentsClient({ projectId }: { projectId: numbe
             {docs.map((d: any) => (
                 <div key={d.id} className="flex items-center justify-between bg-white border border-border rounded-md p-3">
                     <div>
-                        <div className="font-medium">{d.title || d.name || d.filename}</div>
-                        <div className="text-xs text-muted-foreground">{d.description || ''}</div>
+                        <div className="font-medium">{d.tenTaiLieu || d.originalname || d.filename}</div>
+                        <div className="text-xs text-muted-foreground">{d.moTa || d.description || ''}</div>
                     </div>
                     <div className="flex items-center gap-2">
-                        <button onClick={() => handleDownload(d.id)} className="px-3 py-1 bg-blue-600 text-white rounded-md">Tải xuống</button>
-                        <a href={d.url || '#'} target="_blank" rel="noreferrer" className="text-sm text-blue-600">Mở</a>
+                        <button 
+                            onClick={() => handleView(d)} 
+                            className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                        >
+                            Xem
+                        </button>
+                        <button 
+                            onClick={() => handleDownload(d.id)} 
+                            className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                        >
+                            Tải xuống
+                        </button>
                     </div>
                 </div>
             ))}

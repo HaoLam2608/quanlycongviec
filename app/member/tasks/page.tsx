@@ -17,7 +17,7 @@ import {
     MessageSquare,
     Paperclip
 } from "lucide-react"
-import { getMySubtasks, updateMemberTaskStatus, updateMemberSubtaskStatus } from "@/axios/api"
+import { getMySubtasks, updateMemberTaskStatus, updateMemberSubtaskStatus, getUnassignedSubtasks, claimSubtask } from "@/axios/api"
 import assignmentAPI from '@/axios/assignmentAPI'
 import { useAuth } from '@/hooks/useAuth'
 import { useToastContext } from '@/components/providers/toast-provider'
@@ -78,6 +78,7 @@ export default function MyTasksPage() {
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
     const [isAvailableModalOpen, setIsAvailableModalOpen] = useState(false)
     const [availableItems, setAvailableItems] = useState<Array<{ type: 'task' | 'subtask'; item: any }>>([])
+    const [requestedIds, setRequestedIds] = useState<number[]>([])
 
     useEffect(() => {
         loadTasks()
@@ -208,10 +209,16 @@ export default function MyTasksPage() {
         console.log('⚠️ Status filter:', statusFilter)
     }
 
-    const projects = Array.from(new Set(subtasks.map(subtask => ({
-        id: subtask.task?.duan?.id,
-        name: subtask.task?.duan?.tenduan
-    })).filter(p => p.id && p.name)))
+    // Get unique projects by id (remove duplicates)
+    const projectsMap = new Map<number, { id: number; name: string }>();
+    subtasks.forEach(subtask => {
+        const projectId = subtask.task?.duan?.id;
+        const projectName = subtask.task?.duan?.tenduan;
+        if (projectId && projectName && !projectsMap.has(projectId)) {
+            projectsMap.set(projectId, { id: projectId, name: projectName });
+        }
+    });
+    const projects = Array.from(projectsMap.values());
 
     const updateTaskStatus = async (taskId: number, newStatus: string, type: 'task' | 'subtask') => {
         try {
@@ -384,26 +391,51 @@ export default function MyTasksPage() {
                 <div className="mb-4 flex justify-end">
                     <button
                         onClick={async () => {
-                            // open modal by loading available tasks
+                            // Load unassigned subtasks từ team lead
                             try {
                                 setLoading(true)
-                                const res = await (await import('@/axios/availableAPI')).default.getAvailableForRequest()
-                                if (res && res.success) {
-                                    setAvailableItems([...(res.data.tasks || []).map((t: any) => ({ type: 'task', item: t })), ...(res.data.subtasks || []).map((s: any) => ({ type: 'subtask', item: s }))])
+                                const res = await getUnassignedSubtasks()
+                                console.log('📋 Unassigned subtasks response:', res)
+                                
+                                if (res && res.subtasks) {
+                                    // Format subtasks thành availableItems
+                                    const formattedItems = res.subtasks.map((subtask: any) => ({
+                                        type: 'subtask' as const,
+                                        item: {
+                                            id: subtask.id,
+                                            tenSubtask: subtask.tenSubtask,
+                                            mota: subtask.mota,
+                                            trangThai: subtask.trangThai,
+                                            ngayKetThuc: subtask.ngayKetThuc,
+                                            task: {
+                                                id: subtask.task?.id,
+                                                tentask: subtask.task?.tentask,
+                                                nguoiGiao: subtask.task?.nguoiGiao,
+                                                duan: subtask.task?.duan
+                                            }
+                                        }
+                                    }))
+                                    
+                                    setAvailableItems(formattedItems)
                                     setIsAvailableModalOpen(true)
+                                    
+                                    if (formattedItems.length === 0) {
+                                        showSuccess('Hiện không có công việc nào chưa được nhận từ team lead của bạn')
+                                    }
                                 } else {
-                                    showError(res?.message || 'Không lấy được danh sách công việc')
+                                    showError('Không thể lấy danh sách công việc chưa có người nhận')
                                 }
                             } catch (err: any) {
-                                console.error('load available error', err)
-                                showError('Lỗi khi tải danh sách công việc có thể yêu cầu')
+                                console.error('load unassigned subtasks error', err)
+                                showError(err?.response?.data?.message || err?.message || 'Lỗi khi tải danh sách công việc chưa có người nhận')
                             } finally {
                                 setLoading(false)
                             }
                         }}
-                        className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors"
+                        className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-2"
                     >
-                        Yêu cầu công việc
+                        <span>🎯</span>
+                        <span>Nhận công việc từ Team Lead</span>
                     </button>
                 </div>
 
@@ -480,45 +512,86 @@ export default function MyTasksPage() {
                             <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
                                 <div className="bg-white rounded-lg w-full max-w-3xl max-h-[80vh] overflow-y-auto shadow-2xl">
                                     <div className="p-4 border-b flex items-center justify-between">
-                                        <h3 className="font-semibold">Công việc có thể yêu cầu</h3>
-                                        <div className="flex items-center gap-2">
-                                            <button onClick={() => setIsAvailableModalOpen(false)} className="text-sm text-gray-500 hover:text-gray-700">Đóng</button>
-                                        </div>
+                                        <h3 className="font-semibold text-lg">Công việc chưa có người nhận từ Team Lead</h3>
+                                        <button 
+                                            onClick={() => setIsAvailableModalOpen(false)} 
+                                            className="text-gray-500 hover:text-gray-700 text-2xl leading-none px-2"
+                                        >
+                                            ×
+                                        </button>
                                     </div>
                                     <div className="p-4 space-y-3">
                                         {availableItems.length === 0 ? (
-                                            <div className="text-gray-500">Không có công việc nào để yêu cầu</div>
+                                            <div className="text-center py-8 text-gray-500">
+                                                <p className="mb-2">✨ Không có công việc nào chưa được nhận</p>
+                                                <p className="text-sm">Tất cả công việc từ team lead của bạn đã có người đảm nhận</p>
+                                            </div>
                                         ) : (
                                             availableItems.map((ai, idx) => (
-                                                <div key={idx} className="flex items-center justify-between border rounded p-3">
-                                                    <div>
-                                                        <div className="font-medium">{ai.type === 'task' ? ai.item.tentask : ai.item.tenSubtask}</div>
-                                                        <div className="text-sm text-gray-500">{ai.type === 'task' ? (ai.item.duan?.tenduan || '') : (ai.item.task?.tentask || '')}</div>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <button
-                                                            onClick={async () => {
-                                                                try {
-                                                                    const payload: any = {}
-                                                                    if (ai.type === 'task') payload.taskId = ai.item.id
-                                                                    else payload.subtaskId = ai.item.id
-                                                                    const res = await (await import('@/axios/assignmentAPI')).default.requestToJoin(payload)
-                                                                    if (res && res.success) {
-                                                                        showSuccess('Đã gửi yêu cầu tới người quản lý')
-                                                                        // Optionally remove the item from list
-                                                                        setAvailableItems(prev => prev.filter((_, i) => i !== idx))
-                                                                    } else {
-                                                                        showError(res?.message || 'Không thể gửi yêu cầu')
+                                                <div key={idx} className="border rounded-lg p-4 hover:border-blue-300 transition-colors">
+                                                    <div className="flex items-start justify-between gap-4">
+                                                        <div className="flex-1">
+                                                            <div className="font-medium text-lg mb-1">
+                                                                {ai.type === 'subtask' ? ai.item.tenSubtask : ai.item.tentask}
+                                                            </div>
+                                                            <div className="text-sm text-gray-600 space-y-1">
+                                                                {ai.type === 'subtask' && ai.item.task && (
+                                                                    <>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-gray-500">📋 Task cha:</span>
+                                                                            <span className="font-medium">{ai.item.task.tentask}</span>
+                                                                        </div>
+                                                                        {ai.item.task.duan && (
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span className="text-gray-500">📁 Dự án:</span>
+                                                                                <span>{ai.item.task.duan.tenduan}</span>
+                                                                            </div>
+                                                                        )}
+                                                                        {ai.item.task.nguoiGiao && (
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span className="text-gray-500">👤 Team Lead:</span>
+                                                                                <span>{ai.item.task.nguoiGiao.hoten} ({ai.item.task.nguoiGiao.manv})</span>
+                                                                            </div>
+                                                                        )}
+                                                                        {ai.item.ngayKetThuc && (
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span className="text-gray-500">⏰ Deadline:</span>
+                                                                                <span>{new Date(ai.item.ngayKetThuc).toLocaleDateString('vi-VN')}</span>
+                                                                            </div>
+                                                                        )}
+                                                                    </>
+                                                                )}
+                                                            </div>
+                                                            {ai.item.mota && (
+                                                                <div className="mt-2 text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                                                                    {ai.item.mota}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        {requestedIds.includes(ai.item.id) ? (
+                                                            <button disabled className="px-4 py-2 bg-gray-300 text-white rounded-lg whitespace-nowrap flex items-center gap-2">
+                                                                <span>⏳</span>
+                                                                <span>Đã gửi yêu cầu</span>
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                onClick={async () => {
+                                                                    try {
+                                                                        await claimSubtask(ai.item.id)
+                                                                        showSuccess('Yêu cầu nhận việc đã được gửi tới người phê duyệt.')
+                                                                        // Mark as requested (keep in list but disabled)
+                                                                        setRequestedIds(prev => [...prev, ai.item.id])
+                                                                    } catch (err: any) {
+                                                                        console.error('claimSubtask error', err)
+                                                                        showError(err?.response?.data?.message || err?.message || 'Không thể gửi yêu cầu nhận công việc')
                                                                     }
-                                                                } catch (err: any) {
-                                                                    console.error('requestToJoin error', err)
-                                                                    showError('Lỗi khi gửi yêu cầu')
-                                                                }
-                                                            }}
-                                                            className="px-3 py-1 bg-amber-500 text-white rounded hover:bg-amber-600"
-                                                        >
-                                                            Yêu cầu
-                                                        </button>
+                                                                }}
+                                                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap flex items-center gap-2"
+                                                            >
+                                                                <span>✅</span>
+                                                                <span>Yêu cầu nhận việc</span>
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
                                             ))

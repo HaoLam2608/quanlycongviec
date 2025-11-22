@@ -36,6 +36,26 @@ export const approvalAPI = {
         } catch (err: any) {
             throw err.response?.data || { message: "Không thể phê duyệt công việc nhỏ" }
         }
+    },
+
+    // Get approved history
+    getApprovedHistory: async (limit = 100) => {
+        try {
+            const res = await api.get(`/approvals/history?limit=${limit}`)
+            return res.data
+        } catch (err: any) {
+            throw err.response?.data || { message: "Không thể lấy lịch sử phê duyệt" }
+        }
+    },
+
+    // Delete history item
+    deleteHistory: async (params: { type: 'task' | 'subtask' | 'assignment', id: number }) => {
+        try {
+            const res = await api.delete(`/approvals/history`, { data: params })
+            return res.data
+        } catch (err: any) {
+            throw err.response?.data || { message: "Không thể xóa lịch sử" }
+        }
     }
 }
 

@@ -86,8 +86,8 @@ api.interceptors.response.use(
       });
       
       // Check if this is from notifications endpoint - don't redirect
-      if (url.includes('/notifications/')) {
-        console.warn('⚠️ Notifications permission denied - will not redirect to 403')
+      if (url.includes('/notifications/') || url.includes('/assignments/')) {
+        console.warn('⚠️ API action permission denied - will not redirect to 403')
         return Promise.reject(err);
       }
       
