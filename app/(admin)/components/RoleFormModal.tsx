@@ -1,16 +1,16 @@
-import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
     Modal,
-    ScrollView,
-    StyleSheet,
+    View,
     Text,
     TextInput,
     TouchableOpacity,
-    View,
+    StyleSheet,
+    ScrollView,
+    Alert,
+    ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import api from '../../../src/axios/config';
 
 interface Permission {
@@ -114,44 +114,24 @@ export default function RoleFormModal({ visible, onClose, onSuccess, role }: Rol
         try {
             if (role) {
                 // Update existing role
-                // Update role including permissions in the same request (backend supports this)
                 await api.put(`/roles/${role.id}`, {
                     name,
                     description,
-                    permissions: selectedPermissions,
+                });
+
+                // Update permissions using PUT instead of POST
+                await api.put(`/roles/${role.id}/permissions`, {
+                    permissionIds: selectedPermissions,
                 });
 
                 Alert.alert('Thành công', 'Cập nhật vai trò thành công');
             } else {
                 // Create new role
-                // Some backends expect permissions when creating role, some expect separate call. Try to create with permissions first.
-                let createdRole: any = null;
-                try {
-                    const response = await api.post('/roles', {
-                        name,
-                        description,
-                        permissions: selectedPermissions,
-                    });
-                    createdRole = response.data?.role || response.data;
-                } catch (errCreate) {
-                    console.warn('Create with permissions failed, falling back to create without permissions', (errCreate as any)?.message || String(errCreate));
-                    const response2 = await api.post('/roles', { name, description });
-                    createdRole = response2.data?.role || response2.data;
-                }
-
-                // If createdRole exists and permissions were not applied yet, try to attach them
-                if (createdRole && selectedPermissions && selectedPermissions.length > 0) {
-                    const rid = createdRole.id || createdRole._id || createdRole.roleId;
-                    if (rid) {
-                        const permsEndpoint = `/roles/${rid}/permissions`;
-                        try {
-                            await api.post(permsEndpoint, { permissionIds: selectedPermissions });
-                        } catch (errPerm) {
-                            console.warn('Failed to attach permissions after create', (errPerm as any)?.message || String(errPerm));
-                            // ignore: role exists, but permissions may be empty; user can edit role to add permissions
-                        }
-                    }
-                }
+                const response = await api.post('/roles', {
+                    name,
+                    description,
+                    permissionIds: selectedPermissions,
+                });
 
                 Alert.alert('Thành công', 'Tạo vai trò thành công');
             }

@@ -1,20 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { cacheDirectory, EncodingType, StorageAccessFramework, writeAsStringAsync } from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
     Dimensions,
+    Linking,
     Modal,
     Platform,
     RefreshControl,
     SafeAreaView,
     ScrollView,
-    Share,
     StyleSheet,
     Text,
     TouchableOpacity,
-    View
+    View,
 } from 'react-native';
 import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
 import api from '../../src/axios/config';
@@ -55,9 +57,10 @@ interface DetailedReport {
     memberCount: number;
     completionRate: number;
     status: string;
-    manager: string;
-    deadline: string;
+    manager?: string;
+    deadline?: string;
 }
+
 
 interface TopPerformer {
     name: string;
@@ -329,7 +332,7 @@ export default function SystemReports() {
                     tasks: userCompletedTasks,
                     avatar: user.avatar,
                 };
-            }).sort((a, b) => b.tasks - a.tasks).slice(0, 5);
+            }).sort((a: TopPerformer, b: TopPerformer) => b.tasks - a.tasks).slice(0, 5);
             
             setTopPerformers(userTaskCounts);
 
@@ -351,9 +354,9 @@ export default function SystemReports() {
                     legend: ['Công việc hoàn thành'],
                 },
                 userPerformance: {
-                    labels: userTaskCounts.map(u => u.name.substring(0, 10)),
+                    labels: userTaskCounts.map((u: TopPerformer) => u.name.substring(0, 10)),
                     datasets: [{
-                        data: userTaskCounts.map(u => u.tasks > 0 ? u.tasks : 1),
+                        data: userTaskCounts.map((u: TopPerformer) => u.tasks > 0 ? u.tasks : 1),
                     }],
                 },
             }));
@@ -390,119 +393,263 @@ export default function SystemReports() {
     };
 
     const loadDetailedReports = async () => {
-        try {
-            // Use already fetched projects and tasks data
-            const detailed: DetailedReport[] = projects.map((project: any) => {
-                const projectTasks = tasks.filter((t: any) => {
-                    const taskProjectId = (t.duanId || t.duanid || t.duan)?.toString();
-                    return taskProjectId === project.id.toString();
-                });
-
-                const completedTasks = projectTasks.filter((t: any) => {
-                    const s = (t.trangthai || t.trangThai || t.status || '').toString();
-                    return s === 'Hoàn thành' || s === 'hoan_thanh' || s === 'completed';
-                }).length;
-
-                const taskCount = projectTasks.length;
-                const completionRate = taskCount > 0 ? Math.round((completedTasks / taskCount) * 100) : 0;
-
-                // Get unique users working on project tasks
-                const projectUsers = new Set(
-                    projectTasks.map((t: any) => t.nguoiDuocGiaoId || t.nguoiThucHienId || t.userId).filter(Boolean)
-                );
-
-                let managerName = '';
-                if (project.nguoiDamNhan) {
-                    managerName = project.nguoiDamNhan.hoten || project.nguoiDamNhan.name || '';
-                } else if (project.userId) {
-                    const manager = users.find((u: any) => u.id === project.userId);
-                    managerName = manager ? (manager.hoten || manager.name || '') : '';
-                }
-
-                return {
-                    id: project.id,
-                    projectName: project.tenduan || project.ten || project.name || `Dự án ${project.id}`,
-                    taskCount,
-                    completedTasks,
-                    memberCount: projectUsers.size,
-                    completionRate,
-                    status: project.trangthai || project.status || 'active',
-                    managerName,
-                } as DetailedReport & { managerName: string };
+    try {
+        const detailed: DetailedReport[] = projects.map((project: any) => {
+            const projectTasks = tasks.filter((t: any) => {
+                const taskProjectId = (t.duanId || t.duanid || t.duan)?.toString();
+                return taskProjectId === project.id.toString();
             });
 
-            setDetailedReports(detailed);
-        } catch (error) {
-            console.error('Error loading detailed reports:', error);
-        }
-    };
+            const completedTasks = projectTasks.filter((t: any) => {
+                const s = (t.trangthai || t.trangThai || t.status || '').toString();
+                return s === 'Hoàn thành' || s === 'hoan_thanh' || s === 'completed';
+            }).length;
+
+            const taskCount = projectTasks.length;
+            const completionRate = taskCount > 0 ? Math.round((completedTasks / taskCount) * 100) : 0;
+
+            const projectUsers = new Set(
+                projectTasks
+                    .map((t: any) => t.nguoiDuocGiaoId || t.nguoiThucHienId || t.userId)
+                    .filter(Boolean)
+            );
+
+            let manager = '';
+            if (project.nguoiDamNhan) {
+                manager = project.nguoiDamNhan.hoten || project.nguoiDamNhan.name || '';
+            } else if (project.userId) {
+                const m = users.find((u: any) => u.id === project.userId);
+                manager = m ? (m.hoten || m.name || '') : '';
+            }
+
+            const deadline =
+                project.ngayKetThuc ||
+                project.ngayketthuc ||
+                project.deadline ||
+                '';
+
+            return {
+                id: project.id,
+                projectName: project.tenduan || project.ten || project.name || `Dự án ${project.id}`,
+                taskCount,
+                completedTasks,
+                memberCount: projectUsers.size,
+                completionRate,
+                status: project.trangthai || project.status || 'active',
+                manager,
+                deadline,
+            };
+        });
+
+        setDetailedReports(detailed);
+    } catch (error) {
+        console.error('Error loading detailed reports:', error);
+    }
+};
+
 
     const handleExport = async (format: ExportFormat) => {
-        try {
-            let content = '';
-            let title = '';
+    try {
+        console.log('📤 Starting export:', format);
 
-            if (format === 'csv') {
-                // Enhanced CSV export with more details
-                const headers = 'STT,Tên dự án,Quản lý,Tổng tasks,Hoàn thành,Tiến độ (%),Deadline,Trạng thái,Thành viên\n';
-                const rows = detailedReports.map((r, index) => 
-                    `${index + 1},"${r.projectName}","${r.manager || 'N/A'}",${r.taskCount},${r.completedTasks},${r.completionRate},"${r.deadline || 'N/A'}","${r.status}",${r.memberCount}`
-                ).join('\n');
-                const statsSection = `\n\nTHỐNG KÊ TỔNG QUAN\n` +
-                    `Tổng dự án,${stats.totalProjects}\n` +
-                    `Dự án hoàn thành,${stats.completedProjects}\n` +
-                    `Tổng tasks,${stats.totalTasks}\n` +
-                    `Tasks hoàn thành,${stats.completedTasks}\n` +
-                    `Tỷ lệ hoàn thành,${stats.completionRate}%\n` +
-                    `Tasks quá hạn,${stats.overdueTasks}\n` +
-                    `Tổng subtasks,${stats.totalSubtasks}\n` +
-                    `Subtasks hoàn thành,${stats.completedSubtasks}\n` +
-                    `Nhân viên,${stats.totalUsers}\n` +
-                    `Nhóm,${stats.totalGroups}\n` +
-                    `Tài liệu,${stats.totalDocuments}\n`;
-                const topPerformersSection = `\n\nTOP NHÂN VIÊN\n` +
-                    `Hạng,Tên,Tasks hoàn thành\n` +
-                    topPerformers.map((p, i) => `${i + 1},${p.name},${p.tasks}`).join('\n');
-                content = headers + rows + statsSection + topPerformersSection;
-                title = 'Báo cáo CSV';
-            } else if (format === 'json') {
-                // Enhanced JSON export
-                const exportData = {
-                    exportDate: new Date().toISOString(),
-                    dateRange: {
-                        start: startDate.toISOString(),
-                        end: endDate.toISOString(),
-                    },
-                    summary: stats,
-                    topPerformers,
-                    projects: detailedReports,
-                    charts: {
-                        projectStatus: chartData.projectStatus.map(p => ({ name: p.name, value: p.population })),
-                    },
-                };
-                content = JSON.stringify(exportData, null, 2);
-                title = 'Báo cáo JSON';
-            } else if (format === 'pdf') {
-                Alert.alert('Thông báo', 'Xuất PDF sẽ được hỗ trợ trong phiên bản sau. Vui lòng sử dụng CSV hoặc JSON.');
-                setShowExportModal(false);
-                return;
-            }
+        let content = '';
+        let fileName = '';
+        let mimeType = '';
 
-            // Share content using React Native Share
-            await Share.share({
-                message: content,
-                title,
-            });
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
 
+        if (format === 'csv') {
+            const headers = 'STT,Tên dự án,Quản lý,Tổng tasks,Hoàn thành,Tiến độ (%),Deadline,Trạng thái,Thành viên\n';
+            const rows = detailedReports.map((r, index) =>
+                `${index + 1},"${r.projectName}","${r.manager || 'N/A'}",${r.taskCount},${r.completedTasks},${r.completionRate},"${r.deadline || 'N/A'}","${r.status}",${r.memberCount}`
+            ).join('\n');
+
+            const statsSection =
+                `\n\nTHỐNG KÊ TỔNG QUAN\n` +
+                `Tổng dự án,${stats.totalProjects}\n` +
+                `Dự án hoàn thành,${stats.completedProjects}\n` +
+                `Tổng tasks,${stats.totalTasks}\n` +
+                `Tasks hoàn thành,${stats.completedTasks}\n` +
+                `Tỷ lệ hoàn thành,${stats.completionRate}%\n` +
+                `Tasks quá hạn,${stats.overdueTasks}\n` +
+                `Tổng subtasks,${stats.totalSubtasks}\n` +
+                `Subtasks hoàn thành,${stats.completedSubtasks}\n` +
+                `Nhân viên,${stats.totalUsers}\n` +
+                `Nhóm,${stats.totalGroups}\n` +
+                `Tài liệu,${stats.totalDocuments}\n`;
+
+            const topPerformersSection =
+                `\n\nTOP NHÂN VIÊN\n` +
+                `Hạng,Tên,Tasks hoàn thành\n` +
+                topPerformers.map((p, i) => `${i + 1},${p.name},${p.tasks}`).join('\n');
+
+            content = headers + rows + statsSection + topPerformersSection;
+            fileName = `Bao_cao_${timestamp}.csv`;
+            mimeType = 'text/csv';
+        } else if (format === 'json') {
+            const exportData = {
+                exportDate: new Date().toISOString(),
+                dateRange: {
+                    start: startDate.toISOString(),
+                    end: endDate.toISOString(),
+                },
+                summary: stats,
+                topPerformers,
+                projects: detailedReports,
+                charts: {
+                    projectStatus: chartData.projectStatus.map(p => ({ name: p.name, value: p.population })),
+                },
+            };
+            content = JSON.stringify(exportData, null, 2);
+            fileName = `Bao_cao_${timestamp}.json`;
+            mimeType = 'application/json';
+        } else if (format === 'pdf') {
+            Alert.alert('Thông báo', 'Xuất PDF sẽ được hỗ trợ trong phiên bản sau. Vui lòng sử dụng CSV hoặc JSON.');
             setShowExportModal(false);
-            Alert.alert('Thành công', `Đã xuất báo cáo ${format.toUpperCase()}`);
-        } catch (error: any) {
-            console.error('Error exporting:', error);
-            if (error.message !== 'User did not share') {
-                Alert.alert('Lỗi', 'Không thể xuất báo cáo');
+            return;
+        }
+
+        console.log('📝 Creating file:', fileName);
+        const fileSizeKB = Math.round(content.length / 1024);
+
+        if (Platform.OS === 'android') {
+            try {
+                console.log('📱 Android: Using Storage Access Framework');
+
+                Alert.alert('Đang xuất báo cáo', 'Vui lòng đợi...');
+
+                const permissions = await StorageAccessFramework.requestDirectoryPermissionsAsync();
+
+                if (!permissions.granted) {
+                    console.log('⚠️ Permission denied');
+                    Alert.alert('Lỗi', 'Cần quyền truy cập để lưu file');
+                    setShowExportModal(false);
+                    return;
+                }
+
+                console.log('✅ Permission granted, directory URI:', permissions.directoryUri);
+
+                const fileUri = await StorageAccessFramework.createFileAsync(
+                    permissions.directoryUri,
+                    fileName,
+                    mimeType
+                );
+
+                console.log('📄 File created:', fileUri);
+
+                await StorageAccessFramework.writeAsStringAsync(fileUri, content);
+
+                console.log('✅ File written successfully');
+
+                setShowExportModal(false);
+                Alert.alert(
+                    'Thành công!',
+                    `Đã tải báo cáo ${format.toUpperCase()} về máy!\n\nTên file: ${fileName}\nKích thước: ${fileSizeKB} KB`,
+                    [
+                        { text: 'OK' },
+                        {
+                            text: 'Mở file',
+                            onPress: async () => {
+                                try {
+                                    const cacheUri = `${cacheDirectory}${fileName}`;
+                                    await writeAsStringAsync(cacheUri, content, {
+                                        encoding: EncodingType.UTF8,
+                                    });
+
+                                    try {
+                                        const canOpen = await Linking.canOpenURL(cacheUri);
+                                        if (canOpen) {
+                                            await Linking.openURL(cacheUri);
+                                        } else {
+                                            await Sharing.shareAsync(cacheUri, { mimeType, dialogTitle: 'Mở báo cáo' });
+                                        }
+                                    } catch (openErr) {
+                                        console.error('Open error, falling back to share:', openErr);
+                                        await Sharing.shareAsync(cacheUri, { mimeType, dialogTitle: 'Mở báo cáo' });
+                                    }
+                                } catch (err) {
+                                    console.error('Error preparing/opening file:', err);
+                                    Alert.alert(
+                                        'Lỗi',
+                                        `Không thể mở file tự động. File đã được lưu tại thư mục bạn chọn với tên: ${fileName}.`
+                                    );
+                                }
+                            },
+                        },
+                    ]
+                );
+            } catch (error: any) {
+                console.error('❌ Export error:', error);
+
+                Alert.alert(
+                    'Lỗi',
+                    'Không thể lưu file. Bạn có muốn chia sẻ file không?',
+                    [
+                        { text: 'Hủy', style: 'cancel', onPress: () => setShowExportModal(false) },
+                        {
+                            text: 'Chia sẻ',
+                            onPress: async () => {
+                                try {
+                                    const tempUri = `${cacheDirectory}${fileName}`;
+                                    await writeAsStringAsync(tempUri, content, {
+                                        encoding: EncodingType.UTF8,
+                                    });
+
+                                    await Sharing.shareAsync(tempUri, {
+                                        mimeType,
+                                        dialogTitle: 'Lưu báo cáo',
+                                    });
+                                    setShowExportModal(false);
+                                } catch (shareError) {
+                                    console.error('Share error:', shareError);
+                                    Alert.alert('Lỗi', 'Không thể chia sẻ file');
+                                    setShowExportModal(false);
+                                }
+                            },
+                        },
+                    ]
+                );
+            }
+        } else {
+            console.log('📱 iOS: Using share dialog');
+
+            Alert.alert('Đang xuất báo cáo', 'Vui lòng đợi...');
+
+            try {
+                const fileUri = `${cacheDirectory}${fileName}`;
+                await writeAsStringAsync(fileUri, content, {
+                    encoding: EncodingType.UTF8,
+                });
+
+                if (await Sharing.isAvailableAsync()) {
+                    await Sharing.shareAsync(fileUri, {
+                        mimeType,
+                        dialogTitle: 'Lưu báo cáo',
+                    });
+
+                    setShowExportModal(false);
+                    Alert.alert(
+                        'Thành công',
+                        `File đã sẵn sàng để lưu.\n\nTên file: ${fileName}\nKích thước: ${fileSizeKB} KB\n\nChọn "Save to Files" để lưu vào thiết bị.`,
+                        [{ text: 'OK' }]
+                    );
+                } else {
+                    Alert.alert('Lỗi', 'Thiết bị không hỗ trợ tính năng lưu file');
+                    setShowExportModal(false);
+                }
+            } catch (error: any) {
+                console.error('❌ iOS export error:', error);
+                Alert.alert('Lỗi', 'Không thể xuất báo cáo: ' + error.message);
+                setShowExportModal(false);
             }
         }
-    };
+    } catch (error: any) {
+        console.error('❌ Export error:', error);
+        Alert.alert('Lỗi', 'Không thể xuất báo cáo: ' + error.message);
+        setShowExportModal(false);
+    }
+};
+
 
     const applyPresetFilter = async (preset: 'thisMonth' | 'thisQuarter' | 'thisYear') => {
         const now = new Date();
@@ -1144,16 +1291,17 @@ export default function SystemReports() {
                             )}
                         </View>
 
-                        <TouchableOpacity
+                       <TouchableOpacity
                             style={styles.applyButton}
-                            onPress={() => {
+                            onPress={async () => {
                                 setShowFilterModal(false);
-                                loadReportStats();
-                                loadDetailedReports();
+                                await loadReportStats();
+                                await loadDetailedReports();
                             }}
                         >
                             <Text style={styles.applyButtonText}>Áp dụng</Text>
                         </TouchableOpacity>
+
                     </View>
                 </View>
             </Modal>

@@ -3,11 +3,13 @@ import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
+    Modal,
     RefreshControl,
     SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
@@ -18,35 +20,44 @@ interface Notification {
     id: number;
     type: string;
     title: string;
-    message: string;
+    content: string;
+    message?: string;
     isRead: boolean;
+    status: string;
+    priority: string;
     createdAt: string;
 }
 
 export default function NotificationsManagement() {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [selectedType, setSelectedType] = useState<string>('all');
+    const [selectedStatus, setSelectedStatus] = useState<string>('all');
+    const [searchText, setSearchText] = useState<string>('');
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     const [showFormModal, setShowFormModal] = useState(false);
     const [editingNotification, setEditingNotification] = useState<Notification | null>(null);
+    const [showDetailModal, setShowDetailModal] = useState(false);
+    const [detailNotification, setDetailNotification] = useState<Notification | null>(null);
 
     useEffect(() => {
-        loadNotifications({ type: selectedType === 'all' ? undefined : selectedType });
-    }, [selectedType]);
+        loadNotifications();
+    }, [selectedType, selectedStatus, searchText]);
 
     const onRefresh = async () => {
         setRefreshing(true);
-        await loadNotifications({ type: selectedType === 'all' ? undefined : selectedType });
+        await loadNotifications();
         setRefreshing(false);
     };
 
-    // load notifications with optional filters; backend supports `type` and `search`
-    const loadNotifications = async (opts?: { type?: string | undefined }) => {
+    // load notifications with optional filters; backend supports `type`, `status` and `search`
+    const loadNotifications = async () => {
         setLoading(true);
         try {
             const params: any = { limit: 100 };
-            if (opts?.type) params.type = opts.type;
+            if (selectedType && selectedType !== 'all') params.type = selectedType;
+            if (selectedStatus && selectedStatus !== 'all') params.status = selectedStatus;
+            if (searchText && searchText.trim()) params.search = searchText.trim();
 
             const response = await api.get('/notifications/admin/all', { params });
             if (response.data) {
@@ -83,6 +94,19 @@ export default function NotificationsManagement() {
                 },
             ]
         );
+
+        const handleMarkAllRead = async () => {
+            try {
+                const res = await api.post('/notifications/mark-all-read');
+                // If API returns success, update local state
+                setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+                Alert.alert('Thành công', 'Đã đánh dấu tất cả thông báo là đã đọc');
+            } catch (error: any) {
+                console.error('Error marking all read:', error);
+                const msg = error?.response?.data?.message || error?.message || 'Không thể đánh dấu tất cả là đã đọc';
+                Alert.alert('Lỗi', msg);
+            }
+        };
     };
 
     const getNotificationIcon = (type: string) => {
@@ -95,8 +119,24 @@ export default function NotificationsManagement() {
                 return 'checkmark-done';
             case 'system':
                 return 'information-circle';
+            case 'announcement':
+                return 'megaphone';
             default:
                 return 'notifications';
+        }
+    };
+
+    // Move mark-all-read handler to component scope (was accidentally nested)
+    const handleMarkAllRead = async () => {
+        try {
+            const res = await api.post('/notifications/mark-all-read');
+            // If API returns success, update local state
+            setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+            Alert.alert('Thành công', 'Đã đánh dấu tất cả thông báo là đã đọc');
+        } catch (error: any) {
+            console.error('Error marking all read:', error);
+            const msg = error?.response?.data?.message || error?.message || 'Không thể đánh dấu tất cả là đã đọc';
+            Alert.alert('Lỗi', msg);
         }
     };
 
@@ -110,6 +150,8 @@ export default function NotificationsManagement() {
                 return '#ec4899';
             case 'system':
                 return '#f59e0b';
+            case 'announcement':
+                return '#8b5cf6';
             default:
                 return '#6b7280';
         }
@@ -117,9 +159,62 @@ export default function NotificationsManagement() {
 
     const NotificationCard = ({ notification }: { notification: Notification }) => {
         const color = getNotificationColor(notification.type);
+        const displayMessage = notification.content || notification.message || '';
+        
+        // Get status badge
+        const getStatusBadge = () => {
+            if (notification.status === 'published') {
+                return (
+                    <View style={[styles.statusBadge, { backgroundColor: '#10b98120' }]}>
+                        <Text style={[styles.statusText, { color: '#10b981' }]}>Đã xuất bản</Text>
+                    </View>
+                );
+            }
+            return (
+                <View style={[styles.statusBadge, { backgroundColor: '#6b728020' }]}>
+                    <Text style={[styles.statusText, { color: '#6b7280' }]}>Bản nháp</Text>
+                </View>
+            );
+        };
+
+        // Get priority badge
+        const getPriorityBadge = () => {
+            const priorityColors: Record<string, string> = {
+                high: '#ef4444',
+                medium: '#f59e0b',
+                low: '#6b7280'
+            };
+            const priorityLabels: Record<string, string> = {
+                high: 'Cao',
+                medium: 'Trung bình',
+                low: 'Thấp'
+            };
+            const color = priorityColors[notification.priority] || '#6b7280';
+            const label = priorityLabels[notification.priority] || notification.priority;
+            
+            return (
+                <View style={[styles.priorityBadge, { backgroundColor: color + '20' }]}>
+                    <Text style={[styles.priorityText, { color }]}>{label}</Text>
+                </View>
+            );
+        };
         
         return (
-            <View style={[styles.notificationCard, !notification.isRead && styles.unreadCard]}>
+            <TouchableOpacity activeOpacity={0.9} onPress={async () => {
+                // Open detail modal and mark read
+                setDetailNotification(notification);
+                setShowDetailModal(true);
+                if (!notification.isRead) {
+                    try {
+                        await api.post(`/notifications/${notification.id}/mark-read`);
+                        // Optimistically update local state
+                        setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, isRead: true } : n));
+                    } catch (e) {
+                        console.error('Mark read failed', e);
+                    }
+                }
+            }}>
+                <View style={[styles.notificationCard, !notification.isRead && styles.unreadCard]}>
                 <View style={[styles.notificationIcon, { backgroundColor: color + '20' }]}>
                     <Ionicons 
                         name={getNotificationIcon(notification.type) as any} 
@@ -132,11 +227,21 @@ export default function NotificationsManagement() {
                         <Text style={styles.notificationTitle}>{notification.title}</Text>
                         {!notification.isRead && <View style={styles.unreadDot} />}
                     </View>
+                    <View style={styles.badgeRow}>
+                        {getStatusBadge()}
+                        {getPriorityBadge()}
+                    </View>
                     <Text style={styles.notificationMessage} numberOfLines={2}>
-                        {notification.message}
+                        {displayMessage}
                     </Text>
                     <Text style={styles.notificationTime}>
-                        {new Date(notification.createdAt).toLocaleDateString('vi-VN')}
+                        {new Date(notification.createdAt).toLocaleDateString('vi-VN', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        })}
                     </Text>
                 </View>
                 <View style={styles.notificationActions}>
@@ -156,18 +261,60 @@ export default function NotificationsManagement() {
                         <Ionicons name="trash-outline" size={18} color="#ef4444" />
                     </TouchableOpacity>
                 </View>
-            </View>
+                </View>
+            </TouchableOpacity>
         );
+    };
+
+    const closeDetail = () => {
+        setShowDetailModal(false);
+        setDetailNotification(null);
     };
 
     return (
         <SafeAreaView style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
-                <Text style={styles.title}>Thông báo</Text>
-                <Text style={styles.subtitle}>
-                    {notifications.filter(n => !n.isRead).length} thông báo chưa đọc
-                </Text>
+                <View style={styles.headerLeft}>
+                    <Text style={styles.title}>Thông báo</Text>
+                    <Text style={styles.subtitle}>
+                        {notifications.length} thông báo
+                    </Text>
+                </View>
+                <View style={styles.headerActions}>
+                    <TouchableOpacity
+                        style={styles.markAllBtn}
+                        onPress={() => {
+                            Alert.alert(
+                                'Xác nhận',
+                                'Bạn có muốn đánh dấu tất cả thông báo là đã đọc?',
+                                [
+                                    { text: 'Hủy', style: 'cancel' },
+                                    { text: 'Đồng ý', onPress: handleMarkAllRead }
+                                ]
+                            );
+                        }}
+                    >
+                        <Text style={styles.markAllBtnText}>Đã đọc tất cả</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            {/* Search Box */}
+            <View style={styles.searchContainer}>
+                <Ionicons name="search" size={20} color="#6b7280" style={styles.searchIcon} />
+                <TextInput
+                    style={styles.searchInput}
+                    placeholder="Tìm kiếm thông báo..."
+                    value={searchText}
+                    onChangeText={setSearchText}
+                    placeholderTextColor="#9ca3af"
+                />
+                {searchText.length > 0 && (
+                    <TouchableOpacity onPress={() => setSearchText('')}>
+                        <Ionicons name="close-circle" size={20} color="#6b7280" />
+                    </TouchableOpacity>
+                )}
             </View>
 
             {/* Notifications List */}
@@ -177,33 +324,55 @@ export default function NotificationsManagement() {
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
                 }
             >
-                {/* Filters */}
-                <View style={styles.filterRow}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ flexDirection: 'row', gap: 8 }}>
-                        <TouchableOpacity
-                            style={[styles.pill, selectedType === 'all' && styles.pillActive]}
-                            onPress={() => setSelectedType('all')}
-                        >
-                            <Text style={[styles.pillText, selectedType === 'all' && styles.pillTextActive]}>Tất cả</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.pill, selectedType === 'task' && styles.pillActive]}
-                            onPress={() => setSelectedType('task')}
-                        >
-                            <Text style={[styles.pillText, selectedType === 'task' && styles.pillTextActive]}>Công việc</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.pill, selectedType === 'project' && styles.pillActive]}
-                            onPress={() => setSelectedType('project')}
-                        >
-                            <Text style={[styles.pillText, selectedType === 'project' && styles.pillTextActive]}>Dự án</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.pill, selectedType === 'system' && styles.pillActive]}
-                            onPress={() => setSelectedType('system')}
-                        >
-                            <Text style={[styles.pillText, selectedType === 'system' && styles.pillTextActive]}>Hệ thống</Text>
-                        </TouchableOpacity>
+                {/* Type Filters */}
+                <View style={styles.filterSection}>
+                    <Text style={styles.filterLabel}>Loại thông báo</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                        <View style={styles.filterRow}>
+                            <TouchableOpacity
+                                style={[styles.pill, selectedType === 'all' && styles.pillActive]}
+                                onPress={() => setSelectedType('all')}
+                            >
+                                <Text style={[styles.pillText, selectedType === 'all' && styles.pillTextActive]}>Tất cả</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.pill, selectedType === 'task' && styles.pillActive]}
+                                onPress={() => setSelectedType('task')}
+                            >
+                                <Text style={[styles.pillText, selectedType === 'task' && styles.pillTextActive]}>Công việc</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.pill, selectedType === 'announcement' && styles.pillActive]}
+                                onPress={() => setSelectedType('announcement')}
+                            >
+                                <Text style={[styles.pillText, selectedType === 'announcement' && styles.pillTextActive]}>Thông báo chung</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </ScrollView>
+                </View>                {/* Status Filters */}
+                <View style={styles.filterSection}>
+                    <Text style={styles.filterLabel}>Trạng thái</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                        <View style={styles.filterRow}>
+                            <TouchableOpacity
+                                style={[styles.pill, selectedStatus === 'all' && styles.pillActive]}
+                                onPress={() => setSelectedStatus('all')}
+                            >
+                                <Text style={[styles.pillText, selectedStatus === 'all' && styles.pillTextActive]}>Tất cả</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.pill, selectedStatus === 'published' && styles.pillActive]}
+                                onPress={() => setSelectedStatus('published')}
+                            >
+                                <Text style={[styles.pillText, selectedStatus === 'published' && styles.pillTextActive]}>Đã xuất bản</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.pill, selectedStatus === 'draft' && styles.pillActive]}
+                                onPress={() => setSelectedStatus('draft')}
+                            >
+                                <Text style={[styles.pillText, selectedStatus === 'draft' && styles.pillTextActive]}>Bản nháp</Text>
+                            </TouchableOpacity>
+                        </View>
                     </ScrollView>
                 </View>
 
@@ -249,6 +418,58 @@ export default function NotificationsManagement() {
                 }}
                 notification={editingNotification}
             />
+
+            {/* Detail Modal */}
+            <Modal
+                visible={showDetailModal}
+                animationType="slide"
+                transparent
+                onRequestClose={closeDetail}
+            >
+                <View style={styles.detailModalOverlay}>
+                    <View style={styles.detailModalContainer}>
+                        <Text style={styles.detailTitle}>{detailNotification?.title}</Text>
+                        <View style={styles.detailMeta}>
+                            <Text style={styles.detailMetaText}>Loại: {detailNotification?.type}</Text>
+                            <Text style={styles.detailMetaText}> • </Text>
+                            <Text style={styles.detailMetaText}>Trạng thái: {detailNotification?.status}</Text>
+                            <Text style={styles.detailMetaText}> • </Text>
+                            <Text style={styles.detailMetaText}>Mức: {detailNotification?.priority}</Text>
+                        </View>
+                        <ScrollView style={styles.detailContent}>
+                            <Text style={styles.detailMessage}>{detailNotification?.content || detailNotification?.message}</Text>
+                        </ScrollView>
+                        <Text style={styles.detailTime}>{detailNotification ? new Date(detailNotification.createdAt).toLocaleString() : ''}</Text>
+                        <View style={styles.detailFooter}>
+                            <TouchableOpacity style={styles.detailBtn} onPress={closeDetail}>
+                                <Text style={styles.detailBtnText}>Đóng</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.detailBtn, { backgroundColor: '#f59e0b' }]}
+                                onPress={() => {
+                                    if (detailNotification) {
+                                        setEditingNotification(detailNotification);
+                                        setShowFormModal(true);
+                                        closeDetail();
+                                    }
+                                }}
+                            >
+                                <Text style={[styles.detailBtnText, { color: '#fff' }]}>Sửa</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.detailBtn, { backgroundColor: '#ef4444' }]}
+                                onPress={async () => {
+                                    if (!detailNotification) return;
+                                    await handleDeleteNotification(detailNotification);
+                                    closeDetail();
+                                }}
+                            >
+                                <Text style={[styles.detailBtnText, { color: '#fff' }]}>Xóa</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -274,16 +495,68 @@ const styles = StyleSheet.create({
         color: '#6b7280',
         marginTop: 4,
     },
+    searchContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e5e7eb',
+    },
+    searchIcon: {
+        marginRight: 8,
+    },
+    searchInput: {
+        flex: 1,
+        fontSize: 15,
+        color: '#111827',
+        padding: 0,
+    },
     content: {
         flex: 1,
-        padding: 16,
+    },
+    filterSection: {
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        backgroundColor: '#fff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#e5e7eb',
+    },
+    filterLabel: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#6b7280',
+        marginBottom: 8,
+    },
+    filterRow: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    pill: {
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        borderRadius: 999,
+        backgroundColor: '#f3f4f6',
+    },
+    pillActive: {
+        backgroundColor: '#111827',
+    },
+    pillText: {
+        fontSize: 13,
+        color: '#374151',
+        fontWeight: '500',
+    },
+    pillTextActive: {
+        color: '#fff',
     },
     notificationCard: {
         flexDirection: 'row',
         backgroundColor: '#fff',
         borderRadius: 12,
         padding: 16,
-        marginBottom: 12,
+        marginHorizontal: 16,
+        marginTop: 12,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
@@ -309,7 +582,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 4,
+        marginBottom: 6,
     },
     notificationTitle: {
         fontSize: 16,
@@ -324,13 +597,36 @@ const styles = StyleSheet.create({
         backgroundColor: '#3b82f6',
         marginLeft: 8,
     },
+    badgeRow: {
+        flexDirection: 'row',
+        gap: 6,
+        marginBottom: 6,
+    },
+    statusBadge: {
+        paddingVertical: 2,
+        paddingHorizontal: 8,
+        borderRadius: 12,
+    },
+    statusText: {
+        fontSize: 11,
+        fontWeight: '600',
+    },
+    priorityBadge: {
+        paddingVertical: 2,
+        paddingHorizontal: 8,
+        borderRadius: 12,
+    },
+    priorityText: {
+        fontSize: 11,
+        fontWeight: '600',
+    },
     notificationMessage: {
         fontSize: 14,
         color: '#6b7280',
-        marginBottom: 4,
+        marginBottom: 6,
     },
     notificationTime: {
-        fontSize: 12,
+        fontSize: 11,
         color: '#9ca3af',
     },
     notificationActions: {
@@ -387,22 +683,85 @@ const styles = StyleSheet.create({
         color: '#9ca3af',
         marginTop: 16,
     },
-    filterRow: {
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        backgroundColor: '#fff',
-        borderBottomWidth: 1,
-        borderBottomColor: '#e5e7eb',
+    headerLeft: {
+        flex: 1,
     },
-    pillContainer: { flexDirection: 'row', gap: 8, marginBottom: 8 },
-    pill: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: '#f3f4f6', marginRight: 8 },
-    pillActive: { backgroundColor: '#111827' },
-    pillText: { fontSize: 13, color: '#374151' },
-    pillTextActive: { color: '#fff' },
-    projectPickerContainer: { marginTop: 6 },
-    projectLabel: { fontSize: 12, color: '#6b7280', marginBottom: 6 },
-    projectChip: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: '#f3f4f6', marginRight: 8 },
-    projectChipActive: { backgroundColor: '#3b82f6' },
-    projectChipText: { fontSize: 13, color: '#374151' },
-    projectChipTextActive: { color: '#fff' },
+    headerActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginTop: 6,
+    },
+    markAllBtn: {
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        backgroundColor: '#fff',
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
+    },
+    markAllBtnText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#111827'
+    },
+    detailModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    detailModalContainer: {
+        width: '100%',
+        maxWidth: 720,
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 16,
+        maxHeight: '80%'
+    },
+    detailTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#111827',
+        marginBottom: 8,
+    },
+    detailMeta: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: 8,
+    },
+    detailMetaText: {
+        fontSize: 12,
+        color: '#6b7280'
+    },
+    detailContent: {
+        marginBottom: 8,
+    },
+    detailMessage: {
+        fontSize: 14,
+        color: '#374151'
+    },
+    detailTime: {
+        fontSize: 12,
+        color: '#9ca3af',
+        marginBottom: 8,
+    },
+    detailFooter: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 8,
+    },
+    detailBtn: {
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        backgroundColor: '#f3f4f6'
+    },
+    detailBtnText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#111827'
+    },
 });

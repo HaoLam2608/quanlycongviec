@@ -1,9 +1,13 @@
 import { getGroups, groupAPI } from '@/src/axios/adminApi';
 import { createTask, deleteTask, getProjectById, getTasksByProject } from '@/src/axios/api';
+import { API_CONFIG } from '@/src/config/api';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as DocumentPicker from 'expo-document-picker';
+import { documentDirectory, downloadAsync } from 'expo-file-system/legacy';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator, Alert, FlatList,
@@ -171,11 +175,17 @@ export default function ProjectDetail() {
 
     const loadDocuments = async () => {
         try {
+            console.log('📥 Loading documents for project:', projectId);
             const response = await api.get(`/documents/list?duanId=${projectId}`);
-            const docs = Array.isArray(response.data) ? response.data : [];
+            console.log('📥 Documents response:', response.data);
+            
+            // Backend trả về { documents: [...] }
+            const docs = response.data.documents || response.data || [];
+            console.log('📥 Found documents:', docs.length);
+            
             const transformedDocs = docs.map((doc: any) => ({
                 id: doc.id,
-                tenTaiLieu: doc.originalname || doc.tenTaiLieu,
+                tenTaiLieu: doc.originalname || doc.tenTaiLieu || doc.fileName,
                 moTa: doc.description || doc.moTa,
                 loai: doc.mimetype || doc.loaiTaiLieu || 'unknown',
                 duongDan: doc.filename || doc.duongDan,
@@ -184,11 +194,12 @@ export default function ProjectDetail() {
                 nguoiTao: doc.uploader ? {
                     id: doc.uploader.id,
                     hoten: doc.uploader.hoten,
-                } : undefined,
+                } : (doc.uploadedBy ? { hoten: doc.uploadedBy } : undefined),
             }));
             setDocuments(transformedDocs);
+            console.log('✅ Documents loaded:', transformedDocs.length);
         } catch (error) {
-            console.error('Error loading documents:', error);
+            console.error('❌ Error loading documents:', error);
             setDocuments([]);
         }
     };
@@ -580,22 +591,61 @@ export default function ProjectDetail() {
             return;
         }
 
+        // Kiểm tra kích thước file (max 5MB cho BLOB storage)
+        const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+        if (selectedFile.size && selectedFile.size > MAX_SIZE) {
+            const sizeMB = (selectedFile.size / (1024 * 1024)).toFixed(2);
+            Alert.alert(
+                'File quá lớn', 
+                `File của bạn: ${sizeMB}MB\nKích thước tối đa: 5MB\n\nVui lòng chọn file nhỏ hơn.`
+            );
+            return;
+        }
+
         try {
             setUploading(true);
+            console.log('📤 Uploading document:', {
+                name: selectedFile.name,
+                size: selectedFile.size ? `${(selectedFile.size / 1024).toFixed(2)} KB` : 'unknown',
+                type: selectedFile.mimeType
+            });
+            
             const formData = new FormData();
             formData.append('file', {
                 uri: selectedFile.uri,
                 name: selectedFile.name,
                 type: selectedFile.mimeType || 'application/octet-stream',
             } as any);
-            formData.append('description', uploadDescription);
+            
+            if (uploadDescription) {
+                formData.append('description', uploadDescription);
+            }
             formData.append('duanId', projectId);
 
-            await api.post('/documents/upload', formData, {
+            // Sử dụng fetch thay vì axios để tránh lỗi với FormData
+            const token = await require('@react-native-async-storage/async-storage').default.getItem('accessToken');
+            const API_BASE_URL = require('../../src/config/api').API_CONFIG.BASE_URL;
+
+            console.log('📤 Uploading to:', `${API_BASE_URL}/documents/upload`);
+            
+            const response = await fetch(`${API_BASE_URL}/documents/upload`, {
+                method: 'POST',
                 headers: {
-                    'Content-Type': 'multipart/form-data',
+                    'Authorization': `Bearer ${token}`,
+                    // KHÔNG set Content-Type - để browser tự động set với boundary
                 },
+                body: formData,
             });
+
+            console.log('📥 Upload response status:', response.status);
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: 'Upload thất bại' }));
+                throw new Error(errorData.message || `HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('✅ Upload success:', data);
 
             Alert.alert('Thành công', 'Đã tải lên tài liệu');
             setShowUploadModal(false);
@@ -603,8 +653,8 @@ export default function ProjectDetail() {
             setUploadDescription('');
             await loadDocuments();
         } catch (error: any) {
-            console.error('Error uploading document:', error);
-            const errorMsg = error?.response?.data?.message || 'Không thể tải lên tài liệu';
+            console.error('❌ Error uploading document:', error);
+            const errorMsg = error?.message || error?.response?.data?.message || 'Không thể tải lên tài liệu';
             Alert.alert('Lỗi', errorMsg);
         } finally {
             setUploading(false);
@@ -634,6 +684,128 @@ export default function ProjectDetail() {
                 }
             ]
         );
+    };
+
+    const handleDownloadDocument = async (doc: any) => {
+        try {
+            Alert.alert('Đang tải xuống', 'Vui lòng đợi...');
+            
+            console.log('⬇️ Downloading document:', doc.id, doc.tenTaiLieu);
+            const token = await AsyncStorage.getItem('accessToken');
+            const url = `${API_CONFIG.BASE_URL}/documents/${doc.id}/download?download=1`;
+            
+            console.log('🔗 Download URL:', url);
+            
+            // Tạo tên file unique để tránh ghi đè
+            const timestamp = Date.now();
+            const fileName = `${timestamp}_${doc.tenTaiLieu}`;
+            const fileUri = `${documentDirectory}${fileName}`;
+            
+            console.log('📁 Saving to:', fileUri);
+            
+            // Download file về máy
+            const result = await downloadAsync(
+                url,
+                fileUri,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                    }
+                }
+            );
+            
+            console.log('✅ Download result:', result);
+            
+            if (result.status === 200) {
+                Alert.alert(
+                    'Thành công',
+                    `Đã tải xuống: ${doc.tenTaiLieu}\n\nKích thước: ${formatFileSize(result.headers['Content-Length'] || doc.kichThuoc)}`,
+                    [
+                        { text: 'OK' },
+                        {
+                            text: 'Mở file',
+                            onPress: async () => {
+                                await Sharing.shareAsync(result.uri, {
+                                    mimeType: doc.loai,
+                                    dialogTitle: doc.tenTaiLieu
+                                });
+                            }
+                        }
+                    ]
+                );
+            } else {
+                throw new Error(`Download failed with status: ${result.status}`);
+            }
+        } catch (error: any) {
+            console.error('❌ Download error:', error);
+            Alert.alert('Lỗi', error.message || 'Không thể tải tài liệu');
+        }
+    };
+
+    const handlePreviewDocument = async (doc: any) => {
+        try {
+            console.log('👁️ Previewing document:', doc.id, doc.loai);
+            
+            Alert.alert('Đang tải', 'Vui lòng đợi...');
+            
+            const token = await AsyncStorage.getItem('accessToken');
+            const url = `${API_CONFIG.BASE_URL}/documents/${doc.id}/download`;
+            
+            const mimeType = doc.loai.toLowerCase();
+            
+            // Kiểm tra loại file có thể xem trực tiếp
+            const canPreviewInApp = 
+                mimeType.includes('pdf') ||
+                mimeType.includes('image') ||
+                mimeType.includes('text');
+            
+            if (canPreviewInApp) {
+                // Download và mở file viewer
+                const timestamp = Date.now();
+                const fileName = `preview_${timestamp}_${doc.tenTaiLieu}`;
+                const fileUri = `${documentDirectory}${fileName}`;
+                
+                console.log('📥 Downloading for preview...');
+                const result = await downloadAsync(
+                    url,
+                    fileUri,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                        }
+                    }
+                );
+                
+                console.log('✅ Download complete, opening viewer...');
+                
+                if (result.status === 200) {
+                    // Mở file bằng app viewer mặc định
+                    await Sharing.shareAsync(result.uri, {
+                        mimeType: doc.loai,
+                        dialogTitle: doc.tenTaiLieu,
+                        UTI: doc.loai
+                    });
+                } else {
+                    throw new Error(`Download failed with status: ${result.status}`);
+                }
+            } else {
+                // File không xem được trực tiếp
+                Alert.alert(
+                    'Thông báo',
+                    `File ${doc.loai.split('/').pop()?.toUpperCase()} không thể xem trực tiếp.\nBạn có muốn tải về để mở bằng app khác?`,
+                    [
+                        { text: 'Hủy', style: 'cancel' },
+                        {
+                            text: 'Tải về',
+                            onPress: () => handleDownloadDocument(doc)
+                        }
+                    ]
+                );
+            }
+        } catch (error: any) {
+            console.error('❌ Preview error:', error);
+            Alert.alert('Lỗi', error.message || 'Không thể xem trước tài liệu');
+        }
     };
 
     const getFileIcon = (mimeType: string): keyof typeof Ionicons.glyphMap => {
@@ -739,14 +911,20 @@ export default function ProjectDetail() {
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={({ item }) => (
                     <View style={styles.documentCard}>
-                        <View style={styles.documentIconContainer}>
+                        <TouchableOpacity 
+                            style={styles.documentIconContainer}
+                            onPress={() => handlePreviewDocument(item)}
+                        >
                             <Ionicons
                                 name={getFileIcon(item.loai)}
                                 size={32}
                                 color={getFileColor(item.loai)}
                             />
-                        </View>
-                        <View style={styles.documentInfo}>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            style={styles.documentInfo}
+                            onPress={() => handlePreviewDocument(item)}
+                        >
                             <Text style={styles.documentName} numberOfLines={1}>
                                 {item.tenTaiLieu}
                             </Text>
@@ -776,13 +954,21 @@ export default function ProjectDetail() {
                                     </>
                                 )}
                             </View>
-                        </View>
-                        <TouchableOpacity
-                            style={styles.deleteDocButton}
-                            onPress={() => handleDeleteDocument(item.id, item.tenTaiLieu)}
-                        >
-                            <Ionicons name="trash-outline" size={20} color="#EF4444" />
                         </TouchableOpacity>
+                        <View style={styles.documentActions}>
+                            <TouchableOpacity
+                                style={[styles.docActionButton, { backgroundColor: '#10B981' }]}
+                                onPress={() => handleDownloadDocument(item)}
+                            >
+                                <Ionicons name="download-outline" size={18} color="#fff" />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.docActionButton, { backgroundColor: '#EF4444', marginTop: 8 }]}
+                                onPress={() => handleDeleteDocument(item.id, item.tenTaiLieu)}
+                            >
+                                <Ionicons name="trash-outline" size={18} color="#fff" />
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 )}
                 ListEmptyComponent={
@@ -1666,6 +1852,24 @@ const styles = StyleSheet.create({
     },
     deleteDocButton: {
         padding: 8,
+    },
+    documentActions: {
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingLeft: 8,
+    },
+    docActionButton: {
+        width: 36,
+        height: 36,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
     },
     filePickerButton: {
         flexDirection: 'row',

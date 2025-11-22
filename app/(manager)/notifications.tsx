@@ -1,19 +1,19 @@
+import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
+    Alert,
+    Modal,
+    Platform,
+    RefreshControl,
     SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
-    View,
-    TouchableOpacity,
-    RefreshControl,
-    Alert,
-    ActivityIndicator,
     TextInput,
-    Platform,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../src/axios/config';
 
 interface Notification {
@@ -31,6 +31,8 @@ export default function NotificationsPage() {
     const [refreshing, setRefreshing] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [filter, setFilter] = useState<string>('all'); // 'all', 'unread', 'task', 'project', 'approval', 'system'
+    const [showDetailModal, setShowDetailModal] = useState(false);
+    const [detailNotification, setDetailNotification] = useState<Notification | null>(null);
 
     useEffect(() => {
         loadNotifications();
@@ -127,11 +129,22 @@ export default function NotificationsPage() {
 
     const NotificationCard = ({ notification }: { notification: Notification }) => {
         const color = getNotificationColor(notification.type);
-        
         return (
             <TouchableOpacity
                 style={[styles.notificationCard, !notification.isRead && styles.unreadCard]}
-                onPress={() => !notification.isRead && markAsRead(notification.id)}
+                activeOpacity={0.9}
+                onPress={async () => {
+                    // Open detail modal and mark read
+                    setDetailNotification(notification);
+                    setShowDetailModal(true);
+                    if (!notification.isRead) {
+                        try {
+                            await markAsRead(notification.id);
+                        } catch (e) {
+                            // markAsRead already logs
+                        }
+                    }
+                }}
             >
                 <View style={[styles.notificationIcon, { backgroundColor: color + '20' }]}>
                     <Ionicons 
@@ -154,6 +167,11 @@ export default function NotificationsPage() {
                 </View>
             </TouchableOpacity>
         );
+    };
+
+    const closeDetail = () => {
+        setShowDetailModal(false);
+        setDetailNotification(null);
     };
 
     const unreadCount = notifications.filter(n => !n.isRead).length;
@@ -300,6 +318,29 @@ export default function NotificationsPage() {
                         <NotificationCard key={notification.id} notification={notification} />
                     ))
                 )}
+                    {/* Detail Modal */}
+                    <Modal
+                        visible={showDetailModal}
+                        animationType="slide"
+                        transparent
+                        onRequestClose={closeDetail}
+                    >
+                        <View style={styles.detailModalOverlay}>
+                            <View style={styles.detailModalContainer}>
+                                <Text style={styles.detailTitle}>{detailNotification?.title}</Text>
+                                <Text style={styles.detailMetaText}>Loại: {detailNotification?.type}</Text>
+                                <ScrollView style={styles.detailContent}>
+                                    <Text style={styles.detailMessage}>{detailNotification?.message}</Text>
+                                </ScrollView>
+                                <Text style={styles.detailTime}>{detailNotification ? new Date(detailNotification.createdAt).toLocaleString() : ''}</Text>
+                                <View style={styles.detailFooter}>
+                                    <TouchableOpacity style={styles.detailBtn} onPress={closeDetail}>
+                                        <Text style={styles.detailBtnText}>Đóng</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        </View>
+                    </Modal>
             </ScrollView>
         </SafeAreaView>
     );
@@ -344,6 +385,60 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: '600',
         color: '#f59e0b',
+    },
+    detailModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    detailModalContainer: {
+        width: '100%',
+        maxWidth: 720,
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 16,
+        maxHeight: '80%'
+    },
+    detailTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#111827',
+        marginBottom: 8,
+    },
+    detailMetaText: {
+        fontSize: 12,
+        color: '#6b7280',
+        marginBottom: 8,
+    },
+    detailContent: {
+        marginBottom: 8,
+    },
+    detailMessage: {
+        fontSize: 14,
+        color: '#374151'
+    },
+    detailTime: {
+        fontSize: 12,
+        color: '#9ca3af',
+        marginBottom: 8,
+    },
+    detailFooter: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 8,
+    },
+    detailBtn: {
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        backgroundColor: '#f3f4f6'
+    },
+    detailBtnText: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#111827'
     },
     searchContainer: {
         backgroundColor: '#fff',

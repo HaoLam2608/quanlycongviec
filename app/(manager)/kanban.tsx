@@ -38,63 +38,6 @@ interface KanbanColumn {
     color: string;
 }
 
-// Helper to avoid timezone shift when backend returns 'YYYY-MM-DD'
-const parseToLocalDate = (s?: string | null) => {
-    if (!s) return null;
-    const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(s.trim());
-    if (dateOnly) {
-        const [y, m, d] = s.split('-').map(Number);
-        return new Date(y, m - 1, d);
-    }
-    const d = new Date(s);
-    if (isNaN(d.getTime())) return null;
-    return d;
-};
-
-const formatDate = (s?: string | null) => {
-    const d = parseToLocalDate(s);
-    return d ? d.toLocaleDateString('vi-VN') : '';
-};
-
-// Try multiple variants of a status key to be defensive against backend shapes
-const resolveTasksForColumn = (source: any, statusLabel: string) => {
-    if (!source) return [];
-
-    if (Array.isArray(source[statusLabel])) return source[statusLabel];
-
-    const toAscii = (s: string) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
-    const candidates = [
-        statusLabel,
-        statusLabel.toLowerCase(),
-        statusLabel.replace(/\s+/g, '_').toLowerCase(),
-        toAscii(statusLabel),
-        toAscii(statusLabel).replace(/\s+/g, '_'),
-    ];
-
-    const knownMap: Record<string, string[]> = {
-        'Chưa bắt đầu': ['chua_bat_dau', 'not_started', 'chưa bắt đầu'],
-        'Đang chạy': ['dang_chay', 'in_progress', 'đang chạy'],
-        'Chờ xác nhận hoàn thành': ['cho_xac_nhan_hoan_thanh', 'awaiting_confirmation', 'pending_confirmation'],
-        'Hoàn thành': ['hoan_thanh', 'completed', 'done'],
-    };
-
-    const mapped = knownMap[statusLabel] || [];
-
-    const allCandidates = [...candidates, ...mapped];
-
-    for (const k of allCandidates) {
-        if (k && Array.isArray(source[k])) return source[k];
-    }
-
-    if (source.kanban && typeof source.kanban === 'object') {
-        for (const k of allCandidates) {
-            if (Array.isArray(source.kanban[k])) return source.kanban[k];
-        }
-    }
-
-    return [];
-};
-
 export default function KanbanBoard() {
     const router = useRouter();
     const params = useLocalSearchParams();
@@ -165,10 +108,10 @@ export default function KanbanBoard() {
             // Some backends return { kanban: { status: [...] }, stats: {...} }
             const source = (kanbanData && (kanbanData.kanban || kanbanData)) || {};
 
-            // Organize tasks by status (use resolveTasksForColumn to be defensive)
+            // Organize tasks by status (be defensive if a status key is missing)
             const newColumns = columns.map(col => ({
                 ...col,
-                tasks: resolveTasksForColumn(source, col.status)
+                tasks: Array.isArray(source[col.status]) ? source[col.status] : []
             }));
 
             setColumns(newColumns);

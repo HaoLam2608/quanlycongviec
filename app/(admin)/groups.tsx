@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -24,6 +25,7 @@ interface Group {
 }
 
 export default function GroupsManagement() {
+    const router = useRouter();
     const [groups, setGroups] = useState<Group[]>([]);
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
@@ -107,7 +109,11 @@ export default function GroupsManagement() {
         const statusColor = getStatusColor(group.status);
         
         return (
-            <View style={styles.groupCard}>
+            <TouchableOpacity 
+                style={styles.groupCard}
+                onPress={() => router.push(`/(admin)/group-detail?id=${group.id}`)}
+                activeOpacity={0.7}
+            >
                 <View style={styles.groupHeader}>
                     <View style={styles.groupIcon}>
                         <Ionicons name="layers" size={24} color="#f59e0b" />
@@ -135,7 +141,8 @@ export default function GroupsManagement() {
                     <View style={styles.groupActions}>
                         <TouchableOpacity
                             style={styles.actionBtn}
-                            onPress={() => {
+                            onPress={(e) => {
+                                e.stopPropagation();
                                 setEditingGroup(group);
                                 setShowFormModal(true);
                             }}
@@ -144,13 +151,16 @@ export default function GroupsManagement() {
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={[styles.actionBtn, styles.deleteBtn]}
-                            onPress={() => handleDeleteGroup(group)}
+                            onPress={(e) => {
+                                e.stopPropagation();
+                                handleDeleteGroup(group);
+                            }}
                         >
                             <Ionicons name="trash-outline" size={18} color="#ef4444" />
                         </TouchableOpacity>
                     </View>
                 </View>
-            </View>
+            </TouchableOpacity>
         );
     };
 

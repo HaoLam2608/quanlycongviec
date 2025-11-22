@@ -19,9 +19,11 @@ interface Notification {
     id: number;
     type: string;
     title: string;
-    message: string;
+    content?: string;
+    message?: string;
     isRead?: boolean;
     status?: string;
+    priority?: string;
 }
 
 interface NotificationFormModalProps {
@@ -37,7 +39,7 @@ export default function NotificationFormModal({
     onSuccess, 
     notification 
 }: NotificationFormModalProps) {
-    const [type, setType] = useState('system');
+    const [type, setType] = useState('announcement');
     const [title, setTitle] = useState('');
     const [message, setMessage] = useState('');
     const [loading, setLoading] = useState(false);
@@ -46,9 +48,6 @@ export default function NotificationFormModal({
 
     const notificationTypes = [
         { value: 'task', label: 'Công việc' },
-        { value: 'project', label: 'Dự án' },
-        { value: 'approval', label: 'Phê duyệt' },
-        { value: 'system', label: 'Hệ thống' },
         { value: 'announcement', label: 'Thông báo chung' },
     ];
 
@@ -57,7 +56,7 @@ export default function NotificationFormModal({
             if (notification) {
                 setType(notification.type || 'system');
                 setTitle(notification.title);
-                setMessage(notification.message);
+                setMessage(notification.content || notification.message || '');
                 setPublishNow(notification.status === 'published');
             } else {
                 resetForm();
@@ -66,7 +65,7 @@ export default function NotificationFormModal({
     }, [visible, notification]);
 
     const resetForm = () => {
-        setType('system');
+        setType('announcement');
         setTitle('');
         setMessage('');
         setErrors({});

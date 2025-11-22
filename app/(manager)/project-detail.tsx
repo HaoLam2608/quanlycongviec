@@ -1,22 +1,16 @@
-import { getGroups, groupAPI } from '@/src/axios/adminApi';
-import { createTask, deleteTask, getProjectById, getTasksByProject } from '@/src/axios/api';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-    ActivityIndicator, Alert, FlatList,
-    Modal,
-    Platform,
-    RefreshControl,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet, Text,
-    TextInput,
-    TouchableOpacity,
-    View
+    SafeAreaView, StyleSheet, Text, View, ScrollView, TouchableOpacity,
+    ActivityIndicator, Alert, FlatList, RefreshControl, Modal, TextInput, Platform
 } from 'react-native';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createTask, deleteTask } from '@/src/axios/api';
+import { PRIORITY_LEVELS, PRIORITY_LABELS } from '../../constants/roles';
+import { getProjectById, getTasksByProject } from '@/src/axios/api';
+import { getGroups, groupAPI } from '@/src/axios/adminApi';
 import { PageHeader } from '../../components/ui/PageHeader';
-import { PRIORITY_LABELS, PRIORITY_LEVELS } from '../../constants/roles';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface Project {
     id: number;
@@ -67,29 +61,6 @@ export default function ProjectDetail() {
     const [availableGroups, setAvailableGroups] = useState<any[]>([]);
     const [showAddGroupModal, setShowAddGroupModal] = useState(false);
     const [loadingGroups, setLoadingGroups] = useState(false);
-
-    // Helper: parse backend date-only strings (YYYY-MM-DD) as local dates to avoid timezone shifts
-    const parseToLocalDate = (s?: string | Date | null) : Date | null => {
-        if (!s) return null;
-        if (s instanceof Date) return isNaN(s.getTime()) ? null : s;
-        const str = String(s).trim();
-        // match YYYY-MM-DD
-        const m = str.match(/^(\d{4})-(\d{2})-(\d{2})(?:T.*)?$/);
-        if (m) {
-            const y = Number(m[1]);
-            const mm = Number(m[2]);
-            const d = Number(m[3]);
-            const dt = new Date(y, mm - 1, d);
-            return isNaN(dt.getTime()) ? null : dt;
-        }
-        const dt = new Date(str);
-        return isNaN(dt.getTime()) ? null : dt;
-    };
-
-    const formatDate = (s?: string | Date | null, fallback = 'N/A') => {
-        const d = parseToLocalDate(s);
-        return d ? d.toLocaleDateString('vi-VN') : fallback;
-    };
     const isGroupClosed = (g: any) => {
         if (!g) return false;
         const closedFlags = [g.closed, g.isClosed, g.dong, g.trangthai, g.status, g.state, g.is_closed, g.closedAt, g.closed_at];
@@ -432,17 +403,17 @@ export default function ProjectDetail() {
 
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>📅 Thời gian</Text>
-                    <View style={styles.dateContainer}>
+                <View style={styles.dateContainer}>
                     <View style={styles.dateItem}>
                         <Text style={styles.dateLabel}>Ngày bắt đầu:</Text>
                         <Text style={styles.dateValue}>
-                            {formatDate(project?.ngaybatdau)}
+                            {project?.ngaybatdau ? new Date(project.ngaybatdau).toLocaleDateString('vi-VN') : 'N/A'}
                         </Text>
                     </View>
                     <View style={styles.dateItem}>
                         <Text style={styles.dateLabel}>Ngày kết thúc:</Text>
                         <Text style={styles.dateValue}>
-                            {formatDate(project?.ngayketthuc)}
+                            {project?.ngayketthuc ? new Date(project.ngayketthuc).toLocaleDateString('vi-VN') : 'N/A'}
                         </Text>
                     </View>
                 </View>
@@ -537,8 +508,8 @@ export default function ProjectDetail() {
                     )}
 
                     <View style={styles.cardFooterRowRight}>
-                        {(item as any).ngayBatDau ? <Text style={styles.dateText}>⏱ {formatDate((item as any).ngayBatDau, '')}</Text> : null}
-                        {(item as any).ngayKetThuc ? <Text style={[styles.dateText, { marginLeft: 12 }]}>📅 {formatDate((item as any).ngayKetThuc, '')}</Text> : null}
+                        {(item as any).ngayBatDau ? <Text style={styles.dateText}>⏱ {new Date((item as any).ngayBatDau).toLocaleDateString('vi-VN')}</Text> : null}
+                        {(item as any).ngayKetThuc ? <Text style={[styles.dateText, { marginLeft: 12 }]}>📅 {new Date((item as any).ngayKetThuc).toLocaleDateString('vi-VN')}</Text> : null}
                     </View>
                 </View>
             </TouchableOpacity>
@@ -740,12 +711,12 @@ export default function ProjectDetail() {
                             <Text style={{ fontWeight: '700', marginBottom: 6, color: '#374151' }}>Ngày bắt đầu</Text>
                             <TouchableOpacity onPress={() => setShowStartDatePicker(true)} style={styles.datePickerButton}>
                                 <Text style={[styles.datePickerText, !newStartDate && { color: '#9ca3af' }]}>
-                                    {newStartDate ? `📅 ${formatDate(newStartDate)}` : '📅 Chọn ngày bắt đầu'}
+                                    {newStartDate ? `📅 ${new Date(newStartDate).toLocaleDateString('vi-VN')}` : '📅 Chọn ngày bắt đầu'}
                                 </Text>
                             </TouchableOpacity>
                             {showStartDatePicker && (
                                 <DateTimePicker
-                                    value={newStartDate ? (parseToLocalDate(newStartDate) || new Date()) : new Date()}
+                                    value={newStartDate ? new Date(newStartDate) : new Date()}
                                     mode="date"
                                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                                     onChange={(event, selectedDate) => {
@@ -760,12 +731,12 @@ export default function ProjectDetail() {
                             <Text style={{ fontWeight: '700', marginBottom: 6, color: '#374151' }}>Ngày kết thúc</Text>
                             <TouchableOpacity onPress={() => setShowEndDatePicker(true)} style={styles.datePickerButton}>
                                 <Text style={[styles.datePickerText, !newDueDate && { color: '#9ca3af' }]}>
-                                    {newDueDate ? `📅 ${formatDate(newDueDate)}` : '📅 Chọn ngày kết thúc'}
+                                    {newDueDate ? `📅 ${new Date(newDueDate).toLocaleDateString('vi-VN')}` : '📅 Chọn ngày kết thúc'}
                                 </Text>
                             </TouchableOpacity>
                             {showEndDatePicker && (
                                 <DateTimePicker
-                                    value={newDueDate ? (parseToLocalDate(newDueDate) || new Date()) : new Date()}
+                                    value={newDueDate ? new Date(newDueDate) : new Date()}
                                     mode="date"
                                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                                     onChange={(event, selectedDate) => {

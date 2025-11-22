@@ -1,20 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import {
-    Modal,
-    View,
-    Text,
-    StyleSheet,
-    TouchableOpacity,
-    TextInput,
-    ScrollView,
-    Alert,
-    ActivityIndicator,
-    Image,
-} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Image,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 import api from '../../../src/axios/config';
+import { STORAGE_KEYS } from '../../../src/config/api';
 
 interface Role {
     id: number;
@@ -125,25 +127,37 @@ export default function UserFormModal({ visible, user, onClose, onSuccess }: Pro
 
         setUploadingAvatar(true);
         try {
-            const formData = new FormData();
+            // Get auth token from AsyncStorage
+            const token = await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
+            
             const filename = avatarUri.split('/').pop() || 'avatar.jpg';
             const match = /\.(\w+)$/.exec(filename);
             const type = match ? `image/${match[1]}` : 'image/jpeg';
 
+            const formData = new FormData();
             formData.append('avatar', {
                 uri: avatarUri,
                 name: filename,
                 type,
             } as any);
 
-            await api.post(`/users/${userId}/avatar`, formData, {
+            // Use fetch instead of axios for proper FormData handling in React Native
+            const response = await fetch(`http://10.0.2.2:5000/users/${userId}/avatar`, {
+                method: 'POST',
                 headers: {
-                    'Content-Type': 'multipart/form-data',
+                    'Authorization': `Bearer ${token}`,
+                    // Don't set Content-Type for multipart; let browser/fetch set it with boundary
                 },
+                body: formData,
             });
-        } catch (error) {
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: 'Upload failed' }));
+                throw new Error(errorData.message || 'Upload failed');
+            }
+        } catch (error: any) {
             console.error('Error uploading avatar:', error);
-            Alert.alert('Cảnh báo', 'Không thể tải lên ảnh đại diện');
+            Alert.alert('Cảnh báo', error.message || 'Không thể tải lên ảnh đại diện');
         } finally {
             setUploadingAvatar(false);
         }

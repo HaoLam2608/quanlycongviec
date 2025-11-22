@@ -56,7 +56,13 @@ export default function UsersManagement() {
             const response = await api.get('/users');
 
             if (response.data) {
-                setUsers(response.data.users || response.data);
+                const usersList = response.data.users || response.data;
+                // Map avatar URLs to full path
+                const usersWithAvatars = usersList.map((user: User) => ({
+                    ...user,
+                    avatar: user.avatar ? `http://10.0.2.2:5000${user.avatar}` : undefined
+                }));
+                setUsers(usersWithAvatars);
             }
         } catch (error: any) {
             console.error('Error loading users:', error);
@@ -360,7 +366,8 @@ export default function UsersManagement() {
                                 style={[styles.modalButton, styles.editButton]}
                                 onPress={() => {
                                     setShowModal(false);
-                                    Alert.alert('Thông báo', 'Chức năng chỉnh sửa đang được phát triển');
+                                    setEditingUser(selectedUser);
+                                    setShowFormModal(true);
                                 }}
                             >
                                 <Ionicons name="create-outline" size={20} color="#fff" />

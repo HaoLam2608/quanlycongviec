@@ -1,27 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import {
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    View,
-    FlatList,
-    TouchableOpacity,
-    ActivityIndicator,
-    RefreshControl,
-    Alert,
-    Modal,
-    TextInput,
-    ScrollView,
-    Linking,
-    Platform,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { getGroupDocuments, fetchDocuments, getMyProjects, fetchProjectsByManager, deleteDocument, uploadDocument } from '@/src/axios/api';
-import { PageHeader } from '../../components/ui/PageHeader';
-import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import { deleteDocument, fetchDocuments, fetchProjectsByManager, getGroupDocuments, getMyProjects } from '@/src/axios/api';
 import { API_CONFIG } from '@/src/config/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    FlatList,
+    Linking,
+    Modal,
+    Platform,
+    RefreshControl,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
+import { PageHeader } from '../../components/ui/PageHeader';
 
 interface Document {
     id: number;
@@ -264,13 +264,22 @@ export default function Documents() {
             Alert.alert('Lỗi', 'Vui lòng chọn file');
             return;
         }
+        // Kiểm tra kích thước file (giống admin): giới hạn 5MB
+        const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+        if (selectedFile.size && selectedFile.size > MAX_SIZE) {
+            const sizeMB = (selectedFile.size / (1024 * 1024)).toFixed(2);
+            Alert.alert(
+                'File quá lớn',
+                `File của bạn: ${sizeMB}MB\nKích thước tối đa: 5MB\n\nVui lòng chọn file nhỏ hơn.`
+            );
+            return;
+        }
 
         try {
             setUploading(true);
             console.log('📤 Starting upload:', selectedFile);
 
             const formData = new FormData();
-            
             // React Native FormData
             formData.append('file', {
                 uri: selectedFile.uri,
@@ -288,11 +297,12 @@ export default function Documents() {
 
             const token = await AsyncStorage.getItem('accessToken');
             console.log('🔑 Token exists:', !!token);
-            
+
             const response = await fetch(`${API_CONFIG.BASE_URL}/documents/upload`, {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
+                    // KHÔNG set Content-Type - let boundary be set automatically
                 },
                 body: formData,
             });
@@ -300,12 +310,19 @@ export default function Documents() {
             console.log('📥 Upload response status:', response.status);
 
             if (!response.ok) {
-                const errorData = await response.text();
-                console.error('❌ Upload error:', errorData);
-                throw new Error(`HTTP ${response.status}: ${errorData}`);
+                // Try parse JSON error body when possible
+                let errorText = `HTTP ${response.status}`;
+                try {
+                    const errJson = await response.json();
+                    errorText = errJson.message || JSON.stringify(errJson);
+                } catch (e) {
+                    try { errorText = await response.text(); } catch (e) { /* ignore */ }
+                }
+                console.error('❌ Upload error:', errorText);
+                throw new Error(errorText);
             }
 
-            const data = await response.json();
+            const data = await response.json().catch(() => null);
             console.log('✅ Upload success:', data);
             Alert.alert('Thành công', 'Tải lên tài liệu thành công');
             setUploadModal(false);

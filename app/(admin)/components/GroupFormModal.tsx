@@ -50,6 +50,8 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<any>({});
     const [showMemberSelector, setShowMemberSelector] = useState(false);
+    const [availableLeaders, setAvailableLeaders] = useState<User[]>([]);
+    const [availableMembers, setAvailableMembers] = useState<User[]>([]);
 
     useEffect(() => {
         if (visible) {
@@ -69,6 +71,13 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
         }
     }, [visible, group]);
 
+    // Filter available users when users list or group changes
+    useEffect(() => {
+        if (users.length > 0) {
+            filterAvailableUsers();
+        }
+    }, [users, group]);
+
     // Helper: get current leader user from loaded users so we can show them in the Picker
     const currentLeaderUser = users.find(u => u.id === formData.leaderId);
 
@@ -78,6 +87,79 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
             setUsers(response.data.users || response.data || []);
         } catch (error) {
             console.error('Error loading users:', error);
+        }
+    };
+
+    // Filter users based on business rules
+    const filterAvailableUsers = async () => {
+        try {
+            const resp = await api.get('/groups');
+            const groups: any[] = resp.data.groups || [];
+
+            // Build map of user participation in active groups
+            const leaderOfGroup = new Map<number, string>(); // userId -> groupName
+            const memberGroupCounts = new Map<number, number>(); // userId -> count of active groups
+
+            for (const g of groups) {
+                if (g.status === 'closed') continue;
+                
+                // Skip current group when editing
+                if (group && String(g.id) === String(group.id)) continue;
+
+                // Track leaders
+                if (g.leader && g.leader.id) {
+                    leaderOfGroup.set(g.leader.id, g.name);
+                }
+
+                // Track member participation
+                const seen = new Set<number>();
+                if (g.leader && g.leader.id) seen.add(g.leader.id);
+                const memberList = g.members || [];
+                for (const m of memberList) {
+                    if (m && m.id) seen.add(m.id);
+                }
+                for (const uid of Array.from(seen)) {
+                    memberGroupCounts.set(uid, (memberGroupCounts.get(uid) || 0) + 1);
+                }
+            }
+
+            // Filter available leaders (teamleader role + not already a leader of another active group)
+            const leaders = users.filter(u => {
+                const rname = getRoleName(u);
+                if (rname !== 'teamleader') return false;
+                
+                // If editing and this is the current leader, allow them
+                if (group && group.leaderId === u.id) return true;
+                if (group && group.leader?.id === u.id) return true;
+                
+                // Don't show if they're already a leader of another group
+                if (leaderOfGroup.has(u.id)) return false;
+                
+                return true;
+            });
+
+            // Filter available members (employee role + not at max groups + not a leader elsewhere)
+            const members = users.filter(u => {
+                const rname = getRoleName(u);
+                if (rname !== 'employee') return false;
+                
+                // Don't show if they're a leader of another group
+                if (leaderOfGroup.has(u.id)) return false;
+                
+                // Check group participation count
+                const count = memberGroupCounts.get(u.id) || 0;
+                if (count >= 2) return false;
+                
+                return true;
+            });
+
+            setAvailableLeaders(leaders);
+            setAvailableMembers(members);
+        } catch (error) {
+            console.error('Error filtering users:', error);
+            // Fallback to basic role filtering
+            setAvailableLeaders(users.filter(u => getRoleName(u) === 'teamleader'));
+            setAvailableMembers(users.filter(u => getRoleName(u) === 'employee'));
         }
     };
 
@@ -402,6 +484,9 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
                             <Text style={styles.label}>
                                 Trưởng nhóm <Text style={styles.required}>*</Text>
                             </Text>
+                            <Text style={styles.helperText}>
+                                Chỉ hiển thị teamleader chưa làm trưởng nhóm khác
+                            </Text>
                             <View style={[styles.pickerContainer, errors.leaderId && styles.inputError]}>
                                 <Picker
                                     selectedValue={formData.leaderId}
@@ -417,15 +502,13 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
                                             value={currentLeaderUser.id}
                                         />
                                     )}
-                                    {users
-                                        .filter(u => getRoleName(u) === 'teamleader')
-                                        .map((user) => (
-                                            <Picker.Item 
-                                                key={user.id} 
-                                                label={`${user.hoten} (${user.manv})`} 
-                                                value={user.id} 
-                                            />
-                                        ))}
+                                    {availableLeaders.map((user) => (
+                                        <Picker.Item 
+                                            key={user.id} 
+                                            label={`${user.hoten} (${user.manv})`} 
+                                            value={user.id} 
+                                        />
+                                    ))}
                                 </Picker>
                             </View>
                             {errors.leaderId && <Text style={styles.errorText}>{errors.leaderId}</Text>}
@@ -433,7 +516,12 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
 
                         {/* Thành viên */}
                         <View style={styles.formGroup}>
-                            <Text style={styles.label}>Thành viên ({formData.memberIds.length})</Text>
+                            <Text style={styles.label}>
+                                Thành viên ({formData.memberIds.length}/{availableMembers.filter(u => u.id !== formData.leaderId).length})
+                            </Text>
+                            <Text style={styles.helperText}>
+                                Chỉ hiển thị nhân viên chưa tham gia 2 nhóm và không là trưởng nhóm khác
+                            </Text>
                             <TouchableOpacity
                                 style={styles.memberSelector}
                                 onPress={() => setShowMemberSelector(!showMemberSelector)}
@@ -457,8 +545,8 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
                                     nestedScrollEnabled={true}
                                     keyboardShouldPersistTaps="handled"
                                 >
-                                    {users
-                                        .filter(u => u.id !== formData.leaderId && getRoleName(u) === 'employee')
+                                    {availableMembers
+                                        .filter(u => u.id !== formData.leaderId)
                                         .map((user) => (
                                             <TouchableOpacity
                                                 key={user.id}
@@ -475,6 +563,16 @@ export default function GroupFormModal({ visible, group, onClose, onSuccess }: P
                                                 </Text>
                                             </TouchableOpacity>
                                         ))}
+                                    {availableMembers.filter(u => u.id !== formData.leaderId).length === 0 && (
+                                        <View style={styles.emptyMemberList}>
+                                            <Text style={styles.emptyMemberText}>
+                                                Không có thành viên khả dụng
+                                            </Text>
+                                            <Text style={styles.emptyMemberSubtext}>
+                                                (Các nhân viên đã tham gia tối đa 2 nhóm hoặc đang là trưởng nhóm khác)
+                                            </Text>
+                                        </View>
+                                    )}
                                 </ScrollView>
                             )}
                         </View>
@@ -561,6 +659,12 @@ const styles = StyleSheet.create({
         color: '#374151',
         marginBottom: 8,
     },
+    helperText: {
+        fontSize: 12,
+        color: '#6b7280',
+        marginBottom: 8,
+        fontStyle: 'italic',
+    },
     required: {
         color: '#ef4444',
     },
@@ -639,6 +743,21 @@ const styles = StyleSheet.create({
     memberName: {
         fontSize: 14,
         color: '#374151',
+    },
+    emptyMemberList: {
+        padding: 20,
+        alignItems: 'center',
+    },
+    emptyMemberText: {
+        fontSize: 14,
+        color: '#6b7280',
+        textAlign: 'center',
+        marginBottom: 4,
+    },
+    emptyMemberSubtext: {
+        fontSize: 12,
+        color: '#9ca3af',
+        textAlign: 'center',
     },
     modalFooter: {
         flexDirection: 'row',
