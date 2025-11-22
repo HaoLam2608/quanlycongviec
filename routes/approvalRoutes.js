@@ -7,7 +7,9 @@ const {
     approveTaskCompletion,
     rejectTaskCompletion,
     approveSubtaskCompletion,
-    rejectSubtaskCompletion
+    rejectSubtaskCompletion,
+    getApprovedHistory,
+    deleteHistory
 } = require('../controllers/approvalController');
 
 // All approval routes require authentication
@@ -40,6 +42,12 @@ const checkApprovalPermission = async (req, res, next) => {
 
 // Get pending approvals (admin, manager, and teamleader)
 router.get('/pending', checkApprovalPermission, getPendingApprovals);
+
+// Get approved history (admin, manager, and teamleader)
+router.get('/history', checkApprovalPermission, getApprovedHistory);
+
+// Delete history item
+router.delete('/history', checkApprovalPermission, deleteHistory);
 
 // Approve/reject task completion
 router.post('/tasks/:taskId/approve', approveTaskCompletion);

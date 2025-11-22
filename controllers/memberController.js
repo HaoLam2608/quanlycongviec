@@ -504,7 +504,7 @@ const mapStatusToDisplay = (status) => {
 const getMemberTasks = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { status, priority, projectId, dateFrom, dateTo, search } = req.query;
+        const { status, priority, projectId, dateFrom, dateTo, search, includeUnassigned } = req.query;
 
         // Build where clause for tasks
         const taskWhere = { nguoiDuocGiaoId: userId };
@@ -550,7 +550,10 @@ const getMemberTasks = async (req, res) => {
         });
 
         // Build where clause for subtasks
-        const subtaskWhere = { nguoiThucHienId: userId };
+        const subtaskWhere = includeUnassigned === 'true' 
+            ? { [Op.or]: [{ nguoiThucHienId: userId }, { nguoiThucHienId: null }] }
+            : { nguoiThucHienId: userId };
+        
         if (status) subtaskWhere.trangThai = status;
         // Subtask không có priority field
         if (dateFrom || dateTo) {
@@ -872,6 +875,227 @@ const updateMemberSubtaskStatus = async (req, res) => {
     }
 };
 
+// Get unassigned subtasks (công việc chưa có người nhận) - chỉ từ tasks do team lead của member tạo
+const getUnassignedSubtasks = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        
+        console.log('🔍 [getUnassignedSubtasks] Member ID:', userId);
+        
+        // Tìm thông tin user để biết nhóm của họ
+        const currentUser = await User.findByPk(userId, {
+            attributes: ['id', 'hoten', 'manv']
+        });
+        
+        if (!currentUser) {
+            return res.status(404).json({ message: 'Không tìm thấy thông tin người dùng' });
+        }
+        
+        // Tìm các nhóm mà user là thành viên
+        const { Group } = require('../models');
+        const groupMembers = await GroupMember.findAll({
+            where: { userId },
+            attributes: ['groupId']
+        });
+
+        const groupIds = groupMembers.map(gm => gm.groupId).filter(Boolean);
+        console.log('👥 [getUnassignedSubtasks] Group IDs for user:', groupIds);
+
+        // Fallback: query Group directly to get leaderId (reliable)
+        let groups = [];
+        if (groupIds.length > 0) {
+            groups = await Group.findAll({
+                where: { id: groupIds },
+                attributes: ['id', 'name', 'leaderId']
+            });
+        }
+
+        console.log('👥 [getUnassignedSubtasks] Groups fetched:', groups.map(g => ({ id: g.id, name: g.name, leaderId: g.leaderId })));
+
+        // Lấy danh sách team lead IDs từ các nhóm của user (leaderId)
+        const teamLeadIds = [...new Set(groups.map(g => g.leaderId).filter(id => id))];
+
+        console.log('👔 [getUnassignedSubtasks] Derived leader IDs:', teamLeadIds);
+
+        console.log('👔 [getUnassignedSubtasks] Team lead IDs:', teamLeadIds);
+
+        if (teamLeadIds.length === 0) {
+            console.log('⚠️ [getUnassignedSubtasks] No team leads found');
+            return res.json({
+                subtasks: [],
+                count: 0,
+                message: 'Bạn chưa thuộc nhóm nào có team lead'
+            });
+        }
+
+        // Lấy subtasks chưa có người nhận từ các tasks do team lead tạo (nguoiGiaoId)
+        const unassignedSubtasks = await Subtask.findAll({
+            where: {
+                nguoiThucHienId: null,
+                trangThai: { [Op.ne]: 'Hoàn thành' }
+            },
+            include: [
+                {
+                    model: Task,
+                    as: 'task',
+                    where: {
+                        // Lọc theo `nguoiDuocGiaoId` = leaderId (team lead là người được giao thực hiện task)
+                        nguoiDuocGiaoId: { [Op.in]: teamLeadIds }
+                    },
+                    attributes: ['id', 'tentask', 'mota', 'trangThai', 'mucDoUuTien', 'duanId', 'nguoiGiaoId', 'nguoiDuocGiaoId'],
+                    include: [
+                        {
+                            model: DuAn,
+                            as: 'duan',
+                            attributes: ['id', 'tenduan', 'status']
+                        },
+                        {
+                            model: User,
+                            as: 'nguoiGiao',
+                            attributes: ['id', 'hoten', 'manv', 'chucvu']
+                        },
+                        {
+                            model: User,
+                            as: 'nguoiDuocGiao',
+                            attributes: ['id', 'hoten', 'manv']
+                        }
+                    ]
+                }
+            ],
+            order: [['createdAt', 'DESC']] // Mới nhất trước
+        });
+
+        console.log('📋 [getUnassignedSubtasks] Found', unassignedSubtasks.length, 'unassigned subtasks');
+        
+        // Log chi tiết một vài subtasks để debug
+        if (unassignedSubtasks.length > 0) {
+            console.log('📝 [getUnassignedSubtasks] Sample subtask:', {
+                id: unassignedSubtasks[0].id,
+                tenSubtask: unassignedSubtasks[0].tenSubtask,
+                task: {
+                    id: unassignedSubtasks[0].task?.id,
+                    tentask: unassignedSubtasks[0].task?.tentask,
+                    nguoiGiao: unassignedSubtasks[0].task?.nguoiGiao?.hoten
+                }
+            });
+        }
+
+        res.json({
+            subtasks: unassignedSubtasks,
+            count: unassignedSubtasks.length
+        });
+
+    } catch (error) {
+        console.error('❌ [getUnassignedSubtasks] Error:', error);
+        res.status(500).json({ message: 'Không thể lấy danh sách công việc chưa có người nhận', error: error.message });
+    }
+};
+
+// Member claims an unassigned subtask (nhận việc)
+const claimSubtask = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { subtaskId } = req.params;
+
+        // Find the subtask
+        const subtask = await Subtask.findByPk(subtaskId, {
+            include: [
+                {
+                    model: Task,
+                    as: 'task',
+                    include: [
+                        {
+                            model: DuAn,
+                            as: 'duan',
+                            attributes: ['id', 'tenduan']
+                        }
+                    ]
+                }
+            ]
+        });
+
+        if (!subtask) {
+            return res.status(404).json({ error: 'Không tìm thấy công việc' });
+        }
+
+        // Check if subtask is already assigned
+        if (subtask.nguoiThucHienId !== null) {
+            return res.status(400).json({ error: 'Công việc này đã có người nhận' });
+        }
+
+        // Verify user has access to this project
+        const task = subtask.task;
+        const projectId = task.duanId;
+
+        // Check if user is in a group that has access to this project
+        const groupMembers = await GroupMember.findAll({
+            where: { userId },
+            attributes: ['groupId']
+        });
+
+        const groupIds = groupMembers.map(gm => gm.groupId);
+
+        const GroupProject = require('../models').GroupProject;
+        const groupProjects = await GroupProject.findAll({
+            where: { 
+                groupId: { [Op.in]: groupIds },
+                projectId: projectId
+            }
+        });
+
+        const hasAccess = groupProjects.length > 0 || 
+                         (await DuAn.findOne({ where: { id: projectId, userId } })) !== null;
+
+        if (!hasAccess) {
+            return res.status(403).json({ error: 'Bạn không có quyền truy cập dự án này' });
+        }
+
+        // Instead of assigning immediately, create a request notification for approvers
+        // Find approvers: task.nguoiGiaoId (manager) and task.nguoiDuocGiaoId (team lead) if present
+        const approverIds = [];
+        if (task.nguoiGiaoId) approverIds.push(task.nguoiGiaoId);
+        if (task.nguoiDuocGiaoId && !approverIds.includes(task.nguoiDuocGiaoId)) approverIds.push(task.nguoiDuocGiaoId);
+
+        if (approverIds.length === 0) {
+            return res.status(400).json({ error: 'Không tìm thấy người phê duyệt cho công việc này' });
+        }
+
+        // Build notification content
+        const requester = await User.findByPk(userId, { attributes: ['id', 'manv', 'hoten', 'email'] });
+        const itemName = subtask.tenSubtask || task.tentask;
+        const title = `${requester.hoten || requester.manv} yêu cầu nhận công việc: ${itemName}`;
+        const content = `${requester.hoten || requester.manv} đã gửi yêu cầu nhận công việc: ${itemName}. Vui lòng phê duyệt.`;
+
+        const notification = await require('../models').Notification.create({
+            title,
+            content,
+            type: 'task',
+            priority: 'medium',
+            targetAudience: 'manager',
+            authorId: userId,
+            status: 'published',
+            publishedAt: new Date()
+        });
+
+        // Create UserNotification entries for each approver
+        const UserNotification = require('../models').UserNotification;
+        for (const aid of approverIds) {
+            await UserNotification.create({
+                userId: aid,
+                notificationId: notification.id,
+                isRead: false,
+                meta: { requestToJoin: true, subtaskId: subtaskId, requesterId: userId }
+            });
+        }
+
+        res.status(201).json({ message: 'Yêu cầu nhận công việc đã được gửi tới người phê duyệt' });
+
+    } catch (error) {
+        console.error('Error claiming subtask:', error);
+        res.status(500).json({ message: 'Không thể nhận công việc', error: error.message });
+    }
+};
+
 module.exports = {
     getMemberStats,
     getTodayTasks,
@@ -881,5 +1105,7 @@ module.exports = {
     getMemberTasks,
     getMemberProjects,
     updateMemberTaskStatus,
-    updateMemberSubtaskStatus
+    updateMemberSubtaskStatus,
+    getUnassignedSubtasks,
+    claimSubtask
 };

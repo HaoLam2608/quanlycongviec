@@ -79,21 +79,19 @@ exports.createSubtask = async (req, res) => {
         let initialAssigneeId = null;
         let assignmentCreated = null;
 
-        // If client did not provide an assignee, default to self-assign (creator)
-        if (!nguoiThucHienId) {
-            initialAssigneeId = req.user.id;
-        } else {
-            // Always set the assignee to the requested person
-            // Assignment status will track whether they've accepted or not
+        // Allow creating subtask without assignee (nguoiThucHienId can be null)
+        // Members can later claim unassigned subtasks
+        if (nguoiThucHienId) {
             initialAssigneeId = nguoiThucHienId;
         }
+        // If no assignee provided, leave it as null
 
         // Ensure req.user exists (authentication)
         if (!req.user) {
             return res.status(401).json({ error: 'Unauthenticated' });
         }
 
-        // Debug logging to help track why nguoiThucHienId might be null
+        // Debug logging
         console.log('Creating subtask with payload:', {
             tenSubtask,
             mota,
@@ -103,15 +101,11 @@ exports.createSubtask = async (req, res) => {
             reqUserId: req.user && req.user.id
         });
 
-        // Set assignee immediately (database constraint requires non-null)
-        // Assignment status will indicate if they've accepted it
-        const safeAssigneeId = initialAssigneeId;
-
         const newSubtask = await Subtask.create({
             tenSubtask,
             mota,
             taskId,
-            nguoiThucHienId: safeAssigneeId,
+            nguoiThucHienId: initialAssigneeId, // Can be null
             trangThai: 'Chưa bắt đầu',
             ngayBatDau,
             ngayKetThuc,

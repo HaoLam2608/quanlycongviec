@@ -6,6 +6,7 @@ module.exports = (sequelize, DataTypes) => {
         static associate(models) {
             Assignment.belongsTo(models.User, { foreignKey: 'managerId', as: 'manager' });
             Assignment.belongsTo(models.User, { foreignKey: 'assigneeId', as: 'assignee' });
+            Assignment.belongsTo(models.User, { foreignKey: 'acceptedBy', as: 'approver' });
             Assignment.belongsTo(models.Task, { foreignKey: 'taskId', as: 'task' });
             Assignment.belongsTo(models.Subtask, { foreignKey: 'subtaskId', as: 'subtask' });
         }

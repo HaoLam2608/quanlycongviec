@@ -21,7 +21,8 @@
     "nodemailer": "^7.0.10",
     "pdfkit": "^0.17.2",
     "puppeteer": "^24.29.0",
-    "sequelize": "^6.37.7"
+    "sequelize": "^6.37.7",
+    "uuid": "^13.0.0"
   },
   "scripts": {
     "start": "bun run index.js",

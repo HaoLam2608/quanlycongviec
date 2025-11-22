@@ -1,4 +1,4 @@
-const { Assignment, Task, Subtask, Notification, UserNotification, User } = require('../models');
+const { Assignment, Task, Subtask, Notification, UserNotification, User, Group, GroupProject, DuAn } = require('../models');
 const emailService = require('../services/emailService');
 
 // Manager creates an assignment (proposal) for a task or subtask
@@ -301,21 +301,65 @@ exports.acceptRequestToJoin = async (req, res) => {
         if (!taskId && !subtaskId) return res.status(400).json({ success: false, message: 'Thiếu taskId hoặc subtaskId' });
         if (!requesterId) return res.status(400).json({ success: false, message: 'Thiếu requesterId' });
 
-        // Validate manager owns the task
+        // Validate manager/teamlead has permission
         let itemName = '';
+        let task = null;
         if (subtaskId) {
             const sub = await Subtask.findByPk(subtaskId);
             if (!sub) return res.status(404).json({ success: false, message: 'Subtask không tồn tại' });
-            const task = await Task.findByPk(sub.taskId);
+            task = await Task.findByPk(sub.taskId, { include: [{ model: DuAn, as: 'duan' }] });
             if (!task) return res.status(404).json({ success: false, message: 'Task cha không tồn tại' });
-            if (task.nguoiGiaoId !== managerId) return res.status(403).json({ success: false, message: 'Không có quyền' });
             itemName = sub.tenSubtask || task.tentask;
         } else {
-            const task = await Task.findByPk(taskId);
+            task = await Task.findByPk(taskId, { include: [{ model: DuAn, as: 'duan' }] });
             if (!task) return res.status(404).json({ success: false, message: 'Task không tồn tại' });
-            if (task.nguoiGiaoId !== managerId) return res.status(403).json({ success: false, message: 'Không có quyền' });
             itemName = task.tentask;
         }
+
+        // Check permission: user must be task creator OR teamlead of group containing the requester
+        let hasPermission = task.nguoiGiaoId === managerId;
+        console.log('🔍 Permission check:', {
+            managerId,
+            requesterId,
+            taskNguoiGiaoId: task.nguoiGiaoId,
+            isTaskCreator: hasPermission,
+            duanId: task.duan?.id,
+            taskId: task.id
+        });
+        
+        if (!hasPermission) {
+            // Check if manager is teamlead of a group that contains the requester
+            const { GroupMember } = require('../models');
+            const requesterGroups = await GroupMember.findAll({
+                where: { userId: requesterId },
+                attributes: ['groupId']
+            });
+            const requesterGroupIds = requesterGroups.map(g => g.groupId);
+            console.log('🔍 Requester groups:', requesterGroupIds);
+            
+            if (requesterGroupIds.length > 0) {
+                const managerGroup = await Group.findOne({
+                    where: {
+                        id: requesterGroupIds,
+                        leaderId: managerId,
+                        status: 'active'
+                    }
+                });
+                console.log('🔍 Manager is teamlead of requester group:', !!managerGroup);
+                
+                if (managerGroup) {
+                    hasPermission = true;
+                    console.log('✅ Permission granted: Manager is teamlead of requester group');
+                }
+            }
+        }
+        
+        if (!hasPermission) {
+            console.log('❌ Permission denied for user:', managerId);
+            return res.status(403).json({ success: false, message: 'Không có quyền chấp nhận yêu cầu này' });
+        }
+        
+        console.log('✅ Permission granted, proceeding with accept');
 
         // Create an Assignment record and immediately accept it
         const assignment = await Assignment.create({
@@ -323,7 +367,9 @@ exports.acceptRequestToJoin = async (req, res) => {
             subtaskId: subtaskId || null,
             managerId,
             assigneeId: requesterId,
-            status: 'accepted'
+            status: 'accepted',
+            acceptedBy: managerId,
+            acceptedAt: new Date()
         });
 
         // Update task/subtask assignee
@@ -352,19 +398,21 @@ exports.acceptRequestToJoin = async (req, res) => {
             meta: { assignmentId: assignment.id, action: 'accepted' }
         });
 
-        // Mark manager's related request-to-join notifications as read (if any)
+        // Mark ALL related request-to-join notifications as processed (for all managers/teamleads)
         try {
-            const candidates = await UserNotification.findAll({ where: { userId: managerId } });
+            const candidates = await UserNotification.findAll();
             const related = candidates.filter(un => un.meta && un.meta.requestToJoin &&
                 ((taskId && un.meta.taskId === taskId) || (subtaskId && un.meta.subtaskId === subtaskId)) &&
                 un.meta.requesterId === requesterId
             );
+            console.log(`🔄 Marking ${related.length} notifications as processed (accepted)`);
             for (const rn of related) {
                 rn.isRead = true;
+                rn.meta = { ...rn.meta, processed: true, processedAt: new Date(), action: 'accepted', processedBy: managerId };
                 await rn.save();
             }
         } catch (e) {
-            console.error('Error marking manager notifications read:', e);
+            console.error('Error marking notifications processed:', e);
         }
 
         res.json({ success: true, message: 'Đã chấp nhận yêu cầu và phân công công việc' });
@@ -383,18 +431,62 @@ exports.declineRequestToJoin = async (req, res) => {
         if (!taskId && !subtaskId) return res.status(400).json({ success: false, message: 'Thiếu taskId hoặc subtaskId' });
         if (!requesterId) return res.status(400).json({ success: false, message: 'Thiếu requesterId' });
 
-        // Validate manager owns the task
+        // Validate manager/teamlead has permission
+        let task = null;
         if (subtaskId) {
             const sub = await Subtask.findByPk(subtaskId);
             if (!sub) return res.status(404).json({ success: false, message: 'Subtask không tồn tại' });
-            const task = await Task.findByPk(sub.taskId);
+            task = await Task.findByPk(sub.taskId, { include: [{ model: DuAn, as: 'duan' }] });
             if (!task) return res.status(404).json({ success: false, message: 'Task cha không tồn tại' });
-            if (task.nguoiGiaoId !== managerId) return res.status(403).json({ success: false, message: 'Không có quyền' });
         } else {
-            const task = await Task.findByPk(taskId);
+            task = await Task.findByPk(taskId, { include: [{ model: DuAn, as: 'duan' }] });
             if (!task) return res.status(404).json({ success: false, message: 'Task không tồn tại' });
-            if (task.nguoiGiaoId !== managerId) return res.status(403).json({ success: false, message: 'Không có quyền' });
         }
+
+        // Check permission: user must be task creator OR teamlead of group containing the requester
+        let hasPermission = task.nguoiGiaoId === managerId;
+        console.log('🔍 Permission check:', {
+            managerId,
+            requesterId,
+            taskNguoiGiaoId: task.nguoiGiaoId,
+            isTaskCreator: hasPermission,
+            duanId: task.duan?.id,
+            taskId: task.id
+        });
+        
+        if (!hasPermission) {
+            // Check if manager is teamlead of a group that contains the requester
+            const { GroupMember } = require('../models');
+            const requesterGroups = await GroupMember.findAll({
+                where: { userId: requesterId },
+                attributes: ['groupId']
+            });
+            const requesterGroupIds = requesterGroups.map(g => g.groupId);
+            console.log('🔍 Requester groups:', requesterGroupIds);
+            
+            if (requesterGroupIds.length > 0) {
+                const managerGroup = await Group.findOne({
+                    where: {
+                        id: requesterGroupIds,
+                        leaderId: managerId,
+                        status: 'active'
+                    }
+                });
+                console.log('🔍 Manager is teamlead of requester group:', !!managerGroup);
+                
+                if (managerGroup) {
+                    hasPermission = true;
+                    console.log('✅ Permission granted: Manager is teamlead of requester group');
+                }
+            }
+        }
+        
+        if (!hasPermission) {
+            console.log('❌ Permission denied for user:', managerId);
+            return res.status(403).json({ success: false, message: 'Không có quyền từ chối yêu cầu này' });
+        }
+        
+        console.log('✅ Permission granted, proceeding with decline');
 
         // Create notification to requester about decline
         const itemName = subtaskId ? (await Subtask.findByPk(subtaskId)).tenSubtask : (await Task.findByPk(taskId)).tentask;
@@ -416,19 +508,21 @@ exports.declineRequestToJoin = async (req, res) => {
             meta: { action: 'request_declined', taskId: taskId || null, subtaskId: subtaskId || null }
         });
 
-        // Mark manager's related request-to-join notifications as read (if any)
+        // Mark ALL related request-to-join notifications as processed (for all managers/teamleads)
         try {
-            const candidates = await UserNotification.findAll({ where: { userId: managerId } });
+            const candidates = await UserNotification.findAll();
             const related = candidates.filter(un => un.meta && un.meta.requestToJoin &&
                 ((taskId && un.meta.taskId === taskId) || (subtaskId && un.meta.subtaskId === subtaskId)) &&
                 un.meta.requesterId === requesterId
             );
+            console.log(`🔄 Marking ${related.length} notifications as processed (declined)`);
             for (const rn of related) {
                 rn.isRead = true;
+                rn.meta = { ...rn.meta, processed: true, processedAt: new Date(), action: 'declined', processedBy: managerId };
                 await rn.save();
             }
         } catch (e) {
-            console.error('Error marking manager notifications read:', e);
+            console.error('Error marking notifications processed:', e);
         }
 
         res.json({ success: true, message: 'Đã từ chối yêu cầu tham gia' });

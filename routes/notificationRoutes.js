@@ -50,6 +50,11 @@ router.post('/:id/mark-read',
     notificationController.markAsRead
 );
 
+router.delete('/:id',
+    auth,
+    notificationController.deleteUserNotification
+);
+
 router.post('/mark-all-read',
     auth,
     notificationController.markAllAsRead

@@ -108,27 +108,55 @@ exports.getUserNotifications = async (req, res) => {
         });
 
         // 2) user-specific notifications via UserNotification
-        const userNotifs = await Notification.findAll({
-            include: [
-                {
-                    model: UserNotification,
-                    as: 'UserNotifications',
-                    where: { userId },
-                    required: true,
-                    attributes: ['isRead', 'meta']
+        // Admin: lấy TẤT CẢ join requests chưa xử lý từ mọi user
+        let userNotifs = [];
+        if (userRole === 'admin') {
+            console.log('🔑 Admin mode: Loading ALL join requests');
+            userNotifs = await Notification.findAll({
+                include: [
+                    {
+                        model: UserNotification,
+                        as: 'UserNotifications',
+                        required: true,
+                        attributes: ['userId', 'isRead', 'meta']
+                    },
+                    {
+                        model: User,
+                        as: 'author',
+                        attributes: ['id', 'manv', 'hoten']
+                    }
+                ],
+                where: {
+                    status: 'published',
+                    ...(filterType ? { type: filterType } : {})
                 },
-                {
-                    model: User,
-                    as: 'author',
-                    attributes: ['id', 'manv', 'hoten']
-                }
-            ],
-            where: {
-                status: 'published',
-                ...(filterType ? { type: filterType } : {})
-            },
-            order: [['createdAt', 'DESC']]
-        });
+                order: [['createdAt', 'DESC']]
+            });
+            console.log(`📊 Admin loaded ${userNotifs.length} notifications from all users`);
+        } else {
+            // Manager/Member: chỉ lấy notifications của chính họ
+            userNotifs = await Notification.findAll({
+                include: [
+                    {
+                        model: UserNotification,
+                        as: 'UserNotifications',
+                        where: { userId },
+                        required: true,
+                        attributes: ['isRead', 'meta']
+                    },
+                    {
+                        model: User,
+                        as: 'author',
+                        attributes: ['id', 'manv', 'hoten']
+                    }
+                ],
+                where: {
+                    status: 'published',
+                    ...(filterType ? { type: filterType } : {})
+                },
+                order: [['createdAt', 'DESC']]
+            });
+        }
 
         // Map user-specific notifications to include meta from UserNotification
         const userMapped = userNotifs.map(n => {
@@ -860,6 +888,46 @@ exports.deactivateDevice = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Lỗi khi hủy kích hoạt thiết bị',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Delete a user notification
+ */
+exports.deleteUserNotification = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const userId = req.user.id;
+
+        // Find the UserNotification entry for this user
+        const userNotification = await UserNotification.findOne({
+            where: { 
+                notificationId: id,
+                userId: userId
+            }
+        });
+
+        if (!userNotification) {
+            return res.status(404).json({
+                success: false,
+                message: 'Không tìm thấy thông báo'
+            });
+        }
+
+        // Delete the UserNotification entry
+        await userNotification.destroy();
+
+        res.json({
+            success: true,
+            message: 'Đã xóa thông báo'
+        });
+    } catch (error) {
+        console.error('Error deleting notification:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi xóa thông báo',
             error: error.message
         });
     }

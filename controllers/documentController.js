@@ -49,15 +49,21 @@ exports.listDocuments = async (req, res) => {
         // Format response to match frontend expectations
         const formattedDocs = docs.map(doc => ({
             id: doc.id,
-            tenTaiLieu: doc.originalname,
-            fileName: doc.originalname,
-            moTa: doc.description,
-            duongDan: doc.filename,
-            kichThuoc: doc.size,
-            loaiTaiLieu: doc.mimetype,
-            uploadedBy: doc.uploader?.hoten || 'Unknown',
+            originalname: doc.originalname,
+            filename: doc.filename,
+            mimetype: doc.mimetype,
+            size: doc.size,
+            description: doc.description,
+            duanId: doc.duanId,
+            userId: doc.userId,
             createdAt: doc.createdAt,
-            project: doc.duan ? {
+            updatedAt: doc.updatedAt,
+            uploader: doc.uploader ? {
+                id: doc.uploader.id,
+                manv: doc.uploader.manv,
+                hoten: doc.uploader.hoten
+            } : null,
+            duan: doc.duan ? {
                 id: doc.duan.id,
                 tenduan: doc.duan.tenduan
             } : null
