@@ -554,3 +554,234 @@ exports.getGroupProjects = async (req, res) => {
         res.status(500).json({ message: 'Lỗi server', error: error.message });
     }
 };
+
+// Get available members - Lấy danh sách member có thể thêm vào nhóm
+exports.getAvailableMembers = async (req, res) => {
+    try {
+        const { groupId } = req.query; // Optional: để loại trừ members hiện tại khi update
+        
+        // Lấy tất cả users
+        const allUsers = await User.findAll({
+            attributes: ['id', 'manv', 'hoten', 'email', 'sdt', 'chucvu'],
+            order: [['hoten', 'ASC']]
+        });
+
+        // Lấy tất cả nhóm active
+        const activeGroups = await Group.findAll({
+            where: { status: { [require('sequelize').Op.ne]: 'closed' } }
+        });
+
+        // Lấy tất cả group members
+        const allGroupMembers = await GroupMember.findAll();
+
+        const availableUsers = [];
+        const unavailableUsers = [];
+
+        for (const user of allUsers) {
+            let isAvailable = true;
+            let reason = '';
+
+            // Kiểm tra xem user có phải là leader của nhóm active nào không
+            const isLeaderOfActiveGroup = activeGroups.find(g => g.leaderId === user.id);
+            if (isLeaderOfActiveGroup) {
+                isAvailable = false;
+                reason = `Đang là trưởng nhóm "${isLeaderOfActiveGroup.name}"`;
+            }
+
+            // Kiểm tra số lượng nhóm active mà user đang tham gia
+            if (isAvailable) {
+                const userMemberships = allGroupMembers.filter(m => m.userId === user.id);
+                let activeGroupCount = 0;
+                
+                for (const membership of userMemberships) {
+                    const group = activeGroups.find(g => g.id === membership.groupId);
+                    if (group) {
+                        // Nếu đang update nhóm, không đếm nhóm hiện tại
+                        if (!groupId || group.id !== parseInt(groupId)) {
+                            activeGroupCount++;
+                        }
+                    }
+                }
+
+                if (activeGroupCount >= 2) {
+                    isAvailable = false;
+                    reason = 'Đã tham gia tối đa 2 nhóm';
+                }
+            }
+
+            // Nếu đang update, kiểm tra xem user đã là member của nhóm này chưa
+            let isCurrentMember = false;
+            if (groupId) {
+                isCurrentMember = allGroupMembers.some(
+                    m => m.userId === user.id && m.groupId === parseInt(groupId)
+                );
+            }
+
+            const userData = {
+                id: user.id,
+                manv: user.manv,
+                hoten: user.hoten,
+                email: user.email,
+                sdt: user.sdt,
+                chucvu: user.chucvu,
+                isCurrentMember,
+                reason
+            };
+
+            if (isAvailable) {
+                availableUsers.push(userData);
+            } else {
+                unavailableUsers.push(userData);
+            }
+        }
+
+        res.json({
+            availableUsers,
+            unavailableUsers,
+            total: allUsers.length,
+            availableCount: availableUsers.length,
+            unavailableCount: unavailableUsers.length
+        });
+    } catch (error) {
+        console.error('❌ getAvailableMembers error:', error);
+        res.status(500).json({ message: 'Lỗi server', error: error.message });
+    }
+};
+
+// Get group detail with statistics - Chi tiết nhóm với thống kê
+exports.getGroupDetail = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { GroupProject, Task, Subtask } = require('../models');
+
+        // Lấy thông tin nhóm
+        const group = await Group.findByPk(id, {
+            include: [
+                {
+                    model: User,
+                    as: 'leader',
+                    attributes: ['id', 'manv', 'hoten', 'email', 'sdt', 'chucvu']
+                },
+                {
+                    model: User,
+                    as: 'members',
+                    attributes: ['id', 'manv', 'hoten', 'email', 'sdt', 'chucvu'],
+                    through: { attributes: [] }
+                },
+                {
+                    model: GroupProject,
+                    as: 'groupProjects',
+                    include: [{
+                        model: DuAn,
+                        as: 'project',
+                        attributes: ['id', 'tenduan', 'mota', 'ngaybatdau', 'ngayketthuc', 'status']
+                    }]
+                }
+            ]
+        });
+
+        if (!group) {
+            return res.status(404).json({ message: 'Không tìm thấy nhóm' });
+        }
+
+        // Lấy danh sách project IDs
+        const projectIds = group.groupProjects
+            .filter(gp => gp.status === 'active')
+            .map(gp => gp.projectId);
+
+        // Thống kê tasks và subtasks
+        let taskStats = {
+            total: 0,
+            completed: 0,
+            inProgress: 0,
+            pending: 0,
+            overdue: 0
+        };
+
+        let subtaskStats = {
+            total: 0,
+            completed: 0,
+            inProgress: 0,
+            pending: 0
+        };
+
+        if (projectIds.length > 0) {
+            const { Op } = require('sequelize');
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            // Lấy tất cả tasks của các dự án
+            const tasks = await Task.findAll({
+                where: { duanId: projectIds }
+            });
+
+            taskStats.total = tasks.length;
+            taskStats.completed = tasks.filter(t => t.trangThai === 'Hoàn thành').length;
+            taskStats.inProgress = tasks.filter(t => t.trangThai === 'Đang chạy').length;
+            taskStats.pending = tasks.filter(t => t.trangThai === 'Chưa bắt đầu').length;
+            taskStats.overdue = tasks.filter(t => 
+                t.trangThai !== 'Hoàn thành' && 
+                t.ngayKetThuc && 
+                new Date(t.ngayKetThuc) < today
+            ).length;
+
+            // Lấy tất cả subtasks
+            const taskIds = tasks.map(t => t.id);
+            if (taskIds.length > 0) {
+                const subtasks = await Subtask.findAll({
+                    where: { taskId: taskIds }
+                });
+
+                subtaskStats.total = subtasks.length;
+                subtaskStats.completed = subtasks.filter(s => s.trangThai === 'Hoàn thành').length;
+                subtaskStats.inProgress = subtasks.filter(s => s.trangThai === 'Đang chạy').length;
+                subtaskStats.pending = subtasks.filter(s => s.trangThai === 'Chưa bắt đầu').length;
+            }
+        }
+
+        // Member statistics
+        const memberStats = group.members.map(member => ({
+            id: member.id,
+            manv: member.manv,
+            hoten: member.hoten,
+            email: member.email,
+            chucvu: member.chucvu,
+            // Có thể thêm thống kê task của từng member ở đây nếu cần
+        }));
+
+        res.json({
+            group: {
+                id: group.id,
+                name: group.name,
+                description: group.description,
+                status: group.status,
+                createdAt: group.createdAt,
+                updatedAt: group.updatedAt,
+                leader: group.leader,
+                memberCount: group.members.length,
+                members: memberStats,
+                projects: group.groupProjects.map(gp => ({
+                    id: gp.project.id,
+                    tenduan: gp.project.tenduan,
+                    mota: gp.project.mota,
+                    ngaybatdau: gp.project.ngaybatdau,
+                    ngayketthuc: gp.project.ngayketthuc,
+                    status: gp.project.status,
+                    groupProjectStatus: gp.status
+                }))
+            },
+            statistics: {
+                tasks: taskStats,
+                subtasks: subtaskStats,
+                projects: {
+                    total: group.groupProjects.length,
+                    active: group.groupProjects.filter(gp => gp.status === 'active').length,
+                    completed: group.groupProjects.filter(gp => gp.status === 'completed').length
+                }
+            }
+        });
+    } catch (error) {
+        console.error('❌ getGroupDetail error:', error);
+        res.status(500).json({ message: 'Lỗi server', error: error.message });
+    }
+};

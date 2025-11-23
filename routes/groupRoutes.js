@@ -20,6 +20,12 @@ router.get('/my-group', authenticateToken, groupController.getMyGroup);
 // Get group projects (for teamleader)
 router.get('/my-projects', authenticateToken, groupController.getGroupProjects);
 
+// Get available members for group creation/update
+router.get('/available-members', authenticateToken, checkPermission('groups', 'read'), groupController.getAvailableMembers);
+
+// Get group detail with statistics
+router.get('/:id/detail', authenticateToken, checkPermission('groups', 'read'), groupController.getGroupDetail);
+
 // CRUD groups
 router.get('/', authenticateToken, checkPermission('groups', 'read'), groupController.getGroups);
 router.get('/:id', authenticateToken, checkPermission('groups', 'read'), groupController.getGroup);

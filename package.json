@@ -5,6 +5,7 @@
   },
   "dependencies": {
     "@canvas-fonts/arial": "^1.0.4",
+    "@google/generative-ai": "^0.24.1",
     "@headlessui/react": "^2.2.9",
     "axios": "^1.12.2",
     "bcryptjs": "^3.0.2",
@@ -19,9 +20,11 @@
     "mysql2": "^3.15.1",
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.10",
+    "openai": "^6.9.1",
     "pdfkit": "^0.17.2",
     "puppeteer": "^24.29.0",
-    "sequelize": "^6.37.7"
+    "sequelize": "^6.37.7",
+    "socket.io": "^4.7.2"
   },
   "scripts": {
     "start": "bun run index.js",

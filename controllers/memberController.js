@@ -308,7 +308,27 @@ const getUpcomingTasks = async (req, res) => {
         const futureDate = new Date(today);
         futureDate.setDate(futureDate.getDate() + days);
 
-        // Get only subtasks with upcoming deadlines (không lấy task lớn)
+        // Get tasks with upcoming deadlines
+        const tasks = await Task.findAll({
+            where: {
+                nguoiDuocGiaoId: userId,
+                trangThai: { [Op.ne]: 'Hoàn thành' },
+                ngayKetThuc: {
+                    [Op.gte]: today,
+                    [Op.lte]: futureDate
+                }
+            },
+            include: [
+                {
+                    model: DuAn,
+                    as: 'duan',
+                    attributes: ['id', 'tenduan']
+                }
+            ],
+            order: [['ngayKetThuc', 'ASC']]
+        });
+
+        // Get subtasks with upcoming deadlines
         const subtasks = await Subtask.findAll({
             where: {
                 nguoiThucHienId: userId,
@@ -334,31 +354,41 @@ const getUpcomingTasks = async (req, res) => {
         });
 
         // Calculate days left and format response
-        const upcomingTasks = subtasks.map(subtask => {
-            const deadline = new Date(subtask.ngayKetThuc);
+        const upcomingTasks = [
+            ...tasks.map(task => {
+                const deadline = new Date(task.ngayKetThuc);
+                const diffTime = deadline.getTime() - today.getTime();
+                const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-            // Set deadline và today về đầu ngày để tính chính xác
-            const deadlineDate = new Date(deadline);
-            deadlineDate.setHours(0, 0, 0, 0);
+                return {
+                    id: task.id,
+                    title: task.tentask,
+                    deadline: task.ngayKetThuc,
+                    priority: task.mucDoUuTien || 'medium',
+                    daysLeft,
+                    projectName: task.duan?.tenduan,
+                    status: task.trangThai,
+                    type: 'task'
+                };
+            }),
+            ...subtasks.map(subtask => {
+                const deadline = new Date(subtask.ngayKetThuc);
+                const diffTime = deadline.getTime() - today.getTime();
+                const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-            const todayDate = new Date(today);
-            todayDate.setHours(0, 0, 0, 0);
-
-            // Tính số ngày chênh lệch (chính xác theo ngày)
-            const daysLeft = Math.round((deadlineDate - todayDate) / (1000 * 60 * 60 * 24));
-
-            return {
-                id: subtask.id,
-                title: subtask.tenSubtask,
-                deadline: subtask.ngayKetThuc,
-                priority: 'medium', // Subtask không có priority field
-                daysLeft,
-                projectName: subtask.task?.duan?.tenduan,
-                status: subtask.trangThai,
-                type: 'subtask',
-                parentTask: subtask.task?.tentask
-            };
-        }).sort((a, b) => a.daysLeft - b.daysLeft); // Sort by days left
+                return {
+                    id: subtask.id,
+                    title: subtask.tenSubtask,
+                    deadline: subtask.ngayKetThuc,
+                    priority: 'medium', // Subtask không có priority field
+                    daysLeft,
+                    projectName: subtask.task?.duan?.tenduan,
+                    status: subtask.trangThai,
+                    type: 'subtask',
+                    parentTask: subtask.task?.tentask
+                };
+            })
+        ].sort((a, b) => a.daysLeft - b.daysLeft); // Sort by days left
 
         res.json(upcomingTasks);
 
@@ -779,13 +809,13 @@ const updateMemberTaskStatus = async (req, res) => {
             console.log('📅 Setting ngayBatDau to now');
             task.ngayBatDau = new Date();
         }
+        // Save and return
         await task.save();
-
         console.log('✅ Task status updated successfully');
-        res.json({ message: 'Cập nhật trạng thái thành công', task });
+        return res.json({ message: 'Cập nhật trạng thái thành công', task });
     } catch (error) {
         console.error('Update task status error:', error);
-        res.status(500).json({ message: 'Lỗi cập nhật trạng thái' });
+        res.status(500).json({ message: 'Lỗi cập nhật trạng thái', error: error.message });
     }
 };
 
@@ -872,6 +902,17 @@ const updateMemberSubtaskStatus = async (req, res) => {
     }
 };
 
+// Team performance endpoint (basic placeholder)
+const getTeamPerformance = async (req, res) => {
+    try {
+        // Placeholder implementation to avoid route errors until a full implementation is added
+        res.json({ message: 'Team performance endpoint (placeholder)', data: {} });
+    } catch (error) {
+        console.error('Error getting team performance:', error);
+        res.status(500).json({ message: 'Lỗi lấy hiệu suất đội', error: error.message });
+    }
+};
+
 module.exports = {
     getMemberStats,
     getTodayTasks,
@@ -881,5 +922,6 @@ module.exports = {
     getMemberTasks,
     getMemberProjects,
     updateMemberTaskStatus,
-    updateMemberSubtaskStatus
+    updateMemberSubtaskStatus,
+    getTeamPerformance
 };

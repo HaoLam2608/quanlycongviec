@@ -66,7 +66,6 @@ exports.getAllNotifications = async (req, res) => {
 exports.getUserNotifications = async (req, res) => {
     try {
         const userId = req.user.id;
-        const filterType = req.query.type; // optional: 'task', 'system', etc.
 
         // Load user with role to get role name
         const userWithRole = await User.findByPk(userId, {
@@ -88,17 +87,14 @@ exports.getUserNotifications = async (req, res) => {
         const offset = (page - 1) * limit;
 
         // 1) role-based notifications (broadcasts)
-        const roleWhere = {
-            status: 'published',
-            [Op.or]: [
-                { targetAudience: { [Op.like]: '%all%' } },
-                { targetAudience: { [Op.like]: `%${mappedRole}%` } }
-            ]
-        };
-        if (filterType) roleWhere.type = filterType;
-
         const roleNotifications = await Notification.findAll({
-            where: roleWhere,
+            where: {
+                status: 'published',
+                [Op.or]: [
+                    { targetAudience: { [Op.like]: '%all%' } },
+                    { targetAudience: { [Op.like]: `%${mappedRole}%` } }
+                ]
+            },
             include: [{
                 model: User,
                 as: 'author',
@@ -124,8 +120,7 @@ exports.getUserNotifications = async (req, res) => {
                 }
             ],
             where: {
-                status: 'published',
-                ...(filterType ? { type: filterType } : {})
+                status: 'published'
             },
             order: [['createdAt', 'DESC']]
         });
@@ -187,19 +182,23 @@ exports.getUserNotifications = async (req, res) => {
         const allNotifications = Array.from(mapById.values()).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
         console.log(`📦 Total merged notifications: ${allNotifications.length}`);
-
-        // unread count
-        const unreadCount = allNotifications.filter(n => !n.isRead).length;
+        const assignmentCount = allNotifications.filter(n => n.userMeta?.assignmentId).length;
+        console.log(`🎯 Assignment notifications in response: ${assignmentCount}`);
 
         // Pagination
         const paged = allNotifications.slice(offset, offset + limit);
 
-        console.log(`📄 Sending ${paged.length} notifications (page ${page}), unread: ${unreadCount}`);
+        console.log(`📄 Sending ${paged.length} notifications (page ${page})`);
+        console.log('📋 Detailed response data:');
+        paged.forEach((n, idx) => {
+            console.log(`  [${idx + 1}] ID: ${n.id}, Title: "${n.title}"`);
+            console.log(`      userMeta: ${JSON.stringify(n.userMeta)}`);
+            console.log(`      isRead: ${n.isRead}`);
+        });
 
         res.json({
             success: true,
             data: paged,
-            unreadCount,
             pagination: {
                 page,
                 limit,

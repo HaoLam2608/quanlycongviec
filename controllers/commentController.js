@@ -71,11 +71,23 @@ const createMentionNotifications = async (comment, authorId, mentionedUserIds) =
   let message = '';
   
   if (comment.taskId) {
-    const task = await Task.findByPk(comment.taskId, { attributes: ['tencv'] });
-    message = `${authorName} đã nhắc đến bạn trong bình luận của task "${task?.tencv || 'Task'}"`;
+    // Task model uses `tentask` for the title field
+    try {
+      const task = await Task.findByPk(comment.taskId, { attributes: ['tentask'] });
+      message = `${authorName} đã nhắc đến bạn trong bình luận của task "${task?.tentask || 'Task'}"`;
+    } catch (e) {
+      console.error('Error fetching task title for mention message:', e);
+      message = `${authorName} đã nhắc đến bạn trong bình luận của task`;
+    }
   } else if (comment.subtaskId) {
-    const subtask = await Subtask.findByPk(comment.subtaskId, { attributes: ['tencv'] });
-    message = `${authorName} đã nhắc đến bạn trong bình luận của subtask "${subtask?.tencv || 'Subtask'}"`;
+    // Subtask model uses `tenSubtask` for the title field
+    try {
+      const subtask = await Subtask.findByPk(comment.subtaskId, { attributes: ['tenSubtask'] });
+      message = `${authorName} đã nhắc đến bạn trong bình luận của subtask "${subtask?.tenSubtask || 'Subtask'}"`;
+    } catch (e) {
+      console.error('Error fetching subtask title for mention message:', e);
+      message = `${authorName} đã nhắc đến bạn trong bình luận của subtask`;
+    }
   }
   
   // Create notification for each mentioned user (except author)

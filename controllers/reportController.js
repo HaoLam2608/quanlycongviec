@@ -63,7 +63,7 @@ exports.getReportsByDuAn = async (req, res) => {
         if (status) whereClause.status = status;
         if (reportType) whereClause.reportType = reportType;
         if (groupId) whereClause.groupId = groupId;
-        
+
         if (startDate || endDate) {
             whereClause.reportDate = {};
             if (startDate) whereClause.reportDate[Op.gte] = new Date(startDate);
@@ -82,15 +82,15 @@ exports.getReportsByDuAn = async (req, res) => {
             where: whereClause,
             include: [
                 { model: DuAn, as: 'duan', attributes: ['id', 'tenduan'] },
-                { 
-                    model: User, 
-                    as: 'creator', 
-                    attributes: ['id', 'manv', 'hoten', 'sdt', 'chucvu'] 
+                {
+                    model: User,
+                    as: 'creator',
+                    attributes: ['id', 'manv', 'hoten', 'sdt', 'chucvu']
                 },
                 { model: Group, as: 'group', attributes: ['id', 'name'] },
-                { 
-                    model: User, 
-                    as: 'reviewer', 
+                {
+                    model: User,
+                    as: 'reviewer',
                     attributes: ['id', 'manv', 'hoten', 'sdt', 'chucvu'],
                     required: false
                 }
@@ -109,12 +109,12 @@ exports.getReportsByDuAn = async (req, res) => {
 exports.getAllReports = async (req, res) => {
     try {
         const { status, reportType, duanId, startDate, endDate } = req.query;
-        
+
         const whereClause = {};
         if (status) whereClause.status = status;
         if (reportType) whereClause.reportType = reportType;
         if (duanId) whereClause.duanId = duanId;
-        
+
         if (startDate || endDate) {
             whereClause.reportDate = {};
             if (startDate) whereClause.reportDate[Op.gte] = new Date(startDate);
@@ -450,7 +450,7 @@ exports.exportReportToPdf = async (req, res) => {
         }
 
         // Tạo PDF document với font hỗ trợ Unicode
-        const doc = new PDFDocument({ 
+        const doc = new PDFDocument({
             margin: 50,
             size: 'A4',
             bufferPages: true
@@ -465,24 +465,29 @@ exports.exportReportToPdf = async (req, res) => {
 
         // Sử dụng font hỗ trợ tiếng Việt
         try {
-            // Thử các font Windows theo thứ tự ưu tiên
+            // Thử các font theo thứ tự ưu tiên (ưu tiên font local để đảm bảo hiển thị tiếng Việt)
             const fontPaths = [
+                path.join(__dirname, '../fonts/DejaVuSans.ttf'), // Font tự download (ưu tiên)
                 'C:/Windows/Fonts/times.ttf',      // Times New Roman
                 'C:/Windows/Fonts/arial.ttf',       // Arial
-                'C:/Windows/Fonts/calibri.ttf',     // Calibri
-                path.join(__dirname, '../fonts/DejaVuSans.ttf') // Font tự download
+                'C:/Windows/Fonts/calibri.ttf'     // Calibri
             ];
-            
+
             let fontLoaded = false;
             for (const fontPath of fontPaths) {
                 if (fs.existsSync(fontPath)) {
-                    doc.font(fontPath);
-                    fontLoaded = true;
-                    console.log('Using font:', fontPath);
-                    break;
+                    try {
+                        doc.font(fontPath);
+                        fontLoaded = true;
+                        console.log('Using font:', fontPath);
+                        break;
+                    } catch (fontError) {
+                        console.warn('Failed to load font:', fontPath, fontError.message);
+                        // Continue to next font
+                    }
                 }
             }
-            
+
             if (!fontLoaded) {
                 console.warn('No Unicode font found, text may not display correctly');
                 doc.font('Helvetica');
@@ -494,7 +499,7 @@ exports.exportReportToPdf = async (req, res) => {
 
         // Header với border
         doc.rect(50, 50, doc.page.width - 100, 60).stroke();
-        doc.fontSize(22).text('BÁO CÁO DỰ ÁN', 50, 70, { 
+        doc.fontSize(22).text('BÁO CÁO DỰ ÁN', 50, 70, {
             align: 'center',
             width: doc.page.width - 100
         });
@@ -528,7 +533,7 @@ exports.exportReportToPdf = async (req, res) => {
         // Nội dung
         doc.fontSize(13).text('NỘI DUNG:', 50, undefined, { underline: true });
         doc.moveDown(0.5);
-        doc.fontSize(11).text(report.content || 'Không có nội dung', 50, undefined, { 
+        doc.fontSize(11).text(report.content || 'Không có nội dung', 50, undefined, {
             align: 'justify',
             width: doc.page.width - 100
         });

@@ -33,6 +33,32 @@ exports.getAllRoles = async (req, res) => {
     }
 };
 
+// Lấy role theo ID
+exports.getRoleById = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const role = await Role.findByPk(id, {
+            include: [
+                {
+                    model: Permission,
+                    as: 'permissions',
+                    through: { attributes: [] }
+                }
+            ]
+        });
+
+        if (!role) {
+            return res.status(404).json({ message: 'Không tìm thấy vai trò' });
+        }
+
+        res.json(role);
+    } catch (error) {
+        console.error('Get role by ID error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
 // Tạo role mới
 exports.createRole = async (req, res) => {
     try {

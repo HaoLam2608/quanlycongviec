@@ -10,6 +10,22 @@ exports.uploadDocument = async (req, res) => {
         const { duanId, description } = req.body;
         if (!file) return res.status(400).json({ message: 'No file uploaded' });
 
+        // Giới hạn kích thước file cho BLOB storage (max 5MB)
+        const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+        if (file.size > MAX_FILE_SIZE) {
+            return res.status(400).json({ 
+                message: `File quá lớn. Kích thước tối đa: 5MB. File của bạn: ${(file.size / (1024 * 1024)).toFixed(2)}MB` 
+            });
+        }
+
+        console.log('📤 Uploading document:', {
+            originalname: file.originalname,
+            mimetype: file.mimetype,
+            size: `${(file.size / 1024).toFixed(2)} KB`,
+            duanId,
+            userId: req.user?.id
+        });
+
         // store file buffer into DB
         const generatedFilename = `${Date.now()}-${Math.round(Math.random() * 1e9)}-${file.originalname}`;
         const doc = await Document.create({
@@ -23,10 +39,30 @@ exports.uploadDocument = async (req, res) => {
             description: description || null,
         });
 
-        res.json({ message: 'Upload successful', document: doc });
+        console.log('✅ Document uploaded successfully:', doc.id);
+
+        res.json({ 
+            message: 'Upload successful', 
+            document: {
+                id: doc.id,
+                filename: doc.originalname,
+                size: doc.size
+            }
+        });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: err.message });
+        console.error('❌ Upload error:', err);
+        
+        // Xử lý lỗi cụ thể
+        if (err.message && err.message.includes('Property storage exceeds')) {
+            return res.status(400).json({ 
+                message: 'File quá lớn để lưu vào database. Vui lòng chọn file nhỏ hơn 5MB.' 
+            });
+        }
+        
+        res.status(500).json({ 
+            message: err.message || 'Lỗi khi upload tài liệu',
+            error: err.message 
+        });
     }
 };
 

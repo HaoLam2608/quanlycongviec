@@ -6,6 +6,7 @@ const roleController = require('../controllers/roleController');
 
 // Routes cho role management
 router.get("/", authenticateToken, checkPermission('roles', 'read'), roleController.getAllRoles);
+router.get("/:id", authenticateToken, checkPermission('roles', 'read'), roleController.getRoleById);
 router.post("/", authenticateToken, checkPermission('roles', 'create'), roleController.createRole);
 router.put("/:id", authenticateToken, checkPermission('roles', 'update'), roleController.updateRole);
 router.delete("/:id", authenticateToken, checkPermission('roles', 'delete'), roleController.deleteRole);

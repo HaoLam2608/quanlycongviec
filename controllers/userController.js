@@ -414,3 +414,57 @@ exports.updateMyProfile = async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 }
+
+// Get current user's avatar
+exports.getMyAvatar = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const user = await User.findByPk(userId, { 
+            attributes: ['avatarData', 'avatarMime'] 
+        });
+        
+        if (!user || !user.avatarData) {
+            return res.status(404).json({ message: 'Avatar not found' });
+        }
+        
+        res.set('Content-Type', user.avatarMime || 'image/jpeg');
+        res.send(user.avatarData);
+    } catch (err) {
+        console.error('Get my avatar error:', err);
+        res.status(500).json({ error: err.message });
+    }
+}
+
+// Get user avatar by ID (public access)
+exports.getAvatarById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        console.log('🖼️ GET Avatar - User ID:', id);
+        
+        const user = await User.findByPk(id, { 
+            attributes: ['id', 'avatarData', 'avatarMime', 'hoten', 'manv'] 
+        });
+        
+        if (!user) {
+            console.log('❌ User not found:', id);
+            return res.status(404).json({ message: 'User not found' });
+        }
+        
+        console.log('👤 User found:', user.id, user.hoten, 'Has Data:', !!user.avatarData, 'Mime:', user.avatarMime);
+        
+        // If user has avatar blob data, send it
+        if (user.avatarData && user.avatarMime) {
+            console.log('✅ Sending avatar, size:', user.avatarData.length, 'bytes');
+            res.set('Content-Type', user.avatarMime);
+            res.set('Cache-Control', 'public, max-age=86400'); // Cache for 1 day
+            return res.send(user.avatarData);
+        }
+        
+        // No avatar found
+        console.log('⚠️ No avatar data for user:', id);
+        return res.status(404).json({ message: 'Avatar not found' });
+    } catch (err) {
+        console.error('❌ Get avatar by ID error:', err);
+        res.status(500).json({ error: err.message });
+    }
+}

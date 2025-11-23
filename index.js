@@ -1,9 +1,10 @@
 const express = require('express');
+const http = require('http');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 require('dotenv').config();
-
 const app = express();
+const httpServer = http.createServer(app);
 const PORT = process.env.PORT || 5000;
 const duanRoutes = require('./routes/duanRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -75,6 +76,10 @@ app.use('/comments', (req, res, next) => {
 app.use('/assignments', require('./routes/assignmentRoutes'));
 // approval routes (for task/subtask completion approval)
 app.use('/approvals', require('./routes/approvalRoutes'));
+// chat routes (realtime messaging)
+app.use('/chat', require('./routes/chatRoutes'));
+// AI assistant routes
+app.use('/ai', require('./routes/aiRoutes'));
 
 
 // Health / root route
@@ -85,8 +90,13 @@ app.use('/tasks', taskRoutes);
 app.use('/worklogs', require('./routes/worklogRoutes'));
 app.use('/reports', require('./routes/reportRoutes'));
 
-app.listen(PORT, '0.0.0.0', () => {
+// Initialize Socket.IO for realtime chat
+const initializeSocket = require('./services/socketService');
+const io = initializeSocket(httpServer);
+
+httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Server running at http://localhost:${PORT}`);
+    console.log(`💬 Socket.IO enabled for realtime chat`);
     console.log(`📱 Mobile (Android Emulator): http://10.0.2.2:${PORT}`);
     console.log(`📱 Mobile (iOS Simulator): http://localhost:${PORT}`);
     console.log(`📱 Mobile (Real Device): http://<YOUR_IP>:${PORT}`);
