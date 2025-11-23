@@ -1,0 +1,10 @@
+-- Kiểm tra cột nguoiThucHienId trong bảng Subtasks
+SELECT 
+    COLUMN_NAME,
+    IS_NULLABLE,
+    DATA_TYPE,
+    COLUMN_COMMENT
+FROM INFORMATION_SCHEMA.COLUMNS 
+WHERE TABLE_SCHEMA = DATABASE() 
+AND TABLE_NAME = 'Subtasks' 
+AND COLUMN_NAME = 'nguoiThucHienId';

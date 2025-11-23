@@ -10,7 +10,9 @@ const {
     getMemberTasks,
     getMemberProjects,
     updateMemberTaskStatus,
-    updateMemberSubtaskStatus
+    updateMemberSubtaskStatus,
+    getUnassignedSubtasks,
+    claimSubtask
 } = require('../controllers/memberController');
 
 // Apply authentication middleware to all routes
@@ -35,6 +37,12 @@ router.get('/activities/recent', getRecentActivities);
 
 // Task management endpoints
 router.get('/tasks', getMemberTasks);
+
+// Get unassigned subtasks (công việc chưa có người nhận)
+router.get('/tasks/unassigned', getUnassignedSubtasks);
+
+// Claim an unassigned subtask (nhận việc)
+router.post('/tasks/subtasks/:subtaskId/claim', claimSubtask);
 
 // Update task status (for members)
 router.patch('/tasks/:taskId/status', updateMemberTaskStatus);

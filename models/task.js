@@ -151,6 +151,12 @@ module.exports = (sequelize, DataTypes) => {
       as: 'nguoiDuocGiao'
     });
 
+    // Task belongs to User (người phê duyệt)
+    Task.belongsTo(models.User, {
+      foreignKey: 'approvedBy',
+      as: 'approver'
+    });
+
     // Task has many Subtasks
     Task.hasMany(models.Subtask, {
       foreignKey: 'taskId',

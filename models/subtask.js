@@ -16,6 +16,12 @@ module.exports = (sequelize, DataTypes) => {
         as: 'nguoiThucHien'
       });
 
+      // Subtask được phê duyệt bởi một user
+      Subtask.belongsTo(models.User, {
+        foreignKey: 'approvedBy',
+        as: 'approver'
+      });
+
       // Subtask có thể có assignment đang chờ
       Subtask.hasMany(models.Assignment, {
         foreignKey: 'subtaskId',

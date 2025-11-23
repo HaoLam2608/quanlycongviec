@@ -336,10 +336,645 @@ const rejectSubtaskCompletion = async (req, res) => {
     }
 };
 
+// Get approved history (tasks and subtasks already approved)
+const getApprovedHistory = async (req, res) => {
+    try {
+        const { type = 'all', limit = 100 } = req.query;
+        const userId = req.user.id;
+        const userRole = req.user.role?.name;
+        
+        console.log('🔍 getApprovedHistory - User:', userId, 'Role:', userRole);
+        
+        let tasks = [];
+        let subtasks = [];
+        let assignments = [];
+        
+        // Nếu là teamleader, chỉ lấy subtasks thuộc các task mà họ được giao (nguoiDuocGiaoId)
+        if (userRole === 'teamleader') {
+            console.log('🔍 Fetching tasks for teamleader:', userId);
+            
+            // Lấy danh sách các task mà teamlead được giao
+            const teamleadTasks = await Task.findAll({
+                where: { nguoiDuocGiaoId: userId },
+                attributes: ['id'],
+                raw: true
+            });
+            
+            const taskIds = teamleadTasks.map(t => t.id);
+            console.log('📋 TeamLeader tasks:', taskIds, 'Count:', taskIds.length);
+
+            if (taskIds.length === 0) {
+                console.log('⚠️ No tasks assigned to teamleader');
+                return res.json({
+                    success: true,
+                    data: { tasks: [], subtasks: [], assignments: [], total: 0 },
+                    message: 'Bạn chưa có công việc nào được giao'
+                });
+            }
+
+            // Lấy subtasks đã phê duyệt thuộc các task của teamlead
+            console.log('🔍 Fetching approved subtasks for tasks:', taskIds);
+            subtasks = await Subtask.findAll({
+                where: { 
+                    trangThai: 'Hoàn thành',
+                    taskId: taskIds,
+                    approvedBy: { [Op.not]: null }
+                },
+                include: [
+                    {
+                        model: User,
+                        as: 'nguoiThucHien',
+                        attributes: ['id', 'manv', 'hoten'],
+                        required: false
+                    },
+                    {
+                        model: User,
+                        as: 'approver',
+                        attributes: ['id', 'manv', 'hoten'],
+                        required: false
+                    },
+                    {
+                        model: Task,
+                        as: 'task',
+                        attributes: ['id', 'tentask', 'nguoiDuocGiaoId'],
+                        required: false,
+                        include: [{
+                            model: DuAn,
+                            as: 'duan',
+                            attributes: ['id', 'tenduan'],
+                            required: false
+                        }]
+                    }
+                ],
+                order: [['approvedAt', 'DESC']],
+                limit: parseInt(limit)
+            });
+
+            // Lấy assignments đã chấp nhận
+            const { Assignment } = require('../models');
+            assignments = await Assignment.findAll({
+                where: {
+                    status: 'accepted',
+                    acceptedBy: { [Op.not]: null },
+                    [Op.or]: [
+                        { taskId: taskIds },
+                        { subtaskId: { [Op.not]: null } }
+                    ]
+                },
+                include: [
+                    {
+                        model: User,
+                        as: 'assignee',
+                        attributes: ['id', 'manv', 'hoten'],
+                        required: false
+                    },
+                    {
+                        model: User,
+                        as: 'approver',
+                        attributes: ['id', 'manv', 'hoten'],
+                        required: false
+                    },
+                    {
+                        model: Task,
+                        as: 'task',
+                        attributes: ['id', 'tentask'],
+                        required: false,
+                        include: [{
+                            model: DuAn,
+                            as: 'duan',
+                            attributes: ['id', 'tenduan'],
+                            required: false
+                        }]
+                    },
+                    {
+                        model: Subtask,
+                        as: 'subtask',
+                        attributes: ['id', 'tenSubtask', 'taskId'],
+                        required: false,
+                        include: [{
+                            model: Task,
+                            as: 'task',
+                            attributes: ['id', 'tentask'],
+                            required: false,
+                            include: [{
+                                model: DuAn,
+                                as: 'duan',
+                                attributes: ['id', 'tenduan'],
+                                required: false
+                            }]
+                        }]
+                    }
+                ],
+                order: [['acceptedAt', 'DESC']],
+                limit: parseInt(limit)
+            });
+
+            console.log('✅ Found approved subtasks for teamleader:', subtasks.length);
+            console.log('✅ Found accepted assignments for teamleader:', assignments.length);
+            
+            return res.json({
+                success: true,
+                data: { tasks: [], subtasks, assignments, total: subtasks.length + assignments.length }
+            });
+        }
+        
+        // Manager: lấy tasks, subtasks và assignments thuộc dự án họ quản lý (dựa trên DuAn.userId)
+        if (userRole === 'manager') {
+            const managedProjects = await DuAn.findAll({
+                where: { userId: userId },
+                attributes: ['id'],
+                raw: true
+            });
+            
+            const projectIds = managedProjects.map(p => p.id);
+            console.log('📋 Manager projects (DuAn.userId):', projectIds);
+            
+            if (projectIds.length === 0) {
+                return res.json({
+                    success: true,
+                    data: { tasks: [], subtasks: [], total: 0 },
+                    message: 'Bạn chưa quản lý dự án nào'
+                });
+            }
+            
+            // Lấy tasks đã phê duyệt thuộc các dự án manager quản lý
+            if (type === 'all' || type === 'tasks') {
+                try {
+                    tasks = await Task.findAll({
+                        where: { 
+                            trangThai: 'Hoàn thành',
+                            duanId: projectIds,
+                            approvedBy: { [Op.not]: null }
+                        },
+                        include: [
+                            {
+                                model: User,
+                                as: 'nguoiGiao',
+                                attributes: ['id', 'manv', 'hoten'],
+                                required: false
+                            },
+                            {
+                                model: User,
+                                as: 'nguoiDuocGiao',
+                                attributes: ['id', 'manv', 'hoten'],
+                                required: false
+                            },
+                            {
+                                model: User,
+                                as: 'approver',
+                                attributes: ['id', 'manv', 'hoten'],
+                                required: false
+                            },
+                            {
+                                model: DuAn,
+                                as: 'duan',
+                                attributes: ['id', 'tenduan'],
+                                required: false
+                            }
+                        ],
+                        order: [['approvedAt', 'DESC']],
+                        limit: parseInt(limit)
+                    });
+                    console.log('✅ Found approved tasks for manager:', tasks.length);
+                } catch (taskError) {
+                    console.error('Error fetching approved tasks:', taskError.message);
+                }
+            }
+            
+            // Lấy subtasks đã phê duyệt thuộc các task của dự án manager quản lý
+            if (type === 'all' || type === 'subtasks') {
+                try {
+                    // Lấy tất cả tasks thuộc dự án
+                    const projectTasks = await Task.findAll({
+                        where: { duanId: projectIds },
+                        attributes: ['id'],
+                        raw: true
+                    });
+                    
+                    const taskIds = projectTasks.map(t => t.id);
+                    
+                    subtasks = await Subtask.findAll({
+                        where: { 
+                            trangThai: 'Hoàn thành',
+                            taskId: taskIds,
+                            approvedBy: { [Op.not]: null }
+                        },
+                        include: [
+                            {
+                                model: User,
+                                as: 'nguoiThucHien',
+                                attributes: ['id', 'manv', 'hoten'],
+                                required: false
+                            },
+                            {
+                                model: User,
+                                as: 'approver',
+                                attributes: ['id', 'manv', 'hoten'],
+                                required: false
+                            },
+                            {
+                                model: Task,
+                                as: 'task',
+                                attributes: ['id', 'tentask'],
+                                required: false,
+                                include: [{
+                                    model: DuAn,
+                                    as: 'duan',
+                                    attributes: ['id', 'tenduan'],
+                                    required: false
+                                }]
+                            }
+                        ],
+                        order: [['approvedAt', 'DESC']],
+                        limit: parseInt(limit)
+                    });
+                    console.log('✅ Found approved subtasks for manager:', subtasks.length);
+                } catch (subtaskError) {
+                    console.error('Error fetching approved subtasks:', subtaskError.message);
+                }
+            }
+            
+            // Lấy assignments đã chấp nhận
+            try {
+                const { Assignment } = require('../models');
+                
+                // Lấy tất cả tasks thuộc dự án
+                const projectTasks = await Task.findAll({
+                    where: { duanId: projectIds },
+                    attributes: ['id'],
+                    raw: true
+                });
+                
+                const taskIds = projectTasks.map(t => t.id);
+                console.log('📋 Manager project taskIds:', taskIds);
+                
+                // Lấy tất cả subtaskIds thuộc các tasks trong dự án
+                const projectSubtasks = await Subtask.findAll({
+                    where: { taskId: taskIds },
+                    attributes: ['id'],
+                    raw: true
+                });
+                
+                const subtaskIds = projectSubtasks.map(s => s.id);
+                console.log('📋 Manager project subtaskIds:', subtaskIds);
+                
+                // Nếu không có tasks và subtasks, không query assignments
+                if (taskIds.length === 0 && subtaskIds.length === 0) {
+                    console.log('⚠️ No tasks or subtasks found in manager projects');
+                    assignments = [];
+                } else {
+                    // Query assignments: hoặc trực tiếp từ task trong dự án, hoặc từ subtask trong dự án
+                    const orConditions = [];
+                    if (taskIds.length > 0) {
+                        orConditions.push({ taskId: taskIds });
+                    }
+                    if (subtaskIds.length > 0) {
+                        orConditions.push({ subtaskId: subtaskIds });
+                    }
+                    
+                    const whereConditions = {
+                        status: 'accepted',
+                        acceptedBy: { [Op.not]: null },
+                        [Op.or]: orConditions
+                    };
+                    
+                    console.log('🔍 Assignment query conditions:', JSON.stringify(whereConditions, null, 2));
+                    
+                    assignments = await Assignment.findAll({
+                        where: whereConditions,
+                    include: [
+                        {
+                            model: User,
+                            as: 'assignee',
+                            attributes: ['id', 'manv', 'hoten'],
+                            required: false
+                        },
+                        {
+                            model: User,
+                            as: 'approver',
+                            attributes: ['id', 'manv', 'hoten'],
+                            required: false
+                        },
+                        {
+                            model: Task,
+                            as: 'task',
+                            attributes: ['id', 'tentask'],
+                            required: false,
+                            include: [{
+                                model: DuAn,
+                                as: 'duan',
+                                attributes: ['id', 'tenduan'],
+                                required: false
+                            }]
+                        },
+                        {
+                            model: Subtask,
+                            as: 'subtask',
+                            attributes: ['id', 'tenSubtask', 'taskId'],
+                            required: false,
+                            include: [{
+                                model: Task,
+                                as: 'task',
+                                attributes: ['id', 'tentask'],
+                                required: false,
+                                include: [{
+                                    model: DuAn,
+                                    as: 'duan',
+                                    attributes: ['id', 'tenduan'],
+                                    required: false
+                                }]
+                            }]
+                        }
+                    ],
+                    order: [['acceptedAt', 'DESC']],
+                    limit: parseInt(limit)
+                });
+                console.log('✅ Found accepted assignments for manager:', assignments.length);
+                if (assignments.length > 0) {
+                    console.log('📋 Assignment details:', assignments.map(a => ({
+                        id: a.id,
+                        taskId: a.taskId,
+                        subtaskId: a.subtaskId,
+                        status: a.status,
+                        acceptedBy: a.acceptedBy,
+                        acceptedAt: a.acceptedAt
+                    })));
+                }
+                }
+            } catch (assignmentError) {
+                console.error('❌ Error fetching accepted assignments:', assignmentError.message);
+                console.error('Stack:', assignmentError.stack);
+            }
+            
+            console.log('📊 Manager history summary:', {
+                tasks: tasks.length,
+                subtasks: subtasks.length,
+                assignments: assignments.length,
+                total: tasks.length + subtasks.length + assignments.length
+            });
+            
+            return res.json({
+                success: true,
+                data: { tasks, subtasks, assignments, total: tasks.length + subtasks.length + assignments.length }
+            });
+        }
+        
+        // Admin có thể xem tất cả lịch sử phê duyệt
+        if (type === 'all' || type === 'tasks') {
+            try {
+                tasks = await Task.findAll({
+                    where: { 
+                        trangThai: 'Hoàn thành',
+                        approvedBy: { [Op.not]: null }
+                    },
+                    include: [
+                        {
+                            model: User,
+                            as: 'nguoiGiao',
+                            attributes: ['id', 'manv', 'hoten'],
+                            required: false
+                        },
+                        {
+                            model: User,
+                            as: 'nguoiDuocGiao',
+                            attributes: ['id', 'manv', 'hoten'],
+                            required: false
+                        },
+                        {
+                            model: User,
+                            as: 'approver',
+                            attributes: ['id', 'manv', 'hoten'],
+                            required: false
+                        },
+                        {
+                            model: DuAn,
+                            as: 'duan',
+                            attributes: ['id', 'tenduan'],
+                            required: false
+                        }
+                    ],
+                    order: [['approvedAt', 'DESC']],
+                    limit: parseInt(limit)
+                });
+            } catch (taskError) {
+                console.error('Error fetching approved tasks:', taskError.message);
+            }
+        }
+        
+        if (type === 'all' || type === 'subtasks') {
+            try {
+                subtasks = await Subtask.findAll({
+                    where: { 
+                        trangThai: 'Hoàn thành',
+                        approvedBy: { [Op.not]: null }
+                    },
+                    include: [
+                        {
+                            model: User,
+                            as: 'nguoiThucHien',
+                            attributes: ['id', 'manv', 'hoten'],
+                            required: false
+                        },
+                        {
+                            model: User,
+                            as: 'approver',
+                            attributes: ['id', 'manv', 'hoten'],
+                            required: false
+                        },
+                        {
+                            model: Task,
+                            as: 'task',
+                            attributes: ['id', 'tentask'],
+                            required: false,
+                            include: [{
+                                model: DuAn,
+                                as: 'duan',
+                                attributes: ['id', 'tenduan'],
+                                required: false
+                            }]
+                        }
+                    ],
+                    order: [['approvedAt', 'DESC']],
+                    limit: parseInt(limit)
+                });
+            } catch (subtaskError) {
+                console.error('Error fetching approved subtasks:', subtaskError.message);
+            }
+        }
+        
+        // Admin: Lấy tất cả assignments đã chấp nhận
+        try {
+            const { Assignment } = require('../models');
+            assignments = await Assignment.findAll({
+                where: {
+                    status: 'accepted',
+                    acceptedBy: { [Op.not]: null }
+                },
+                include: [
+                    {
+                        model: User,
+                        as: 'assignee',
+                        attributes: ['id', 'manv', 'hoten'],
+                        required: false
+                    },
+                    {
+                        model: User,
+                        as: 'approver',
+                        attributes: ['id', 'manv', 'hoten'],
+                        required: false
+                    },
+                    {
+                        model: Task,
+                        as: 'task',
+                        attributes: ['id', 'tentask'],
+                        required: false,
+                        include: [{
+                            model: DuAn,
+                            as: 'duan',
+                            attributes: ['id', 'tenduan'],
+                            required: false
+                        }]
+                    },
+                    {
+                        model: Subtask,
+                        as: 'subtask',
+                        attributes: ['id', 'tenSubtask', 'taskId'],
+                        required: false,
+                        include: [{
+                            model: Task,
+                            as: 'task',
+                            attributes: ['id', 'tentask'],
+                            required: false,
+                            include: [{
+                                model: DuAn,
+                                as: 'duan',
+                                attributes: ['id', 'tenduan'],
+                                required: false
+                            }]
+                        }]
+                    }
+                ],
+                order: [['acceptedAt', 'DESC']],
+                limit: parseInt(limit)
+            });
+            console.log('✅ Admin found accepted assignments:', assignments.length);
+        } catch (assignmentError) {
+            console.error('❌ Error fetching admin assignments:', assignmentError.message);
+        }
+        
+        console.log('📊 Admin history summary:', {
+            tasks: tasks.length,
+            subtasks: subtasks.length,
+            assignments: assignments.length,
+            total: tasks.length + subtasks.length + assignments.length
+        });
+        
+        res.json({
+            success: true,
+            data: {
+                tasks,
+                subtasks,
+                assignments,
+                total: tasks.length + subtasks.length + assignments.length
+            }
+        });
+    } catch (error) {
+        console.error('Get approved history error:', error);
+        console.error('Error details:', error.message);
+        res.status(500).json({ 
+            success: false,
+            message: 'Lỗi lấy lịch sử phê duyệt',
+            error: error.message 
+        });
+    }
+};
+
+// Delete history item (remove approval data but keep the task/subtask/assignment)
+const deleteHistory = async (req, res) => {
+    try {
+        const { type, id } = req.body;
+        const userId = req.user.id;
+        const userRole = req.user.role?.name;
+
+        if (!type || !id) {
+            return res.status(400).json({
+                success: false,
+                message: 'Thiếu thông tin type hoặc id'
+            });
+        }
+
+        console.log('🗑️ Delete history:', { type, id, userId, userRole });
+
+        if (type === 'task') {
+            const task = await Task.findByPk(id);
+            if (!task) {
+                return res.status(404).json({ success: false, message: 'Không tìm thấy công việc' });
+            }
+
+            // Reset approval fields
+            await task.update({
+                approvedBy: null,
+                approvedAt: null,
+                requestedCompletionAt: null
+            });
+
+            return res.json({
+                success: true,
+                message: 'Đã xóa lịch sử phê duyệt công việc'
+            });
+        } else if (type === 'subtask') {
+            const subtask = await Subtask.findByPk(id);
+            if (!subtask) {
+                return res.status(404).json({ success: false, message: 'Không tìm thấy công việc nhỏ' });
+            }
+
+            // Reset approval fields
+            await subtask.update({
+                approvedBy: null,
+                approvedAt: null,
+                requestedCompletionAt: null
+            });
+
+            return res.json({
+                success: true,
+                message: 'Đã xóa lịch sử phê duyệt công việc nhỏ'
+            });
+        } else if (type === 'assignment') {
+            const { Assignment } = require('../models');
+            const assignment = await Assignment.findByPk(id);
+            if (!assignment) {
+                return res.status(404).json({ success: false, message: 'Không tìm thấy phân công' });
+            }
+
+            // Delete the assignment record completely
+            await assignment.destroy();
+
+            return res.json({
+                success: true,
+                message: 'Đã xóa lịch sử chấp nhận yêu cầu'
+            });
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: 'Loại không hợp lệ'
+            });
+        }
+    } catch (error) {
+        console.error('Delete history error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi xóa lịch sử',
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     getPendingApprovals,
     approveTaskCompletion,
     rejectTaskCompletion,
     approveSubtaskCompletion,
-    rejectSubtaskCompletion
+    rejectSubtaskCompletion,
+    getApprovedHistory,
+    deleteHistory
 };

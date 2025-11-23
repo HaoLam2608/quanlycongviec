@@ -24,7 +24,8 @@
     "pdfkit": "^0.17.2",
     "puppeteer": "^24.29.0",
     "sequelize": "^6.37.7",
-    "socket.io": "^4.7.2"
+    "socket.io": "^4.7.2",
+    "uuid": "^13.0.0"
   },
   "scripts": {
     "start": "bun run index.js",
