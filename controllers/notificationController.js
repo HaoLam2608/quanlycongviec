@@ -1,7 +1,5 @@
 const { Notification, User, UserNotification } = require('../models');
 const { Op } = require('sequelize');
-const { sendGeneralNotificationPush } = require('../services/pushNotificationService');
-const { sendGeneralNotificationPushViaFirebase } = require('../services/firebasePushService');
 
 // Get all notifications for admin
 exports.getAllNotifications = async (req, res) => {
@@ -104,29 +102,15 @@ exports.getUserNotifications = async (req, res) => {
         });
 
         // 2) user-specific notifications via UserNotification
-        // Admin: lấy TẤT CẢ join requests chưa xử lý từ mọi user
-        let userNotifs = [];
-        if (userRole === 'admin') {
-            console.log('🔑 Admin mode: Loading ALL join requests');
-            userNotifs = await Notification.findAll({
-                include: [
-                    {
-                        model: UserNotification,
-                        as: 'UserNotifications',
-                        required: true,
-                        attributes: ['userId', 'isRead', 'meta']
-                    },
-                    {
-                        model: User,
-                        as: 'author',
-                        attributes: ['id', 'manv', 'hoten']
-                    }
-                ],
-                where: {
-                    status: 'published',
-                    ...(filterType ? { type: filterType } : {})
+        const userNotifs = await Notification.findAll({
+            include: [
+                {
+                    model: UserNotification,
+                    as: 'UserNotifications',
+                    where: { userId },
+                    required: true,
+                    attributes: ['isRead', 'meta']
                 },
-<<<<<<< HEAD
                 {
                     model: User,
                     as: 'author',
@@ -138,35 +122,6 @@ exports.getUserNotifications = async (req, res) => {
             },
             order: [['createdAt', 'DESC']]
         });
-=======
-                order: [['createdAt', 'DESC']]
-            });
-            console.log(`📊 Admin loaded ${userNotifs.length} notifications from all users`);
-        } else {
-            // Manager/Member: chỉ lấy notifications của chính họ
-            userNotifs = await Notification.findAll({
-                include: [
-                    {
-                        model: UserNotification,
-                        as: 'UserNotifications',
-                        where: { userId },
-                        required: true,
-                        attributes: ['isRead', 'meta']
-                    },
-                    {
-                        model: User,
-                        as: 'author',
-                        attributes: ['id', 'manv', 'hoten']
-                    }
-                ],
-                where: {
-                    status: 'published',
-                    ...(filterType ? { type: filterType } : {})
-                },
-                order: [['createdAt', 'DESC']]
-            });
-        }
->>>>>>> d32e82a9777d489521771530970bb3c04e7e78ff
 
         // Map user-specific notifications to include meta from UserNotification
         const userMapped = userNotifs.map(n => {
@@ -393,75 +348,6 @@ exports.toggleNotificationStatus = async (req, res) => {
                 attributes: ['id', 'manv', 'hoten']
             }]
         });
-
-        // Nếu xuất bản thông báo, gửi push notification
-        if (action === 'publish') {
-            try {
-                console.log('🔔 [Push] Publishing notification, targetAudience:', notification.targetAudience);
-
-                // Lấy danh sách user cần nhận thông báo dựa vào targetAudience
-                let targetRoles = notification.targetAudience ? notification.targetAudience.split(',').map(r => r.trim()) : [];
-
-                console.log('🔔 [Push] Target roles from notification:', targetRoles);
-
-                // Nếu targetAudience là 'all', lấy tất cả users
-                const isAll = targetRoles.includes('all');
-
-                const { Role } = require('../models');
-                let whereClause = {};
-
-                if (!isAll && targetRoles.length > 0) {
-                    // Map 'member' -> 'employee' vì trong bảng Roles có thể lưu khác
-                    const mappedRoles = targetRoles.map(role => {
-                        if (role === 'member') return 'employee';
-                        return role;
-                    });
-
-                    console.log('🔔 [Push] Mapped roles:', mappedRoles);
-
-                    // Tìm roleIds từ bảng Roles
-                    const roles = await Role.findAll({
-                        where: { name: { [Op.in]: mappedRoles } },
-                        attributes: ['id', 'name']
-                    });
-
-                    console.log('🔔 [Push] Found roles:', roles.map(r => ({ id: r.id, name: r.name })));
-
-                    const roleIds = roles.map(r => r.id);
-                    if (roleIds.length > 0) {
-                        whereClause.roleId = { [Op.in]: roleIds };
-                    }
-                }
-
-                const targetUsers = await User.findAll({
-                    where: whereClause,
-                    attributes: ['id', 'manv', 'roleId']
-                });
-
-                console.log('🔔 [Push] Found target users:', targetUsers.length);
-                if (targetUsers.length > 0) {
-                    console.log('🔔 [Push] Sample users:', targetUsers.slice(0, 3).map(u => ({ id: u.id, manv: u.manv, roleId: u.roleId })));
-                }
-
-                const userIds = targetUsers.map(u => u.id);
-
-                if (userIds.length > 0) {
-                    console.log('🔔 [Push] Sending push to user IDs:', userIds);
-                    // Dùng Firebase thay vì Expo
-                    const result = await sendGeneralNotificationPushViaFirebase(
-                        userIds,
-                        notification.title,
-                        notification.content
-                    );
-                    console.log('🔔 [Push] Send result:', result);
-                } else {
-                    console.log('🔔 [Push] No users to send push notification');
-                }
-            } catch (pushError) {
-                console.error('❌ [Push] Error sending push notification:', pushError);
-                // Không throw error để không ảnh hưởng đến việc xuất bản thông báo
-            }
-        }
 
         res.json({
             success: true,
