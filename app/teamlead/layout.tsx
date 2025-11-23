@@ -13,6 +13,8 @@ import ApprovalCountBadge from "@/components/ApprovalCountBadge"
 import { showConfirm } from '@/lib/notifications'
 import { getMyProfile } from "@/axios/api"
 import Image from "next/image"
+import { GlobalChatProvider } from "@/components/chat/GlobalChatProvider"
+import { FloatingAI } from "@/components/ai/FloatingAI"
 
 const navigation = [
     { name: "Dashboard", href: "/teamlead", icon: Home },
@@ -119,6 +121,8 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
 
     return (
         <AuthGuard>
+            <GlobalChatProvider>
+                <FloatingAI />
             <div className="h-screen flex bg-gray-100">
                 {/* Mobile sidebar */}
                 <div className={`fixed inset-0 flex z-40 md:hidden ${sidebarOpen ? '' : 'hidden'}`}>
@@ -330,6 +334,7 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
                     </main>
                 </div>
             </div>
+            </GlobalChatProvider>
         </AuthGuard>
     )
 }

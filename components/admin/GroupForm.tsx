@@ -201,6 +201,8 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
     const [users, setUsers] = useState<UserOption[]>([]);
     const [teamLeaders, setTeamLeaders] = useState<UserOption[]>([]);
     const [regularEmployees, setRegularEmployees] = useState<UserOption[]>([]);
+    const [availableMembers, setAvailableMembers] = useState<any[]>([]);
+    const [unavailableMembers, setUnavailableMembers] = useState<any[]>([]);
     const [userGroupCounts, setUserGroupCounts] = useState<{ [userId: number]: number }>({});
     const [leaderGroupCounts, setLeaderGroupCounts] = useState<{ [userId: number]: number }>({});
     const [projects, setProjects] = useState<ProjectSelectOption[]>([]);
@@ -209,8 +211,13 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
     const [message, setMessage] = useState('');
     const [memberSearchTerm, setMemberSearchTerm] = useState('');
 
-    // Lọc thành viên thường theo search
-    const filteredRegularEmployees = regularEmployees.filter(user =>
+    // Lọc thành viên theo search - bao gồm cả available và unavailable
+    const filteredAvailableMembers = availableMembers.filter(user =>
+        user.hoten.toLowerCase().includes(memberSearchTerm.toLowerCase()) ||
+        user.manv.toLowerCase().includes(memberSearchTerm.toLowerCase())
+    );
+    
+    const filteredUnavailableMembers = unavailableMembers.filter(user =>
         user.hoten.toLowerCase().includes(memberSearchTerm.toLowerCase()) ||
         user.manv.toLowerCase().includes(memberSearchTerm.toLowerCase())
     );
@@ -240,16 +247,26 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
 
     const loadPrerequisites = async () => {
         try {
-            const [userData, projectRes, groupRes] = await Promise.all([
+            const [userData, projectRes, groupRes, availableMembersRes] = await Promise.all([
                 getUsers({ page: 1, limit: 1000 }),
                 api.get('/duan/getAll'),
-                api.get('/groups')
+                api.get('/groups'),
+                // Gọi API mới để lấy danh sách members available/unavailable
+                groupAPI.getAvailableMembers(editGroup?.id)
             ]);
+            
             setUsers(userData.users.map((u: any) => ({ id: u.id, hoten: u.hoten, manv: u.manv, chucvu: u.chucvu, role: u.role })));
             setTeamLeaders(userData.users.filter((u: any) => u.role?.name === 'teamleader').map((u: any) => ({ id: u.id, hoten: u.hoten, manv: u.manv, chucvu: u.chucvu, role: u.role })));
             setRegularEmployees(userData.users.filter((u: any) => u.role?.name === 'employee').map((u: any) => ({ id: u.id, hoten: u.hoten, manv: u.manv, chucvu: u.chucvu, role: u.role })));
+            
+            // Set available và unavailable members từ API
+            const membersData = availableMembersRes.data;
+            setAvailableMembers(membersData.availableUsers || []);
+            setUnavailableMembers(membersData.unavailableUsers || []);
+            
             // Lọc chỉ dự án chua_bat_dau hoặc dang_chay
             setProjects((projectRes.data || []).filter((p: any) => p.status === 'chua_bat_dau' || p.status === 'dang_chay'));
+            
             // Đếm số nhóm mỗi user đang tham gia (thành viên) - CHỈ ĐẾM NHÓM ACTIVE
             const groupCounts: { [userId: number]: number } = {};
             // Đếm số nhóm mỗi user đang là leader - CHỈ ĐẾM NHÓM ACTIVE
@@ -276,6 +293,8 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
             
             console.log('📊 [GroupForm] Số nhóm mỗi thành viên đang tham gia:', groupCounts);
             console.log('👔 [GroupForm] Số nhóm mỗi leader đang quản lý:', leaderCounts);
+            console.log('✅ [GroupForm] Available members:', membersData.availableCount);
+            console.log('❌ [GroupForm] Unavailable members:', membersData.unavailableCount);
             
             setUserGroupCounts(groupCounts);
             setLeaderGroupCounts(leaderCounts);
@@ -434,41 +453,68 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
                                 </div>
                             </div>
                             <div className="p-3 max-h-60 overflow-y-auto space-y-2">
-                                {filteredRegularEmployees.length === 0 && memberSearchTerm && (
+                                {/* Available Members */}
+                                {filteredAvailableMembers.length === 0 && filteredUnavailableMembers.length === 0 && memberSearchTerm && (
                                     <div className="text-sm text-gray-500 text-center py-4">Không tìm thấy thành viên nào</div>
                                 )}
-                                {filteredRegularEmployees.length === 0 && !memberSearchTerm && (
-                                    <div className="text-sm text-gray-500 text-center py-4">Không có nhân viên thường</div>
+                                {filteredAvailableMembers.length === 0 && filteredUnavailableMembers.length === 0 && !memberSearchTerm && (
+                                    <div className="text-sm text-gray-500 text-center py-4">Không có nhân viên</div>
                                 )}
-                                {filteredRegularEmployees.map(u => {
-                                    const joinedGroups = userGroupCounts[u.id] || 0;
-                                    const overLimit = joinedGroups >= 2;
-                                    const disabled = overLimit || (!!formData.leaderId && Number(formData.leaderId) === u.id);
-                                    const checked = memberIds.includes(u.id) || disabled;
+                                
+                                {/* Available Members - có thể chọn */}
+                                {filteredAvailableMembers.map((u: any) => {
+                                    const isCurrentMember = u.isCurrentMember;
+                                    const checked = memberIds.includes(u.id) || isCurrentMember;
                                     return (
-                                        <label key={u.id} className={`flex items-center gap-3 text-sm cursor-pointer p-2 rounded-md hover:bg-gray-50 ${disabled ? 'opacity-60' : ''}`} title={overLimit ? 'Nhân viên đã tham gia 2 nhóm' : ''}>
+                                        <label key={u.id} className="flex items-center gap-3 text-sm cursor-pointer p-2 rounded-md hover:bg-green-50 border border-green-200 bg-green-50/30">
                                             <input
                                                 type="checkbox"
-                                                disabled={disabled || isClosed}
+                                                disabled={isClosed}
                                                 checked={checked}
                                                 onChange={() => toggleMember(u.id)}
-                                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                                className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
                                             />
                                             <div className="flex items-center gap-2 flex-1">
-                                                <div className="w-8 h-8 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                                    <span className="text-xs font-semibold text-indigo-700">
+                                                <div className="w-8 h-8 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                                    <span className="text-xs font-semibold text-green-700">
                                                         {mounted ? u.hoten.charAt(0).toUpperCase() : ''}
                                                     </span>
                                                 </div>
-                                                <div>
+                                                <div className="flex-1">
                                                     <div className="font-medium text-gray-900">{u.hoten}</div>
                                                     <div className="text-xs text-gray-500">{u.manv}</div>
-                                                    {overLimit && <div className="text-xs text-red-500">Đã tham gia 2 nhóm</div>}
+                                                    {isCurrentMember && <div className="text-xs text-blue-600">✓ Thành viên hiện tại</div>}
                                                 </div>
+                                                <span className="text-xs px-2 py-1 bg-green-500 text-white rounded-full font-medium">Khả dụng</span>
                                             </div>
                                         </label>
                                     );
                                 })}
+                                
+                                {/* Unavailable Members - không thể chọn */}
+                                {filteredUnavailableMembers.map((u: any) => (
+                                    <label key={u.id} className="flex items-center gap-3 text-sm p-2 rounded-md bg-gray-100 border border-gray-300 opacity-60 cursor-not-allowed">
+                                        <input
+                                            type="checkbox"
+                                            disabled={true}
+                                            checked={false}
+                                            className="w-4 h-4 text-gray-400 border-gray-300 rounded"
+                                        />
+                                        <div className="flex items-center gap-2 flex-1">
+                                            <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
+                                                <span className="text-xs font-semibold text-gray-500">
+                                                    {mounted ? u.hoten.charAt(0).toUpperCase() : ''}
+                                                </span>
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="font-medium text-gray-700">{u.hoten}</div>
+                                                <div className="text-xs text-gray-500">{u.manv}</div>
+                                                <div className="text-xs text-red-600">{u.reason}</div>
+                                            </div>
+                                            <span className="text-xs px-2 py-1 bg-red-500 text-white rounded-full font-medium">Không khả dụng</span>
+                                        </div>
+                                    </label>
+                                ))}
                             </div>
                             {memberIds.length > 0 && (
                                 <div className="p-3 border-t bg-gray-50">

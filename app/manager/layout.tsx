@@ -9,6 +9,8 @@ import AuthGuard from "@/components/auth/AuthGuard"
 import { useToastContext } from "@/components/providers/toast-provider"
 import NotificationBell from "@/components/NotificationBell"
 import ApprovalCountBadge from "@/components/ApprovalCountBadge"
+import { GlobalChatProvider } from "@/components/chat/GlobalChatProvider"
+import { FloatingAI } from "@/components/ai/FloatingAI"
 
 import { showConfirm } from '@/lib/notifications'
 import Image from "next/image"
@@ -96,6 +98,8 @@ export default function PMLayout({ children }: { children: React.ReactNode }) {
 
     return (
         <AuthGuard>
+            <GlobalChatProvider>
+                <FloatingAI />
             <div className="h-screen flex bg-gray-100">
                 {/* Mobile sidebar */}
                 <div className={`fixed inset-0 flex z-40 md:hidden ${sidebarOpen ? '' : 'hidden'}`}>
@@ -304,6 +308,7 @@ export default function PMLayout({ children }: { children: React.ReactNode }) {
                     </main>
                 </div>
             </div>
+            </GlobalChatProvider>
         </AuthGuard>
     )
 }

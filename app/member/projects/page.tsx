@@ -463,28 +463,64 @@ export default function MyProjectsPage() {
                                 {/* Action buttons for this project (in-detail) */}
                                 <div className="flex items-center gap-3">
                                     <button
-                                        onClick={() => { setShowTimeline(true); setShowMyTasks(false); setShowDocuments(false) }}
-                                        className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                                        onClick={() => { 
+                                            setShowTimeline(!showTimeline); 
+                                            setShowMyTasks(false); 
+                                            setShowDocuments(false);
+                                            setShowKanban(false);
+                                        }}
+                                        className={`px-3 py-2 rounded-md transition-colors ${
+                                            showTimeline 
+                                                ? 'bg-blue-700 text-white' 
+                                                : 'bg-blue-600 text-white hover:bg-blue-700'
+                                        }`}
                                     >
                                         👁️ Xem Timeline
                                     </button>
                                     <button
-                                        onClick={() => { setShowMyTasks(true); setShowTimeline(false); setShowDocuments(false) }}
-                                        className="px-3 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                                        onClick={() => { 
+                                            setShowMyTasks(!showMyTasks); 
+                                            setShowTimeline(false); 
+                                            setShowDocuments(false);
+                                            setShowKanban(false);
+                                        }}
+                                        className={`px-3 py-2 rounded-md transition-colors ${
+                                            showMyTasks 
+                                                ? 'bg-green-700 text-white' 
+                                                : 'bg-green-600 text-white hover:bg-green-700'
+                                        }`}
                                     >
                                         🎯 Công việc của tôi
                                     </button>
                                     {/* Tất cả công việc button removed as requested */}
                                     <button
-                                        onClick={() => { setShowKanban(true); setShowTimeline(false); setShowMyTasks(false); setShowDocuments(false) }}
-                                        className="px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+                                        onClick={() => { 
+                                            setShowKanban(!showKanban); 
+                                            setShowTimeline(false); 
+                                            setShowMyTasks(false); 
+                                            setShowDocuments(false);
+                                        }}
+                                        className={`px-3 py-2 rounded-md transition-colors ${
+                                            showKanban 
+                                                ? 'bg-indigo-700 text-white' 
+                                                : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                                        }`}
                                     >
                                         🗂️ Kanban
                                     </button>
 
                                     <button
-                                        onClick={() => { setShowDocuments(true); setShowTimeline(false); setShowMyTasks(false); setShowKanban(false) }}
-                                        className="px-3 py-2 bg-violet-600 text-white rounded-md hover:bg-violet-700 transition-colors"
+                                        onClick={() => { 
+                                            setShowDocuments(!showDocuments); 
+                                            setShowTimeline(false); 
+                                            setShowMyTasks(false); 
+                                            setShowKanban(false);
+                                        }}
+                                        className={`px-3 py-2 rounded-md transition-colors ${
+                                            showDocuments 
+                                                ? 'bg-violet-700 text-white' 
+                                                : 'bg-violet-600 text-white hover:bg-violet-700'
+                                        }`}
                                     >
                                         📄 Tài liệu
                                     </button>

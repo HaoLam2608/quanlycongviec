@@ -19,10 +19,12 @@ import {
     X,
     User
 } from "lucide-react"
+import { FloatingAI } from "@/components/ai/FloatingAI"
 import AuthGuard from "@/components/auth/AuthGuard"
 import { useToastContext } from '@/components/providers/toast-provider'
 import NotificationBell from "@/components/NotificationBell"
 import ApprovalCountBadge from "@/components/ApprovalCountBadge"
+import { GlobalChatProvider } from "@/components/chat/GlobalChatProvider"
 
 import { showConfirm } from '@/lib/notifications'
 import Image from "next/image"
@@ -123,6 +125,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     return (
         <AuthGuard>
+            <GlobalChatProvider>
             <div className="h-screen flex bg-gray-100">
                 {/* Mobile sidebar */}
                 <div className={`fixed inset-0 flex z-40 md:hidden ${sidebarOpen ? '' : 'hidden'}`}>
@@ -319,7 +322,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         <div className="max-w-7xl mx-auto p-8">{children}</div>
                     </main>
                 </div>
+                
+                {/* Floating AI Assistant */}
+                <FloatingAI />
             </div>
+            </GlobalChatProvider>
         </AuthGuard>
     )
 }

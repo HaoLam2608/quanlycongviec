@@ -237,7 +237,12 @@ export default function ProjectDetailPage() {
             return;
         }
         try {
-            await uploadDocument(uploadFile, Number(id), uploadDesc);
+            console.log('Uploading file:', uploadFile.name, 'to project:', id);
+            const result = await uploadDocument(uploadFile, Number(id), uploadDesc);
+            console.log('Upload successful:', result);
+            
+            showSuccess('Tải lên tài liệu thành công!');
+            
             const docs = await fetchDocuments(Number(id));
             setDocuments(docs.documents || docs || []);
             setIsUploadOpen(false);

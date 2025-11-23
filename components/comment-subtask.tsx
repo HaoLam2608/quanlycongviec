@@ -8,7 +8,6 @@ import { formatDistanceToNow } from "date-fns";
 import { vi } from "date-fns/locale";
 import MentionTextarea from "./MentionTextarea";
 import MentionText from "./MentionText";
-import ConfirmDialog from "./ConfirmDialog";
 
 interface CommentSubtaskProps {
   subtaskId: number;
@@ -92,28 +91,16 @@ export default function CommentSubtask({ subtaskId, subtaskStatus }: CommentSubt
     }
   };
 
-  const [showConfirm, setShowConfirm] = useState(false)
-  const [pendingDeleteId, setPendingDeleteId] = useState<number | null>(null)
-
   const handleDelete = async (commentId: number) => {
-    // open confirm modal
-    setPendingDeleteId(commentId)
-    setShowConfirm(true)
-  };
-
-  const confirmDelete = async () => {
-    if (!pendingDeleteId) return
+    if (!confirm("Bạn có chắc muốn xóa bình luận này?")) return;
+    
     try {
-      await deleteComment(pendingDeleteId)
-      setShowConfirm(false)
-      setPendingDeleteId(null)
-      fetchComments()
+      await deleteComment(commentId);
+      fetchComments();
     } catch (err) {
-      setShowConfirm(false)
-      setPendingDeleteId(null)
-      alert("Không thể xóa bình luận")
+      alert("Không thể xóa bình luận");
     }
-  }
+  };
 
   const formatTime = (dateString: string) => {
     try {
@@ -310,16 +297,6 @@ export default function CommentSubtask({ subtaskId, subtaskStatus }: CommentSubt
           ))}
         </div>
       )}
-      
-      <ConfirmDialog
-        isOpen={showConfirm}
-        onClose={() => { setShowConfirm(false); setPendingDeleteId(null) }}
-        onConfirm={confirmDelete}
-        title="Xác nhận xóa"
-        message="Bạn có chắc muốn xóa bình luận này? Hành động không thể hoàn tác."
-        confirmText="Xóa"
-        cancelText="Hủy"
-      />
     </div>
   );
 }

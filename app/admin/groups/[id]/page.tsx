@@ -4,11 +4,33 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { groupAPI } from "@/axios/adminApi";
 import { fetchProjects } from "@/axios/api";
-import { Users, User, FolderKanban, ArrowLeft, Mail, Calendar, CheckCircle2, Clock } from "lucide-react";
+import { Users, User, FolderKanban, ArrowLeft, Mail, Calendar, CheckCircle2, Clock, TrendingUp, BarChart3, Activity } from "lucide-react";
+
+interface GroupStatistics {
+    tasks: {
+        total: number;
+        completed: number;
+        inProgress: number;
+        pending: number;
+        overdue: number;
+    };
+    subtasks: {
+        total: number;
+        completed: number;
+        inProgress: number;
+        pending: number;
+    };
+    projects: {
+        total: number;
+        active: number;
+        completed: number;
+    };
+}
 
 export default function GroupDetailPage({ params }: { params: { id: string } }) {
     const groupId = params.id;
     const [group, setGroup] = useState<any>(null);
+    const [statistics, setStatistics] = useState<GroupStatistics | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [projects, setProjects] = useState<any[]>([]);
@@ -16,13 +38,16 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [groupRes, projectsRes] = await Promise.all([
-                    groupAPI.getGroup(Number(groupId)),
-                    fetchProjects()
-                ]);
-                setGroup(groupRes.data.group);
+                // Sử dụng endpoint mới với thống kê
+                const detailRes = await groupAPI.getGroupDetail(Number(groupId));
+                setGroup(detailRes.data.group);
+                setStatistics(detailRes.data.statistics);
+                
+                // Lấy danh sách dự án để hiển thị thông tin chi tiết
+                const projectsRes = await fetchProjects();
                 setProjects(projectsRes.duans || projectsRes.projects || projectsRes || []);
             } catch (err: any) {
+                console.error("Error fetching group detail:", err);
                 setError("Không tìm thấy nhóm hoặc không có quyền xem");
             } finally {
                 setLoading(false);
@@ -63,8 +88,8 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
         );
     }
 
-    const activeProjects = group.groupProjects?.filter((gp: any) => gp.status === 'active') || [];
-    const completedProjects = group.groupProjects?.filter((gp: any) => gp.status === 'completed') || [];
+    const activeProjects = group.projects?.filter((p: any) => p.groupProjectStatus === 'active') || [];
+    const completedProjects = group.projects?.filter((p: any) => p.groupProjectStatus === 'completed') || [];
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6">
@@ -98,17 +123,132 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
                                 <div className="flex items-center gap-4 mt-4">
                                     <div className="flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-sm rounded-lg">
                                         <Users className="w-4 h-4 text-white" />
-                                        <span className="text-white font-semibold">{group.members?.length || 0} thành viên</span>
+                                        <span className="text-white font-semibold">{group.memberCount || 0} thành viên</span>
                                     </div>
                                     <div className="flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-sm rounded-lg">
                                         <FolderKanban className="w-4 h-4 text-white" />
-                                        <span className="text-white font-semibold">{activeProjects.length} dự án</span>
+                                        <span className="text-white font-semibold">{statistics?.projects.active || 0} dự án</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
+                {/* Statistics Cards */}
+                {statistics && (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {/* Tasks Stats */}
+                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                            <div className="flex items-center gap-2 mb-4">
+                                <Activity className="w-5 h-5 text-blue-500" />
+                                <h3 className="font-bold text-gray-900">Tasks</h3>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-600">Tổng số</span>
+                                    <span className="font-bold text-gray-900">{statistics.tasks.total}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm text-green-600">Hoàn thành</span>
+                                    <span className="font-bold text-green-600">{statistics.tasks.completed}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm text-blue-600">Đang chạy</span>
+                                    <span className="font-bold text-blue-600">{statistics.tasks.inProgress}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-600">Chưa bắt đầu</span>
+                                    <span className="font-bold text-gray-600">{statistics.tasks.pending}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm text-red-600">Quá hạn</span>
+                                    <span className="font-bold text-red-600">{statistics.tasks.overdue}</span>
+                                </div>
+                                {statistics.tasks.total > 0 && (
+                                    <div className="pt-2 border-t border-gray-200">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-xs text-gray-500">Tiến độ</span>
+                                            <span className="text-xs font-bold text-blue-600">
+                                                {Math.round((statistics.tasks.completed / statistics.tasks.total) * 100)}%
+                                            </span>
+                                        </div>
+                                        <div className="w-full bg-gray-200 rounded-full h-2">
+                                            <div 
+                                                className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all"
+                                                style={{ width: `${(statistics.tasks.completed / statistics.tasks.total) * 100}%` }}
+                                            ></div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Subtasks Stats */}
+                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                            <div className="flex items-center gap-2 mb-4">
+                                <BarChart3 className="w-5 h-5 text-purple-500" />
+                                <h3 className="font-bold text-gray-900">Subtasks</h3>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-600">Tổng số</span>
+                                    <span className="font-bold text-gray-900">{statistics.subtasks.total}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm text-green-600">Hoàn thành</span>
+                                    <span className="font-bold text-green-600">{statistics.subtasks.completed}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm text-blue-600">Đang chạy</span>
+                                    <span className="font-bold text-blue-600">{statistics.subtasks.inProgress}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-600">Chưa bắt đầu</span>
+                                    <span className="font-bold text-gray-600">{statistics.subtasks.pending}</span>
+                                </div>
+                                {statistics.subtasks.total > 0 && (
+                                    <div className="pt-2 border-t border-gray-200">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-xs text-gray-500">Tiến độ</span>
+                                            <span className="text-xs font-bold text-purple-600">
+                                                {Math.round((statistics.subtasks.completed / statistics.subtasks.total) * 100)}%
+                                            </span>
+                                        </div>
+                                        <div className="w-full bg-gray-200 rounded-full h-2">
+                                            <div 
+                                                className="bg-gradient-to-r from-purple-500 to-purple-600 h-2 rounded-full transition-all"
+                                                style={{ width: `${(statistics.subtasks.completed / statistics.subtasks.total) * 100}%` }}
+                                            ></div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Projects Stats */}
+                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                            <div className="flex items-center gap-2 mb-4">
+                                <TrendingUp className="w-5 h-5 text-green-500" />
+                                <h3 className="font-bold text-gray-900">Dự án</h3>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-600">Tổng số</span>
+                                    <span className="font-bold text-gray-900">{statistics.projects.total}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm text-green-600">Đang hoạt động</span>
+                                    <span className="font-bold text-green-600">{statistics.projects.active}</span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-600">Đã hoàn thành</span>
+                                    <span className="font-bold text-gray-600">{statistics.projects.completed}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Leader Section */}
@@ -192,32 +332,29 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
                                 <h3 className="text-sm font-semibold text-gray-700">Đang tham gia ({activeProjects.length})</h3>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {activeProjects.map((gp: any) => {
-                                    const project = projects.find((p: any) => p.id === gp.projectId);
-                                    return (
-                                        <div key={gp.id} className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200 hover:shadow-md transition-all">
-                                            <div className="flex items-start gap-3">
-                                                <div className="w-10 h-10 rounded-lg bg-green-500 flex items-center justify-center flex-shrink-0 shadow-md">
-                                                    <FolderKanban className="w-5 h-5 text-white" />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <h4 className="font-semibold text-gray-900 text-sm line-clamp-1" title={project?.tenduan}>
-                                                        {project?.tenduan || `Dự án #${gp.projectId}`}
-                                                    </h4>
-                                                    {project?.mota && (
-                                                        <p className="text-xs text-gray-600 mt-1 line-clamp-2">{project.mota}</p>
-                                                    )}
-                                                    <div className="flex items-center gap-2 mt-2">
-                                                        <span className="px-2 py-0.5 bg-green-500 text-white rounded text-xs font-semibold flex items-center gap-1">
-                                                            <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
-                                                            Đang hoạt động
-                                                        </span>
-                                                    </div>
+                                {activeProjects.map((project: any) => (
+                                    <div key={project.id} className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200 hover:shadow-md transition-all">
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-10 h-10 rounded-lg bg-green-500 flex items-center justify-center flex-shrink-0 shadow-md">
+                                                <FolderKanban className="w-5 h-5 text-white" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <h4 className="font-semibold text-gray-900 text-sm line-clamp-1" title={project.tenduan}>
+                                                    {project.tenduan}
+                                                </h4>
+                                                {project.mota && (
+                                                    <p className="text-xs text-gray-600 mt-1 line-clamp-2">{project.mota}</p>
+                                                )}
+                                                <div className="flex items-center gap-2 mt-2">
+                                                    <span className="px-2 py-0.5 bg-green-500 text-white rounded text-xs font-semibold flex items-center gap-1">
+                                                        <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
+                                                        Đang hoạt động
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>
-                                    );
-                                })}
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}
@@ -230,32 +367,29 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
                                 <h3 className="text-sm font-semibold text-gray-700">Đã hoàn thành ({completedProjects.length})</h3>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {completedProjects.map((gp: any) => {
-                                    const project = projects.find((p: any) => p.id === gp.projectId);
-                                    return (
-                                        <div key={gp.id} className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:shadow-md transition-all">
-                                            <div className="flex items-start gap-3">
-                                                <div className="w-10 h-10 rounded-lg bg-gray-400 flex items-center justify-center flex-shrink-0 shadow-md">
-                                                    <FolderKanban className="w-5 h-5 text-white" />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <h4 className="font-semibold text-gray-900 text-sm line-clamp-1" title={project?.tenduan}>
-                                                        {project?.tenduan || `Dự án #${gp.projectId}`}
-                                                    </h4>
-                                                    {project?.mota && (
-                                                        <p className="text-xs text-gray-600 mt-1 line-clamp-2">{project.mota}</p>
-                                                    )}
-                                                    <div className="flex items-center gap-2 mt-2">
-                                                        <span className="px-2 py-0.5 bg-gray-500 text-white rounded text-xs font-semibold flex items-center gap-1">
-                                                            <CheckCircle2 className="w-3 h-3" />
-                                                            Hoàn thành
-                                                        </span>
-                                                    </div>
+                                {completedProjects.map((project: any) => (
+                                    <div key={project.id} className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:shadow-md transition-all">
+                                        <div className="flex items-start gap-3">
+                                            <div className="w-10 h-10 rounded-lg bg-gray-400 flex items-center justify-center flex-shrink-0 shadow-md">
+                                                <FolderKanban className="w-5 h-5 text-white" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <h4 className="font-semibold text-gray-900 text-sm line-clamp-1" title={project.tenduan}>
+                                                    {project.tenduan}
+                                                </h4>
+                                                {project.mota && (
+                                                    <p className="text-xs text-gray-600 mt-1 line-clamp-2">{project.mota}</p>
+                                                )}
+                                                <div className="flex items-center gap-2 mt-2">
+                                                    <span className="px-2 py-0.5 bg-gray-500 text-white rounded text-xs font-semibold flex items-center gap-1">
+                                                        <CheckCircle2 className="w-3 h-3" />
+                                                        Hoàn thành
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>
-                                    );
-                                })}
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}

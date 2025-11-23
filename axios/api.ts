@@ -30,7 +30,6 @@ export const authAPI = {
 
   register: (userData: any) =>
     api.post('/auth/register', userData),
-
   logout: () =>
     api.post('/auth/logout'),
 };
@@ -145,9 +144,11 @@ export const uploadDocument = async (file: File, duanId?: number, description?: 
     if (duanId) form.append('duanId', String(duanId));
     if (description) form.append('description', description);
 
-    const res = await api.post('/documents/upload', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+    // Don't set Content-Type header manually - let axios handle it with proper boundary
+    const res = await api.post('/documents/upload', form);
     return res.data;
   } catch (err: any) {
+    console.error('Error uploading document:', err);
     throw err.response?.data || { message: 'Không thể upload tài liệu' };
   }
 };

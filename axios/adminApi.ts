@@ -174,6 +174,8 @@ export const groupAPI = {
   closeGroup: (id: number) => api.patch(`/groups/${id}/close`),
   getGroups: (params?: { duanId?: number }) => api.get('/groups', { params }),
   getGroup: (id: number) => api.get(`/groups/${id}`),
+  getGroupDetail: (id: number) => api.get(`/groups/${id}/detail`),
+  getAvailableMembers: (groupId?: number) => api.get('/groups/available-members', { params: groupId ? { groupId } : undefined }),
   createGroup: (data: { name: string; description?: string; duanId?: number; leaderId?: number; memberIds?: number[] }) => api.post('/groups', data),
   updateGroup: (id: number, data: { name?: string; description?: string; leaderId?: number; duanId?: number; memberIds?: number[]; projectIds?: number[] }) => api.put(`/groups/${id}`, data),
   // Xóa deleteGroup - không cho phép xóa nhóm

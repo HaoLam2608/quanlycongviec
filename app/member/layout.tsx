@@ -8,6 +8,8 @@ import { authAPI, getMyProfile } from "@/axios/api"
 import NotificationBell from "@/components/NotificationBell"
 import { useToastContext } from "@/components/providers/toast-provider"
 import { showConfirm } from '@/lib/notifications'
+import { GlobalChatProvider } from "@/components/chat/GlobalChatProvider"
+import { FloatingAI } from "@/components/ai/FloatingAI"
 import {
     LayoutDashboard,
     CheckSquare,
@@ -166,6 +168,8 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
     }
 
     return (
+        <GlobalChatProvider>
+            <FloatingAI />
         <div className="h-screen flex bg-gray-100">
             {/* Mobile sidebar */}
             <div className={`fixed inset-0 flex z-40 md:hidden ${sidebarOpen ? '' : 'hidden'}`}>
@@ -371,5 +375,6 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                 </main>
             </div>
         </div>
+        </GlobalChatProvider>
     )
 }

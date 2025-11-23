@@ -25,26 +25,6 @@ export default function ProjectDocumentsClient({ projectId }: { projectId: numbe
         return () => { mounted = false }
     }, [projectId])
 
-    const handleView = async (doc: any) => {
-        try {
-            const res = await downloadDocument(doc.id, false)
-            const blob = res.blob
-            const url = URL.createObjectURL(blob)
-            
-            const fileType = doc.loaiTaiLieu || doc.mimetype || ''
-            
-            if (fileType.includes('image') || fileType.includes('pdf')) {
-                window.open(url, '_blank')
-                setTimeout(() => URL.revokeObjectURL(url), 100)
-            } else {
-                handleDownload(doc.id)
-            }
-        } catch (err) {
-            console.error('View error', err)
-            window.alert('Không thể xem tài liệu')
-        }
-    }
-
     const handleDownload = async (id: number) => {
         try {
             const res = await downloadDocument(id, true)
@@ -63,6 +43,33 @@ export default function ProjectDocumentsClient({ projectId }: { projectId: numbe
         }
     }
 
+    const handlePreview = async (doc: any) => {
+        try {
+            // Try to get the document URL from API
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
+            const docPath = doc.duongDan || doc.filePath || doc.url
+            
+            if (docPath) {
+                // If path starts with /, it's a server path
+                const fullUrl = docPath.startsWith('http') 
+                    ? docPath 
+                    : `${apiUrl}${docPath.startsWith('/') ? '' : '/'}${docPath}`
+                
+                window.open(fullUrl, '_blank')
+            } else {
+                // Fallback: download and open
+                const res = await downloadDocument(doc.id, true)
+                const url = URL.createObjectURL(res.blob)
+                window.open(url, '_blank')
+                // Clean up after a delay
+                setTimeout(() => URL.revokeObjectURL(url), 10000)
+            }
+        } catch (err) {
+            console.error('Preview error', err)
+            window.alert('Không thể xem trước tài liệu')
+        }
+    }
+
     if (loading) return <div className="p-4">Đang tải tài liệu...</div>
     if (!docs || docs.length === 0) return <div className="p-4 text-muted-foreground">Chưa có tài liệu nào cho dự án này.</div>
 
@@ -71,22 +78,12 @@ export default function ProjectDocumentsClient({ projectId }: { projectId: numbe
             {docs.map((d: any) => (
                 <div key={d.id} className="flex items-center justify-between bg-white border border-border rounded-md p-3">
                     <div>
-                        <div className="font-medium">{d.tenTaiLieu || d.originalname || d.filename}</div>
-                        <div className="text-xs text-muted-foreground">{d.moTa || d.description || ''}</div>
+                        <div className="font-medium">{d.title || d.name || d.filename}</div>
+                        <div className="text-xs text-muted-foreground">{d.description || ''}</div>
                     </div>
                     <div className="flex items-center gap-2">
-                        <button 
-                            onClick={() => handleView(d)} 
-                            className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-                        >
-                            Xem
-                        </button>
-                        <button 
-                            onClick={() => handleDownload(d.id)} 
-                            className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                        >
-                            Tải xuống
-                        </button>
+                        <button onClick={() => handlePreview(d)} className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700">Xem</button>
+                        <button onClick={() => handleDownload(d.id)} className="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700">Tải xuống</button>
                     </div>
                 </div>
             ))}
