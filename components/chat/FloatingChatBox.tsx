@@ -376,6 +376,8 @@ export const FloatingChatBox: React.FC<FloatingChatBoxProps> = ({ className }) =
                             // common variations
                             if (s === 'teamleader' || s === 'team_leader' || s === 'team lead') return 'teamlead';
                             if (s.includes('teamlead') || s.includes('teamleader')) return 'teamlead';
+                            // map employee -> member
+                            if (s === 'employee' || s === 'emp' || s.includes('employee')) return 'member';
                             if (s.includes('manager')) return 'manager';
                             if (s.includes('admin')) return 'admin';
                             if (s.includes('member')) return 'member';
