@@ -338,7 +338,63 @@ export const FloatingChatBox: React.FC<FloatingChatBoxProps> = ({ className }) =
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8 text-primary-foreground hover:bg-primary-foreground/20"
-                  onClick={() => window.location.href = '/chat'}
+                      onClick={() => {
+                        try {
+                          // Try reading role from localStorage first
+                          let storedRole = localStorage.getItem('role') || localStorage.getItem('userRole') || localStorage.getItem('roles');
+
+                          // If not in localStorage, try to parse from JWT accessToken payload
+                          if (!storedRole) {
+                            const t = localStorage.getItem('accessToken');
+                            if (t) {
+                              const parts = t.split('.');
+                              if (parts.length > 1) {
+                                try {
+                                  const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+                                  storedRole = payload?.role || payload?.roles || payload?.user?.role || undefined;
+                                } catch (e) {
+                                  // ignore
+                                }
+                              }
+                            }
+                          }
+
+                          // If storedRole is a JSON array string, parse and take first element
+                          if (typeof storedRole === 'string' && storedRole.trim().startsWith('[')) {
+                            try {
+                              const arr = JSON.parse(storedRole);
+                              storedRole = Array.isArray(arr) ? arr[0] : storedRole;
+                            } catch (e) {
+                              // ignore
+                            }
+                          }
+
+                          // Normalize role -> route segment (map common server values to our folder names)
+                          const normalizeRole = (r: any) => {
+                            if (!r) return null;
+                            const s = String(r).toLowerCase().trim();
+                            // common variations
+                            if (s === 'teamleader' || s === 'team_leader' || s === 'team lead') return 'teamlead';
+                            if (s.includes('teamlead') || s.includes('teamleader')) return 'teamlead';
+                            if (s.includes('manager')) return 'manager';
+                            if (s.includes('admin')) return 'admin';
+                            if (s.includes('member')) return 'member';
+                            // fallback: remove spaces/underscores
+                            return s.replace(/[_\s]+/g, '');
+                          };
+
+                          const slug = normalizeRole(storedRole);
+                          if (slug) {
+                            window.location.href = `/${slug}/chat`;
+                          } else {
+                            const current = window.location.pathname.replace(/\/$/, '');
+                            window.location.href = `${current}/chat`;
+                          }
+                        } catch (err) {
+                          const current = window.location.pathname.replace(/\/$/, '');
+                          window.location.href = `${current}/chat`;
+                        }
+                      }}
                   title="Mở trang chat đầy đủ"
                 >
                   <MessageCircle className="h-5 w-5" />
