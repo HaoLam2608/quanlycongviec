@@ -294,39 +294,57 @@ class AIService {
 
             // Fetch Projects (if needed)
             if (shouldFetchProjects) {
-                // Try to match project by name if user typed a name
+                // Check if question is asking for counts/statistics (không dùng semantic search)
+                const isCountingQuestion = /có bao nhiêu|bao nhiêu.*dự án|số.*dự án|tổng.*dự án|count|how many/i.test(question);
+                
                 let projects;
-                const nameTokens = (question || '').match(/\p{L}+/gu) || [];
-                const candidate = nameTokens.find(t => t.length >= 3);
-                if (candidate) {
+                
+                // Nếu là câu hỏi đếm, KHÔNG filter theo tên - lấy tất cả
+                if (isCountingQuestion) {
+                    console.log('🔢 Counting question detected - fetching ALL projects');
                     projects = await DuAn.findAll({
-                        where: {
-                            tenduan: { [Op.like]: `%${candidate}%` }
-                        },
-                        limit: 50,
-                        order: [['createdAt', 'DESC']]
+                        limit: 200,
+                        order: [['createdAt', 'DESC']],
+                        include: [{ model: User, as: 'nguoiDamNhan', attributes: ['id', 'hoten', 'manv'] }]
                     });
-                    // If no match found, get all projects
-                    if (projects.length === 0) {
+                } else {
+                    // Try to match project by name if user typed a name (CHỈ khi KHÔNG phải câu hỏi đếm)
+                    const nameTokens = (question || '').match(/\p{L}+/gu) || [];
+                    const candidate = nameTokens.find(t => t.length >= 3);
+                    if (candidate) {
                         projects = await DuAn.findAll({
-                            limit: 50,
-                            order: [['createdAt', 'DESC']]
+                            where: {
+                                tenduan: { [Op.like]: `%${candidate}%` }
+                            },
+                            limit: 200,
+                            order: [['createdAt', 'DESC']],
+                            include: [{ model: User, as: 'nguoiDamNhan', attributes: ['id', 'hoten', 'manv'] }]
+                        });
+                        // If no match found, get all projects
+                        if (projects.length === 0) {
+                            projects = await DuAn.findAll({
+                                limit: 200,
+                                order: [['createdAt', 'DESC']],
+                                include: [{ model: User, as: 'nguoiDamNhan', attributes: ['id', 'hoten', 'manv'] }]
+                            });
+                        }
+                    } else {
+                        projects = await DuAn.findAll({
+                            limit: 200,
+                            order: [['createdAt', 'DESC']],
+                            include: [{ model: User, as: 'nguoiDamNhan', attributes: ['id', 'hoten', 'manv'] }]
                         });
                     }
-                } else {
-                    projects = await DuAn.findAll({
-                        limit: 50,
-                        order: [['createdAt', 'DESC']]
-                    });
                 }
                 
-                // Apply semantic search for projects
+                // Apply semantic search for projects ONLY if NOT a counting question
                 const projectsArray = projects.map(p => p.toJSON());
-                if (projectsArray.length > 0 && question && question.length > 10) {
+                if (!isCountingQuestion && projectsArray.length > 0 && question && question.length > 10) {
                     const similarProjects = await this.findSimilarProjects(question, projectsArray, 15);
                     data.projects = similarProjects;
                 } else {
-                    data.projects = projectsArray.slice(0, 20);
+                    // Nếu là câu hỏi đếm, trả về TẤT CẢ dự án (không giới hạn)
+                    data.projects = projectsArray;
                 }
             }
 
@@ -347,8 +365,9 @@ class AIService {
                 // Match patterns like "cho Lâm Nguyễn Anh Hào" or "nhắn tin cho Nguyễn Văn A"
                 const fullNamePatterns = [
                     /(?:cho|với|người|user|thành viên)\s+\*\*([^*]+)\*\*/i,  // Match **Tên** pattern
-                    /(?:cho|với|người|user|thành viên)\s+([A-ZÀÁẢÃẠÂẦẤẨẪẬĂẰẮẲẴẶÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ][a-zàáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]+(?:\s+[A-ZÀÁẢÃẠÂẦẤẨẪẬĂẰẮẲẴẶÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ][a-zàáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]+){2,})/i,
-                    /(?:tên|tên là|có tên)\s+([A-ZÀÁẢÃẠÂẦẤẨẪẬĂẰẮẲẴẶÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ][a-zàáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]*(?:\s+[A-ZÀÁẢÃẠÂẦẤẨẪẬĂẰẮẲẴẶÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ][a-zàáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]*)*)/i
+                    /(?:cho|với|người|user|thành viên)\s+([A-ZÀÁẢÃẠÂẦẤẨẪẬĂẰẮẲẴẶÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ][a-zàáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]+(?:\s+[A-ZÀÁẢÃẠÂẦẤẨẪẬĂẰẮẲẴẶÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ][a-zàáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]+){1,})/i,
+                    /(?:tên|tên là|có tên|người tên)\s+(?:tên\s+)?([A-ZÀÁẢÃẠÂẦẤẨẪẬĂẰẮẲẴẶÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ][a-zàáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]*(?:\s+[A-ZÀÁẢÃẠÂẦẤẨẪẬĂẰẮẲẴẶÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ][a-zàáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]*)*)/i,
+                    /đang làm.*?([A-ZÀÁẢÃẠÂẦẤẨẪẬĂẰẮẲẴẶÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ][a-zàáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]+(?:\s+[A-ZÀÁẢÃẠÂẦẤẨẪẬĂẰẮẲẴẶÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ][a-zàáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]+){1,})\s+đang/i
                 ];
                 
                 for (const pattern of fullNamePatterns) {
@@ -427,6 +446,7 @@ class AIService {
                 }
                 
                 data.users = users.map(u => u.toJSON());
+                console.log(`✅ Final users count: ${data.users.length}, names: ${data.users.map(u => u.hoten).join(', ')}`);
             }
 
             // Fetch Assignments (if needed)
@@ -500,24 +520,52 @@ class AIService {
             }
 
             // Build system prompt with context
-            const systemPrompt = this.buildSystemPrompt(contextData);
+            const systemPrompt = this.buildSystemPrompt(contextData, question);
             const fullPrompt = `${systemPrompt}\n\nCÂU HỎI: ${question}\n\nTRẢ LỜI:`;
             
             console.log('🤖 Calling Gemini API...');
+            console.log('📊 Prompt length:', fullPrompt.length, 'characters');
             
             // Call Google Gemini API with generation config
             const result = await this.model.generateContent({
                 contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
                 generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 1000,
+                    temperature: 0.5,
+                    maxOutputTokens: 4096,
+                    topP: 0.9,
+                    topK: 40,
                 }
             });
             
             const response = await result.response;
+            
+            // Check for safety blocks or issues
+            if (!response) {
+                console.error('❌ No response from Gemini');
+                throw new Error('No response from AI');
+            }
+            
+            // Check candidates and safety ratings
+            const candidates = response.candidates;
+            if (candidates && candidates.length > 0) {
+                const candidate = candidates[0];
+                console.log('🔍 Finish reason:', candidate.finishReason);
+                if (candidate.safetyRatings) {
+                    console.log('🛡️ Safety ratings:', JSON.stringify(candidate.safetyRatings));
+                }
+            }
+            
             const answer = response.text();
             
             console.log('✅ Gemini response received');
+            console.log('📝 AI Answer length:', answer.length, 'characters');
+            console.log('📝 AI Answer preview:', answer.substring(0, 300) + (answer.length > 300 ? '...' : ''));
+            
+            // If empty response, use fallback
+            if (!answer || answer.trim().length === 0) {
+                console.warn('⚠️ Empty response from Gemini, using fallback');
+                return this.generateFallbackResponse(question, contextData);
+            }
             
             return {
                 answer: answer,
@@ -536,15 +584,19 @@ class AIService {
     /**
      * Build system prompt with database context
      */
-    buildSystemPrompt(contextData) {
+    buildSystemPrompt(contextData, question) {
+        // Detect if this is a deadline/overdue related question
+        const isDeadlineQuestion = /quá hạn|trễ hạn|tre han|qua han|deadline|overdue|late|còn hạn|con han|cái nào.*hạn|nào.*quá|nào.*trễ/i.test(question);
+        
         let prompt = `Bạn là trợ lý AI thông minh cho hệ thống quản lý công việc.
 Bạn có khả năng truy vấn và phân tích dữ liệu từ database để trả lời các câu hỏi của người dùng.
-
+${isDeadlineQuestion ? '\n⚠️ CẢNH BÁO: Đây là câu hỏi về DEADLINE/QUÁ HẠN. Hãy kiểm tra ngày kết thúc của TẤT CẢ dự án/công việc so với ngày hiện tại!\n' : ''}
 DỮ LIỆU HIỆN CÓ:
 `;
         
         if (contextData.currentUser) {
             prompt += `\nNGƯỜI DÙNG HIỆN TẠI:\n`;
+            prompt += `- ID: ${contextData.currentUser.id}\n`;
             prompt += `- Tên: ${contextData.currentUser.hoten}\n`;
             prompt += `- Mã NV: ${contextData.currentUser.manv}\n`;
             prompt += `- Email: ${contextData.currentUser.email || 'N/A'}\n`;
@@ -554,94 +606,86 @@ DỮ LIỆU HIỆN CÓ:
         }
 
         if (contextData.tasks && contextData.tasks.length > 0) {
-            prompt += `\nCÔNG VIỆC (Tổng: ${contextData.tasks.length}):\n`;
-            contextData.tasks.slice(0, 15).forEach((task, idx) => {
+            prompt += `\nCÔNG VIỆC (${contextData.tasks.length}):\n`;
+            const tasksToShow = isDeadlineQuestion ? contextData.tasks : contextData.tasks.slice(0, 15);
+            tasksToShow.forEach((task, idx) => {
                 const tenTask = task.tentask || task.tieuDe || 'Không rõ';
                 const deadline = task.ngayKetThuc || task.thoiHan;
-                const moTa = task.mota || '';
-                const moTaShort = moTa.length > 150 ? moTa.substring(0, 150) + '...' : moTa;
+                const deadlineStr = deadline ? new Date(deadline).toLocaleDateString('vi-VN') : 'N/A';
                 
-                prompt += `${idx + 1}. **${tenTask}**\n`;
-                if (moTaShort) prompt += `   📝 Mô tả: ${moTaShort}\n`;
-                prompt += `   📊 Trạng thái: ${task.trangThai}\n`;
-                prompt += `   ⏰ Hạn: ${deadline ? new Date(deadline).toLocaleDateString('vi-VN') : 'N/A'}\n`;
-                if (task.mucDoUuTien) {
-                    const uuTienMap = { low: '🟢 Thấp', medium: '🟡 Trung bình', high: '🔴 Cao' };
-                    prompt += `   ⚡ Ưu tiên: ${uuTienMap[task.mucDoUuTien] || task.mucDoUuTien}\n`;
-                }
-                if (task.tienDo !== undefined && task.tienDo !== null) {
-                    prompt += `   📈 Tiến độ: ${task.tienDo}%\n`;
-                }
-                if (task.nguoiGiao) prompt += `   👤 Người giao: ${task.nguoiGiao.hoten} (${task.nguoiGiao.manv})\n`;
-                if (task.nguoiDuocGiao) prompt += `   👥 Người nhận: ${task.nguoiDuocGiao.hoten} (${task.nguoiDuocGiao.manv})\n`;
-                if (task.ngayBatDau) prompt += `   📅 Ngày bắt đầu: ${new Date(task.ngayBatDau).toLocaleDateString('vi-VN')}\n`;
+                prompt += `${idx + 1}. ${tenTask} | ${task.trangThai} | Hạn: ${deadlineStr}`;
+                if (task.mucDoUuTien) prompt += ` | ${task.mucDoUuTien}`;
+                if (task.tienDo !== undefined) prompt += ` | ${task.tienDo}%`;
+                if (task.nguoiDuocGiao) prompt += ` | ${task.nguoiDuocGiao.hoten}`;
+                prompt += `\n`;
             });
-            if (contextData.tasks.length > 15) {
+            if (!isDeadlineQuestion && contextData.tasks.length > 15) {
                 prompt += `... và ${contextData.tasks.length - 15} công việc khác\n`;
             }
         }
 
         if (contextData.projects && contextData.projects.length > 0) {
-            prompt += `\nDỰ ÁN (Tổng: ${contextData.projects.length}):\n`;
-            contextData.projects.slice(0, 10).forEach((project, idx) => {
+            prompt += `\nDỰ ÁN (${contextData.projects.length}):\n`;
+            // Hiển thị tất cả dự án nếu câu hỏi liên quan đến deadline/quá hạn
+            const projectsToShow = isDeadlineQuestion ? contextData.projects : contextData.projects.slice(0, 10);
+            
+            projectsToShow.forEach((project, idx) => {
                 const ten = project.tenduan || project.tenDuAn || 'Không có tên';
                 const mo = project.mota || project.moTa || '';
                 const moShort = mo.length > 100 ? mo.substring(0, 100) + '...' : mo;
                 const ngayBD = project.ngaybatdau ? new Date(project.ngaybatdau).toLocaleDateString('vi-VN') : 'N/A';
                 const ngayKT = project.ngayketthuc ? new Date(project.ngayketthuc).toLocaleDateString('vi-VN') : 'N/A';
                 const trangThai = project.status || 'N/A';
-                prompt += `${idx + 1}. ${ten}\n`;
-                if (moShort) prompt += `   - Mô tả: ${moShort}\n`;
-                prompt += `   - Thời gian: ${ngayBD} → ${ngayKT}\n`;
-                prompt += `   - Trạng thái: ${trangThai}\n`;
+                const nguoiPhuTrach = project.nguoiDamNhan ? `${project.nguoiDamNhan.hoten} (${project.nguoiDamNhan.manv})` : 'Chưa phân công';
+                prompt += `${idx + 1}. ${ten} | ${ngayBD}→${ngayKT} | ${trangThai} | PIC: ${nguoiPhuTrach}\n`;
+                if (moShort && isDeadlineQuestion) prompt += `   ${moShort}\n`;
             });
-            if (contextData.projects.length > 10) {
+            if (!isDeadlineQuestion && contextData.projects.length > 10) {
                 prompt += `... và ${contextData.projects.length - 10} dự án khác\n`;
             }
         }
 
         if (contextData.users && contextData.users.length > 0) {
-            prompt += `\nTHÀNH VIÊN (Tổng: ${contextData.users.length}):\n`;
-            contextData.users.slice(0, 20).forEach((u, idx) => {
-                prompt += `${idx + 1}. ${u.hoten}\n`;
-                prompt += `   - Mã NV: ${u.manv || 'N/A'}\n`;
-                prompt += `   - Chức vụ: ${u.chucvu || 'N/A'}\n`;
-                if (u.email) prompt += `   - Email: ${u.email}\n`;
-                if (u.sdt) prompt += `   - SĐT: ${u.sdt}\n`;
+            prompt += `\nTHÀNH VIÊN (${contextData.users.length}):\n`;
+            contextData.users.slice(0, 15).forEach((u, idx) => {
+                prompt += `${idx + 1}. ${u.hoten} (${u.manv || 'N/A'}) - ${u.chucvu || 'N/A'}`;
+                if (u.email) prompt += ` | ${u.email}`;
+                if (u.sdt) prompt += ` | ${u.sdt}`;
+                prompt += `\n`;
             });
-            if (contextData.users.length > 20) {
-                prompt += `... và ${contextData.users.length - 20} thành viên khác\n`;
+            if (contextData.users.length > 15) {
+                prompt += `... và ${contextData.users.length - 15} thành viên khác\n`;
             }
         }
 
         if (contextData.assignments && contextData.assignments.length > 0) {
-            prompt += `\nPHÂN CÔNG (Tổng: ${contextData.assignments.length}):\n`;
+            prompt += `\nPHÂN CÔNG: ${contextData.assignments.length}\n`;
         }
 
         prompt += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-        prompt += `HƯỚNG DẪN TRẢ LỜI:
-1. Phân tích câu hỏi kỹ lưỡng để hiểu ý định của người dùng
-2. Sử dụng dữ liệu phía trên để trả lời chính xác
-3. Nếu hỏi về công việc cụ thể, hãy bao gồm:
-   - Tên công việc đầy đủ
-   - Mô tả chi tiết (nếu có)
-   - Trạng thái hiện tại
-   - Deadline (ngày hết hạn)
-   - Độ ưu tiên
-   - Người giao và người nhận công việc
-   - Tiến độ hoàn thành (%)
-4. Nếu hỏi về người dùng/thành viên HOẶC muốn liên hệ ai đó:
-   - Tìm người được hỏi trong danh sách THÀNH VIÊN ở trên
-   - Trả về: tên, mã NV, chức vụ, email, SĐT của người ĐÓ (không phải người hỏi)
-   - Nếu có email/SĐT thì PHẢI hiển thị, đừng nói "không có thông tin"
-   - VÍ DỤ: Nếu hỏi "muốn nhắn tin cho Lâm Nguyễn Anh Hào", hãy tìm Lâm Nguyễn Anh Hào trong danh sách và trả về email/SĐT của anh ấy
-5. Nếu hỏi về dự án, bao gồm: tên, mô tả, thời gian, trạng thái
-6. Nếu hỏi về số liệu/thống kê, hãy đếm và tính toán từ dữ liệu có sẵn
-7. Format output với markdown và emoji cho dễ đọc
-8. Trả lời bằng tiếng Việt, ngắn gọn, súc tích, và thân thiện
-9. Nếu không tìm thấy người/thông tin được hỏi, hãy nói rõ "Không tìm thấy trong hệ thống"
-10. KHÔNG BAO GIỜ bịa đặt hoặc phỏng đoán thông tin không có trong dữ liệu
-11. QUAN TRỌNG: Phân biệt người hỏi (NGƯỜI DÙNG HIỆN TẠI) và người được hỏi đến (trong danh sách THÀNH VIÊN)`;
+        prompt += `📅 HÔM NAY: ${new Date().toLocaleDateString('vi-VN')}\n`;
+        prompt += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        
+        if (isDeadlineQuestion) {
+            prompt += `\n🚨 KIỂM TRA QUÁ HẠN:
+So sánh ngayketthuc với hôm nay. Nếu < hôm nay VÀ chưa hoàn thành = QUÁ HẠN.
+Liệt kê: tên, deadline, số ngày trễ. Nếu không có → nói "Không có mục nào quá hạn".\n\n`;
+        }
+        
+        prompt += `HƯỚNG DẪN:
+- Trả lời ngắn gọn, chính xác, tiếng Việt, có emoji
+- Khi hỏi về "người tên X đang làm dự án nào" hoặc "X đang làm gì":
+  1. Tìm người có tên chứa "X" trong danh sách THÀNH VIÊN (nếu có)
+  2. Tìm các dự án có PIC (Person In Charge) khớp với tên người đó
+  3. Liệt kê: tên dự án, trạng thái, deadline
+  4. Nếu không tìm thấy người hoặc dự án → nói rõ "Không tìm thấy thông tin về người tên X" hoặc "Người này chưa được phân công dự án nào"
+- Khi hỏi "tôi/mình đang làm dự án nào":
+  1. Tìm dự án có PIC khớp với tên/ID của NGƯỜI DÙNG HIỆN TẠI
+  2. Nếu tìm thấy → liệt kê: tên dự án, trạng thái, deadline
+  3. Nếu không → nói "Bạn chưa được phân công phụ trách dự án nào"`;
+
+
+
         
         return prompt;
     }
@@ -673,6 +717,68 @@ DỮ LIỆU HIỆN CÓ:
         
         // Analyze question type and provide relevant answer
         const lowerQ = question.toLowerCase();
+        
+        // Check for overdue/deadline questions
+        const isDeadlineQuestion = /quá hạn|trễ hạn|tre han|qua han|deadline|overdue|late|còn hạn|con han|cái nào.*hạn|nào.*quá|nào.*trễ/i.test(question);
+        
+        if (isDeadlineQuestion) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            // Check overdue projects
+            const overdueProjects = (contextData.projects || []).filter(p => {
+                if (!p.ngayketthuc || p.status === 'Hoàn thành') return false;
+                const deadline = new Date(p.ngayketthuc);
+                return deadline < today;
+            });
+            
+            // Check overdue tasks
+            const overdueTasks = (contextData.tasks || []).filter(t => {
+                const deadline = t.ngayKetThuc || t.thoiHan;
+                if (!deadline || t.trangThai === 'Hoàn thành') return false;
+                const deadlineDate = new Date(deadline);
+                return deadlineDate < today;
+            });
+            
+            if (overdueProjects.length === 0 && overdueTasks.length === 0) {
+                answer = '✅ **KHÔNG CÓ dự án hoặc công việc nào đang quá hạn!**\n\n';
+                answer += `Tất cả ${(contextData.projects || []).length} dự án và ${(contextData.tasks || []).length} công việc đều trong hạn hoặc đã hoàn thành. 🎉`;
+            } else {
+                answer = '🚨 **CẢNH BÁO: CÓ CÁC MỤC QUÁ HẠN!**\n\n';
+                
+                if (overdueProjects.length > 0) {
+                    answer += `📁 **DỰ ÁN QUÁ HẠN (${overdueProjects.length}):**\n`;
+                    overdueProjects.forEach((p, idx) => {
+                        const deadline = new Date(p.ngayketthuc);
+                        const daysLate = Math.floor((today - deadline) / (1000 * 60 * 60 * 24));
+                        answer += `${idx + 1}. **${p.tenduan || p.tenDuAn}**\n`;
+                        answer += `   - ⏰ Deadline: ${deadline.toLocaleDateString('vi-VN')}\n`;
+                        answer += `   - 📊 Trạng thái: ${p.status}\n`;
+                        answer += `   - ⚠️ Trễ: ${daysLate} ngày\n`;
+                    });
+                    answer += '\n';
+                }
+                
+                if (overdueTasks.length > 0) {
+                    answer += `📋 **CÔNG VIỆC QUÁ HẠN (${overdueTasks.length}):**\n`;
+                    overdueTasks.forEach((t, idx) => {
+                        const deadline = new Date(t.ngayKetThuc || t.thoiHan);
+                        const daysLate = Math.floor((today - deadline) / (1000 * 60 * 60 * 24));
+                        answer += `${idx + 1}. **${t.tentask || t.tieuDe}**\n`;
+                        answer += `   - ⏰ Deadline: ${deadline.toLocaleDateString('vi-VN')}\n`;
+                        answer += `   - 📊 Trạng thái: ${t.trangThai}\n`;
+                        answer += `   - ⚠️ Trễ: ${daysLate} ngày\n`;
+                        if (t.nguoiDuocGiao) answer += `   - 👤 Người nhận: ${t.nguoiDuocGiao.hoten}\n`;
+                    });
+                }
+            }
+            
+            return {
+                answer: answer,
+                sources: this.extractSources(contextData),
+                confidence: 'medium'
+            };
+        }
         
         if (contextData.tasks && contextData.tasks.length > 0) {
             const total = contextData.tasks.length;

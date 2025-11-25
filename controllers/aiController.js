@@ -1,4 +1,5 @@
-const aiService = require('../services/aiService');
+// Use AI Service V2 for enhanced intelligence
+const aiService = require('../services/aiService.v2');
 
 /**
  * Ask AI a question about the project data
@@ -14,7 +15,7 @@ exports.askAI = async (req, res) => {
 
         console.log(`🤖 AI Request from user ${userId}: "${question}"`);
 
-        // Query AI service
+        // Query AI service V2
         const response = await aiService.queryDatabase(question, userId);
 
         res.json({
