@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { SafeAreaView, StyleSheet, Text, View, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity, Modal, TextInput, Alert, Platform, ScrollView } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { getTaskById, createSubtask, deleteSubtask } from '@/src/axios/api';
 import { getGroups } from '@/src/axios/adminApi';
@@ -38,6 +39,7 @@ export default function TaskSubtasks() {
     const [selectedAssigneeId, setSelectedAssigneeId] = useState<number | null>(null);
     const [newStatus, setNewStatus] = useState<string>('Chưa bắt đầu');
     const [newNotes, setNewNotes] = useState('');
+    const [showAssigneeList, setShowAssigneeList] = useState(false);
     const [availableAssignees, setAvailableAssignees] = useState<Array<{id:number; hoten:string}>>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [filter, setFilter] = useState<string>('all');
@@ -150,7 +152,7 @@ export default function TaskSubtasks() {
         try {
             if (!newTitle.trim()) return Alert.alert('Lỗi', 'Vui lòng nhập tiêu đề công việc con');
             if (!newDesc.trim()) return Alert.alert('Lỗi', 'Vui lòng nhập mô tả công việc con');
-            if (!selectedAssigneeId) return Alert.alert('Lỗi', 'Vui lòng chọn người thực hiện');
+            // Assignee is optional now
             if (!newStartDate.trim()) return Alert.alert('Lỗi', 'Vui lòng chọn ngày bắt đầu');
             if (!newDueDate.trim()) return Alert.alert('Lỗi', 'Vui lòng chọn ngày kết thúc');
             // Client-side validation: subtask start must be >= parent task start
@@ -173,16 +175,18 @@ export default function TaskSubtasks() {
             const s = new Date(newStartDate);
             const e = new Date(newDueDate);
             if (isNaN(s.getTime()) || isNaN(e.getTime()) || s > e) return Alert.alert('Lỗi', 'Ngày bắt đầu phải trước hoặc bằng ngày kết thúc');
-            // Always pass a numeric assignee id (API requires a number)
-            const assigneePayload = Number(selectedAssigneeId);
-            await createSubtask(taskId, {
+            // Build payload; only include assignee if selected (allow unassigned)
+            const payload: any = {
                 tenSubtask: newTitle,
                 mota: newDesc,
-                nguoiThucHienId: assigneePayload,
                 ngayBatDau: newStartDate,
                 ngayKetThuc: newDueDate || undefined,
                 ghiChu: newNotes,
-            });
+            };
+            if (selectedAssigneeId !== null && typeof selectedAssigneeId !== 'undefined') {
+                payload.nguoiThucHienId = Number(selectedAssigneeId);
+            }
+            await createSubtask(taskId, payload);
             Alert.alert('Thành công', 'Tạo công việc con thành công');
             setShowCreateModal(false);
             setNewTitle('');
@@ -419,15 +423,29 @@ export default function TaskSubtasks() {
                                         />
                                     )}
 
-                                    <Text style={{ fontWeight: '700', marginBottom: 6, color: '#374151' }}>Người thực hiện (chỉ các thành viên dự án)</Text>
-                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 }}>
-                                        {availableAssignees.length === 0 ? (
-                                            <Text style={{ color: '#6b7280' }}>Không có thành viên dự án</Text>
-                                        ) : availableAssignees.map(a => (
-                                            <TouchableOpacity key={a.id} onPress={() => setSelectedAssigneeId(a.id)} style={[modalStyles.pill, selectedAssigneeId === a.id ? { backgroundColor: '#1e40af' } : { backgroundColor: '#f3f4f6' }]}>
-                                                <Text style={{ color: selectedAssigneeId === a.id ? '#fff' : '#111827', fontWeight: '600' }}>{a.hoten}</Text>
-                                            </TouchableOpacity>
-                                        ))}
+                                    <Text style={{ fontWeight: '700', marginBottom: 6, color: '#374151' }}>Người thực hiện (tuỳ chọn, chỉ các thành viên dự án)</Text>
+                                    <View>
+                                        <TouchableOpacity style={modalStyles.assigneeSelect} onPress={() => setShowAssigneeList(!showAssigneeList)}>
+                                            <Text style={modalStyles.assigneeSelectText}>{selectedAssigneeId ? (availableAssignees.find(a => a.id === selectedAssigneeId)?.hoten) : 'Không phân công (tuỳ chọn)'}</Text>
+                                            <Ionicons name={showAssigneeList ? 'chevron-up' : 'chevron-down'} size={18} color="#6b7280" />
+                                        </TouchableOpacity>
+                                        {showAssigneeList && (
+                                            <View style={{ marginTop: 8, maxHeight: 220 }}>
+                                                <ScrollView>
+                                                    {/* Allow no assignee */}
+                                                    <TouchableOpacity key={'no-assignee'} onPress={() => { setSelectedAssigneeId(null); setShowAssigneeList(false); }} style={[modalStyles.pill, selectedAssigneeId === null ? { backgroundColor: '#1e40af' } : { backgroundColor: '#f3f4f6' }]}>
+                                                        <Text style={{ color: selectedAssigneeId === null ? '#fff' : '#111827', fontWeight: '600' }}>Không phân công</Text>
+                                                    </TouchableOpacity>
+                                                    {availableAssignees.length === 0 ? (
+                                                        <Text style={{ color: '#6b7280', marginTop: 8 }}>Không có thành viên dự án</Text>
+                                                    ) : availableAssignees.map(a => (
+                                                        <TouchableOpacity key={a.id} onPress={() => { setSelectedAssigneeId(a.id); setShowAssigneeList(false); }} style={[modalStyles.pill, selectedAssigneeId === a.id ? { backgroundColor: '#1e40af' } : { backgroundColor: '#f3f4f6' }]}>
+                                                            <Text style={{ color: selectedAssigneeId === a.id ? '#fff' : '#111827', fontWeight: '600' }}>{a.hoten}</Text>
+                                                        </TouchableOpacity>
+                                                    ))}
+                                                </ScrollView>
+                                            </View>
+                                        )}
                                     </View>
 
                                     <Text style={{ fontWeight: '700', marginBottom: 6, color: '#374151' }}>Trạng thái</Text>
@@ -658,6 +676,8 @@ const modalStyles = StyleSheet.create({
         paddingHorizontal: 12,
         borderRadius: 8,
     },
+    assigneeSelect: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 12, backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb' },
+    assigneeSelectText: { color: '#0f172a', fontWeight: '600' },
     dateButton: {
         borderWidth: 1,
         borderColor: '#e5e7eb',

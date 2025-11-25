@@ -23,9 +23,14 @@ export const styles = StyleSheet.create({
     alignItems: 'center'
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827'
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0f172a'
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 4
   },
   headerStats: {
     alignItems: 'flex-end'
@@ -54,6 +59,15 @@ export const styles = StyleSheet.create({
     height: 44,
     borderWidth: 1,
     borderColor: '#eef2ff'
+  },
+
+  // small elevation for search input
+  searchBoxElevated: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3
   },
   searchInput: {
     flex: 1,
@@ -107,12 +121,14 @@ export const styles = StyleSheet.create({
     flex: 1
   },
   tasksContent: {
-    padding: 16,
-    paddingBottom: 24
+    padding: 18,
+    paddingBottom: 28
   },
   emptyContainer: {
     alignItems: 'center',
-    padding: 40
+    padding: 40,
+    flex: 1,
+    justifyContent: 'center'
   },
   emptyTitle: {
     marginTop: 8,

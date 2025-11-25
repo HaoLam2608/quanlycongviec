@@ -89,7 +89,12 @@ export default function ApprovalsManagement() {
         setLoadingHistory(true);
         try {
             const res = await approvalAPI.getApprovedHistory(limit);
-            const dataWrapper = (res?.data ?? res) ?? {};
+            console.log('DEBUG approvals.getApprovedHistory raw response:', res);
+            
+            // Tìm data ở nhiều cấp: res.data.data, res.data, hoặc res
+            let dataWrapper = res?.data?.data || res?.data || res || {};
+            console.log('DEBUG approvals.history dataWrapper:', dataWrapper);
+            
             const tasks = Array.isArray(dataWrapper.tasks) ? dataWrapper.tasks : [];
             const subtasks = Array.isArray(dataWrapper.subtasks) ? dataWrapper.subtasks : [];
             const assignments = Array.isArray(dataWrapper.assignments) ? dataWrapper.assignments : [];
@@ -100,8 +105,9 @@ export default function ApprovalsManagement() {
                 ...assignments.map((a: any) => ({ ...a, type: 'assignment' })),
             ];
 
+            console.log('DEBUG approvals.history allItems count:', allItems.length);
             setApprovedHistory(allItems);
-            const message = res?.message || null;
+            const message = res?.message || res?.data?.message || null;
             if (message) setInfoMessage(message);
         } catch (error: any) {
             console.error('Load approved history error:', error);
@@ -111,16 +117,19 @@ export default function ApprovalsManagement() {
         }
     };
 
+    // Load tất cả data ngay khi component mount
     useEffect(() => {
-        // switch data loading based on active tab
+        loadPendingApprovals();
+        loadJoinRequests();
+        loadApprovedHistory();
+    }, []);
+
+    // Chỉ reload data của tab đang active khi filter thay đổi
+    useEffect(() => {
         if (activeTab === 'completion') {
             loadPendingApprovals();
-        } else if (activeTab === 'join') {
-            loadJoinRequests();
-        } else if (activeTab === 'history') {
-            loadApprovedHistory();
         }
-    }, [filter, activeTab]);
+    }, [filter]);
 
     const filteredJoinRequests = joinRequests.filter(req => {
         // type filter
@@ -140,13 +149,23 @@ export default function ApprovalsManagement() {
     const loadPendingApprovals = async () => {
         setLoading(true);
         setInfoMessage(null);
-            try {
+        try {
             const resp = await approvalAPI.getPendingApprovals({ type: filter as any });
-            const message = resp?.message || resp?.data?.message || null;
-            setInfoMessage(message);
-            const data = resp?.data || resp || {};
-            setPendingTasks(data.tasks || []);
-            setPendingSubtasks(data.subtasks || []);
+            console.log('DEBUG approvals.getPendingApprovals raw response:', resp);
+            
+            // Tìm data ở nhiều cấp: resp.data.data, resp.data, hoặc resp
+            let data = resp?.data?.data || resp?.data || resp || {};
+            console.log('DEBUG approvals.pending parsed data:', data);
+            
+            const tasks = Array.isArray(data.tasks) ? data.tasks : [];
+            const subtasks = Array.isArray(data.subtasks) ? data.subtasks : [];
+            
+            console.log('DEBUG approvals.pending tasks count:', tasks.length, 'subtasks count:', subtasks.length);
+            setPendingTasks(tasks);
+            setPendingSubtasks(subtasks);
+            
+            const message = resp?.message || resp?.data?.message || data?.message || null;
+            if (message) setInfoMessage(message);
         } catch (error: any) {
             console.error('Error loading approvals:', error);
             Alert.alert('Lỗi', error?.message || error?.response?.data?.message || 'Không thể tải danh sách phê duyệt');

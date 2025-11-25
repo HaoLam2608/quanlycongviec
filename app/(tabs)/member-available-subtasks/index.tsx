@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, ActivityIndicator, Alert, ScrollView, TouchableOpacity, Modal, StyleSheet } from 'react-native';
+import { View, Text, ActivityIndicator, Alert, ScrollView, TouchableOpacity, Modal, StyleSheet, RefreshControl } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { getUnassignedSubtasks, claimSubtask } from '../../../src/axios/api';
 
 export default function MemberAvailableSubtasks() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [subtasks, setSubtasks] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
@@ -29,7 +31,7 @@ export default function MemberAvailableSubtasks() {
       }));
 
       // Filter for unassigned and not already pending
-      const available = normalized.filter(s => !s.nguoiThucHien && !s.isPendingAssignment);
+      const available = normalized.filter((s: any) => !s.nguoiThucHien && !s.isPendingAssignment);
       setSubtasks(available);
     } catch (err) {
       console.error('Load available subtasks error', err);
@@ -72,16 +74,43 @@ export default function MemberAvailableSubtasks() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Công việc trống của nhóm</Text>
-        <Text style={styles.subtitle}>Các công việc con chưa được gán</Text>
+        <View style={styles.headerRow}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.push('/(tabs)/member-tasks')}>
+            <Ionicons name="arrow-back" size={20} color="#374151" />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.title}>Công việc trống của nhóm</Text>
+            <Text style={styles.subtitle}>Các công việc con chưa được gán</Text>
+          </View>
+        </View>
       </View>
 
       {loading ? (
         <View style={styles.loading}><ActivityIndicator size="large" color="#667eea" /></View>
       ) : (
-        <ScrollView contentContainerStyle={styles.list} refreshControl={undefined}>
+        <ScrollView contentContainerStyle={styles.list} refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={["#667eea"]} />
+        }>
           {subtasks.length === 0 ? (
-            <View style={styles.empty}><Text style={styles.emptyText}>Không có công việc trống</Text></View>
+            <View style={styles.empty}> 
+              <View style={styles.emptyCard}>
+                <View style={styles.emptyIconWrap}>
+                  <Ionicons name="clipboard-outline" size={44} color="#9CA3AF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.emptyTitleLarge}>Không có công việc trống</Text>
+                  <Text style={styles.emptySubtitle}>Hiện tại không có công việc con chưa được gán cho nhóm.</Text>
+                  <View style={{ flexDirection: 'row', marginTop: 12, gap: 8 }}>
+                    <TouchableOpacity style={styles.ghostBtn} onPress={onRefresh}>
+                      <Text style={styles.ghostBtnText}>Làm mới</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.primaryBtn} onPress={onRefresh}>
+                      <Text style={styles.primaryBtnText}>Tìm công việc</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </View>
           ) : (
             subtasks.map(item => (
               <TouchableOpacity key={item.id} style={styles.card} onPress={() => setSelected(item)}>
@@ -135,13 +164,22 @@ export default function MemberAvailableSubtasks() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f7f7fb' },
   header: { padding: 16 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  backBtn: { padding: 8, marginRight: 6, borderRadius: 8 },
   title: { fontSize: 20, fontWeight: '700' },
   subtitle: { color: '#6b7280', marginTop: 4 },
   loading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   list: { padding: 16, paddingBottom: 40 },
-  empty: { padding: 40, alignItems: 'center' },
-  emptyText: { color: '#6b7280' },
-  card: { backgroundColor: '#fff', borderRadius: 12, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#eef2ff' },
+  empty: { padding: 24, alignItems: 'center', width: '100%', justifyContent: 'center' },
+  emptyCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 16, borderRadius: 12, width: '100%', borderWidth: 1, borderColor: '#eef2ff', shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 4 },
+  emptyIconWrap: { width: 64, height: 64, borderRadius: 12, backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  emptyTitleLarge: { fontSize: 16, fontWeight: '800', color: '#0f172a' },
+  emptySubtitle: { color: '#6b7280', marginTop: 6 },
+  primaryBtn: { backgroundColor: '#5b6df6', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
+  primaryBtnText: { color: '#fff', fontWeight: '700' },
+  ghostBtn: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#e6e9ff', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
+  ghostBtnText: { color: '#374151', fontWeight: '700' },
+  card: { backgroundColor: '#fff', borderRadius: 14, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: '#eef2ff', shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.04, shadowRadius: 10, elevation: 3 },
   cardHeader: { marginBottom: 8 },
   cardTitle: { fontWeight: '700', color: '#111827' },
   cardTaskName: { color: '#6b7280', marginTop: 4 },

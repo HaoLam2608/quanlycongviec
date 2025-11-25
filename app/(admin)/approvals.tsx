@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import api from '../../src/axios/config';
 import { notificationUserAPI } from '../../src/axios/notificationAPI';
+import { getMyProjects, getTaskById, fetchProjectsByManager } from '../../src/axios/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../../src/config/api';
 import { approvalAPI } from '../../src/axios/approvalApi';
@@ -64,7 +65,6 @@ interface PendingSubtask {
 }
 
 export default function ApprovalsManagement() {
-    const DEBUG_LAYOUT = true; // set false to hide debug borders/logs
     const [pendingTasks, setPendingTasks] = useState<PendingTask[]>([]);
     const [pendingSubtasks, setPendingSubtasks] = useState<PendingSubtask[]>([]);
     const [filter, setFilter] = useState<'all' | 'tasks' | 'subtasks'>('all');
@@ -77,19 +77,24 @@ export default function ApprovalsManagement() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [rejectReason, setRejectReason] = useState('');
     const [joinRequests, setJoinRequests] = useState<any[]>([]);
-    const [joinFilterType, setJoinFilterType] = useState<'all' | 'task' | 'subtask'>('all');
-    // reuse `filter` state for completion type: 'all' | 'tasks' | 'subtasks'
-    const [historyFilterStatus, setHistoryFilterStatus] = useState<'all' | 'approved' | 'request'>('all');
     const [processingRequest, setProcessingRequest] = useState<string | null>(null);
     const [infoMessage, setInfoMessage] = useState<string | null>(null);
     const [approvedHistory, setApprovedHistory] = useState<any[]>([]);
+    const [joinFilter, setJoinFilter] = useState<'all' | 'tasks' | 'subtasks'>('all');
+    const [historyFilter, setHistoryFilter] = useState<'all' | 'approved' | 'requested'>('all');
     const [loadingHistory, setLoadingHistory] = useState(false);
+    const [deletingHistoryId, setDeletingHistoryId] = useState<string | null>(null);
 
     const loadApprovedHistory = async (limit: number = 100) => {
         setLoadingHistory(true);
         try {
             const res = await approvalAPI.getApprovedHistory(limit);
-            const dataWrapper = (res?.data ?? res) ?? {};
+            console.log('DEBUG approvals.getApprovedHistory raw response:', res);
+            
+            // Tìm data ở nhiều cấp: res.data.data, res.data, hoặc res
+            let dataWrapper = res?.data?.data || res?.data || res || {};
+            console.log('DEBUG approvals.history dataWrapper:', dataWrapper);
+            
             const tasks = Array.isArray(dataWrapper.tasks) ? dataWrapper.tasks : [];
             const subtasks = Array.isArray(dataWrapper.subtasks) ? dataWrapper.subtasks : [];
             const assignments = Array.isArray(dataWrapper.assignments) ? dataWrapper.assignments : [];
@@ -100,8 +105,9 @@ export default function ApprovalsManagement() {
                 ...assignments.map((a: any) => ({ ...a, type: 'assignment' })),
             ];
 
+            console.log('DEBUG approvals.history allItems count:', allItems.length);
             setApprovedHistory(allItems);
-            const message = res?.message || null;
+            const message = res?.message || res?.data?.message || null;
             if (message) setInfoMessage(message);
         } catch (error: any) {
             console.error('Load approved history error:', error);
@@ -111,78 +117,60 @@ export default function ApprovalsManagement() {
         }
     };
 
-    const loadJoinRequests = async () => {
-        try {
-            const res = await notificationUserAPI.getMyNotifications({ limit: 200 });
-            console.log('DEBUG ⚙️ notifications raw response:', res);
+    // Load tất cả data ngay khi component mount
+    useEffect(() => {
+        loadPendingApprovals();
+        loadJoinRequests();
+        loadApprovedHistory();
+    }, []);
 
-            const items = Array.isArray(res)
-                ? res
-                : Array.isArray(res?.data)
-                    ? res.data
-                    : Array.isArray(res?.data?.data)
-                        ? res.data.data
-                        : res?.data || res || [];
-
-            const requests = (items || []).filter((n: any) => {
-                const meta = n.userMeta || n.meta || (n.userNotification && n.userNotification.meta);
-                return meta && (meta.requestToJoin === true || meta.requestToJoin) && !meta.processed;
-            }).map((n: any) => ({
-                id: n.id,
-                title: n.title,
-                content: n.content,
-                createdAt: n.createdAt,
-                meta: n.userMeta || n.meta || (n.userNotification && n.userNotification.meta),
-                isRead: n.isRead || (n.userNotification && n.userNotification.isRead) || false
-            }));
-
-            console.log('DEBUG ⚙️ collected join requests:', requests);
-            setJoinRequests(requests);
-        } catch (error: any) {
-            console.error('Load join requests error:', error);
-            try {
-                const alt = await api.get('/notifications/user', { params: { limit: 200 } });
-                console.log('DEBUG ⚙️ alt notifications raw response:', alt?.data ?? alt);
-                const altItems = alt?.data?.data ?? alt?.data ?? [];
-                const requests = (altItems || []).filter((n: any) => {
-                    const meta = n.userMeta || n.meta || (n.userNotification && n.userNotification.meta);
-                    return meta && (meta.requestToJoin === true || meta.requestToJoin) && !meta.processed;
-                }).map((n: any) => ({
-                    id: n.id,
-                    title: n.title,
-                    content: n.content,
-                    createdAt: n.createdAt,
-                    meta: n.userMeta || n.meta || (n.userNotification && n.userNotification.meta),
-                    isRead: n.isRead || (n.userNotification && n.userNotification.isRead) || false
-                }));
-                setJoinRequests(requests);
-            } catch (altErr: any) {
-                console.error('Alt notifications fetch failed:', altErr);
-                setJoinRequests([]);
-            }
-        }
-    };
-
+    // Chỉ reload data của tab đang active khi filter thay đổi
     useEffect(() => {
         if (activeTab === 'completion') {
             loadPendingApprovals();
-        } else if (activeTab === 'join') {
-            loadJoinRequests();
-        } else if (activeTab === 'history') {
-            loadApprovedHistory();
         }
-    }, [filter, activeTab]);
+    }, [filter]);
+
+    const filteredJoinRequests = joinRequests.filter(req => {
+        // type filter
+        if (joinFilter === 'tasks' && !req.meta?.taskId) return false;
+        if (joinFilter === 'subtasks' && !req.meta?.subtaskId) return false;
+
+        // search filter
+        if (!searchQuery) return true;
+        const q = searchQuery.toLowerCase();
+        return (
+            (req.title || '').toString().toLowerCase().includes(q) ||
+            (req.content || '').toString().toLowerCase().includes(q) ||
+            (req.meta?.requesterName || req.meta?.requester?.hoten || '').toString().toLowerCase().includes(q)
+        );
+    });
 
     const loadPendingApprovals = async () => {
         setLoading(true);
+        setInfoMessage(null);
         try {
-            const response = await api.get(`/approvals/pending?type=${filter}`);
-            const data = response.data.data || response.data;
-            setPendingTasks(data.tasks || []);
-            setPendingSubtasks(data.subtasks || []);
+            const resp = await approvalAPI.getPendingApprovals({ type: filter as any });
+            console.log('DEBUG approvals.getPendingApprovals raw response:', resp);
+            
+            // Tìm data ở nhiều cấp: resp.data.data, resp.data, hoặc resp
+            let data = resp?.data?.data || resp?.data || resp || {};
+            console.log('DEBUG approvals.pending parsed data:', data);
+            
+            const tasks = Array.isArray(data.tasks) ? data.tasks : [];
+            const subtasks = Array.isArray(data.subtasks) ? data.subtasks : [];
+            
+            console.log('DEBUG approvals.pending tasks count:', tasks.length, 'subtasks count:', subtasks.length);
+            setPendingTasks(tasks);
+            setPendingSubtasks(subtasks);
+            
+            const message = resp?.message || resp?.data?.message || data?.message || null;
+            if (message) setInfoMessage(message);
         } catch (error: any) {
             console.error('Error loading approvals:', error);
-            Alert.alert('Lỗi', error.response?.data?.message || 'Không thể tải danh sách phê duyệt');
+            Alert.alert('Lỗi', error?.message || error?.response?.data?.message || 'Không thể tải danh sách phê duyệt');
+            setPendingTasks([]);
+            setPendingSubtasks([]);
         } finally {
             setLoading(false);
         }
@@ -196,33 +184,75 @@ export default function ApprovalsManagement() {
         setRefreshing(false);
     };
 
-    const handleApprove = async (item: any, type: 'task' | 'subtask', approved: boolean) => {
-        setProcessingApproval(true);
+    const loadJoinRequests = async () => {
         try {
-            if (type === 'task') {
-                await api.post(`/approvals/tasks/${item.id}/approve`, {
-                    approved,
-                    reason: approved ? '' : rejectReason
-                });
-            } else {
-                await api.post(`/approvals/subtasks/${item.id}/approve`, {
-                    approved,
-                    reason: approved ? '' : rejectReason
-                });
-            }
-            
-            Alert.alert('Thành công', approved ? 'Đã phê duyệt thành công' : 'Đã từ chối yêu cầu');
-            setIsModalOpen(false);
-            setSelectedItem(null);
-            setRejectReason('');
-            loadPendingApprovals();
+            // fetch notifications; notificationUserAPI returns response.data already
+            const res = await notificationUserAPI.getMyNotifications({ limit: 200 });
+            console.log('DEBUG ⚙️ notifications raw response:', res);
+
+            // Normalize different response shapes (res may be array, or object with data, or wrapper)
+            const items = Array.isArray(res)
+                ? res
+                : Array.isArray(res?.data)
+                    ? res.data
+                    : Array.isArray(res?.data?.data)
+                        ? res.data.data
+                        : res?.data || res || [];
+
+            // Keep it simple: include any notification that looks like a join/assignment request.
+            // Admin should see all requests, so do NOT filter out by `meta.processed` here.
+            const requests = (items || []).filter((n: any) => {
+                const meta = n.userMeta || n.meta || (n.userNotification && n.userNotification.meta);
+                const isAssignmentType = n.type === 'assignment' || meta?.type === 'assignment';
+                const hasJoinFlags = meta && (meta.requestToJoin === true || meta.requestToJoin);
+                const hasRequester = !!(meta && (meta.requesterId || meta.requesterName));
+                // Consider it a join request if it has explicit flags, is an assignment notification,
+                // or contains requester info. Be permissive for admin so they can act on all items.
+                return Boolean(isAssignmentType || hasJoinFlags || hasRequester);
+            }).map((n: any) => ({
+                id: n.id,
+                title: n.title,
+                content: n.content,
+                createdAt: n.createdAt,
+                meta: n.userMeta || n.meta || (n.userNotification && n.userNotification.meta),
+                isRead: n.isRead || (n.userNotification && n.userNotification.isRead) || false
+            }));
+
+            console.log('DEBUG ⚙️ collected join requests:', requests);
+            setJoinRequests(requests);
+            // debug payload removed in production
         } catch (error: any) {
-            Alert.alert('Lỗi', error.response?.data?.message || 'Lỗi khi xử lý phê duyệt');
-        } finally {
-            setProcessingApproval(false);
+            console.error('Load join requests error:', error);
+
+            // Try a direct API call to get raw response for troubleshooting
+            try {
+                const alt = await api.get('/notifications/user', { params: { limit: 200 } });
+                console.log('DEBUG ⚙️ alt notifications raw response:', alt?.data ?? alt);
+                const altItems = alt?.data?.data ?? alt?.data ?? [];
+                const requests = (altItems || []).filter((n: any) => {
+                    const meta = n.userMeta || n.meta || (n.userNotification && n.userNotification.meta);
+                    const isAssignmentType = n.type === 'assignment' || meta?.type === 'assignment';
+                    const hasJoinFlags = meta && (meta.requestToJoin === true || meta.requestToJoin);
+                    const hasRequester = !!(meta && (meta.requesterId || meta.requesterName));
+                    return Boolean(isAssignmentType || hasJoinFlags || hasRequester);
+                }).map((n: any) => ({
+                    id: n.id,
+                    title: n.title,
+                    content: n.content,
+                    createdAt: n.createdAt,
+                    meta: n.userMeta || n.meta || (n.userNotification && n.userNotification.meta),
+                    isRead: n.isRead || (n.userNotification && n.userNotification.isRead) || false
+                }));
+                setJoinRequests(requests);
+                // debug payload removed in production
+            } catch (altErr: any) {
+                console.error('Alt notifications fetch failed:', altErr);
+                setJoinRequests([]);
+            }
         }
     };
 
+    // Single canonical set of handlers / derived data (deduplicated)
     const acceptJoinRequest = async (req: any) => {
         setProcessingRequest(req.id);
         try {
@@ -261,65 +291,72 @@ export default function ApprovalsManagement() {
         }
     };
 
+    const handleApprove = async (item: any, type: 'task' | 'subtask', approved: boolean) => {
+        setProcessingApproval(true);
+        try {
+            if (type === 'task') {
+                await api.post(`/approvals/tasks/${item.id}/approve`, {
+                    approved,
+                    reason: approved ? '' : rejectReason
+                });
+            } else {
+                await api.post(`/approvals/subtasks/${item.id}/approve`, {
+                    approved,
+                    reason: approved ? '' : rejectReason
+                });
+            }
+            Alert.alert('Thành công', approved ? 'Đã phê duyệt thành công' : 'Đã từ chối yêu cầu');
+            setIsModalOpen(false);
+            setSelectedItem(null);
+            setRejectReason('');
+            await loadPendingApprovals();
+        } catch (error: any) {
+            Alert.alert('Lỗi', error.response?.data?.message || 'Lỗi khi xử lý phê duyệt');
+        } finally {
+            setProcessingApproval(false);
+        }
+    };
+
     const openApprovalModal = (item: any, type: 'task' | 'subtask') => {
         setSelectedItem({ ...item, type });
         setIsModalOpen(true);
         setRejectReason('');
     };
 
-    // Lọc và tìm kiếm
-    const filteredTasks = pendingTasks.filter(task => {
-        const matchesSearch = task.tentask.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            task.nguoiDuocGiao.hoten.toLowerCase().includes(searchQuery.toLowerCase());
+    const filteredTasks = pendingTasks.filter(task => 
+        task.tentask.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        task.nguoiDuocGiao.hoten.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
-        // (no status filter for completion; only type + search)
-
-        // type filter via `filter` state: 'all' | 'tasks' | 'subtasks'
-        if (filter === 'tasks' || filter === 'all') {
-            return matchesSearch;
-        }
-        return false;
-    });
-
-    const filteredSubtasks = pendingSubtasks.filter(subtask => {
-        const matchesSearch = subtask.tenSubtask.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            subtask.nguoiThucHien.hoten.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            subtask.task.tentask.toLowerCase().includes(searchQuery.toLowerCase());
-
-        // (no status filter for completion; only type + search)
-
-        if (filter === 'subtasks' || filter === 'all') {
-            return matchesSearch;
-        }
-        return false;
-    });
+    const filteredSubtasks = pendingSubtasks.filter(subtask => 
+        subtask.tenSubtask.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        subtask.nguoiThucHien.hoten.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        subtask.task.tentask.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
     const filteredHistory = approvedHistory.filter((item: any) => {
-        // no type filter for history — only status (Tất cả / Phê duyệt / Yêu cầu)
-        const type = item.type || (item.meta?.requestToJoin ? 'assignment' : 'task');
-
-        // status filter
-        const statusRaw = (item.trangThai || item.status || '').toString().toLowerCase();
-        if (historyFilterStatus === 'approved') {
-            if (!(statusRaw.includes('accept') || statusRaw.includes('approved') || item.approvedAt)) return false;
-        }
-        if (historyFilterStatus === 'request') {
-            const isRequest = !!(item.meta?.requestToJoin || item.type === 'assignment' || item.meta?.requestToJoin);
-            if (!isRequest) return false;
-        }
-
         if (!searchQuery) return true;
         const q = searchQuery.toLowerCase();
         const title = (item.tentask || item.tenSubtask || item.title || item.name || '').toString().toLowerCase();
         const performer = (item.nguoiDuocGiao?.hoten || item.nguoiThucHien?.hoten || item.meta?.requesterName || item.user?.hoten || '').toString().toLowerCase();
-        const status = statusRaw;
+        const status = (item.trangThai || item.status || '').toString().toLowerCase();
         return title.includes(q) || performer.includes(q) || status.includes(q);
+    });
+
+    // apply history filter (all / approved / requested)
+    const filteredHistoryWithStatus = filteredHistory.filter((item: any) => {
+        if (historyFilter === 'all') return true;
+        const s = (item.trangThai || item.status || '').toString().toLowerCase();
+        const isApproved = /accepted|approve|approved|đã phê duyệt/.test(s);
+        if (historyFilter === 'approved') return isApproved;
+        // 'requested' -> not approved (requests / pending)
+        return !isApproved;
     });
 
     const completionCount = filteredTasks.length + filteredSubtasks.length;
     const joinCount = joinRequests.length;
     const historyCount = approvedHistory.length;
-    const totalCount = completionCount + joinCount;
+    const totalCount = completionCount + joinCount; // legacy total used elsewhere
     const headerCount = activeTab === 'completion' ? completionCount : activeTab === 'join' ? joinCount : historyCount;
 
     const formatDate = (dateString: string) => {
@@ -332,26 +369,6 @@ export default function ApprovalsManagement() {
         });
     };
 
-    // Filtered join requests (by status, type, and search)
-    const filteredJoinRequests = joinRequests.filter((req: any) => {
-        // type filter
-        const meta = req.meta || {};
-        const isTask = !!(meta.taskId && !meta.subtaskId);
-        const isSubtask = !!meta.subtaskId;
-        if (joinFilterType === 'task' && !isTask) return false;
-        if (joinFilterType === 'subtask' && !isSubtask) return false;
-
-        // search filter
-        if (!searchQuery) return true;
-        const s = searchQuery.toLowerCase();
-        return (
-            (req.title || '').toString().toLowerCase().includes(s) ||
-            (req.content || '').toString().toLowerCase().includes(s) ||
-            (meta.requesterName || '').toString().toLowerCase().includes(s) ||
-            (meta.requester?.hoten || '').toString().toLowerCase().includes(s)
-        );
-    });
-
     const translateStatus = (s?: string) => {
         if (!s) return '';
         const st = s.toString().toLowerCase();
@@ -362,24 +379,11 @@ export default function ApprovalsManagement() {
         return s;
     };
 
-    const logLayout = (name: string, e: any) => {
-        if (!DEBUG_LAYOUT) return;
-        try {
-            const { width, height, x, y } = e.nativeEvent.layout;
-            console.log(`LAYOUT ${name}: w=${width} h=${height} x=${x} y=${y}`);
-        } catch (err) {
-            console.log('layout log error', err);
-        }
-    };
-
     return (
         <SafeAreaView style={styles.container}>
             {/* Header */}
-            <View
-                style={[styles.header, DEBUG_LAYOUT ? styles.debugHeaderBorder : null]}
-                onLayout={(e) => logLayout('header', e)}
-            >
-                <Text style={styles.title}>Quản lý phê duyệt</Text>
+            <View style={styles.header}>
+                <Text style={styles.title}>Phê duyệt công việc</Text>
                 <Text style={styles.subtitle}>
                     {headerCount} yêu cầu {activeTab === 'completion' ? 'chờ phê duyệt' : activeTab === 'join' ? 'nhận việc' : 'lịch sử'}
                 </Text>
@@ -400,13 +404,11 @@ export default function ApprovalsManagement() {
                         <Text style={[styles.tabText, activeTab === 'history' && styles.tabTextActive]}>Lịch sử</Text>
                     </TouchableOpacity>
                 </View>
+                {/* debug button removed for production UX */}
             </View>
 
-            {/* Search Bar (visible for all tabs) */}
-            <View
-                style={[styles.searchContainer, DEBUG_LAYOUT ? styles.debugSearchBorder : null]}
-                onLayout={(e) => logLayout('searchContainer', e)}
-            >
+            {/* Search Bar (visible for all tabs, including History) */}
+            <View style={styles.searchContainer}>
                 <Ionicons name="search" size={20} color="#9ca3af" style={styles.searchIcon} />
                 <TextInput
                     style={styles.searchInput}
@@ -422,206 +424,289 @@ export default function ApprovalsManagement() {
                 )}
             </View>
 
-            {/* Filters for tabs: completion, join, history (shared design) */}
+            {/* Filter Panel (completion / join / history) */}
+            {(activeTab === 'completion' || activeTab === 'join' || activeTab === 'history') && (
+                <View style={styles.filterWrapper}>
+                    {activeTab === 'completion' && (
+                        <View style={styles.filterRow}>
+                            <TouchableOpacity
+                                style={[styles.filterChip, filter === 'all' && styles.filterTabActive]}
+                                onPress={() => setFilter('all')}
+                            >
+                                <Ionicons name="list" size={16} color={filter === 'all' ? '#fff' : '#6b7280'} />
+                                <Text style={[styles.filterText, filter === 'all' && styles.filterTextActive]}>
+                                    Tất cả ({pendingTasks.length + pendingSubtasks.length})
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.filterChip, filter === 'tasks' && styles.filterTabActive]}
+                                onPress={() => setFilter('tasks')}
+                            >
+                                <Ionicons name="briefcase" size={16} color={filter === 'tasks' ? '#fff' : '#6b7280'} />
+                                <Text style={[styles.filterText, filter === 'tasks' && styles.filterTextActive]}>
+                                    CV chính ({pendingTasks.length})
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.filterChip, filter === 'subtasks' && styles.filterTabActive]}
+                                onPress={() => setFilter('subtasks')}
+                            >
+                                <Ionicons name="document-text" size={16} color={filter === 'subtasks' ? '#fff' : '#6b7280'} />
+                                <Text style={[styles.filterText, filter === 'subtasks' && styles.filterTextActive]}>
+                                    CV nhỏ ({pendingSubtasks.length})
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
 
-            {/* Completion Filters */}
-            {activeTab === 'completion' && (
-                <View style={styles.filterWrapper} onLayout={(e) => logLayout('completionFilters', e)}>
-                    <View style={styles.filterRow}>
-                        {/* Only type filters for completion (Tất cả / Công việc / Công việc nhỏ) */}
+                    {activeTab === 'join' && (
+                        <View style={styles.filterRow}>
+                            <TouchableOpacity
+                                style={[styles.filterChip, joinFilter === 'all' && styles.filterTabActive]}
+                                onPress={() => setJoinFilter('all')}
+                            >
+                                <Ionicons name="list" size={16} color={joinFilter === 'all' ? '#fff' : '#6b7280'} />
+                                <Text style={[styles.filterText, joinFilter === 'all' && styles.filterTextActive]}>
+                                    Tất cả ({joinRequests.length})
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.filterChip, joinFilter === 'tasks' && styles.filterTabActive]}
+                                onPress={() => setJoinFilter('tasks')}
+                            >
+                                <Ionicons name="briefcase" size={16} color={joinFilter === 'tasks' ? '#fff' : '#6b7280'} />
+                                <Text style={[styles.filterText, joinFilter === 'tasks' && styles.filterTextActive]}>CV chính</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.filterChip, joinFilter === 'subtasks' && styles.filterTabActive]}
+                                onPress={() => setJoinFilter('subtasks')}
+                            >
+                                <Ionicons name="document-text" size={16} color={joinFilter === 'subtasks' ? '#fff' : '#6b7280'} />
+                                <Text style={[styles.filterText, joinFilter === 'subtasks' && styles.filterTextActive]}>CV nhỏ</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
 
-                        {/* type filters use `filter` state */}
-                        <TouchableOpacity
-                            style={[styles.filterTab, filter === 'all' && styles.filterTabActive]}
-                            onPress={() => setFilter('all')}
-                        >
-                            <Text style={[styles.filterText, filter === 'all' && styles.filterTextActive]}>Tất cả</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.filterTab, filter === 'tasks' && styles.filterTabActive]}
-                            onPress={() => setFilter('tasks')}
-                        >
-                            <Text style={[styles.filterText, filter === 'tasks' && styles.filterTextActive]}>Công việc lớn</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.filterTab, filter === 'subtasks' && styles.filterTabActive]}
-                            onPress={() => setFilter('subtasks')}
-                        >
-                            <Text style={[styles.filterText, filter === 'subtasks' && styles.filterTextActive]}>Công việc nhỏ</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            )}
-
-
-            {/* Join Requests Filters */}
-            {activeTab === 'join' && (
-                <View style={styles.filterWrapper} onLayout={(e) => logLayout('joinFilters', e)}>
-                    <View style={styles.filterRow}>
-                        {/* Only type filters for join requests (Tất cả loại / Công việc / Công việc nhỏ) */}
-
-                        {/* type filters */}
-                        <TouchableOpacity
-                            style={[styles.filterTab, joinFilterType === 'all' && styles.filterTabActive]}
-                            onPress={() => setJoinFilterType('all')}
-                        >
-                            <Text style={[styles.filterText, joinFilterType === 'all' && styles.filterTextActive]}>Tất cả</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.filterTab, joinFilterType === 'task' && styles.filterTabActive]}
-                            onPress={() => setJoinFilterType('task')}
-                        >
-                            <Text style={[styles.filterText, joinFilterType === 'task' && styles.filterTextActive]}>Công việc lớn</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.filterTab, joinFilterType === 'subtask' && styles.filterTabActive]}
-                            onPress={() => setJoinFilterType('subtask')}
-                        >
-                            <Text style={[styles.filterText, joinFilterType === 'subtask' && styles.filterTextActive]}>Công việc nhỏ</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            )}
-
-            {/* History Filters */}
-            {activeTab === 'history' && (
-                <View style={styles.filterWrapper} onLayout={(e) => logLayout('historyFilters', e)}>
-                    <View style={styles.filterRow}>
-                        <TouchableOpacity
-                            style={[styles.filterTab, historyFilterStatus === 'all' && styles.filterTabActive]}
-                            onPress={() => setHistoryFilterStatus('all')}
-                        >
-                            <Text style={[styles.filterText, historyFilterStatus === 'all' && styles.filterTextActive]}>Tất cả</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.filterTab, historyFilterStatus === 'approved' && styles.filterTabActive]}
-                            onPress={() => setHistoryFilterStatus('approved')}
-                        >
-                            <Text style={[styles.filterText, historyFilterStatus === 'approved' && styles.filterTextActive]}>Phê duyệt</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.filterTab, historyFilterStatus === 'request' && styles.filterTabActive]}
-                            onPress={() => setHistoryFilterStatus('request')}
-                        >
-                            <Text style={[styles.filterText, historyFilterStatus === 'request' && styles.filterTextActive]}>Yêu cầu</Text>
-                        </TouchableOpacity>
-
-                        {/* history only needs status filters (Tất cả / Phê duyệt / Yêu cầu) */}
-                    </View>
+                    {activeTab === 'history' && (
+                        <View style={styles.filterRow}>
+                            <TouchableOpacity
+                                style={[styles.filterChip, historyFilter === 'all' && styles.filterTabActive]}
+                                onPress={() => setHistoryFilter('all')}
+                            >
+                                <Ionicons name="list" size={16} color={historyFilter === 'all' ? '#fff' : '#6b7280'} />
+                                <Text style={[styles.filterText, historyFilter === 'all' && styles.filterTextActive]}>
+                                    Tất cả ({approvedHistory.length})
+                                </Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.filterChip, historyFilter === 'approved' && styles.filterTabActive]}
+                                onPress={() => setHistoryFilter('approved')}
+                            >
+                                <Ionicons name="checkmark-done" size={16} color={historyFilter === 'approved' ? '#fff' : '#6b7280'} />
+                                <Text style={[styles.filterText, historyFilter === 'approved' && styles.filterTextActive]}>Phê duyệt</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.filterChip, historyFilter === 'requested' && styles.filterTabActive]}
+                                onPress={() => setHistoryFilter('requested')}
+                            >
+                                <Ionicons name="chatbox-ellipses" size={16} color={historyFilter === 'requested' ? '#fff' : '#6b7280'} />
+                                <Text style={[styles.filterText, historyFilter === 'requested' && styles.filterTextActive]}>Yêu cầu</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
                 </View>
             )}
 
             {/* Approvals List */}
             <ScrollView
                 style={styles.content}
-                contentContainerStyle={styles.listContent}
-                onLayout={(e) => logLayout('listScroll', e)}
-                // add debug border to visualize space
-                contentInset={{ top: 0 }}
                 refreshControl={
                     <RefreshControl 
                         refreshing={refreshing} 
                         onRefresh={onRefresh}
-                        colors={['#14b8a6']}
-                        tintColor="#14b8a6"
+                        colors={['#f59e0b']}
+                        tintColor="#f59e0b"
                     />
                 }
             >
-                {loading ? (
+                {loading || loadingHistory ? (
                     <View style={styles.loadingContainer}>
-                        <ActivityIndicator size="large" color="#14b8a6" />
+                        <ActivityIndicator size="large" color="#f59e0b" />
                         <Text style={styles.loadingText}>Đang tải...</Text>
-                    </View>
-                ) : totalCount === 0 ? (
-                    <View style={styles.emptyContainer}>
-                        <Ionicons name="checkmark-done-circle-outline" size={64} color="#d1d5db" />
-                        <Text style={styles.emptyTitle}>Không có yêu cầu phê duyệt</Text>
-                        <Text style={styles.emptyText}>
-                            {searchQuery ? 'Không tìm thấy kết quả phù hợp' : 'Tất cả công việc đã được xử lý'}
-                        </Text>
                     </View>
                 ) : (
                     <>
-                        {/* Tasks */}
-                        {(filter === 'all' || filter === 'tasks') && filteredTasks.map(task => (
-                            <View key={`task-${task.id}`} style={styles.approvalCard}>
-                                <View style={styles.cardHeader}>
-                                    <View style={styles.cardHeaderLeft}>
-                                        <View style={styles.iconContainer}>
-                                            <Ionicons name="checkmark-circle" size={24} color="#3b82f6" />
-                                        </View>
-                                        <View style={styles.cardHeaderInfo}>
-                                            <Text style={styles.cardTitle} numberOfLines={1}>
-                                                {task.tentask}
-                                            </Text>
-                                            <View style={styles.badge}>
-                                                <Text style={styles.badgeText}>Công việc chính</Text>
+                        {/* Completion Tab - Tasks and Subtasks */}
+                        {activeTab === 'completion' && (
+                            <>
+                                {totalCount === 0 ? (
+                                    <View style={styles.emptyContainer}>
+                                        <Ionicons name="checkmark-done-circle-outline" size={64} color="#d1d5db" />
+                                        <Text style={styles.emptyTitle}>Không có yêu cầu phê duyệt</Text>
+                                        <Text style={styles.emptyText}>
+                                            {searchQuery ? 'Không tìm thấy kết quả phù hợp' : 'Tất cả công việc đã được xử lý'}
+                                        </Text>
+                                    </View>
+                                ) : (
+                                    <>
+                                        {/* Tasks */}
+                                        {(filter === 'all' || filter === 'tasks') && filteredTasks.map(task => (
+                                            <View key={`task-${task.id}`} style={styles.approvalCard}>
+                                                <View style={styles.cardHeader}>
+                                                    <View style={styles.cardHeaderLeft}>
+                                                        <View style={styles.iconContainer}>
+                                                            <Ionicons name="checkmark-circle" size={24} color="#f59e0b" />
+                                                        </View>
+                                                        <View style={styles.cardHeaderInfo}>
+                                                            <Text style={styles.cardTitle} numberOfLines={1}>
+                                                                {task.tentask}
+                                                            </Text>
+                                                            <View style={styles.badge}>
+                                                                <Text style={styles.badgeText}>Công việc chính</Text>
+                                                            </View>
+                                                        </View>
+                                                    </View>
+                                                </View>
+
+                                                {task.mota && (
+                                                    <Text style={styles.cardDescription} numberOfLines={2}>
+                                                        {task.mota}
+                                                    </Text>
+                                                )}
+
+                                                <View style={styles.cardInfo}>
+                                                    <View style={styles.infoRow}>
+                                                        <Ionicons name="person" size={16} color="#6b7280" />
+                                                        <Text style={styles.infoText}>
+                                                            Người thực hiện: {task.nguoiDuocGiao.hoten}
+                                                        </Text>
+                                                    </View>
+                                                    <View style={styles.infoRow}>
+                                                        <Ionicons name="person-outline" size={16} color="#6b7280" />
+                                                        <Text style={styles.infoText}>
+                                                            Người giao: {task.nguoiGiao.hoten}
+                                                        </Text>
+                                                    </View>
+                                                    {task.ngayKetThuc && (
+                                                        <View style={styles.infoRow}>
+                                                            <Ionicons name="calendar-outline" size={16} color="#6b7280" />
+                                                            <Text style={styles.infoText}>
+                                                                Deadline: {new Date(task.ngayKetThuc).toLocaleDateString('vi-VN')}
+                                                            </Text>
+                                                        </View>
+                                                    )}
+                                                    <View style={styles.infoRow}>
+                                                        <Ionicons name="time-outline" size={16} color="#6b7280" />
+                                                        <Text style={styles.infoText}>
+                                                            Yêu cầu: {formatDate(task.updatedAt)}
+                                                        </Text>
+                                                    </View>
+                                                </View>
+
+                                                <View style={styles.cardActions}>
+                                                    <TouchableOpacity 
+                                                        style={[styles.actionButton, styles.approveButton]}
+                                                        onPress={() => handleApprove(task, 'task', true)}
+                                                        disabled={processingApproval}
+                                                    >
+                                                        <Ionicons name="checkmark" size={18} color="#fff" />
+                                                        <Text style={styles.actionButtonText}>Phê duyệt</Text>
+                                                    </TouchableOpacity>
+                                                    <TouchableOpacity 
+                                                        style={[styles.actionButton, styles.rejectButton]}
+                                                        onPress={() => openApprovalModal(task, 'task')}
+                                                    >
+                                                        <Ionicons name="close" size={18} color="#fff" />
+                                                        <Text style={styles.actionButtonText}>Từ chối</Text>
+                                                    </TouchableOpacity>
+                                                </View>
                                             </View>
-                                        </View>
-                                    </View>
-                                </View>
+                                        ))}
 
-                                {task.mota && (
-                                    <Text style={styles.cardDescription} numberOfLines={2}>
-                                        {task.mota}
-                                    </Text>
+                                        {/* Subtasks */}
+                                        {(filter === 'all' || filter === 'subtasks') && filteredSubtasks.map(subtask => (
+                                            <View key={`subtask-${subtask.id}`} style={styles.approvalCard}>
+                                                <View style={styles.cardHeader}>
+                                                    <View style={styles.cardHeaderLeft}>
+                                                        <View style={[styles.iconContainer, { backgroundColor: '#fef3c7' }]}>
+                                                            <Ionicons name="list" size={24} color="#f59e0b" />
+                                                        </View>
+                                                        <View style={styles.cardHeaderInfo}>
+                                                            <Text style={styles.cardTitle} numberOfLines={1}>
+                                                                {subtask.tenSubtask}
+                                                            </Text>
+                                                            <View style={[styles.badge, { backgroundColor: '#fef3c7' }]}>
+                                                                <Text style={[styles.badgeText, { color: '#f59e0b' }]}>
+                                                                    Công việc nhỏ
+                                                                </Text>
+                                                            </View>
+                                                        </View>
+                                                    </View>
+                                                </View>
+
+                                                <View style={styles.parentTask}>
+                                                    <Text style={styles.parentTaskLabel}>Thuộc task:</Text>
+                                                    <Text style={styles.parentTaskName}>{subtask.task.tentask}</Text>
+                                                </View>
+
+                                                {subtask.mota && (
+                                                    <Text style={styles.cardDescription} numberOfLines={2}>
+                                                        {subtask.mota}
+                                                    </Text>
+                                                )}
+
+                                                <View style={styles.cardInfo}>
+                                                    <View style={styles.infoRow}>
+                                                        <Ionicons name="person" size={16} color="#6b7280" />
+                                                        <Text style={styles.infoText}>
+                                                            Người thực hiện: {subtask.nguoiThucHien?.hoten || 'N/A'}
+                                                        </Text>
+                                                    </View>
+                                                    <View style={styles.infoRow}>
+                                                        <Ionicons name="person-outline" size={16} color="#6b7280" />
+                                                        <Text style={styles.infoText}>
+                                                            Người giao: {subtask.task?.nguoiGiao?.hoten || 'N/A'}
+                                                        </Text>
+                                                    </View>
+                                                    {subtask.ngayKetThuc && (
+                                                        <View style={styles.infoRow}>
+                                                            <Ionicons name="calendar-outline" size={16} color="#6b7280" />
+                                                            <Text style={styles.infoText}>
+                                                                Deadline: {new Date(subtask.ngayKetThuc).toLocaleDateString('vi-VN')}
+                                                            </Text>
+                                                        </View>
+                                                    )}
+                                                    <View style={styles.infoRow}>
+                                                        <Ionicons name="time-outline" size={16} color="#6b7280" />
+                                                        <Text style={styles.infoText}>
+                                                            Yêu cầu: {formatDate(subtask.updatedAt)}
+                                                        </Text>
+                                                    </View>
+                                                </View>
+
+                                                <View style={styles.cardActions}>
+                                                    <TouchableOpacity 
+                                                        style={[styles.actionButton, styles.approveButton]}
+                                                        onPress={() => handleApprove(subtask, 'subtask', true)}
+                                                        disabled={processingApproval}
+                                                    >
+                                                        <Ionicons name="checkmark" size={18} color="#fff" />
+                                                        <Text style={styles.actionButtonText}>Phê duyệt</Text>
+                                                    </TouchableOpacity>
+                                                    <TouchableOpacity 
+                                                        style={[styles.actionButton, styles.rejectButton]}
+                                                        onPress={() => openApprovalModal(subtask, 'subtask')}
+                                                    >
+                                                        <Ionicons name="close" size={18} color="#fff" />
+                                                        <Text style={styles.actionButtonText}>Từ chối</Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+                                        ))}
+                                    </>
                                 )}
-
-                                <View style={styles.cardInfo}>
-                                    <View style={styles.infoRow}>
-                                        <Ionicons name="person" size={16} color="#6b7280" />
-                                        <Text style={styles.infoText}>
-                                            Người thực hiện: {task.nguoiDuocGiao.hoten}
-                                        </Text>
-                                    </View>
-                                    <View style={styles.infoRow}>
-                                        <Ionicons name="person-outline" size={16} color="#6b7280" />
-                                        <Text style={styles.infoText}>
-                                            Người giao: {task.nguoiGiao.hoten}
-                                        </Text>
-                                    </View>
-                                    {task.ngayKetThuc && (
-                                        <View style={styles.infoRow}>
-                                            <Ionicons name="calendar-outline" size={16} color="#6b7280" />
-                                            <Text style={styles.infoText}>
-                                                Deadline: {new Date(task.ngayKetThuc).toLocaleDateString('vi-VN')}
-                                            </Text>
-                                        </View>
-                                    )}
-                                    <View style={styles.infoRow}>
-                                        <Ionicons name="time-outline" size={16} color="#6b7280" />
-                                        <Text style={styles.infoText}>
-                                            Yêu cầu: {formatDate(task.updatedAt)}
-                                        </Text>
-                                    </View>
-                                </View>
-
-                                <View style={styles.cardActions}>
-                                    <TouchableOpacity 
-                                        style={styles.detailButton}
-                                        onPress={() => openApprovalModal(task, 'task')}
-                                    >
-                                        <Ionicons name="eye-outline" size={18} color="#6b7280" />
-                                        <Text style={styles.detailButtonText}>Chi tiết</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity 
-                                        style={[styles.actionButton, styles.approveButton]}
-                                        onPress={() => handleApprove(task, 'task', true)}
-                                        disabled={processingApproval}
-                                    >
-                                        <Ionicons name="checkmark" size={18} color="#fff" />
-                                        <Text style={styles.actionButtonText}>Phê duyệt</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity 
-                                        style={[styles.actionButton, styles.rejectButton]}
-                                        onPress={() => openApprovalModal(task, 'task')}
-                                    >
-                                        <Ionicons name="close" size={18} color="#fff" />
-                                        <Text style={styles.actionButtonText}>Từ chối</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        ))}
+                            </>
+                        )}
 
                         {/* Join Requests Tab */}
                         {activeTab === 'join' && (
@@ -631,7 +716,7 @@ export default function ApprovalsManagement() {
                                         <Ionicons name="checkmark-done-circle-outline" size={64} color="#d1d5db" />
                                         <Text style={styles.emptyTitle}>Không có yêu cầu nhận việc</Text>
                                         <Text style={styles.emptyText}>
-                                            {searchQuery ? 'Không tìm thấy kết quả phù hợp' : 'Không có yêu cầu nhận việc'}
+                                            {searchQuery ? 'Không tìm thấy kết quả phù hợp' : 'Không có yêu cầu nhận việc trong dự án bạn quản lý'}
                                         </Text>
                                     </View>
                                 ) : (
@@ -696,216 +781,128 @@ export default function ApprovalsManagement() {
                             </>
                         )}
 
-                                {/* History Tab */}
-                                {activeTab === 'history' && (
-                                    <>
-                                        {filteredHistory.length === 0 ? (
-                                            <View style={styles.emptyContainer}>
-                                                <Ionicons name="checkmark-done-circle-outline" size={64} color="#d1d5db" />
-                                                <Text style={styles.emptyTitle}>
-                                                    {approvedHistory.length === 0 && !searchQuery ? 'Chưa có lịch sử phê duyệt' : 'Không có kết quả'}
-                                                </Text>
-                                                <Text style={styles.emptyText}>
-                                                    {searchQuery ? 'Không tìm thấy kết quả phù hợp' : 'Các công việc đã phê duyệt sẽ hiển thị ở đây'}
-                                                </Text>
-                                            </View>
-                                        ) : (
-                                            filteredHistory.map((item: any) => {
-                                                const title = (
-                                                    item.tentask ||
-                                                    item.tenSubtask ||
-                                                    item.title ||
-                                                    item.name ||
-                                                    item.assignmentTitle ||
-                                                    item.assignment?.title ||
-                                                    item.task?.tentask ||
-                                                    item.subtask?.tenSubtask ||
-                                                    item.notification?.title ||
-                                                    item.userNotification?.title ||
-                                                    item.payload?.title ||
-                                                    item.payload?.data?.title ||
-                                                    item.meta?.taskTitle ||
-                                                    item.meta?.subtaskTitle ||
-                                                    (item.meta?.requestToJoin ? `Yêu cầu nhận việc - ${item.meta?.requesterName || ''}` : '') ||
-                                                    item.meta?.requesterName ||
-                                                    item.content ||
-                                                    item.message ||
-                                                    ''
-                                                ).toString().trim() || 'N/A';
+                        {/* History Tab */}
+                        {activeTab === 'history' && (
+                            <>
+                                {filteredHistoryWithStatus.length === 0 ? (
+                                    <View style={styles.emptyContainer}>
+                                        <Ionicons name="checkmark-done-circle-outline" size={64} color="#d1d5db" />
+                                        <Text style={styles.emptyTitle}>
+                                            {approvedHistory.length === 0 && !searchQuery ? 'Chưa có lịch sử phê duyệt' : 'Không có kết quả'}
+                                        </Text>
+                                        <Text style={styles.emptyText}>
+                                            {searchQuery ? 'Không tìm thấy kết quả phù hợp' : 'Các công việc đã phê duyệt sẽ hiển thị ở đây'}
+                                        </Text>
+                                    </View>
+                                ) : (
+                                    filteredHistoryWithStatus.map((item: any) => {
+                                        // Derive a sensible title from multiple potential fields
+                                        const title = (
+                                            item.tentask ||
+                                            item.tenSubtask ||
+                                            item.title ||
+                                            item.name ||
+                                            item.assignmentTitle ||
+                                            item.assignment?.title ||
+                                            item.task?.tentask ||
+                                            item.subtask?.tenSubtask ||
+                                            item.notification?.title ||
+                                            item.userNotification?.title ||
+                                            item.payload?.title ||
+                                            item.payload?.data?.title ||
+                                            item.meta?.taskTitle ||
+                                            item.meta?.subtaskTitle ||
+                                            (item.meta?.requestToJoin ? `Yêu cầu nhận việc - ${item.meta?.requesterName || ''}` : '') ||
+                                            item.meta?.requesterName ||
+                                            item.content ||
+                                            item.message ||
+                                            ''
+                                        ).toString().trim() || 'N/A';
 
-                                                const performer = (
-                                                    item.nguoiDuocGiao?.hoten ||
-                                                    item.nguoiThucHien?.hoten ||
-                                                    item.assignee?.hoten ||
-                                                    item.assignedTo?.hoten ||
-                                                    item.meta?.requesterName ||
-                                                    item.user?.hoten ||
-                                                    ''
-                                                );
+                                        const performer = (
+                                            item.nguoiDuocGiao?.hoten ||
+                                            item.nguoiThucHien?.hoten ||
+                                            item.assignee?.hoten ||
+                                            item.assignedTo?.hoten ||
+                                            item.meta?.requesterName ||
+                                            item.user?.hoten ||
+                                            ''
+                                        );
 
-                                                const approver = (
-                                                    item.nguoiDuyet?.hoten ||
-                                                    item.approvedByName ||
-                                                    item.meta?.approvedByName ||
-                                                    ''
-                                                );
+                                        const approver = (
+                                            item.nguoiDuyet?.hoten ||
+                                            item.approvedByName ||
+                                            item.meta?.approvedByName ||
+                                            ''
+                                        );
 
-                                                const status = item.trangThai || item.status || (item.approvedAt ? 'Đã phê duyệt' : '');
-                                                const approvedDate = item.approvedAt || item.updatedAt || item.createdAt || null;
-
-                                                return (
-                                                    <View key={`history-${item.type}-${item.id}`} style={styles.approvalCard}>
-                                                        <View style={styles.cardHeader}>
-                                                            <View style={styles.cardHeaderLeft}>
-                                                                <View style={[styles.iconContainer, { backgroundColor: item.type === 'task' ? '#fef3c7' : '#e0e7ff' }]}>
-                                                                    <Ionicons
-                                                                        name={item.type === 'task' ? 'briefcase' : item.type === 'subtask' ? 'list' : 'people'}
-                                                                        size={24}
-                                                                        color={item.type === 'task' ? '#f59e0b' : '#6366f1'}
-                                                                    />
-                                                                </View>
-                                                                <View style={styles.cardHeaderInfo}>
-                                                                    <Text style={styles.cardTitle} numberOfLines={1}>
-                                                                        {title}
-                                                                    </Text>
-                                                                    <View style={styles.badge}>
-                                                                        <Text style={styles.badgeText}>
-                                                                            {item.type === 'task' ? 'Công việc chính' : item.type === 'subtask' ? 'Công việc nhỏ' : 'Yêu cầu'}
-                                                                        </Text>
-                                                                    </View>
-                                                                </View>
-                                                            </View>
+                                        const status = item.trangThai || item.status || (item.approvedAt ? 'Đã phê duyệt' : '');
+                                        const approvedDate = item.approvedAt || item.updatedAt || item.createdAt || null;
+                                        return (
+                                            <View key={`history-${item.type}-${item.id}`} style={styles.approvalCard}>
+                                                <View style={styles.cardHeader}>
+                                                    <View style={styles.cardHeaderLeft}>
+                                                        <View style={[styles.iconContainer, { backgroundColor: item.type === 'task' ? '#fef3c7' : '#e0e7ff' }]}>
+                                                            <Ionicons 
+                                                                name={item.type === 'task' ? 'briefcase' : item.type === 'subtask' ? 'list' : 'people'} 
+                                                                size={24} 
+                                                                color={item.type === 'task' ? '#f59e0b' : '#6366f1'} 
+                                                            />
                                                         </View>
-
-                                                        {item.mota && (
-                                                            <Text style={styles.cardDescription} numberOfLines={2}>
-                                                                {item.mota}
+                                                        <View style={styles.cardHeaderInfo}>
+                                                            <Text style={styles.cardTitle} numberOfLines={1}>
+                                                                {title}
                                                             </Text>
-                                                        )}
-
-                                                        <View style={styles.cardInfo}>
-                                                            {performer ? (
-                                                                <View style={styles.infoRow}>
-                                                                    <Ionicons name="person" size={16} color="#6b7280" />
-                                                                    <Text style={styles.infoText}>Người thực hiện: {performer}</Text>
-                                                                </View>
-                                                            ) : null}
-
-                                                            {approver ? (
-                                                                <View style={styles.infoRow}>
-                                                                    <Ionicons name="person-circle" size={16} color="#6b7280" />
-                                                                    <Text style={styles.infoText}>Người duyệt: {approver}</Text>
-                                                                </View>
-                                                            ) : null}
-
-                                                            <View style={styles.infoRow}>
-                                                                <Ionicons name="checkmark-circle" size={16} color="#10b981" />
-                                                                <Text style={[styles.infoText, { color: '#10b981', fontWeight: '600' }]}>
-                                                                    {translateStatus(status) || 'Đã phê duyệt'}
+                                                            <View style={styles.badge}>
+                                                                <Text style={styles.badgeText}>
+                                                                    {item.type === 'task' ? 'Công việc chính' : item.type === 'subtask' ? 'Công việc nhỏ' : 'Yêu cầu'}
                                                                 </Text>
                                                             </View>
-
-                                                            {approvedDate && (
-                                                                <View style={styles.infoRow}>
-                                                                    <Ionicons name="calendar-outline" size={16} color="#6b7280" />
-                                                                    <Text style={styles.infoText}>{formatDate(approvedDate)}</Text>
-                                                                </View>
-                                                            )}
                                                         </View>
                                                     </View>
-                                                );
-                                            })
-                                        )}
-                                    </>
-                                )}
+                                                </View>
 
-                        {/* Subtasks */}
-                        {(filter === 'all' || filter === 'subtasks') && filteredSubtasks.map(subtask => (
-                            <View key={`subtask-${subtask.id}`} style={styles.approvalCard}>
-                                <View style={styles.cardHeader}>
-                                    <View style={styles.cardHeaderLeft}>
-                                        <View style={[styles.iconContainer, { backgroundColor: '#fff7ed' }]}>
-                                            <Ionicons name="list" size={24} color="#f97316" />
-                                        </View>
-                                        <View style={styles.cardHeaderInfo}>
-                                            <Text style={styles.cardTitle} numberOfLines={1}>
-                                                {subtask.tenSubtask}
-                                            </Text>
-                                            <View style={[styles.badge, { backgroundColor: '#fff7ed' }]}>
-                                                <Text style={[styles.badgeText, { color: '#f97316' }]}>
-                                                    Công việc nhỏ
-                                                </Text>
+                                                {item.mota && (
+                                                    <Text style={styles.cardDescription} numberOfLines={2}>
+                                                        {item.mota}
+                                                    </Text>
+                                                )}
+
+                                                <View style={styles.cardInfo}>
+                                                    {performer ? (
+                                                        <View style={styles.infoRow}>
+                                                            <Ionicons name="person" size={16} color="#6b7280" />
+                                                            <Text style={styles.infoText}>Người thực hiện: {performer}</Text>
+                                                        </View>
+                                                    ) : null}
+
+                                                    {approver ? (
+                                                        <View style={styles.infoRow}>
+                                                            <Ionicons name="person-circle" size={16} color="#6b7280" />
+                                                            <Text style={styles.infoText}>Người duyệt: {approver}</Text>
+                                                        </View>
+                                                    ) : null}
+
+                                                    <View style={styles.infoRow}>
+                                                        <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+                                                        <Text style={[styles.infoText, { color: '#10b981', fontWeight: '600' }]}>
+                                                            {translateStatus(status) || 'Đã phê duyệt'}
+                                                        </Text>
+                                                    </View>
+
+                                                    {approvedDate && (
+                                                        <View style={styles.infoRow}>
+                                                            <Ionicons name="calendar-outline" size={16} color="#6b7280" />
+                                                            <Text style={styles.infoText}>{formatDate(approvedDate)}</Text>
+                                                        </View>
+                                                    )}
+                                                </View>
                                             </View>
-                                        </View>
-                                    </View>
-                                </View>
-
-                                <View style={styles.parentTask}>
-                                    <Text style={styles.parentTaskLabel}>Thuộc task:</Text>
-                                    <Text style={styles.parentTaskName}>{subtask.task.tentask}</Text>
-                                </View>
-
-                                {subtask.mota && (
-                                    <Text style={styles.cardDescription} numberOfLines={2}>
-                                        {subtask.mota}
-                                    </Text>
+                                        );
+                                    })
                                 )}
-
-                                <View style={styles.cardInfo}>
-                                    <View style={styles.infoRow}>
-                                        <Ionicons name="person" size={16} color="#6b7280" />
-                                        <Text style={styles.infoText}>
-                                            Người thực hiện: {subtask.nguoiThucHien?.hoten || 'N/A'}
-                                        </Text>
-                                    </View>
-                                    <View style={styles.infoRow}>
-                                        <Ionicons name="person-outline" size={16} color="#6b7280" />
-                                        <Text style={styles.infoText}>
-                                            Người giao: {subtask.task?.nguoiGiao?.hoten || 'N/A'}
-                                        </Text>
-                                    </View>
-                                    {subtask.ngayKetThuc && (
-                                        <View style={styles.infoRow}>
-                                            <Ionicons name="calendar-outline" size={16} color="#6b7280" />
-                                            <Text style={styles.infoText}>
-                                                Deadline: {new Date(subtask.ngayKetThuc).toLocaleDateString('vi-VN')}
-                                            </Text>
-                                        </View>
-                                    )}
-                                    <View style={styles.infoRow}>
-                                        <Ionicons name="time-outline" size={16} color="#6b7280" />
-                                        <Text style={styles.infoText}>
-                                            Yêu cầu: {formatDate(subtask.updatedAt)}
-                                        </Text>
-                                    </View>
-                                </View>
-
-                                <View style={styles.cardActions}>
-                                    <TouchableOpacity 
-                                        style={styles.detailButton}
-                                        onPress={() => openApprovalModal(subtask, 'subtask')}
-                                    >
-                                        <Ionicons name="eye-outline" size={18} color="#6b7280" />
-                                        <Text style={styles.detailButtonText}>Chi tiết</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity 
-                                        style={[styles.actionButton, styles.approveButton]}
-                                        onPress={() => handleApprove(subtask, 'subtask', true)}
-                                        disabled={processingApproval}
-                                    >
-                                        <Ionicons name="checkmark" size={18} color="#fff" />
-                                        <Text style={styles.actionButtonText}>Phê duyệt</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity 
-                                        style={[styles.actionButton, styles.rejectButton]}
-                                        onPress={() => openApprovalModal(subtask, 'subtask')}
-                                    >
-                                        <Ionicons name="close" size={18} color="#fff" />
-                                        <Text style={styles.actionButtonText}>Từ chối</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        ))}
+                            </>
+                        )}
                     </>
                 )}
             </ScrollView>
@@ -963,7 +960,7 @@ export default function ApprovalsManagement() {
                                             <Text style={styles.modalLabel}>Trạng thái</Text>
                                             <View style={styles.modalStatusBadge}>
                                                 <Text style={styles.modalStatusText}>
-                                                    {selectedItem.trangThai}
+                                                    {translateStatus(selectedItem.trangThai) || selectedItem.trangThai || ''}
                                                 </Text>
                                             </View>
                                         </View>
@@ -1023,6 +1020,8 @@ export default function ApprovalsManagement() {
                     </View>
                 </View>
             </Modal>
+
+            {/* Debug modal removed */}
         </SafeAreaView>
     );
 }
@@ -1030,55 +1029,43 @@ export default function ApprovalsManagement() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f6faf9',
+        backgroundColor: '#f9fafb',
     },
     header: {
-        backgroundColor: '#14b8a6',
+        backgroundColor: '#f59e0b',
         paddingHorizontal: 20,
-        paddingTop: 20,
-        paddingBottom: 24,
-        borderBottomLeftRadius: 28,
-        borderBottomRightRadius: 28,
-        shadowColor: '#0f766e',
+        paddingTop: 22,
+        paddingBottom: 22,
+        borderBottomLeftRadius: 24,
+        borderBottomRightRadius: 24,
+        shadowColor: '#f59e0b',
         shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.12,
-        shadowRadius: 12,
-        elevation: 10,
+        shadowOpacity: 0.18,
+        shadowRadius: 10,
+        elevation: 6,
     },
     title: {
         fontSize: 26,
         fontWeight: '800',
-        color: '#ffffff',
+        color: '#fff',
         marginBottom: 6,
     },
     subtitle: {
         fontSize: 13,
-        color: 'rgba(255, 255, 255, 0.95)',
-    },
-    searchFilterRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingHorizontal: 16,
-        marginTop: -12,
-        marginBottom: 4,
+        color: 'rgba(255,255,255,0.95)',
     },
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: '#fff',
         marginHorizontal: 16,
-        marginTop: 12,
+        marginTop: 16,
+        marginBottom: 12,
         paddingHorizontal: 16,
         paddingVertical: 12,
-        borderRadius: 14,
+        borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#e6f6f4',
-        shadowColor: '#0ea5e9',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
-        elevation: 6,
-        marginBottom: 6,
+        borderColor: '#e5e7eb',
     },
     searchIcon: {
         marginRight: 8,
@@ -1086,63 +1073,72 @@ const styles = StyleSheet.create({
     searchInput: {
         flex: 1,
         fontSize: 15,
-        color: '#0f172a',
+        color: '#111827',
     },
     filterContainer: {
         flexDirection: 'row',
         paddingHorizontal: 16,
-        paddingVertical: 2,
-        paddingBottom: 2,
-        backgroundColor: 'transparent',
-        marginHorizontal: 16,
-        marginTop: 0,
-        zIndex: 20,
-        elevation: 20,
+        paddingBottom: 12,
+        backgroundColor: '#f9fafb',
+        gap: 8,
     },
-    filterTab: {
+    filterWrapper: {
+        paddingHorizontal: 16,
+        paddingBottom: 12,
+        backgroundColor: '#fff',
+        marginHorizontal: 0,
+    },
+    filterRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+    },
+    filterChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
         paddingVertical: 8,
-        paddingHorizontal: 14,
-        borderRadius: 20,
-        backgroundColor: '#ffffff',
+        paddingHorizontal: 12,
+        borderRadius: 16,
+        backgroundColor: '#fff',
+        borderWidth: 1,
+        borderColor: '#eef2f6',
         marginRight: 8,
         marginBottom: 8,
+        gap: 6,
+    },
+    filterTab: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 16,
+        backgroundColor: '#fff',
         borderWidth: 1,
-        borderColor: '#eef2f1',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.03,
-        shadowRadius: 6,
-        elevation: 1,
+        borderColor: '#eef2f6',
+        gap: 6,
     },
     filterTabActive: {
-        backgroundColor: '#0ea5e9',
-        borderColor: '#0ea5e9',
-        shadowColor: '#0ea5e9',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.12,
-        shadowRadius: 10,
-        elevation: 4,
+        backgroundColor: '#fff',
+        borderColor: 'rgba(0,0,0,0.06)',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.03,
+        shadowRadius: 6,
+        elevation: 2,
     },
     filterText: {
         fontSize: 13,
         fontWeight: '600',
-        color: '#6b7280',
+        color: '#475569',
     },
     filterTextActive: {
-        color: '#fff',
+        color: '#111827',
     },
     content: {
         flex: 1,
         paddingHorizontal: 16,
-        paddingTop: 8,
-        paddingBottom: 12,
-    },
-
-    listContent: {
-        paddingHorizontal: 16,
-        paddingBottom: 4,
-        paddingTop: 8,
-        overflow: 'visible',
     },
     loadingContainer: {
         flex: 1,
@@ -1163,34 +1159,34 @@ const styles = StyleSheet.create({
     },
     emptyTitle: {
         fontSize: 18,
-        fontWeight: '700',
+        fontWeight: '600',
         color: '#374151',
         marginTop: 16,
     },
     emptyText: {
         fontSize: 14,
-        color: '#94a3b8',
+        color: '#9ca3af',
         marginTop: 8,
         textAlign: 'center',
     },
     approvalCard: {
         backgroundColor: '#fff',
-        borderRadius: 18,
-        padding: 18,
-        marginBottom: 14,
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 12,
         borderWidth: 1,
-        borderColor: '#eef6f5',
-        shadowColor: '#0f172a',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.04,
-        shadowRadius: 14,
-        elevation: 4,
+        borderColor: '#e5e7eb',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+        elevation: 2,
     },
     cardHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 10,
+        marginBottom: 12,
     },
     cardHeaderLeft: {
         flexDirection: 'row',
@@ -1198,34 +1194,34 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     iconContainer: {
-        width: 52,
-        height: 52,
-        borderRadius: 26,
-        backgroundColor: '#e0f2fe',
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: '#fef3c7',
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 14,
+        marginRight: 12,
     },
     cardHeaderInfo: {
         flex: 1,
     },
     cardTitle: {
         fontSize: 16,
-        fontWeight: '700',
-        color: '#0f172a',
-        marginBottom: 6,
+        fontWeight: '600',
+        color: '#111827',
+        marginBottom: 4,
     },
     badge: {
         alignSelf: 'flex-start',
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        backgroundColor: '#e0f2fe',
-        borderRadius: 12,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        backgroundColor: '#fef3c7',
+        borderRadius: 6,
     },
     badgeText: {
-        fontSize: 12,
-        fontWeight: '700',
-        color: '#0369a1',
+        fontSize: 11,
+        fontWeight: '600',
+        color: '#f59e0b',
     },
     parentTask: {
         flexDirection: 'row',
@@ -1233,23 +1229,23 @@ const styles = StyleSheet.create({
         marginBottom: 8,
         paddingHorizontal: 12,
         paddingVertical: 8,
-        backgroundColor: '#f6fbfb',
-        borderRadius: 10,
+        backgroundColor: '#f9fafb',
+        borderRadius: 8,
     },
     parentTaskLabel: {
         fontSize: 12,
         color: '#6b7280',
-        marginRight: 8,
+        marginRight: 6,
     },
     parentTaskName: {
-        fontSize: 13,
+        fontSize: 12,
         fontWeight: '600',
-        color: '#111827',
+        color: '#374151',
         flex: 1,
     },
     cardDescription: {
         fontSize: 14,
-        color: '#475569',
+        color: '#6b7280',
         lineHeight: 20,
         marginBottom: 12,
     },
@@ -1264,39 +1260,22 @@ const styles = StyleSheet.create({
     },
     infoText: {
         fontSize: 13,
-        color: '#475569',
+        color: '#6b7280',
         flex: 1,
     },
     cardActions: {
         flexDirection: 'row',
         gap: 8,
-        marginTop: 8,
-    },
-    detailButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 10,
-        paddingHorizontal: 16,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#e6eef0',
-        backgroundColor: '#fff',
-        gap: 8,
-    },
-    detailButtonText: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: '#475569',
+        marginTop: 4,
     },
     actionButton: {
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 12,
-        borderRadius: 12,
-        gap: 8,
+        paddingVertical: 10,
+        borderRadius: 10,
+        gap: 6,
     },
     approveButton: {
         backgroundColor: '#10b981',
@@ -1305,8 +1284,8 @@ const styles = StyleSheet.create({
         backgroundColor: '#ef4444',
     },
     actionButtonText: {
-        fontSize: 14,
-        fontWeight: '700',
+        fontSize: 13,
+        fontWeight: '600',
         color: '#fff',
     },
     modalOverlay: {
@@ -1327,12 +1306,12 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingVertical: 16,
         borderBottomWidth: 1,
-        borderBottomColor: '#eef2f1',
+        borderBottomColor: '#e5e7eb',
     },
     modalTitle: {
         fontSize: 18,
         fontWeight: '700',
-        color: '#0f172a',
+        color: '#111827',
     },
     modalContent: {
         paddingHorizontal: 20,
@@ -1343,13 +1322,13 @@ const styles = StyleSheet.create({
     },
     modalSectionTitle: {
         fontSize: 17,
-        fontWeight: '700',
-        color: '#0f172a',
+        fontWeight: '600',
+        color: '#111827',
         marginBottom: 8,
     },
     modalDescription: {
         fontSize: 14,
-        color: '#475569',
+        color: '#6b7280',
         lineHeight: 20,
     },
     modalInfoGrid: {
@@ -1366,30 +1345,30 @@ const styles = StyleSheet.create({
     },
     modalValue: {
         fontSize: 15,
-        color: '#0f172a',
+        color: '#111827',
     },
     modalStatusBadge: {
         alignSelf: 'flex-start',
         paddingHorizontal: 12,
         paddingVertical: 6,
-        backgroundColor: '#fff7ed',
+        backgroundColor: '#fef3c7',
         borderRadius: 8,
     },
     modalStatusText: {
         fontSize: 13,
-        fontWeight: '700',
-        color: '#f97316',
+        fontWeight: '600',
+        color: '#f59e0b',
     },
     rejectReasonInput: {
         borderWidth: 1,
-        borderColor: '#e6eef0',
+        borderColor: '#d1d5db',
         borderRadius: 12,
         padding: 12,
         fontSize: 14,
-        color: '#0f172a',
+        color: '#111827',
         minHeight: 80,
         textAlignVertical: 'top',
-        backgroundColor: '#fbfefe',
+        backgroundColor: '#f9fafb',
     },
     modalActions: {
         gap: 12,
@@ -1412,7 +1391,7 @@ const styles = StyleSheet.create({
     },
     modalActionButtonText: {
         fontSize: 15,
-        fontWeight: '700',
+        fontWeight: '600',
         color: '#fff',
     },
     tabBtn: {
@@ -1423,41 +1402,6 @@ const styles = StyleSheet.create({
     },
     tabBtnActive: {
         backgroundColor: '#fff'
-    },
-    filterWrapper: {
-        backgroundColor: '#fff',
-        marginHorizontal: 16,
-        marginTop: 12,
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        borderRadius: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.06,
-        shadowRadius: 12,
-        elevation: 6,
-        zIndex: 20,
-    },
-    filterRow: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        alignItems: 'center',
-    },
-    debugHeaderBorder: {
-        borderWidth: 1,
-        borderColor: 'rgba(255,0,0,0.6)'
-    },
-    debugSearchBorder: {
-        borderWidth: 1,
-        borderColor: 'rgba(0,128,255,0.6)'
-    },
-    debugFilterBorder: {
-        borderWidth: 1,
-        borderColor: 'rgba(0,200,0,0.6)'
-    },
-    debugListBorder: {
-        borderWidth: 1,
-        borderColor: 'rgba(255,165,0,0.6)'
     },
     tabText: {
         fontSize: 13,
