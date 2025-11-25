@@ -92,7 +92,7 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     sequelize,
     modelName: 'Subtask',
-    tableName: 'Subtasks',
+    tableName: 'subtasks',
     timestamps: true,
     indexes: [
       {

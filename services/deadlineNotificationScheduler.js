@@ -48,7 +48,7 @@ async function checkAndSendDeadlineNotifications() {
             nowDate.setHours(0, 0, 0, 0);
 
             // Tính số ngày chênh lệch (chính xác theo ngày, không theo giờ)
-            const daysLeft = Math.round((deadlineDate - nowDate) / (1000 * 60 * 60 * 24));
+            const daysLeft = Math.floor((deadlineDate - nowDate) / (1000 * 60 * 60 * 24));
 
             console.log(`📊 [Deadline Scheduler] Subtask "${subtask.tenSubtask}": deadline=${deadline.toISOString()}, daysLeft=${daysLeft}`);
 
@@ -141,7 +141,7 @@ async function checkAndSendDeadlineNotifications() {
  */
 function startDeadlineScheduler() {
     // Chạy mỗi ngày lúc 9:00 sáng
-    cron.schedule('41 13 * * *', async () => {
+    cron.schedule('48 11 * * *', async () => {
         console.log('🕐 [Deadline Scheduler] Running daily check at 9:00 AM');
         await checkAndSendDeadlineNotifications();
     }, {

@@ -357,8 +357,9 @@ const getUpcomingTasks = async (req, res) => {
         const upcomingTasks = [
             ...tasks.map(task => {
                 const deadline = new Date(task.ngayKetThuc);
+                deadline.setHours(0, 0, 0, 0);
                 const diffTime = deadline.getTime() - today.getTime();
-                const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const daysLeft = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
                 return {
                     id: task.id,
@@ -373,8 +374,9 @@ const getUpcomingTasks = async (req, res) => {
             }),
             ...subtasks.map(subtask => {
                 const deadline = new Date(subtask.ngayKetThuc);
+                deadline.setHours(0, 0, 0, 0);
                 const diffTime = deadline.getTime() - today.getTime();
-                const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const daysLeft = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
                 return {
                     id: subtask.id,
@@ -580,10 +582,10 @@ const getMemberTasks = async (req, res) => {
         });
 
         // Build where clause for subtasks
-        const subtaskWhere = includeUnassigned === 'true' 
+        const subtaskWhere = includeUnassigned === 'true'
             ? { [Op.or]: [{ nguoiThucHienId: userId }, { nguoiThucHienId: null }] }
             : { nguoiThucHienId: userId };
-        
+
         if (status) subtaskWhere.trangThai = status;
         // Subtask không có priority field
         if (dateFrom || dateTo) {
@@ -909,18 +911,18 @@ const updateMemberSubtaskStatus = async (req, res) => {
 const getUnassignedSubtasks = async (req, res) => {
     try {
         const userId = req.user.id;
-        
+
         console.log('🔍 [getUnassignedSubtasks] Member ID:', userId);
-        
+
         // Tìm thông tin user để biết nhóm của họ
         const currentUser = await User.findByPk(userId, {
             attributes: ['id', 'hoten', 'manv']
         });
-        
+
         if (!currentUser) {
             return res.status(404).json({ message: 'Không tìm thấy thông tin người dùng' });
         }
-        
+
         // Tìm các nhóm mà user là thành viên
         const { Group } = require('../models');
         const groupMembers = await GroupMember.findAll({
@@ -996,7 +998,7 @@ const getUnassignedSubtasks = async (req, res) => {
         });
 
         console.log('📋 [getUnassignedSubtasks] Found', unassignedSubtasks.length, 'unassigned subtasks');
-        
+
         // Log chi tiết một vài subtasks để debug
         if (unassignedSubtasks.length > 0) {
             console.log('📝 [getUnassignedSubtasks] Sample subtask:', {
@@ -1067,14 +1069,14 @@ const claimSubtask = async (req, res) => {
 
         const GroupProject = require('../models').GroupProject;
         const groupProjects = await GroupProject.findAll({
-            where: { 
+            where: {
                 groupId: { [Op.in]: groupIds },
                 projectId: projectId
             }
         });
 
-        const hasAccess = groupProjects.length > 0 || 
-                         (await DuAn.findOne({ where: { id: projectId, userId } })) !== null;
+        const hasAccess = groupProjects.length > 0 ||
+            (await DuAn.findOne({ where: { id: projectId, userId } })) !== null;
 
         if (!hasAccess) {
             return res.status(403).json({ error: 'Bạn không có quyền truy cập dự án này' });

@@ -21,10 +21,19 @@ const authenticateToken = async (req, res, next) => {
             return res.status(401).json({ message: 'Token không hợp lệ' });
         }
 
-        const user = await User.findByPk(decoded.id);
+        // Load user with role for permission checking
+        const user = await User.findByPk(decoded.id, {
+            include: [{
+                model: require('../models').Role,
+                as: 'role',
+                attributes: ['id', 'name']
+            }]
+        });
+
         if (!user) {
             return res.status(401).json({ message: 'Người dùng không tồn tại' });
         }
+
         req.user = user;
         next();
     } catch (error) {

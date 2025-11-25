@@ -1,0 +1,57 @@
+version: "3.8"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: qlcv-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - SECRET_KEY=${SECRET_KEY}
+      - REFRESH_SECRET=${REFRESH_SECRET}
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASS=${EMAIL_PASS}
+      - FRONTEND_URL=${FRONTEND_URL}
+      - EXPO_ACCESS_TOKEN=${EXPO_ACCESS_TOKEN}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DB_HOST=mysql
+      - DB_USER=root
+      - DB_PASSWORD=hao260804
+      - DB_NAME=qlcv
+    volumes:
+      - ./uploads:/app/uploads
+    depends_on:
+      - mysql
+    restart: unless-stopped
+    networks:
+      - qlcv-network
+
+  mysql:
+    image: mysql:8.0
+    container_name: qlcv-mysql
+    ports:
+      - "3307:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=hao260804
+      - MYSQL_DATABASE=qlcv
+      - MYSQL_CHARACTER_SET_SERVER=utf8mb4
+      - MYSQL_COLLATION_SERVER=utf8mb4_unicode_ci
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./init-db:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+    networks:
+      - qlcv-network
+    command: --default-authentication-plugin=mysql_native_password
+
+volumes:
+  mysql-data:
+    driver: local
+
+networks:
+  qlcv-network:
+    driver: bridge

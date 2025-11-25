@@ -43,7 +43,7 @@ module.exports = (sequelize, DataTypes) => {
     }, {
         sequelize,
         modelName: 'GroupProjectHistory',
-        tableName: 'GroupProjectHistories'
+        tableName: 'groupprojecthistories'
     });
 
     return GroupProjectHistory;

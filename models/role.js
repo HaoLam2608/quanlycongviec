@@ -6,7 +6,7 @@ module.exports = (sequelize, DataTypes) => {
     static associate(models) {
       // Role có nhiều Users
       Role.hasMany(models.User, { foreignKey: 'roleId', as: 'users' });
-      
+
       // Role có nhiều Permissions thông qua RolePermission
       Role.belongsToMany(models.Permission, {
         through: models.RolePermission,
@@ -30,6 +30,7 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     sequelize,
     modelName: 'Role',
+    tableName: 'roles',
   });
 
   return Role;

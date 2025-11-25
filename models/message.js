@@ -63,7 +63,7 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     sequelize,
     modelName: 'Message',
-    tableName: 'Messages',
+    tableName: 'messages',
     timestamps: true,
     paranoid: false // We handle soft delete manually with deletedAt
   });

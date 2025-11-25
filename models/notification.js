@@ -124,7 +124,7 @@ module.exports = (sequelize, DataTypes) => {
     }, {
         sequelize,
         modelName: 'Notification',
-        tableName: 'Notifications',
+        tableName: 'notifications',
         timestamps: true,
         hooks: {
             beforeUpdate: (notification, options) => {

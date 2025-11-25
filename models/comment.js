@@ -34,7 +34,7 @@ module.exports = (sequelize, DataTypes) => {
       comment: 'Array of mentioned user IDs'
     }
   }, {
-    tableName: 'Comments',
+    tableName: 'comments',
     timestamps: true,
     validate: {
       eitherTaskOrSubtask() {
@@ -45,7 +45,7 @@ module.exports = (sequelize, DataTypes) => {
     }
   });
 
-  Comment.associate = function(models) {
+  Comment.associate = function (models) {
     Comment.belongsTo(models.User, { foreignKey: 'authorId', as: 'author' });
     Comment.belongsTo(models.Task, { foreignKey: 'taskId', as: 'task' });
     Comment.belongsTo(models.Subtask, { foreignKey: 'subtaskId', as: 'subtask' });

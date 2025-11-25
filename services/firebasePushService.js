@@ -4,7 +4,8 @@ const { Op } = require('sequelize');
 const path = require('path');
 
 // Khởi tạo Firebase Admin SDK
-const serviceAccountPath = path.join(__dirname, '..', '..', 'mobileqlcv-firebase-adminsdk-fbsvc-b4a4a229c7.json');
+// const serviceAccountPath = path.join(__dirname, '..', '..', 'mobileqlcv-firebase-adminsdk-fbsvc-b4a4a229c7.json');
+const serviceAccountPath = path.join(process.cwd(), 'mobileqlcv-firebase-adminsdk-fbsvc-b4a4a229c7.json');
 const serviceAccount = require(serviceAccountPath);
 
 if (!admin.apps.length) {

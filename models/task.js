@@ -53,9 +53,8 @@ module.exports = (sequelize, DataTypes) => {
     },
     nguoiDuocGiaoId: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
       validate: {
-        notNull: true,
         isInt: true
       }
     },
@@ -113,7 +112,7 @@ module.exports = (sequelize, DataTypes) => {
   }, {
     sequelize,
     modelName: 'Task',
-    tableName: 'Tasks',
+    tableName: 'tasks',
     timestamps: true,
     indexes: [
       {

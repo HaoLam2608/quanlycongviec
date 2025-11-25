@@ -39,7 +39,15 @@ router.get('/admin/stats',
     auth,
     checkRole('admin'),
     notificationController.getNotificationStats
-);// User routes - for all authenticated users
+);
+
+router.get('/admin/join-requests',
+    auth,
+    checkRole('admin'),
+    notificationController.getAllJoinRequests
+);
+
+// User routes - for all authenticated users
 router.get('/user',
     auth,
     notificationController.getUserNotifications
@@ -48,11 +56,6 @@ router.get('/user',
 router.post('/:id/mark-read',
     auth,
     notificationController.markAsRead
-);
-
-router.delete('/:id',
-    auth,
-    notificationController.deleteUserNotification
 );
 
 router.post('/mark-all-read',

@@ -349,6 +349,89 @@ exports.toggleNotificationStatus = async (req, res) => {
             }]
         });
 
+        // Nếu publish, gửi push notification
+        if (action === 'publish') {
+            try {
+                const { DeviceToken } = require('../models');
+                const admin = require('firebase-admin');
+
+                // Lấy target audience
+                const targetAudience = notification.targetAudience ? notification.targetAudience.split(',') : [];
+                console.log('🔔 Publishing notification to:', targetAudience);
+
+                // Lấy users có role trong target audience
+                let whereClause = {};
+                if (targetAudience.length > 0 && !targetAudience.includes('all')) {
+                    whereClause = {
+                        include: [{
+                            model: require('../models').Role,
+                            as: 'role',
+                            where: {
+                                name: { [Op.in]: targetAudience }
+                            }
+                        }]
+                    };
+                }
+
+                // Lấy tất cả users nếu target là 'all'
+                const users = targetAudience.includes('all')
+                    ? await User.findAll()
+                    : await User.findAll(whereClause);
+
+                const userIds = users.map(u => u.id);
+                console.log('📱 Sending to users:', userIds);
+
+                // Lấy device tokens
+                const devices = await DeviceToken.findAll({
+                    where: {
+                        userId: { [Op.in]: userIds },
+                        isActive: true
+                    }
+                });
+
+                const tokens = devices.map(d => d.expoPushToken).filter(t => t);
+                console.log(`📤 Found ${tokens.length} device tokens`);
+
+                if (tokens.length > 0) {
+                    // Gửi push qua Firebase
+                    const sendPromises = tokens.map(token => {
+                        const message = {
+                            token: token,
+                            notification: {
+                                title: notification.title,
+                                body: notification.content
+                            },
+                            data: {
+                                notificationId: String(notification.id),
+                                type: notification.type
+                            },
+                            android: {
+                                priority: 'high',
+                                notification: {
+                                    sound: 'default',
+                                    channelId: 'default'
+                                }
+                            }
+                        };
+
+                        return admin.messaging().send(message)
+                            .then(() => ({ success: true, token }))
+                            .catch(error => {
+                                console.error(`❌ Error sending to ${token}:`, error.message);
+                                return { success: false, token };
+                            });
+                    });
+
+                    const results = await Promise.all(sendPromises);
+                    const successful = results.filter(r => r.success).length;
+                    console.log(`✅ Push sent: ${successful}/${tokens.length}`);
+                }
+            } catch (pushError) {
+                console.error('⚠️ Error sending push notification:', pushError);
+                // Không fail response, chỉ log error
+            }
+        }
+
         res.json({
             success: true,
             message: action === 'publish' ? 'Đã xuất bản thông báo' : 'Đã hủy xuất bản thông báo',
@@ -654,7 +737,7 @@ exports.sendPushNotification = async (req, res) => {
         }
 
         const { DeviceToken } = require('../models');
-        const { Expo } = require('expo-server-sdk');
+        const admin = require('firebase-admin');
 
         // Lấy tất cả device tokens của users
         const devices = await DeviceToken.findAll({
@@ -672,46 +755,52 @@ exports.sendPushNotification = async (req, res) => {
             });
         }
 
-        // Khởi tạo Expo SDK
-        const expo = new Expo();
-        const messages = [];
+        const tokens = devices.map(d => d.expoPushToken).filter(t => t);
 
-        for (const device of devices) {
-            // Kiểm tra push token hợp lệ
-            if (!Expo.isExpoPushToken(device.expoPushToken)) {
-                console.log(`Push token không hợp lệ: ${device.expoPushToken}`);
-                continue;
-            }
-
-            messages.push({
-                to: device.expoPushToken,
-                sound: 'default',
-                title,
-                body,
-                data: data || {},
-                priority: 'high',
-                channelId: 'default'
+        if (tokens.length === 0) {
+            return res.json({
+                success: true,
+                message: 'Không có token hợp lệ',
+                sent: 0
             });
         }
 
-        // Gửi notifications
-        const chunks = expo.chunkPushNotifications(messages);
-        const tickets = [];
+        // Gửi qua Firebase Cloud Messaging
+        const sendPromises = tokens.map(token => {
+            const message = {
+                token: token,
+                notification: {
+                    title,
+                    body
+                },
+                data: data || {},
+                android: {
+                    priority: 'high',
+                    notification: {
+                        sound: 'default',
+                        channelId: 'default'
+                    }
+                }
+            };
 
-        for (const chunk of chunks) {
-            try {
-                const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
-                tickets.push(...ticketChunk);
-            } catch (error) {
-                console.error('Error sending push notification chunk:', error);
-            }
-        }
+            return admin.messaging().send(message)
+                .then(() => ({ success: true, token }))
+                .catch(error => {
+                    console.error(`Error sending to ${token}:`, error.message);
+                    return { success: false, token };
+                });
+        });
+
+        const results = await Promise.all(sendPromises);
+        const successful = results.filter(r => r.success).length;
+
+        console.log(`✅ Gửi push notification thành công: ${successful}/${tokens.length}`);
 
         res.json({
             success: true,
             message: 'Đã gửi push notification',
-            sent: messages.length,
-            tickets: tickets.length
+            sent: successful,
+            total: tokens.length
         });
     } catch (error) {
         console.error('Error sending push notification:', error);
@@ -803,7 +892,7 @@ exports.deleteUserNotification = async (req, res) => {
 
         // Find the UserNotification entry for this user
         const userNotification = await UserNotification.findOne({
-            where: { 
+            where: {
                 notificationId: id,
                 userId: userId
             }
@@ -828,6 +917,120 @@ exports.deleteUserNotification = async (req, res) => {
         res.status(500).json({
             success: false,
             message: 'Lỗi khi xóa thông báo',
+            error: error.message
+        });
+    }
+};
+
+/**
+ * Get all join requests (requestToJoin) across the system for admin
+ */
+exports.getAllJoinRequests = async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 200;
+        const { Op } = require('sequelize');
+        const sequelize = require('sequelize');
+
+        // First, cleanup: delete duplicate UserNotifications for same notificationId (keep only first one)
+        // This handles old data that was broadcast to multiple managers
+        const duplicateUNs = await UserNotification.findAll({
+            where: sequelize.where(
+                sequelize.literal("JSON_EXTRACT(meta, '$.requestToJoin')"),
+                Op.eq,
+                true
+            ),
+            attributes: ['notificationId', 'userId', 'id'],
+            raw: true
+        });
+
+        // Group by notificationId and delete duplicates (keep first one)
+        const seen = new Set();
+        const toDelete = [];
+        duplicateUNs.forEach(un => {
+            if (seen.has(un.notificationId)) {
+                toDelete.push(un.id);
+            }
+            seen.add(un.notificationId);
+        });
+
+        if (toDelete.length > 0) {
+            console.log(`🧹 Cleaning up ${toDelete.length} duplicate UserNotifications...`);
+            await UserNotification.destroy({
+                where: { id: { [Op.in]: toDelete } }
+            });
+        }
+
+        // Get all UserNotifications that have meta.requestToJoin = true and not processed
+        const userNotifications = await UserNotification.findAll({
+            where: sequelize.where(
+                sequelize.literal("JSON_EXTRACT(meta, '$.requestToJoin')"),
+                Op.eq,
+                true
+            ),
+            include: [
+                {
+                    model: Notification,
+                    as: 'notification',
+                    required: true,
+                    include: [
+                        {
+                            model: User,
+                            as: 'author',
+                            attributes: ['id', 'manv', 'hoten']
+                        }
+                    ]
+                },
+                {
+                    model: User,
+                    as: 'user',
+                    attributes: ['id', 'manv', 'hoten']
+                }
+            ],
+            order: [['createdAt', 'DESC']],
+            limit,
+            subQuery: false,
+            raw: false,
+            distinct: true
+        });
+
+        console.log('📊 getAllJoinRequests - found userNotifications:', userNotifications.length)
+        userNotifications.forEach((un, idx) => {
+            console.log(`  [${idx}] notificationId=${un.notificationId}, userId=${un.userId}, meta.requestToJoin=${un.meta?.requestToJoin}, meta.processed=${un.meta?.processed}`)
+        })
+
+        // Format response - no more duplicates after cleanup
+        const formatted = userNotifications
+            .map(un => ({
+                id: un.notificationId,
+                userId: un.userId,
+                title: un.notification.title,
+                content: un.notification.content,
+                createdAt: un.notification.createdAt,
+                isRead: un.isRead,
+                meta: un.meta,
+                userMeta: un.meta,
+                author: un.notification.author,
+                recipient: un.user,
+                userNotification: {
+                    isRead: un.isRead,
+                    meta: un.meta
+                }
+            }));
+
+        console.log('✅ getAllJoinRequests - final formatted:', formatted.length)
+        formatted.forEach((item, idx) => {
+            console.log(`  [${idx}] id=${item.id}, userId=${item.userId}, title="${item.title}"`)
+        })
+
+        res.json({
+            success: true,
+            data: formatted
+        });
+    } catch (error) {
+        console.error('Error fetching all join requests:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Lỗi khi lấy danh sách yêu cầu tham gia',
             error: error.message
         });
     }

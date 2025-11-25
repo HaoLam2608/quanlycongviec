@@ -26,11 +26,24 @@ module.exports = (sequelize, DataTypes) => {
         meta: {
             type: DataTypes.JSON,
             allowNull: true
+        },
+        processed: {
+            type: DataTypes.BOOLEAN,
+            allowNull: false,
+            defaultValue: false
+        },
+        processedAt: {
+            type: DataTypes.DATE,
+            allowNull: true
+        },
+        processedBy: {
+            type: DataTypes.INTEGER,
+            allowNull: true
         }
     }, {
         sequelize,
         modelName: 'UserNotification',
-        tableName: 'UserNotifications',
+        tableName: 'usernotifications',
         timestamps: true
     });
 

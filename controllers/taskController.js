@@ -63,7 +63,7 @@ exports.getKanbanTasks = async (req, res) => {
         // Tính progress cho mỗi task
         tasks.forEach(task => {
             const taskData = task.toJSON();
-            
+
             // Tính progress dựa vào subtasks
             if (taskData.subtasks && taskData.subtasks.length > 0) {
                 const completedCount = taskData.subtasks.filter(st => st.trangThai === 'Hoàn thành').length;
@@ -104,7 +104,7 @@ exports.getTasksByProject = async (req, res) => {
     try {
         const { projectId } = req.params;
         console.log('🔍 Backend: getTasksByProject called for projectId:', projectId);
-        
+
         const { page = 1, limit = 10 } = req.query;
         const offset = (page - 1) * limit;
 
@@ -173,7 +173,7 @@ exports.getTasksByProject = async (req, res) => {
                 pages: Math.ceil(tasks.count / limit)
             }
         });
-        
+
         console.log(`✅ Backend: Returned ${tasksWithProgress.length} tasks for project ${projectId}`);
     } catch (error) {
         console.error('Get tasks error:', error);
@@ -247,10 +247,12 @@ exports.createTask = async (req, res) => {
             return res.status(404).json({ error: 'Không tìm thấy dự án' });
         }
 
-        // Kiểm tra user được giao có tồn tại không
-        const assignee = await User.findByPk(nguoiDuocGiaoId);
-        if (!assignee) {
-            return res.status(404).json({ error: 'Không tìm thấy người được giao' });
+        // Kiểm tra user được giao có tồn tại không (chỉ khi client cung cấp)
+        if (nguoiDuocGiaoId) {
+            const assignee = await User.findByPk(nguoiDuocGiaoId);
+            if (!assignee) {
+                return res.status(404).json({ error: 'Không tìm thấy người được giao' });
+            }
         }
 
         // Validate dates: if both provided, start must be <= end
@@ -266,7 +268,7 @@ exports.createTask = async (req, res) => {
             tentask,
             mota,
             duanId,
-            nguoiDuocGiaoId,
+            nguoiDuocGiaoId: nguoiDuocGiaoId || null, // Cho phép null - member tự nhận
             nguoiGiaoId: req.user.id, // Người tạo task
             ngayBatDau,
             ngayKetThuc,
@@ -315,7 +317,7 @@ exports.updateTask = async (req, res) => {
                 attributes: ['id', 'userId'] // userId là manager của dự án
             }]
         });
-        
+
         if (!task) {
             return res.status(404).json({ error: 'Không tìm thấy công việc' });
         }
@@ -337,7 +339,7 @@ exports.updateTask = async (req, res) => {
         const isTaskCreator = task.nguoiGiaoId === req.user.id;
         const isTaskAssignee = task.nguoiDuocGiaoId === req.user.id;
         const isProjectManager = task.duan && task.duan.userId === req.user.id;
-        
+
         if (!isTaskCreator && !isTaskAssignee && !isProjectManager) {
             console.log('❌ [updateTask] Permission denied');
             return res.status(403).json({ error: 'Không có quyền cập nhật công việc này' });
@@ -650,7 +652,7 @@ exports.getKanbanTasks = async (req, res) => {
 
         tasks.forEach(task => {
             const taskData = task.toJSON();
-            
+
             // Tính progress từ subtasks
             if (taskData.subtasks && taskData.subtasks.length > 0) {
                 const completedCount = taskData.subtasks.filter(st => st.trangThai === 'Hoàn thành').length;
@@ -718,7 +720,7 @@ exports.updateTaskStatus = async (req, res) => {
             // Chuyển thành "Chờ xác nhận hoàn thành" thay vì "Hoàn thành" ngay
             finalStatus = 'Chờ xác nhận hoàn thành';
             updateData.trangThai = finalStatus;
-            
+
             // Tạo thông báo cho người giao (wrapped in try/catch to avoid breaking status update)
             try {
                 const { Notification, UserNotification } = require('../models');
@@ -751,7 +753,7 @@ exports.updateTaskStatus = async (req, res) => {
             if (trangThai === 'Đang chạy' && !task.ngayBatDau) {
                 updateData.ngayBatDau = new Date();
             }
-            
+
             if (trangThai === 'Hoàn thành') {
                 updateData.ngayHoanThanh = new Date();
                 updateData.tienDo = 100;
@@ -788,7 +790,7 @@ exports.updateTaskStatus = async (req, res) => {
             ]
         });
 
-        const message = finalStatus === 'Chờ xác nhận hoàn thành' 
+        const message = finalStatus === 'Chờ xác nhận hoàn thành'
             ? 'Đã gửi yêu cầu xác nhận hoàn thành'
             : 'Cập nhật trạng thái thành công';
 
