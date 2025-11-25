@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { getMyProfile } from '@/src/axios/api';
+import { getMyProfile, uploadAvatar } from '@/src/axios/api';
 import api from '@/src/axios/config';
 import { API_CONFIG } from '@/src/config/api';
 
@@ -165,27 +165,24 @@ export default function SettingsPage() {
 
             setUpdating(true);
 
-            // Upload avatar if selected
+            // Upload avatar if selected (use helper uploadAvatar for reliability)
             if (selectedAvatar) {
                 setUploadingAvatar(true);
-                const formData = new FormData();
-                
-                const filename = selectedAvatar.split('/').pop() || 'avatar.jpg';
-                const match = /\.([\w]+)$/.exec(filename);
-                const type = match ? `image/${match[1]}` : 'image/jpeg';
-
-                formData.append('avatar', {
-                    uri: selectedAvatar,
-                    name: filename,
-                    type: type,
-                } as any);
-
                 try {
-                    await api.post('/users/me/avatar', formData, {
-                        headers: {
-                            'Content-Type': 'multipart/form-data',
-                        },
-                    });
+                    const filename = selectedAvatar.split('/').pop() || 'avatar.jpg';
+                    const match = /\.([\w]+)$/.exec(filename);
+                    const mime = match ? `image/${match[1]}` : 'image/jpeg';
+
+                    const uploadRes: any = await uploadAvatar({ uri: selectedAvatar, name: filename, type: mime });
+
+                    // If API returns path, try to normalize and set on profile for immediate feedback
+                    const returnedPath = uploadRes?.path || uploadRes?.avatar || uploadRes?.avatarUrl || uploadRes?.data?.avatar;
+                    if (returnedPath) {
+                        const slash = returnedPath.startsWith('/') ? '' : '/';
+                        const full = returnedPath.startsWith('http') ? returnedPath : `${API_CONFIG.BASE_URL}${slash}${returnedPath}`;
+                        // update local state so user sees new avatar immediately
+                        setProfile(prev => prev ? { ...prev, avatarUrl: full } : prev);
+                    }
                 } catch (avatarError) {
                     console.error('Error uploading avatar:', avatarError);
                     Alert.alert('Cảnh báo', 'Ảnh đại diện không được tải lên, nhưng thông tin khác sẽ được cập nhật');
@@ -253,9 +250,9 @@ export default function SettingsPage() {
                     <Text style={styles.sectionTitle}>Hồ sơ cá nhân</Text>
                     {profile ? (
                         <View style={styles.profileCard}>
-                            <View style={styles.profileHeader}>
+                            <TouchableOpacity style={styles.profileHeader} onPress={handleEditProfile} activeOpacity={0.8}>
                                 {profile.avatarUrl ? (
-                                    <Image source={{ uri: profile.avatarUrl }} style={styles.avatar} />
+                                    <Image source={{ uri: profile.avatarUrl }} style={styles.avatar} onError={() => setProfile(prev => prev ? { ...prev, avatarUrl: undefined } : prev)} />
                                 ) : (
                                     <View style={styles.avatarPlaceholder}>
                                         <Text style={styles.avatarInitial}>
@@ -268,13 +265,11 @@ export default function SettingsPage() {
                                     {profile.manv && <Text style={styles.profileCode}>{profile.manv}</Text>}
                                     {profile.chucvu && <Text style={styles.profileRole}>{profile.chucvu}</Text>}
                                 </View>
-                                <TouchableOpacity 
-                                    style={styles.editButton}
-                                    onPress={handleEditProfile}
+                                <View style={styles.editButton}
                                 >
                                     <Ionicons name="create-outline" size={20} color="#f59e0b" />
-                                </TouchableOpacity>
-                            </View>
+                                </View>
+                            </TouchableOpacity>
 
                             <View style={styles.profileDetails}>
                                 <View style={styles.detailRow}>
@@ -390,9 +385,9 @@ export default function SettingsPage() {
                                         onPress={pickAvatar}
                                     >
                                         {selectedAvatar ? (
-                                            <Image source={{ uri: selectedAvatar }} style={modalStyles.avatarPreview} />
+                                            <Image source={{ uri: selectedAvatar }} style={modalStyles.avatarPreview} onError={() => setSelectedAvatar(null)} />
                                         ) : profile?.avatarUrl ? (
-                                            <Image source={{ uri: profile.avatarUrl }} style={modalStyles.avatarPreview} />
+                                            <Image source={{ uri: profile.avatarUrl }} style={modalStyles.avatarPreview} onError={() => setProfile(prev => prev ? { ...prev, avatarUrl: undefined } : prev)} />
                                         ) : (
                                             <View style={modalStyles.avatarPlaceholderModal}>
                                                 <Text style={modalStyles.avatarInitialModal}>

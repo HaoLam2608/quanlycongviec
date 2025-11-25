@@ -172,13 +172,6 @@ export default function ManagerDashboard() {
             count: null
         },
         { 
-            title: 'Tài liệu', 
-            icon: 'document-text', 
-            route: '/(manager)/documents',
-            color: '#f97316',
-            count: null
-        },
-        { 
             title: 'Phê duyệt', 
             icon: 'checkmark-done', 
             route: '/(manager)/approvals',

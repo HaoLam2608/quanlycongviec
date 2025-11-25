@@ -11,6 +11,12 @@ const getPendingApprovals = async (options?: { type?: PendingType }) => {
         })
         return res.data
     } catch (err: any) {
+        // Detect HTML 404 responses (often indicates wrong baseURL or backend not running)
+        const respData = err.response?.data;
+        if (typeof respData === 'string' && respData.trim().startsWith('<!DOCTYPE')) {
+            throw { message: 'Server trả về HTML (404/nhầm route). Kiểm tra backend hoặc BASE_URL.' };
+        }
+        // If server provided a JSON message, forward it
         throw err.response?.data || { message: 'Không thể lấy danh sách chờ phê duyệt' }
     }
 }
@@ -24,6 +30,19 @@ const getAllApprovals = async () => {
             return getPendingApprovals({ type: 'all' })
         }
         throw err.response?.data || { message: 'Không thể lấy danh sách phê duyệt' }
+    }
+}
+
+// Get approved history (tasks and subtasks already approved)
+const getApprovedHistory = async (limit: number = 100) => {
+    try {
+        const res = await api.get('/approvals/history', { params: { limit } });
+        return res.data;
+    } catch (err: any) {
+        if (err.response?.status === 404) {
+            return getAllApprovals();
+        }
+        throw err.response?.data || { message: 'Không thể lấy lịch sử phê duyệt' };
     }
 }
 
@@ -54,6 +73,7 @@ const approveSubtask = async (subtaskId: number, approved: boolean, reason?: str
 export const approvalAPI = {
     getPendingApprovals,
     getAllApprovals,
+    getApprovedHistory,
     approveTask,
     approveSubtask
 }

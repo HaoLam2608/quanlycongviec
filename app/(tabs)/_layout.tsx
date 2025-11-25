@@ -22,6 +22,11 @@ export default function TabLayout() {
           fontWeight: '500',
         },
       }}
+      tabBar={(props) => {
+        // lazy-load custom tab bar to ensure whitelisting
+        const Custom = require('./CustomTabBar').default;
+        return <Custom {...props} />;
+      }}
     >
       {/* Hidden redirect tab - must be first for default route */}
       <Tabs.Screen
@@ -62,7 +67,11 @@ export default function TabLayout() {
       <Tabs.Screen
         name="member-kanban/index"
         options={{
-          href: null, // Hide from tab bar
+          title: 'Kanban',
+          tabBarLabel: 'Kanban',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'grid' : 'grid-outline'} size={24} color={color} />
+          ),
         }}
       />
 
@@ -84,7 +93,11 @@ export default function TabLayout() {
       <Tabs.Screen
         name="member-calendar/index"
         options={{
-          href: null, // Hide from tab bar
+          title: 'Lịch',
+          tabBarLabel: 'Lịch',
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={24} color={color} />
+          ),
         }}
       />
 

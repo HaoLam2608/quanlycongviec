@@ -88,30 +88,7 @@ export function useAuth() {
 
       console.log('✅ [useAuth] Đã cập nhật authState');
 
-      // Đăng ký push notification sau khi login
-      console.log('🔔 [useAuth] Bắt đầu đăng ký push notification...');
-      try {
-        console.log('🔔 [useAuth] Gọi NotificationService.registerForPushNotificationsAsync()...');
-        const pushToken = await NotificationService.registerForPushNotificationsAsync();
-        console.log('🔔 [useAuth] Push token nhận được:', pushToken);
-        
-        if (pushToken) {
-          console.log('🔔 [useAuth] Gửi token lên backend:', API_CONFIG.BASE_URL);
-          await NotificationService.sendTokenToBackend(
-            pushToken,
-            API_CONFIG.BASE_URL,
-            tokens.accessToken
-          );
-          console.log('✅ [useAuth] Hoàn tất đăng ký push notification');
-        } else {
-          console.log('⚠️ [useAuth] Push token là null, bỏ qua gửi lên backend');
-        }
-      } catch (notifError) {
-        console.error('❌ [useAuth] Lỗi đăng ký push notification:', notifError);
-        console.error('❌ [useAuth] Error stack:', notifError instanceof Error ? notifError.stack : 'No stack trace');
-        // Không throw error để không ảnh hưởng đến luồng login
-      }
-      
+      // ...existing code...
       console.log('✅ [useAuth] Hoàn tất login');
     } catch (error) {
       console.error('❌ [useAuth] Error saving auth data:', error);

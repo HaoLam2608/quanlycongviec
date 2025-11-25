@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
     SafeAreaView, StyleSheet, Text, View, ScrollView, TouchableOpacity,
-    ActivityIndicator, Alert, FlatList, RefreshControl, Modal, TextInput, Platform
+    ActivityIndicator, Alert, FlatList, RefreshControl, Modal, TextInput, Platform, Linking
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createTask, deleteTask } from '@/src/axios/api';
+import { createTask, deleteTask, fetchDocuments } from '@/src/axios/api';
+import { API_CONFIG } from '@/src/config/api';
 import { PRIORITY_LEVELS, PRIORITY_LABELS } from '../../constants/roles';
 import { getProjectById, getTasksByProject } from '@/src/axios/api';
 import { getGroups, groupAPI } from '@/src/axios/adminApi';
@@ -35,7 +36,7 @@ interface Task {
     };
 }
 
-type TabType = 'overview' | 'tasks' | 'groups';
+type TabType = 'overview' | 'tasks' | 'groups' | 'documents';
 
 export default function ProjectDetail() {
     const router = useRouter();
@@ -58,6 +59,8 @@ export default function ProjectDetail() {
     const [newPriority, setNewPriority] = useState<string>('trung_binh');
     const [newNotes, setNewNotes] = useState('');
     const [groupsAttached, setGroupsAttached] = useState<any[]>([]);
+    const [documents, setDocuments] = useState<any[]>([]);
+    const [loadingDocs, setLoadingDocs] = useState(false);
     const [availableGroups, setAvailableGroups] = useState<any[]>([]);
     const [showAddGroupModal, setShowAddGroupModal] = useState(false);
     const [loadingGroups, setLoadingGroups] = useState(false);
@@ -108,12 +111,43 @@ export default function ProjectDetail() {
             ]);
             setProject(projectData);
             setTasks(tasksData);
+            // prefetch documents for this project
+            loadDocuments();
         } catch (error) {
             console.error('Error loading project:', error);
             Alert.alert('Lỗi', 'Không thể tải thông tin dự án');
         } finally {
             setLoading(false);
             setRefreshing(false);
+        }
+    };
+
+    const loadDocuments = async () => {
+        if (!projectId) return;
+        try {
+            setLoadingDocs(true);
+            const res: any = await fetchDocuments(Number(projectId));
+            let docs = res;
+            if (res && res.documents) docs = res.documents;
+            if (!Array.isArray(docs)) docs = [];
+
+            const transformed = docs.map((doc: any) => ({
+                id: doc.id,
+                tenTaiLieu: doc.tenTaiLieu || doc.originalname || doc.filename || doc.name,
+                moTa: doc.moTa || doc.description || '',
+                duongDan: doc.duongDan || doc.filename || doc.path || '',
+                kichThuoc: doc.kichThuoc || doc.size || 0,
+                loai: doc.loaiTaiLieu || doc.mimetype || 'application/octet-stream',
+                createdAt: doc.createdAt,
+                uploadedBy: doc.uploadedBy || doc.uploader || null,
+            }));
+
+            setDocuments(transformed);
+        } catch (err) {
+            console.error('Error loading documents for project', err);
+            setDocuments([]);
+        } finally {
+            setLoadingDocs(false);
         }
     };
 
@@ -385,6 +419,23 @@ export default function ProjectDetail() {
         }
     };
 
+    const translatePriority = (p?: string) => {
+        if (!p) return 'Không rõ';
+        const key = String(p).toLowerCase();
+        if (key.includes('high') || key.includes('cao') || key.includes('khan')) return 'Cao';
+        if (key.includes('medium') || key.includes('trung')) return 'Trung bình';
+        if (key.includes('low') || key.includes('thap')) return 'Thấp';
+        return p;
+    };
+
+    const priorityColor = (p?: string) => {
+        const key = String(p || '').toLowerCase();
+        if (key.includes('high') || key.includes('cao') || key.includes('khan')) return '#ef4444';
+        if (key.includes('medium') || key.includes('trung')) return '#f59e0b';
+        if (key.includes('low') || key.includes('thap')) return '#10b981';
+        return '#9ca3af';
+    };
+
     const renderOverview = () => (
         <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
             <View style={styles.section}>
@@ -493,8 +544,8 @@ export default function ProjectDetail() {
                         <Text style={styles.statusTextSmall}>{item.trangThai || 'Chưa rõ'}</Text>
                     </View>
                     {(item as any).mucDoUuTien ? (
-                        <View style={[styles.priorityBadge, { backgroundColor: (item as any).mucDoUuTien === 'high' ? '#ef4444' : (item as any).mucDoUuTien === 'medium' ? '#f59e0b' : '#10b981' }]}>
-                            <Text style={styles.badgeText}>{(item as any).mucDoUuTien === 'high' ? 'Cao' : (item as any).mucDoUuTien === 'medium' ? 'Trung bình' : 'Thấp'}</Text>
+                        <View style={[styles.priorityBadge, { backgroundColor: priorityColor((item as any).mucDoUuTien) }]}> 
+                            <Text style={styles.badgeText}>{translatePriority((item as any).mucDoUuTien)}</Text>
                         </View>
                     ) : null}
                 </View>
@@ -595,6 +646,12 @@ export default function ProjectDetail() {
                 >
                     <Text style={[styles.tabText, activeTab === 'groups' && styles.tabTextActive]}>Nhóm</Text>
                 </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.tab, activeTab === 'documents' && styles.tabActive]}
+                    onPress={() => { setActiveTab('documents'); loadDocuments(); }}
+                >
+                    <Text style={[styles.tabText, activeTab === 'documents' && styles.tabTextActive]}>Tài liệu</Text>
+                </TouchableOpacity>
                 {/* Timeline tab removed */}
             </View>
 
@@ -629,6 +686,45 @@ export default function ProjectDetail() {
                         refreshing={refreshing}
                         onRefresh={onRefresh}
                     />
+                </View>
+            )}
+
+            {activeTab === 'documents' && (
+                <View style={styles.tabContent}>
+                    {loadingDocs ? (
+                        <View style={{ padding: 16, alignItems: 'center' }}>
+                            <ActivityIndicator size="large" color="#f59e0b" />
+                            <Text style={{ marginTop: 8, color: '#6b7280' }}>Đang tải tài liệu...</Text>
+                        </View>
+                    ) : documents.length === 0 ? (
+                        <View style={styles.emptyContainer}>
+                            <Text style={styles.emptyText}>Không có tài liệu cho dự án này</Text>
+                        </View>
+                    ) : (
+                        <FlatList
+                            data={documents}
+                            keyExtractor={(item) => String(item.id)}
+                            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                            renderItem={({ item }) => (
+                                <View style={styles.documentCard}>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.documentTitle} numberOfLines={2}>{item.tenTaiLieu}</Text>
+                                        {item.uploadedBy && <Text style={styles.documentMeta}>{item.uploadedBy.hoten || item.uploadedBy}</Text>}
+                                        {item.kichThuoc ? <Text style={styles.documentMeta}>{(item.kichThuoc/1024).toFixed(2)} KB</Text> : null}
+                                    </View>
+
+                                    <View style={styles.documentActions}>
+                                        <TouchableOpacity style={[styles.smallButton, { backgroundColor: '#2563eb' }]} onPress={() => Linking.openURL(`${API_CONFIG.BASE_URL}/documents/${item.id}/download?download=1`)}>
+                                            <Text style={styles.smallButtonText}>Tải xuống</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={[styles.smallButton, { backgroundColor: '#ef4444' }]} onPress={() => Alert.alert('Xóa', 'Bạn không có quyền xóa tài liệu ở đây')}>
+                                            <Text style={styles.smallButtonText}>Xóa</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            )}
+                        />
+                    )}
                 </View>
             )}
 
@@ -1269,5 +1365,48 @@ const styles = StyleSheet.create({
     assigneeText: { color: '#6b7280', fontSize: 13, marginTop: 6 },
     cardFooterRowRight: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 8 },
     dateText: { color: '#6b7280', fontSize: 12 },
+    documentCard: {
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 14,
+        marginVertical: 8,
+        marginHorizontal: 8,
+        borderWidth: 1,
+        borderColor: '#eef2ff',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        elevation: 3,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between'
+    },
+    documentTitle: {
+        fontWeight: '700',
+        fontSize: 15,
+        color: '#111827'
+    },
+    documentMeta: {
+        color: '#6b7280',
+        marginTop: 6,
+        fontSize: 13
+    },
+    documentActions: {
+        flexDirection: 'column',
+        gap: 8,
+        marginLeft: 12,
+        alignItems: 'flex-end'
+    },
+    smallButton: {
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        alignItems: 'center'
+    },
+    smallButtonText: {
+        color: '#fff',
+        fontWeight: '700'
+    },
     /* add/remove buttons removed: groups tab now displays only attached groups */
 });

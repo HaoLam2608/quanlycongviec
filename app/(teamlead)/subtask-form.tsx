@@ -232,10 +232,7 @@ export default function TeamLeadSubtaskFormScreen() {
             Alert.alert('Lỗi', 'Vui lòng chọn ngày bắt đầu.');
             return false;
         }
-        if (!assigneeId) {
-            Alert.alert('Lỗi', 'Vui lòng chọn người thực hiện.');
-            return false;
-        }
+        // Assignee is optional: allow creating subtask without selecting a person
         const start = new Date(startDate);
         const end = endDate ? new Date(endDate) : null;
         if (end && start > end) {
@@ -270,8 +267,6 @@ export default function TeamLeadSubtaskFormScreen() {
         }
         if (!validateForm()) return;
 
-        const assigneeToUse = assigneeId as number;
-
         const payload: Record<string, any> = {
             tenSubtask: title.trim(),
             mota: description.trim(),
@@ -281,7 +276,8 @@ export default function TeamLeadSubtaskFormScreen() {
             trangThai: status
         };
 
-        payload.nguoiThucHienId = assigneeToUse;
+        // Only include assignee if one is chosen
+        if (assigneeId) payload.nguoiThucHienId = assigneeId;
 
         setSubmitting(true);
         try {
@@ -294,10 +290,10 @@ export default function TeamLeadSubtaskFormScreen() {
                 const createPayload = {
                     tenSubtask: payload.tenSubtask,
                     mota: payload.mota,
-                    nguoiThucHienId: assigneeToUse,
                     ngayBatDau: payload.ngayBatDau,
                     ngayKetThuc: payload.ngayKetThuc,
-                    ghiChu: payload.ghiChu
+                    ghiChu: payload.ghiChu,
+                    ...(payload.nguoiThucHienId ? { nguoiThucHienId: payload.nguoiThucHienId } : {})
                 };
                 await createSubtask(taskId, createPayload);
                 Alert.alert('Thành công', 'Đã tạo công việc con mới.', [
@@ -465,7 +461,7 @@ export default function TeamLeadSubtaskFormScreen() {
                         onPress={() => setShowAssigneePicker(prev => !prev)}
                     >
                         <Text style={styles.selectorValue}>
-                            {selectedAssignee?.hoten || 'Chọn thành viên phụ trách'}
+                            {selectedAssignee?.hoten || 'Chọn thành viên phụ trách (không bắt buộc)'}
                         </Text>
                         <Ionicons
                             name={showAssigneePicker ? 'chevron-up' : 'chevron-down'}
@@ -475,6 +471,15 @@ export default function TeamLeadSubtaskFormScreen() {
                     </TouchableOpacity>
                     {showAssigneePicker ? (
                         <View style={styles.optionList}>
+                            <TouchableOpacity
+                                style={[styles.optionItem, !assigneeId && styles.optionItemActive]}
+                                onPress={() => {
+                                    setAssigneeId(null);
+                                    setShowAssigneePicker(false);
+                                }}
+                            >
+                                <Text style={[styles.optionText, !assigneeId && styles.optionTextActive]}>Không gán (mở cho nhóm yêu cầu nhận việc)</Text>
+                            </TouchableOpacity>
                             {assigneeOptions.map(option => (
                                 <TouchableOpacity
                                     key={option.id}

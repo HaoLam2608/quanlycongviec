@@ -455,7 +455,7 @@ export const getMySubtasks = async () => {
 export const createSubtask = async (taskId: string | number, data: {
   tenSubtask: string;
   mota?: string;
-  nguoiThucHienId: number;
+  nguoiThucHienId?: number;
   ngayBatDau?: string;
   ngayKetThuc?: string;
   ghiChu?: string;
@@ -664,6 +664,26 @@ export const getMemberProjects = async () => {
   }
 };
 
+// Get unassigned subtasks that members can request (member-facing)
+export const getUnassignedSubtasks = async () => {
+  try {
+    const res = await api.get('/members/tasks/unassigned');
+    return res.data.subtasks || res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Không thể lấy danh sách công việc trống' };
+  }
+};
+
+// Member claims an unassigned subtask (creates request/notification to approvers)
+export const claimSubtask = async (subtaskId: number) => {
+  try {
+    const res = await api.post(`/members/tasks/subtasks/${subtaskId}/claim`);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Không thể gửi yêu cầu nhận công việc' };
+  }
+};
+
 // Public stats for homepage (no auth required)
 export const getPublicStats = async () => {
   try {
@@ -785,5 +805,14 @@ export const declineAssignment = async (assignmentId: string, data: { reason: st
     return res.data;
   } catch (err: any) {
     throw err.response?.data || { message: "Không thể từ chối giao việc" };
+  }
+};
+
+export const requestAssignment = async (data: { taskId?: number; subtaskId?: number; message?: string }) => {
+  try {
+    const res = await api.post('/assignments/request', data);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Không thể gửi yêu cầu nhận việc' };
   }
 };

@@ -15,7 +15,7 @@ import {
 import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { PageHeader } from '../../../components/ui/PageHeader';
-import { modalStyles, styles } from './index.styles';
+import { modalStyles, styles } from './styles';
 
 interface Task {
     id: number;

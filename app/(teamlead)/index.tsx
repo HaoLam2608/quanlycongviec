@@ -149,6 +149,12 @@ export default function TeamLeadDashboardScreen() {
 
     const menuItems = [
         {
+            title: 'Dự án',
+            icon: 'layers',
+            color: '#facc15',
+            route: '/(teamlead)/projects'
+        },
+        {
             title: 'Nhóm của tôi',
             icon: 'people',
             color: '#3b82f6',
@@ -156,8 +162,8 @@ export default function TeamLeadDashboardScreen() {
             count: stats.totalMembers
         },
         {
-            title: 'Công việc con',
-            icon: 'git-network',
+            title: 'Kanban',
+            icon: 'grid',
             color: '#8b5cf6',
             route: '/(teamlead)/subtasks',
             count: stats.totalSubtasks
@@ -180,18 +186,6 @@ export default function TeamLeadDashboardScreen() {
             icon: 'bar-chart',
             color: '#22c55e',
             route: '/(teamlead)/reports'
-        },
-        {
-            title: 'Tài liệu',
-            icon: 'folder-open',
-            color: '#0ea5e9',
-            route: '/(teamlead)/documents'
-        },
-        {
-            title: 'Dự án',
-            icon: 'layers',
-            color: '#facc15',
-            route: '/(teamlead)/projects'
         },
         {
             title: 'Cài đặt',

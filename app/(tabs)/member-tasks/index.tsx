@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -19,9 +20,10 @@ import {
     updateMemberSubtaskStatus
 } from '../../../src/axios/api';
 import { MemberSubtask } from '../../../types/member';
-import { styles } from './index.styles';
+import { styles } from './styles';
 
 export default function MemberTasksScreen() {
+    const router = useRouter();
     const [subtasks, setSubtasks] = useState<MemberSubtask[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -193,12 +195,20 @@ export default function MemberTasksScreen() {
                         placeholderTextColor="#9CA3AF"
                     />
                 </View>
-                <TouchableOpacity
-                    style={styles.filterButton}
-                    onPress={() => setIsFilterVisible(!isFilterVisible)}
-                >
-                    <Ionicons name="filter" size={20} color="#fff" />
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity
+                        style={[styles.filterButton, { backgroundColor: '#10b981' }]}
+                        onPress={() => router.push('/(tabs)/member-available-subtasks')}
+                    >
+                        <Ionicons name="layers" size={20} color="#fff" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.filterButton}
+                        onPress={() => setIsFilterVisible(!isFilterVisible)}
+                    >
+                        <Ionicons name="filter" size={20} color="#fff" />
+                    </TouchableOpacity>
+                </View>
             </View>
 
             {/* Filter Panel */}

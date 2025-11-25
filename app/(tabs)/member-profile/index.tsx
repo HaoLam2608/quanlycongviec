@@ -251,7 +251,7 @@ export default function MemberProfileScreen() {
                 // Bật thông báo
                 const hasPermission = await notificationService.requestPermissions();
                 if (hasPermission) {
-                    await notificationService.registerForPushNotificationsAsync();
+                    // ...existing code...
 
                     // Thiết lập listeners
                     notificationListener.current = notificationService.addNotificationReceivedListener(

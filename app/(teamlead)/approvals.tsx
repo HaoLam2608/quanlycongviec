@@ -6,6 +6,7 @@ import {
     Platform,
     RefreshControl,
     SafeAreaView,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
@@ -14,8 +15,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { approvalAPI } from '@/src/axios/approvalApi';
+import api from '@/src/axios/config';
+import { notificationUserAPI } from '@/src/axios/notificationAPI';
 
-type ApprovalKind = 'task' | 'subtask';
+type ApprovalKind = 'task' | 'subtask' | 'assignment';
 
 interface ApprovalItem {
     key: string;
@@ -51,6 +54,10 @@ const getStatusStyle = (status?: string) => {
     if (normalized.includes('hoàn thành') || normalized.includes('approved')) {
         return { color: '#10b981', label: status };
     }
+    // Translate accepted/accept to Vietnamese for clarity in UI
+    if (normalized.includes('accept') || normalized.includes('accepted')) {
+        return { color: '#10b981', label: 'Đã chấp nhận' };
+    }
     if (PENDING_STATUS_KEYWORDS.some(keyword => normalized.includes(keyword))) {
         return { color: '#f59e0b', label: status };
     }
@@ -79,7 +86,7 @@ const normalizeApprovalsResponse = (payload: any): ApprovalItem[] => {
             const status = item?.status || item?.trangThai;
             return {
                 key: `approval-${item?.id ?? index}`,
-                kind: (item?.type === 'subtask' || item?.kind === 'subtask') ? 'subtask' : 'task',
+                kind: (item?.type === 'subtask' || item?.kind === 'subtask') ? 'subtask' : (item?.type === 'assignment' ? 'assignment' : 'task'),
                 entityId: item?.id ?? index,
                 taskId: item?.taskId ?? item?.task?.id ?? item?.id ?? index,
                 status,
@@ -93,21 +100,43 @@ const normalizeApprovalsResponse = (payload: any): ApprovalItem[] => {
                 raw: item
             } satisfies ApprovalItem;
         });
-        return mapped.filter((entry: ApprovalItem) => entry.kind === 'subtask');
+        // Return all mapped approvals for flexibility (tasks/subtasks/assignments)
+        return mapped;
     }
 
     const container = payload?.data ?? payload;
-    const subtasks = Array.isArray(container?.subtasks) ? container.subtasks : [];
-
     const items: ApprovalItem[] = [];
 
+    // Tasks (approved history)
+    const tasks = Array.isArray(container?.tasks) ? container.tasks : [];
+    tasks.forEach((task: any) => {
+        const status = task?.trangThai || task?.status;
+        items.push({
+            key: `task-${task?.id}`,
+            kind: 'task',
+            entityId: task?.id,
+            taskId: task?.id,
+            status,
+            requestDate: task?.requestedCompletionAt || task?.updatedAt || task?.createdAt,
+            responseDate: task?.approvedAt || task?.rejectedAt,
+            comments: task?.approvalNote || task?.rejectionReason || task?.ghiChu,
+            title: task?.tentask || task?.title || `Công việc #${task?.id}`,
+            description: task?.mota,
+            projectName: task?.duan?.tenduan || task?.project?.tenduan,
+            requester: task?.nguoiDuocGiao ? { id: task.nguoiDuocGiao.id, hoten: task.nguoiDuocGiao.hoten, manv: task.nguoiDuocGiao.manv } : undefined,
+            raw: task
+        });
+    });
+
+    // Subtasks
+    const subtasks = Array.isArray(container?.subtasks) ? container.subtasks : [];
     subtasks.forEach((subtask: any) => {
         const status = subtask?.trangThai;
         items.push({
             key: `subtask-${subtask?.id}`,
             kind: 'subtask',
             entityId: subtask?.id,
-            taskId: subtask?.taskId,
+            taskId: subtask?.taskId ?? subtask?.task?.id,
             status,
             requestDate: subtask?.requestedCompletionAt || subtask?.updatedAt || subtask?.createdAt,
             responseDate: subtask?.approvedAt || subtask?.rejectedAt,
@@ -115,16 +144,32 @@ const normalizeApprovalsResponse = (payload: any): ApprovalItem[] => {
             title: subtask?.tenSubtask || subtask?.title || `Công việc con #${subtask?.id}`,
             description: subtask?.mota,
             projectName: subtask?.task?.duan?.tenduan || subtask?.task?.tentask,
-            requester: subtask?.nguoiThucHien ? {
-                id: subtask?.nguoiThucHien?.id,
-                hoten: subtask?.nguoiThucHien?.hoten,
-                manv: subtask?.nguoiThucHien?.manv
-            } : undefined,
+            requester: subtask?.nguoiThucHien ? { id: subtask.nguoiThucHien.id, hoten: subtask.nguoiThucHien.hoten, manv: subtask.nguoiThucHien.manv } : undefined,
             raw: subtask
         });
     });
 
-    return items.filter((entry: ApprovalItem) => entry.kind === 'subtask');
+    // Assignments (optional)
+    const assignments = Array.isArray(container?.assignments) ? container.assignments : [];
+    assignments.forEach((a: any) => {
+        items.push({
+            key: `assignment-${a?.id}`,
+            kind: 'assignment',
+            entityId: a?.id,
+            taskId: a?.taskId ?? a?.subtaskId ?? a?.id,
+            status: a?.status || a?.trangThai,
+            requestDate: a?.createdAt,
+            responseDate: a?.acceptedAt || a?.approvedAt,
+            comments: a?.note || a?.reason || undefined,
+            title: a?.title || (a.subtask ? a.subtask.tenSubtask : a.task?.tentask) || `Assignment #${a?.id}`,
+            description: a?.content || undefined,
+            projectName: a?.task?.duan?.tenduan || undefined,
+            requester: a?.assignee || a?.requester || undefined,
+            raw: a
+        });
+    });
+
+    return items;
 };
 
 export default function TeamLeadApprovalsScreen() {
@@ -132,25 +177,110 @@ export default function TeamLeadApprovalsScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [search, setSearch] = useState('');
+    const [filterMode, setFilterMode] = useState<'subtasks' | 'tasks' | 'history'>('subtasks');
+    const [infoMessage, setInfoMessage] = useState<string | null>(null);
+    const [joinRequests, setJoinRequests] = useState<any[]>([]);
+    const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
 
     const loadApprovals = useCallback(async () => {
         setLoading(true);
         try {
-            const data = await approvalAPI.getPendingApprovals({ type: 'subtasks' });
+            let payload: any = null;
+            let serverMessage: string | null = null;
 
-            setApprovals(normalizeApprovalsResponse(data));
-        } catch (error) {
+            if (filterMode === 'history') {
+                // approvalAPI.getApprovedHistory returns history data
+                const data = await approvalAPI.getApprovedHistory(100);
+                payload = data?.data ?? data ?? {};
+                serverMessage = data?.message || null;
+            } else {
+                // Call api directly so we can read res.data.message like web frontend
+                const res = await api.get('/approvals/pending', {
+                    params: { type: filterMode === 'tasks' ? 'tasks' : 'subtasks' }
+                });
+                // web returns { success: true, data: { subtasks: [...] }, message }
+                payload = res.data?.data ?? res.data ?? {};
+                serverMessage = res.data?.message || null;
+            }
+
+            setApprovals(normalizeApprovalsResponse(payload));
+            setInfoMessage(serverMessage);
+        } catch (error: any) {
             console.error('Load approvals error:', error);
+            const errMsg = (error && (error.message || error?.response?.data?.message || JSON.stringify(error))) || 'Lỗi khi tải danh sách phê duyệt';
+            try { Alert.alert('Lỗi tải phê duyệt', String(errMsg)); } catch (e) { console.warn('Unable to show alert for approval error', e); }
             setApprovals([]);
+            setInfoMessage(null);
         } finally {
             setLoading(false);
             setRefreshing(false);
         }
-    }, []);
+    }, [filterMode]);
 
     useEffect(() => {
         loadApprovals();
+        loadJoinRequests();
     }, [loadApprovals]);
+
+    const loadJoinRequests = async () => {
+        try {
+            const res = await notificationUserAPI.getMyNotifications({ limit: 200 });
+            const items = Array.isArray(res.data) ? res.data : (res.data?.data || res.data || []);
+            const requests = (items || []).filter((n: any) => {
+                const meta = n.userMeta || n.meta || (n.userNotification && n.userNotification.meta);
+                return meta && (meta.requestToJoin === true || meta.requestToJoin) && !meta.processed;
+            }).map((n: any) => ({
+                id: n.id,
+                title: n.title,
+                content: n.content,
+                createdAt: n.createdAt,
+                meta: n.userMeta || n.meta || (n.userNotification && n.userNotification.meta),
+                isRead: n.isRead || (n.userNotification && n.userNotification.isRead) || false
+            }));
+            setJoinRequests(requests);
+        } catch (error: any) {
+            console.error('Load join requests error:', error);
+            setJoinRequests([]);
+        }
+    };
+
+    const acceptJoinRequest = async (request: any) => {
+        setProcessingRequestId(request.id);
+        try {
+            await api.post('/assignments/request/accept', {
+                taskId: request.meta.taskId || null,
+                subtaskId: request.meta.subtaskId || null,
+                requesterId: request.meta.requesterId
+            });
+            Alert.alert('Thành công', 'Đã chấp nhận yêu cầu nhận việc');
+            loadJoinRequests();
+            loadApprovals();
+        } catch (error: any) {
+            console.error('Accept request error:', error);
+            Alert.alert('Lỗi', error?.response?.data?.message || error?.message || 'Không thể chấp nhận yêu cầu');
+        } finally {
+            setProcessingRequestId(null);
+        }
+    };
+
+    const declineJoinRequest = async (request: any) => {
+        setProcessingRequestId(request.id);
+        try {
+            await api.post('/assignments/request/decline', {
+                taskId: request.meta.taskId || null,
+                subtaskId: request.meta.subtaskId || null,
+                requesterId: request.meta.requesterId,
+                reason: 'Từ chối'
+            });
+            Alert.alert('Thành công', 'Đã từ chối yêu cầu nhận việc');
+            loadJoinRequests();
+        } catch (error: any) {
+            console.error('Decline request error:', error);
+            Alert.alert('Lỗi', error?.response?.data?.message || error?.message || 'Không thể từ chối yêu cầu');
+        } finally {
+            setProcessingRequestId(null);
+        }
+    };
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
@@ -223,7 +353,8 @@ export default function TeamLeadApprovalsScreen() {
     const filteredApprovals = useMemo(() => {
         const searchLower = search.trim().toLowerCase();
         return approvals.filter(item => {
-            if (!isPendingStatus(item.status)) return false;
+            // If not history view, show only pending statuses
+            if (filterMode !== 'history' && !isPendingStatus(item.status)) return false;
 
             if (!searchLower) return true;
 
@@ -237,7 +368,7 @@ export default function TeamLeadApprovalsScreen() {
 
             return haystacks.some(text => text.includes(searchLower));
         });
-    }, [approvals, search]);
+    }, [approvals, search, filterMode]);
 
     const renderApproval = ({ item }: { item: ApprovalItem }) => {
         const statusInfo = getStatusStyle(item.status);
@@ -323,6 +454,9 @@ export default function TeamLeadApprovalsScreen() {
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Phê duyệt công việc</Text>
                 <Text style={styles.headerSubtitle}>Quản lý yêu cầu phê duyệt</Text>
+                {infoMessage ? (
+                    <Text style={styles.infoMessage} numberOfLines={2}>{infoMessage}</Text>
+                ) : null}
             </View>
 
             <View style={styles.searchContainer}>
@@ -341,31 +475,86 @@ export default function TeamLeadApprovalsScreen() {
                 ) : null}
             </View>
 
+            {/* Filter chips: Phê duyệt hoàn thành / Chấp nhận nhận việc / Lịch sử */}
+            <View style={styles.filterWrap}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+                    <TouchableOpacity style={[styles.chip, filterMode === 'subtasks' && styles.chipActive]} onPress={() => setFilterMode('subtasks')}>
+                        <Text style={[styles.chipText, filterMode === 'subtasks' && styles.chipTextActive]}>Phê duyệt hoàn thành</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.chip, filterMode === 'tasks' && styles.chipActive]} onPress={() => setFilterMode('tasks')}>
+                        <Text style={[styles.chipText, filterMode === 'tasks' && styles.chipTextActive]}>Chấp nhận nhận việc</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.chip, filterMode === 'history' && styles.chipActive]} onPress={() => setFilterMode('history')}>
+                        <Text style={[styles.chipText, filterMode === 'history' && styles.chipTextActive]}>Lịch sử</Text>
+                    </TouchableOpacity>
+                </ScrollView>
+            </View>
+
             {loading ? (
                 <View style={styles.loadingContainer}>
                     <ActivityIndicator size="large" color="#7c3aed" />
                     <Text style={styles.loadingText}>Đang tải...</Text>
                 </View>
             ) : (
-                <FlatList
-                    data={filteredApprovals}
-                    keyExtractor={item => item.key}
-                    renderItem={renderApproval}
-                    contentContainerStyle={styles.listContent}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={refreshing}
-                            onRefresh={onRefresh}
-                            colors={['#7c3aed']}
-                        />
-                    }
-                    ListEmptyComponent={
-                        <View style={styles.emptyState}>
-                            <Ionicons name="checkmark-done-circle-outline" size={64} color="#c4b5fd" />
-                            <Text style={styles.emptyText}>Không có công việc cần phê duyệt</Text>
-                        </View>
-                    }
-                />
+                filterMode === 'tasks' ? (
+                    // Show join requests (yêu cầu nhận việc)
+                    <FlatList
+                        data={joinRequests}
+                        keyExtractor={item => item.id}
+                        contentContainerStyle={styles.listContent}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={refreshing}
+                                onRefresh={() => { setRefreshing(true); loadJoinRequests().then(() => setRefreshing(false)); }}
+                                colors={['#7c3aed']}
+                            />
+                        }
+                        ListEmptyComponent={
+                            <View style={styles.emptyState}>
+                                <Ionicons name="checkmark-done-circle-outline" size={64} color="#c4b5fd" />
+                                <Text style={styles.emptyText}>{joinRequests.length === 0 ? 'Không có yêu cầu nhận việc' : ''}</Text>
+                            </View>
+                        }
+                        renderItem={({ item }) => (
+                            <View style={styles.card}>
+                                <View style={styles.cardHeader}>
+                                    <Text style={styles.taskTitle}>{item.title}</Text>
+                                </View>
+                                <Text style={{ color: '#6b7280', marginBottom: 8 }}>{item.content}</Text>
+                                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8 }}>
+                                    <TouchableOpacity style={[styles.actionButton, styles.approveButton]} onPress={() => acceptJoinRequest(item)} disabled={processingRequestId === item.id}>
+                                        <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                                        <Text style={styles.actionButtonText}>Chấp nhận</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={[styles.actionButton, styles.rejectButton]} onPress={() => declineJoinRequest(item)} disabled={processingRequestId === item.id}>
+                                        <Ionicons name="close-circle" size={18} color="#fff" />
+                                        <Text style={styles.actionButtonText}>Từ chối</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        )}
+                    />
+                ) : (
+                    <FlatList
+                        data={filteredApprovals}
+                        keyExtractor={item => item.key}
+                        renderItem={renderApproval}
+                        contentContainerStyle={styles.listContent}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={refreshing}
+                                onRefresh={onRefresh}
+                                colors={['#7c3aed']}
+                            />
+                        }
+                        ListEmptyComponent={
+                            <View style={styles.emptyState}>
+                                <Ionicons name="checkmark-done-circle-outline" size={64} color="#c4b5fd" />
+                                <Text style={styles.emptyText}>{infoMessage || 'Không có công việc cần phê duyệt'}</Text>
+                            </View>
+                        }
+                    />
+                )
             )}
         </SafeAreaView>
     );
@@ -390,6 +579,11 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#6b7280'
     },
+    infoMessage: {
+        marginTop: 8,
+        fontSize: 13,
+        color: '#b45309'
+    },
     searchContainer: {
         marginHorizontal: 16,
         marginBottom: 16,
@@ -406,6 +600,41 @@ const styles = StyleSheet.create({
         flex: 1,
         height: 44,
         color: '#111827'
+    },
+    filterWrap: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        backgroundColor: 'transparent'
+    },
+    filterScroll: {
+        paddingLeft: 4,
+        paddingRight: 12,
+        alignItems: 'center'
+    },
+    chip: {
+        paddingVertical: 8,
+        paddingHorizontal: 14,
+        borderRadius: 999,
+        backgroundColor: '#f3f4f6',
+        marginRight: 10,
+        borderWidth: 1,
+        borderColor: 'transparent',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+        elevation: 1
+    },
+    chipActive: {
+        backgroundColor: '#7c3aed',
+        borderColor: '#6d28d9'
+    },
+    chipText: {
+        color: '#4b5563',
+        fontWeight: '600'
+    },
+    chipTextActive: {
+        color: '#fff'
     },
     loadingContainer: {
         flex: 1,
