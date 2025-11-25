@@ -32,4 +32,4 @@ jobs:
           docker push haolam2608/fe-frontend:latest
       - name: Trigger VPS Deployment
         run: |
-          curl -X GET ${{ secrets.VPS_DEPLOY_URL }}
+          curl -X GET ${{ secrets.VPS_DEPLOY_FE_URL }}
