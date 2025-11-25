@@ -43,7 +43,8 @@ COPY --from=builder /app/package.json ./package.json
 
 # Set correct permissions
 RUN chown -R nextjs:nodejs /app
-
+ARG NEXT_PUBLIC_API_URL=https://taskhadflow-api.nibies.space
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 USER nextjs
 
 EXPOSE 3000
