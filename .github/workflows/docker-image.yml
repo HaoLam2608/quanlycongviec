@@ -1,0 +1,36 @@
+name: Deploy to backend
+
+on:
+  push:
+    branches:
+      - backend
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Create .env file
+        run: |
+          echo "${{ secrets.FILE_ENV }}" > .env
+
+      - name: Build Docker image
+        run: |
+          docker build -t haolam2608/be-backend:latest .
+
+      - name: Push Docker image
+        run: |
+          docker push haolam2608/be-backend:latest
+
+      - name: Trigger VPS Deployment
+        run: |
+          curl -X GET ${{ secrets.VPS_DEPLOY_URL }}

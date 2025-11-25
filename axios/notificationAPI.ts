@@ -1,6 +1,7 @@
 import axiosInstance from './config'
 
 export interface Notification {
+    meta: any
     id: string
     title: string
     content: string
@@ -88,6 +89,12 @@ export const notificationAdminAPI = {
     // Get statistics
     getStats: async (): Promise<{ success: boolean; data: NotificationStats }> => {
         const response = await axiosInstance.get('/notifications/admin/stats')
+        return response.data
+    },
+
+    // Get all join requests from all users (admin only)
+    getAllJoinRequests: async (params?: { limit?: number }) => {
+        const response = await axiosInstance.get('/notifications/admin/join-requests', { params })
         return response.data
     }
 }

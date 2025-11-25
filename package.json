@@ -6,7 +6,7 @@
     "build": "node ./node_modules/next/dist/bin/next build",
     "dev": "node ./node_modules/next/dist/bin/next dev",
     "lint": "npx next lint",
-    "start": "node ./node_modules/next/dist/bin/next start -p 3001"
+    "start": "next start"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.9",

@@ -104,7 +104,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                 setLoading(false)
             }
         }, 1200) // Increased delay to ensure token is ready
-        
+
         return () => clearTimeout(timer)
     }, [])
 
@@ -115,6 +115,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
     const unreadCount = notifications.filter(n => !n.isRead).length
 
     // Helper: robustly detect assignment notifications across possible meta shapes
+    // Only include assignments where current user is the assignee
     const isAssignmentNotification = (n: any) => {
         const meta = n.userMeta || n.meta || (n.userMeta && n.userMeta.meta) || null;
         if (!meta) return false;
@@ -125,12 +126,16 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
     }
 
     // If backend sometimes omits meta but uses a title/content convention, also detect by text
+    // Only include assignments where current user is the assignee (not manager assignments)
     const looksLikeAssignmentByText = (n: any) => {
         try {
             const title = (n.title || '').toString().toLowerCase();
             const content = (n.content || '').toString().toLowerCase();
-            if (title.includes('giao việc') || title.includes('đề nghị giao việc')) return true;
-            if (content.includes('yêu cầu nhận công việc') || content.includes('yêu cầu nhận')) return true;
+            // Only include direct assignment to user, not manager/approval requests
+            if (title.includes('giao việc') || title.includes('đề nghị giao việc')) {
+                // Exclude notifications for manager approvals
+                if (!title.includes('yêu cầu') && !content.includes('yêu cầu')) return true;
+            }
         } catch (err) {
             // ignore
         }
@@ -138,8 +143,22 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
     }
 
     // Separate notifications into general and assignments using the robust detector
-    const assignmentNotifications = notifications.filter(n => isAssignmentNotification(n) || looksLikeAssignmentByText(n))
-    const generalNotifications = notifications.filter(n => !(isAssignmentNotification(n) || looksLikeAssignmentByText(n)))
+    // Filter out request-to-join notifications from assignments tab (those are for manager approvals)
+    const assignmentNotifications = notifications.filter(n => {
+        const isAssignment = isAssignmentNotification(n) || looksLikeAssignmentByText(n);
+        if (!isAssignment) return false;
+
+        // Exclude request-to-join notifications (requestToJoin metadata)
+        const meta = n.userMeta || n.meta || {};
+        if (meta.requestToJoin) return false;
+
+        return true;
+    })
+    // General notifications: exclude all assignment notifications
+    const generalNotifications = notifications.filter(n => {
+        const isAssignment = isAssignmentNotification(n) || looksLikeAssignmentByText(n);
+        return !isAssignment;
+    })
     const activeNotifications = activeTab === 'assignments' ? assignmentNotifications : generalNotifications
     const generalUnreadCount = generalNotifications.filter(n => !n.isRead).length
     const assignmentUnreadCount = assignmentNotifications.filter(n => !n.isRead).length
@@ -269,7 +288,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
     // Manager accepts a member's request-to-join
     const handleAcceptRequest = async () => {
         if (!selectedNotification) return
-    const meta: any = (selectedNotification as any).userMeta || (selectedNotification as any).meta
+        const meta: any = (selectedNotification as any).userMeta || (selectedNotification as any).meta
         if (!meta) return
         try {
             setProcessingAction(true)
@@ -292,7 +311,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
 
     const handleDeclineRequest = async () => {
         if (!selectedNotification) return
-    const meta: any = (selectedNotification as any).userMeta || (selectedNotification as any).meta
+        const meta: any = (selectedNotification as any).userMeta || (selectedNotification as any).meta
         if (!meta) return
         if (!declineReason.trim()) {
             alert('Vui lòng nhập lý do từ chối')
@@ -385,7 +404,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                                         : 'text-gray-600 hover:bg-gray-100'
                                         }`}
                                 >
-                                    Thông báo nhận việc
+                                    Công việc được giao
                                     {assignmentUnreadCount > 0 && (
                                         <span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-medium text-white bg-red-500 rounded-full">
                                             {assignmentUnreadCount > 9 ? '9+' : assignmentUnreadCount}
@@ -468,11 +487,11 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                         <div className="p-6">
                             <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-2">
-                                        {getNotificationIcon(selectedNotification.type)}
-                                        <span className="text-sm px-2 py-1 bg-gray-100 text-gray-600 rounded-full">
-                                            {getTypeLabel(selectedNotification.type)}
-                                        </span>
-                                    </div>
+                                    {getNotificationIcon(selectedNotification.type)}
+                                    <span className="text-sm px-2 py-1 bg-gray-100 text-gray-600 rounded-full">
+                                        {getTypeLabel(selectedNotification.type)}
+                                    </span>
+                                </div>
                                 <button
                                     onClick={() => {
                                         setSelectedNotification(null)
