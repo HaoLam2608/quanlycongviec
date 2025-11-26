@@ -29,7 +29,7 @@ api.interceptors.response.use(
       try {
         const refreshToken = typeof window !== 'undefined' ? localStorage.getItem("refreshToken") : null;
         if (!refreshToken) throw new Error('Missing refresh token');
-        const response = await axios.post("http://localhost:5000/auth/refresh", { refreshToken });
+        const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`, { refreshToken });
         const newAccessToken = response.data.accessToken;
         // store new access token under the canonical key used by the app
         localStorage.setItem("accessToken", newAccessToken);
