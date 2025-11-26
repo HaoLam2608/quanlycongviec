@@ -53,7 +53,7 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
                     let avatar = user.avatarUrl || user.avatar || `/users/${user.id}/avatar`
 
                     if (avatar && !avatar.startsWith('http') && !avatar.startsWith('data:')) {
-                        const base = process.env.NEXT_PUBLIC_API_URL || 'https://taskhadflow-api.nibies.space'
+                        const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
                         avatar = `${base.replace(/\/$/, '')}${avatar.startsWith('/') ? '' : '/'}${avatar}`
                     }
 

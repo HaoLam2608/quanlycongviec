@@ -87,7 +87,7 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
 
                     // If avatar is a relative path, prefix API base URL
                     if (avatar && !avatar.startsWith('http') && !avatar.startsWith('data:')) {
-                        const base = process.env.NEXT_PUBLIC_API_URL || 'https://taskhadflow-api.nibies.space'
+                        const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
                         avatar = `${base.replace(/\/$/, '')}${avatar.startsWith('/') ? '' : '/'}${avatar}`
                     }
 

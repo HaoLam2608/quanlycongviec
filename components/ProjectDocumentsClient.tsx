@@ -46,7 +46,7 @@ export default function ProjectDocumentsClient({ projectId }: { projectId: numbe
     const handlePreview = async (doc: any) => {
         try {
             // Try to get the document URL from API
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://taskhadflow-api.nibies.space'
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
             const docPath = doc.duongDan || doc.filePath || doc.url
 
             if (docPath) {

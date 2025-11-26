@@ -69,7 +69,7 @@ interface UserType {
     manv: string
     avatar?: string
 }
-
+const API_URL = process.env.NEXT_PUBLIC_API_URL || ""
 export default function ManagerReportsPage() {
     const [loading, setLoading] = useState(true)
     const [reportType, setReportType] = useState<"overview" | "projects" | "team">("overview")
@@ -83,7 +83,7 @@ export default function ManagerReportsPage() {
     const makeFullUrl = (path?: string) => {
         if (!path) return undefined
         if (path.startsWith('http://') || path.startsWith('https://')) return path
-        return `https://taskhadflow-api.nibies.space${path.startsWith('/') ? '' : '/'}${path}`
+        return `${API_URL}${path.startsWith('/') ? '' : '/'}${path}`
     }
 
     useEffect(() => {
@@ -829,7 +829,7 @@ export default function ManagerReportsPage() {
                                                         <div className="flex-1 bg-gray-200 rounded-full h-2.5">
                                                             <div
                                                                 className={`h-2.5 rounded-full transition-all ${project.progress === 100 ? 'bg-green-500' :
-                                                                        project.progress >= 70 ? 'bg-blue-500' : 'bg-yellow-500'
+                                                                    project.progress >= 70 ? 'bg-blue-500' : 'bg-yellow-500'
                                                                     }`}
                                                                 style={{ width: `${project.progress}%` }}
                                                             ></div>
@@ -955,7 +955,7 @@ export default function ManagerReportsPage() {
                                                         <div className="flex-1 bg-gray-200 rounded-full h-2.5 max-w-[100px]">
                                                             <div
                                                                 className={`h-2.5 rounded-full ${member.efficiency >= 80 ? 'bg-green-500' :
-                                                                        member.efficiency >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                                                                    member.efficiency >= 60 ? 'bg-yellow-500' : 'bg-red-500'
                                                                     }`}
                                                                 style={{ width: `${member.efficiency}%` }}
                                                             ></div>

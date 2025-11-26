@@ -35,7 +35,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
             // Nếu accessToken không có hoặc hết hạn, thử dùng refreshToken
             if (refreshToken) {
                 try {
-                    const res = await axios.post('https://taskhadflow-api.nibies.space/auth/refresh', { refreshToken })
+                    const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`, { refreshToken })
                     const newAccessToken = res.data.accessToken
                     if (newAccessToken) {
                         localStorage.setItem('accessToken', newAccessToken)

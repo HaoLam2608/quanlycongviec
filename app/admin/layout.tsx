@@ -28,7 +28,7 @@ import { GlobalChatProvider } from "@/components/chat/GlobalChatProvider"
 
 import { showConfirm } from '@/lib/notifications'
 import Image from "next/image"
-
+const base_url = process.env.NEXT_PUBLIC_API_URL || ""
 const menuCategories = [
     {
         title: "Chính",
@@ -243,7 +243,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                     <Link href="/admin/profile" className="flex items-center group">
                                         <div className="w-8 h-8 rounded-full overflow-hidden bg-blue-500 flex items-center justify-center group-hover:ring-2 group-hover:ring-blue-400 transition">
                                             {userInfo.avatar && userInfo.avatar.startsWith('/users/') ? (
-                                                <img src={`https://taskhadflow-api.nibies.space${userInfo.avatar}`} alt="avatar" className="w-full h-full object-cover" />
+                                                <img src={`${base_url}${userInfo.avatar}`} alt="avatar" className="w-full h-full object-cover" />
                                             ) : userInfo.avatar ? (
                                                 <img src={userInfo.avatar} alt="avatar" className="w-full h-full object-cover" />
                                             ) : (
@@ -293,7 +293,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                     <Link href="/admin/profile" className="flex items-center group">
                                         <div className="w-8 h-8 rounded-full overflow-hidden bg-blue-500 flex items-center justify-center group-hover:ring-2 group-hover:ring-blue-400 transition">
                                             {userInfo.avatar && userInfo.avatar.startsWith('/users/') ? (
-                                                <img src={`https://taskhadflow-api.nibies.space${userInfo.avatar}`} alt="avatar" className="w-full h-full object-cover" />
+                                                <img src={`${base_url}${userInfo.avatar}`} alt="avatar" className="w-full h-full object-cover" />
                                             ) : userInfo.avatar ? (
                                                 <img src={userInfo.avatar} alt="avatar" className="w-full h-full object-cover" />
                                             ) : (

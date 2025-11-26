@@ -10,7 +10,7 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=https://taskhadflow-api.nibies.space
+      - NEXT_PUBLIC_API_URL=http://localhost:5000
       - PORT=3000
     dns:
       - 8.8.8.8

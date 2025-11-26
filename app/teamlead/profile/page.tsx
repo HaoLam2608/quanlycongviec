@@ -274,7 +274,7 @@ export default function ProfilePage() {
                         <div className="flex items-center gap-6">
                             <div className="relative">
                                 <img
-                                    src={profile.avatar.startsWith('http') ? profile.avatar : `${process.env.NEXT_PUBLIC_API_URL || 'https://taskhadflow-api.nibies.space'}${profile.avatar}`}
+                                    src={profile.avatar.startsWith('http') ? profile.avatar : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${profile.avatar}`}
                                     alt={profile.fullName}
                                     className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
                                     onError={(e) => {

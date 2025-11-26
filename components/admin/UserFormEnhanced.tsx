@@ -44,7 +44,7 @@ export default function UserFormEnhanced({ isOpen, onClose, onSuccess, editUser 
           avatarUrl = `/users/${editUser.id}/avatar`;
         }
         if (avatarUrl && avatarUrl.startsWith('/users/')) {
-          avatarUrl = `https://taskhadflow-api.nibies.space${avatarUrl}`;
+          avatarUrl = `${process.env.NEXT_PUBLIC_API_URL}${avatarUrl}`;
         }
         setFormData({
           manv: editUser.manv || "",

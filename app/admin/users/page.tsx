@@ -26,7 +26,7 @@ interface Pagination {
     total: number
     pages: number
 }
-
+const API_URL = process.env.NEXT_PUBLIC_API_URL || ""
 export default function UsersPage() {
     const [openModal, setOpenModal] = useState(false)
     const [searchQuery, setSearchQuery] = useState("")
@@ -186,7 +186,7 @@ export default function UsersPage() {
                                                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold shadow-md shadow-blue-500/20 overflow-hidden">
                                                     {user.avatarUrl && typeof user.avatarUrl === 'string' && user.avatarUrl.startsWith('/users/') ? (
                                                         <img
-                                                            src={`http://localhost:5000${user.avatarUrl}`}
+                                                            src={`${API_URL}${user.avatarUrl}`}
                                                             alt={user.hoten}
                                                             className="object-cover w-full h-full"
                                                             onError={(e) => {
@@ -211,10 +211,10 @@ export default function UsersPage() {
                                         <td className="p-4">
                                             <span
                                                 className={`px-3 py-1 rounded-full text-xs font-medium ${user.role?.name === "admin"
-                                                        ? "bg-purple-100 text-purple-700 border border-purple-200"
-                                                        : user.role?.name === "manager"
-                                                            ? "bg-orange-100 text-orange-700 border border-orange-200"
-                                                            : "bg-blue-100 text-blue-700 border border-blue-200"
+                                                    ? "bg-purple-100 text-purple-700 border border-purple-200"
+                                                    : user.role?.name === "manager"
+                                                        ? "bg-orange-100 text-orange-700 border border-orange-200"
+                                                        : "bg-blue-100 text-blue-700 border border-blue-200"
                                                     }`}
                                             >
                                                 {user.role?.name || "Không xác định"}
