@@ -354,12 +354,13 @@ export default function TeamLeadProjectsPage() {
                                         }`}>
                                             <div className="flex items-center justify-between">
                                                 <span className="text-xs text-gray-500">Trạng thái tham gia:</span>
-                                                <span className={`px-2 py-1 rounded-md text-xs font-semibold ${
+                                                <span className={`px-2 py-1 rounded-md text-xs font-semibold flex items-center gap-1 ${
                                                     projectItem.status === 'active' 
                                                         ? 'bg-green-100 text-green-700' 
                                                         : 'bg-gray-100 text-gray-600'
                                                 }`}>
-                                                    {projectItem.status === 'active' ? '✓ Đang tham gia' : '✓ Đã hoàn thành'}
+                                                    <CheckCircle2 className="w-3 h-3" />
+                                                    {projectItem.status === 'active' ? 'Đang tham gia' : 'Đã hoàn thành'}
                                                 </span>
                                             </div>
                                         </div>

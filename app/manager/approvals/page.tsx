@@ -280,14 +280,14 @@ export default function ManagerApprovalsPage() {
 
     // Lọc và tìm kiếm
     const filteredTasks = pendingTasks.filter(task => 
-        task.tentask.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        task.nguoiDuocGiao.hoten.toLowerCase().includes(searchTerm.toLowerCase())
+        (task.tentask || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (task.nguoiDuocGiao?.hoten || '').toLowerCase().includes(searchTerm.toLowerCase())
     )
 
     const filteredSubtasks = pendingSubtasks.filter(subtask => 
-        subtask.tenSubtask.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        subtask.nguoiThucHien.hoten.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        subtask.task.tentask.toLowerCase().includes(searchTerm.toLowerCase())
+        (subtask.tenSubtask || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (subtask.nguoiThucHien?.hoten || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (subtask.task?.tentask || '').toLowerCase().includes(searchTerm.toLowerCase())
     )
 
     const totalCount = filteredTasks.length + filteredSubtasks.length
@@ -528,7 +528,7 @@ export default function ManagerApprovalsPage() {
                                                 <div className="flex items-center gap-6 text-sm text-gray-500">
                                                     <div className="flex items-center gap-1">
                                                         <User className="w-4 h-4" />
-                                                        <span>Người thực hiện: {task.nguoiDuocGiao.hoten}</span>
+                                                        <span>Người thực hiện: {task.nguoiDuocGiao?.hoten || '—'}</span>
                                                     </div>
                                                     {task.ngayKetThuc && (
                                                         <div className="flex items-center gap-1">
@@ -588,7 +588,7 @@ export default function ManagerApprovalsPage() {
                                                 
                                                 <div className="flex items-center gap-2 mb-3">
                                                     <span className="text-sm text-gray-500">Thuộc task:</span>
-                                                    <span className="text-sm font-medium text-gray-700">{subtask.task.tentask}</span>
+                                                    <span className="text-sm font-medium text-gray-700">{subtask.task?.tentask || '—'}</span>
                                                 </div>
                                                 
                                                 {subtask.mota && (
@@ -598,7 +598,7 @@ export default function ManagerApprovalsPage() {
                                                 <div className="flex items-center gap-6 text-sm text-gray-500">
                                                     <div className="flex items-center gap-1">
                                                         <User className="w-4 h-4" />
-                                                        <span>Người thực hiện: {subtask.nguoiThucHien.hoten}</span>
+                                                        <span>Người thực hiện: {subtask.nguoiThucHien?.hoten || '—'}</span>
                                                     </div>
                                                     {subtask.ngayKetThuc && (
                                                         <div className="flex items-center gap-1">
@@ -688,12 +688,16 @@ export default function ManagerApprovalsPage() {
                                                         {request.title}
                                                     </h3>
                                                     {isProcessed ? (
-                                                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                                        <span className={`px-2 py-1 text-xs font-medium rounded-full flex items-center gap-1 ${
                                                             action === 'accepted'
                                                                 ? 'bg-green-100 text-green-800'
                                                                 : 'bg-red-100 text-red-800'
                                                         }`}>
-                                                            {action === 'accepted' ? '✓ Đã chấp nhận' : '✕ Đã từ chối'}
+                                                            {action === 'accepted' ? (
+                                                                <><CheckCircle2 className="w-3 h-3" /> Đã chấp nhận</>
+                                                            ) : (
+                                                                <><X className="w-3 h-3" /> Đã từ chối</>
+                                                            )}
                                                         </span>
                                                     ) : (
                                                         <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
@@ -863,10 +867,11 @@ export default function ManagerApprovalsPage() {
                                                             <div className="flex-1">
                                                                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                                                                     <h3 className="text-lg font-semibold text-gray-900">{itemName}</h3>
-                                                                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                                                    <span className={`px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1 ${
                                                                         isAssignment ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
                                                                     }`}>
-                                                                        {isAssignment ? '✓ Đã chấp nhận' : '✓ Đã phê duyệt'}
+                                                                        <CheckCircle2 className="w-3 h-3" />
+                                                                        {isAssignment ? 'Đã chấp nhận' : 'Đã phê duyệt'}
                                                                     </span>
                                                                     <span className={`px-2 py-1 rounded-md text-xs font-medium ${
                                                                         isAssignment ? 'bg-purple-100 text-purple-700' : 'bg-blue-50 text-blue-700'
@@ -897,8 +902,8 @@ export default function ManagerApprovalsPage() {
                                                                     <User className="w-5 h-5 text-blue-600 flex-shrink-0" />
                                                                     <div className="min-w-0">
                                                                         <p className="text-xs text-gray-500">{isAssignment ? 'Người được phân công' : 'Người thực hiện'}</p>
-                                                                        <p className="text-sm font-semibold text-gray-900 truncate">{assignee.hoten}</p>
-                                                                        <p className="text-xs text-gray-500">{assignee.manv}</p>
+                                                                        <p className="text-sm font-semibold text-gray-900 truncate">{assignee?.hoten || '—'}</p>
+                                                                        <p className="text-xs text-gray-500">{assignee?.manv || ''}</p>
                                                                     </div>
                                                                 </div>
                                                             )}
@@ -908,8 +913,8 @@ export default function ManagerApprovalsPage() {
                                                                     <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
                                                                     <div className="min-w-0">
                                                                         <p className="text-xs text-gray-500">{isAssignment ? 'Người chấp nhận' : 'Người phê duyệt'}</p>
-                                                                        <p className="text-sm font-semibold text-gray-900 truncate">{item.approver.hoten}</p>
-                                                                        <p className="text-xs text-gray-500">{item.approver.manv}</p>
+                                                                        <p className="text-sm font-semibold text-gray-900 truncate">{item.approver?.hoten || '—'}</p>
+                                                                        <p className="text-xs text-gray-500">{item.approver?.manv || ''}</p>
                                                                     </div>
                                                                 </div>
                                                             )}
@@ -949,7 +954,7 @@ export default function ManagerApprovalsPage() {
                                         onClick={() => setIsModalOpen(false)}
                                         className="text-gray-400 hover:text-gray-600"
                                     >
-                                        ✕
+                                        <X className="w-5 h-5" />
                                     </button>
                                 </div>
                             </div>
@@ -969,8 +974,8 @@ export default function ManagerApprovalsPage() {
                                         <label className="text-sm font-medium text-gray-700">Người thực hiện</label>
                                         <p className="mt-1 text-gray-900">
                                             {selectedItem.type === 'task' 
-                                                ? selectedItem.nguoiDuocGiao.hoten 
-                                                : selectedItem.nguoiThucHien.hoten
+                                                ? (selectedItem.nguoiDuocGiao?.hoten || '—') 
+                                                : (selectedItem.nguoiThucHien?.hoten || '—')
                                             }
                                         </p>
                                     </div>
@@ -985,7 +990,7 @@ export default function ManagerApprovalsPage() {
                                 {selectedItem.type === 'subtask' && (
                                     <div>
                                         <label className="text-sm font-medium text-gray-700">Thuộc task</label>
-                                        <p className="mt-1 text-gray-900">{selectedItem.task.tentask}</p>
+                                        <p className="mt-1 text-gray-900">{selectedItem.task?.tentask || '—'}</p>
                                     </div>
                                 )}
 

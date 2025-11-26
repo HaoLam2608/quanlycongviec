@@ -41,7 +41,7 @@ export const CallWindow: React.FC<CallWindowProps> = ({
   const [isConnected, setIsConnected] = useState(false);
   const callStartTimeRef = useRef<number | null>(null);
   const offerCreatedRef = useRef(false); // Track if offer was created
-  
+  const [historyCall, setHistoryCall] = useState<any>(null);
   // Draggable state
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);

@@ -90,6 +90,7 @@ export const useWebRTC = ({
     const pc = new RTCPeerConnection(iceServers);
     peerConnectionRef.current = pc;
 
+
     // Handle ICE candidates
     pc.onicecandidate = (event) => {
       if (event.candidate && socket) {

@@ -455,7 +455,7 @@ export default function MyProjectsPage() {
                                         }}
                                     className="text-gray-500 hover:text-gray-700"
                                 >
-                                    ✕
+                                    <Eye className="w-5 h-5" />
                                 </button>
                             </div>
 
@@ -469,13 +469,14 @@ export default function MyProjectsPage() {
                                             setShowDocuments(false);
                                             setShowKanban(false);
                                         }}
-                                        className={`px-3 py-2 rounded-md transition-colors ${
+                                        className={`px-3 py-2 rounded-md transition-colors flex items-center gap-2 ${
                                             showTimeline 
                                                 ? 'bg-blue-700 text-white' 
                                                 : 'bg-blue-600 text-white hover:bg-blue-700'
                                         }`}
                                     >
-                                        👁️ Xem Timeline
+                                        <Eye className="w-4 h-4" />
+                                        Xem Timeline
                                     </button>
                                     <button
                                         onClick={() => { 
@@ -484,13 +485,14 @@ export default function MyProjectsPage() {
                                             setShowDocuments(false);
                                             setShowKanban(false);
                                         }}
-                                        className={`px-3 py-2 rounded-md transition-colors ${
+                                        className={`px-3 py-2 rounded-md transition-colors flex items-center gap-2 ${
                                             showMyTasks 
                                                 ? 'bg-green-700 text-white' 
                                                 : 'bg-green-600 text-white hover:bg-green-700'
                                         }`}
                                     >
-                                        🎯 Công việc của tôi
+                                        <Target className="w-4 h-4" />
+                                        Công việc của tôi
                                     </button>
                                     {/* Tất cả công việc button removed as requested */}
                                     <button
@@ -500,13 +502,14 @@ export default function MyProjectsPage() {
                                             setShowMyTasks(false); 
                                             setShowDocuments(false);
                                         }}
-                                        className={`px-3 py-2 rounded-md transition-colors ${
+                                        className={`px-3 py-2 rounded-md transition-colors flex items-center gap-2 ${
                                             showKanban 
                                                 ? 'bg-indigo-700 text-white' 
                                                 : 'bg-indigo-600 text-white hover:bg-indigo-700'
                                         }`}
                                     >
-                                        🗂️ Kanban
+                                        <FolderOpen className="w-4 h-4" />
+                                        Kanban
                                     </button>
 
                                     <button
@@ -516,13 +519,14 @@ export default function MyProjectsPage() {
                                             setShowMyTasks(false); 
                                             setShowKanban(false);
                                         }}
-                                        className={`px-3 py-2 rounded-md transition-colors ${
+                                        className={`px-3 py-2 rounded-md transition-colors flex items-center gap-2 ${
                                             showDocuments 
                                                 ? 'bg-violet-700 text-white' 
                                                 : 'bg-violet-600 text-white hover:bg-violet-700'
                                         }`}
                                     >
-                                        📄 Tài liệu
+                                        <FileText className="w-4 h-4" />
+                                        Tài liệu
                                     </button>
                                 </div>
 
