@@ -6,13 +6,11 @@ import { deactivatePushNotificationDevice } from '../src/axios/api';
 export function useLogout() {
   const logout = async () => {
     try {
-      // First, deactivate push notification device on backend
       try {
         await deactivatePushNotificationDevice();
         console.log('✅ Device tokens deactivated on backend');
       } catch (error) {
         console.warn('⚠️ Warning: Could not deactivate device on backend:', error);
-        // Don't fail logout if this fails - continue with local cleanup
       }
 
       // Xóa tất cả dữ liệu authentication
@@ -27,11 +25,11 @@ export function useLogout() {
       ]);
 
       // Chuyển về trang welcome
-      router.replace('/welcome');
+      router.replace('/login');
     } catch (error) {
       console.error('Error during logout:', error);
       // Vẫn chuyển về trang welcome dù có lỗi
-      router.replace('/welcome');
+      router.replace('/login');
     }
   };
 

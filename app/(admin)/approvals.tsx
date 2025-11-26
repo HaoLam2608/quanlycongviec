@@ -13,12 +13,8 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
-import api from '../../src/axios/config';
-import { notificationUserAPI } from '../../src/axios/notificationAPI';
-import { getMyProjects, getTaskById, fetchProjectsByManager } from '../../src/axios/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { STORAGE_KEYS } from '../../src/config/api';
 import { approvalAPI } from '../../src/axios/approvalApi';
+import api from '../../src/axios/config';
 
 interface PendingTask {
     id: number;
@@ -90,11 +86,11 @@ export default function ApprovalsManagement() {
         try {
             const res = await approvalAPI.getApprovedHistory(limit);
             console.log('DEBUG approvals.getApprovedHistory raw response:', res);
-            
+
             // Tìm data ở nhiều cấp: res.data.data, res.data, hoặc res
             let dataWrapper = res?.data?.data || res?.data || res || {};
             console.log('DEBUG approvals.history dataWrapper:', dataWrapper);
-            
+
             const tasks = Array.isArray(dataWrapper.tasks) ? dataWrapper.tasks : [];
             const subtasks = Array.isArray(dataWrapper.subtasks) ? dataWrapper.subtasks : [];
             const assignments = Array.isArray(dataWrapper.assignments) ? dataWrapper.assignments : [];
@@ -152,18 +148,18 @@ export default function ApprovalsManagement() {
         try {
             const resp = await approvalAPI.getPendingApprovals({ type: filter as any });
             console.log('DEBUG approvals.getPendingApprovals raw response:', resp);
-            
+
             // Tìm data ở nhiều cấp: resp.data.data, resp.data, hoặc resp
             let data = resp?.data?.data || resp?.data || resp || {};
             console.log('DEBUG approvals.pending parsed data:', data);
-            
+
             const tasks = Array.isArray(data.tasks) ? data.tasks : [];
             const subtasks = Array.isArray(data.subtasks) ? data.subtasks : [];
-            
+
             console.log('DEBUG approvals.pending tasks count:', tasks.length, 'subtasks count:', subtasks.length);
             setPendingTasks(tasks);
             setPendingSubtasks(subtasks);
-            
+
             const message = resp?.message || resp?.data?.message || data?.message || null;
             if (message) setInfoMessage(message);
         } catch (error: any) {
@@ -186,69 +182,27 @@ export default function ApprovalsManagement() {
 
     const loadJoinRequests = async () => {
         try {
-            // fetch notifications; notificationUserAPI returns response.data already
-            const res = await notificationUserAPI.getMyNotifications({ limit: 200 });
-            console.log('DEBUG ⚙️ notifications raw response:', res);
+            // Use new API that filters server-side by role (admin/manager/teamlead)
+            const res = await approvalAPI.getMyJoinRequests();
+            console.log('DEBUG ⚙️ getMyJoinRequests raw response:', res);
 
-            // Normalize different response shapes (res may be array, or object with data, or wrapper)
-            const items = Array.isArray(res)
-                ? res
-                : Array.isArray(res?.data)
-                    ? res.data
-                    : Array.isArray(res?.data?.data)
-                        ? res.data.data
-                        : res?.data || res || [];
+            // Normalize response shape
+            const raw = Array.isArray(res.data) ? res.data : (res.data?.data || res.data || []);
 
-            // Keep it simple: include any notification that looks like a join/assignment request.
-            // Admin should see all requests, so do NOT filter out by `meta.processed` here.
-            const requests = (items || []).filter((n: any) => {
-                const meta = n.userMeta || n.meta || (n.userNotification && n.userNotification.meta);
-                const isAssignmentType = n.type === 'assignment' || meta?.type === 'assignment';
-                const hasJoinFlags = meta && (meta.requestToJoin === true || meta.requestToJoin);
-                const hasRequester = !!(meta && (meta.requesterId || meta.requesterName));
-                // Consider it a join request if it has explicit flags, is an assignment notification,
-                // or contains requester info. Be permissive for admin so they can act on all items.
-                return Boolean(isAssignmentType || hasJoinFlags || hasRequester);
-            }).map((n: any) => ({
-                id: n.id,
+            const requests = (raw || []).map((n: any) => ({
+                id: String(n.id),
                 title: n.title,
                 content: n.content,
                 createdAt: n.createdAt,
-                meta: n.userMeta || n.meta || (n.userNotification && n.userNotification.meta),
-                isRead: n.isRead || (n.userNotification && n.userNotification.isRead) || false
+                isRead: n.isRead || (n.userNotification && n.userNotification.isRead) || false,
+                meta: n.userMeta || n.meta || (n.userNotification && n.userNotification.meta)
             }));
 
-            console.log('DEBUG ⚙️ collected join requests:', requests);
+            console.log('DEBUG ⚙️ collected join requests:', requests.length);
             setJoinRequests(requests);
-            // debug payload removed in production
         } catch (error: any) {
             console.error('Load join requests error:', error);
-
-            // Try a direct API call to get raw response for troubleshooting
-            try {
-                const alt = await api.get('/notifications/user', { params: { limit: 200 } });
-                console.log('DEBUG ⚙️ alt notifications raw response:', alt?.data ?? alt);
-                const altItems = alt?.data?.data ?? alt?.data ?? [];
-                const requests = (altItems || []).filter((n: any) => {
-                    const meta = n.userMeta || n.meta || (n.userNotification && n.userNotification.meta);
-                    const isAssignmentType = n.type === 'assignment' || meta?.type === 'assignment';
-                    const hasJoinFlags = meta && (meta.requestToJoin === true || meta.requestToJoin);
-                    const hasRequester = !!(meta && (meta.requesterId || meta.requesterName));
-                    return Boolean(isAssignmentType || hasJoinFlags || hasRequester);
-                }).map((n: any) => ({
-                    id: n.id,
-                    title: n.title,
-                    content: n.content,
-                    createdAt: n.createdAt,
-                    meta: n.userMeta || n.meta || (n.userNotification && n.userNotification.meta),
-                    isRead: n.isRead || (n.userNotification && n.userNotification.isRead) || false
-                }));
-                setJoinRequests(requests);
-                // debug payload removed in production
-            } catch (altErr: any) {
-                console.error('Alt notifications fetch failed:', altErr);
-                setJoinRequests([]);
-            }
+            setJoinRequests([]);
         }
     };
 
@@ -256,7 +210,7 @@ export default function ApprovalsManagement() {
     const acceptJoinRequest = async (req: any) => {
         setProcessingRequest(req.id);
         try {
-            await api.post('/assignments/request/accept', {
+            await approvalAPI.acceptRequestToJoin({
                 taskId: req.meta.taskId || null,
                 subtaskId: req.meta.subtaskId || null,
                 requesterId: req.meta.requesterId
@@ -275,7 +229,7 @@ export default function ApprovalsManagement() {
     const declineJoinRequest = async (req: any) => {
         setProcessingRequest(req.id);
         try {
-            await api.post('/assignments/request/decline', {
+            await approvalAPI.declineRequestToJoin({
                 taskId: req.meta.taskId || null,
                 subtaskId: req.meta.subtaskId || null,
                 requesterId: req.meta.requesterId,
@@ -323,12 +277,12 @@ export default function ApprovalsManagement() {
         setRejectReason('');
     };
 
-    const filteredTasks = pendingTasks.filter(task => 
+    const filteredTasks = pendingTasks.filter(task =>
         task.tentask.toLowerCase().includes(searchQuery.toLowerCase()) ||
         task.nguoiDuocGiao.hoten.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const filteredSubtasks = pendingSubtasks.filter(subtask => 
+    const filteredSubtasks = pendingSubtasks.filter(subtask =>
         subtask.tenSubtask.toLowerCase().includes(searchQuery.toLowerCase()) ||
         subtask.nguoiThucHien.hoten.toLowerCase().includes(searchQuery.toLowerCase()) ||
         subtask.task.tentask.toLowerCase().includes(searchQuery.toLowerCase())
@@ -362,7 +316,7 @@ export default function ApprovalsManagement() {
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleDateString('vi-VN', {
             day: '2-digit',
-            month: '2-digit', 
+            month: '2-digit',
             year: 'numeric',
             hour: '2-digit',
             minute: '2-digit'
@@ -521,8 +475,8 @@ export default function ApprovalsManagement() {
             <ScrollView
                 style={styles.content}
                 refreshControl={
-                    <RefreshControl 
-                        refreshing={refreshing} 
+                    <RefreshControl
+                        refreshing={refreshing}
                         onRefresh={onRefresh}
                         colors={['#f59e0b']}
                         tintColor="#f59e0b"
@@ -604,7 +558,7 @@ export default function ApprovalsManagement() {
                                                 </View>
 
                                                 <View style={styles.cardActions}>
-                                                    <TouchableOpacity 
+                                                    <TouchableOpacity
                                                         style={[styles.actionButton, styles.approveButton]}
                                                         onPress={() => handleApprove(task, 'task', true)}
                                                         disabled={processingApproval}
@@ -612,7 +566,7 @@ export default function ApprovalsManagement() {
                                                         <Ionicons name="checkmark" size={18} color="#fff" />
                                                         <Text style={styles.actionButtonText}>Phê duyệt</Text>
                                                     </TouchableOpacity>
-                                                    <TouchableOpacity 
+                                                    <TouchableOpacity
                                                         style={[styles.actionButton, styles.rejectButton]}
                                                         onPress={() => openApprovalModal(task, 'task')}
                                                     >
@@ -685,7 +639,7 @@ export default function ApprovalsManagement() {
                                                 </View>
 
                                                 <View style={styles.cardActions}>
-                                                    <TouchableOpacity 
+                                                    <TouchableOpacity
                                                         style={[styles.actionButton, styles.approveButton]}
                                                         onPress={() => handleApprove(subtask, 'subtask', true)}
                                                         disabled={processingApproval}
@@ -693,7 +647,7 @@ export default function ApprovalsManagement() {
                                                         <Ionicons name="checkmark" size={18} color="#fff" />
                                                         <Text style={styles.actionButtonText}>Phê duyệt</Text>
                                                     </TouchableOpacity>
-                                                    <TouchableOpacity 
+                                                    <TouchableOpacity
                                                         style={[styles.actionButton, styles.rejectButton]}
                                                         onPress={() => openApprovalModal(subtask, 'subtask')}
                                                     >
@@ -843,10 +797,10 @@ export default function ApprovalsManagement() {
                                                 <View style={styles.cardHeader}>
                                                     <View style={styles.cardHeaderLeft}>
                                                         <View style={[styles.iconContainer, { backgroundColor: item.type === 'task' ? '#fef3c7' : '#e0e7ff' }]}>
-                                                            <Ionicons 
-                                                                name={item.type === 'task' ? 'briefcase' : item.type === 'subtask' ? 'list' : 'people'} 
-                                                                size={24} 
-                                                                color={item.type === 'task' ? '#f59e0b' : '#6366f1'} 
+                                                            <Ionicons
+                                                                name={item.type === 'task' ? 'briefcase' : item.type === 'subtask' ? 'list' : 'people'}
+                                                                size={24}
+                                                                color={item.type === 'task' ? '#f59e0b' : '#6366f1'}
                                                             />
                                                         </View>
                                                         <View style={styles.cardHeaderInfo}>
@@ -941,8 +895,8 @@ export default function ApprovalsManagement() {
                                         <View style={styles.modalInfoItem}>
                                             <Text style={styles.modalLabel}>Người thực hiện</Text>
                                             <Text style={styles.modalValue}>
-                                                {selectedItem.type === 'task' 
-                                                    ? selectedItem.nguoiDuocGiao.hoten 
+                                                {selectedItem.type === 'task'
+                                                    ? selectedItem.nguoiDuocGiao.hoten
                                                     : selectedItem.nguoiThucHien.hoten
                                                 }
                                             </Text>
@@ -950,7 +904,7 @@ export default function ApprovalsManagement() {
                                         <View style={styles.modalInfoItem}>
                                             <Text style={styles.modalLabel}>Người giao</Text>
                                             <Text style={styles.modalValue}>
-                                                {selectedItem.type === 'task' 
+                                                {selectedItem.type === 'task'
                                                     ? selectedItem.nguoiGiao?.hoten || 'N/A'
                                                     : selectedItem.task?.nguoiGiao?.hoten || 'N/A'
                                                 }
@@ -993,7 +947,7 @@ export default function ApprovalsManagement() {
                                     </View>
 
                                     <View style={styles.modalActions}>
-                                        <TouchableOpacity 
+                                        <TouchableOpacity
                                             style={[styles.modalActionButton, styles.modalApproveButton]}
                                             onPress={() => handleApprove(selectedItem, selectedItem.type, true)}
                                             disabled={processingApproval}
@@ -1003,7 +957,7 @@ export default function ApprovalsManagement() {
                                                 {processingApproval ? 'Đang xử lý...' : 'Phê duyệt hoàn thành'}
                                             </Text>
                                         </TouchableOpacity>
-                                        <TouchableOpacity 
+                                        <TouchableOpacity
                                             style={[styles.modalActionButton, styles.modalRejectButton]}
                                             onPress={() => handleApprove(selectedItem, selectedItem.type, false)}
                                             disabled={processingApproval}

@@ -1,26 +1,26 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import {
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    View,
-    Text,
-    ActivityIndicator,
-    Image,
-    TouchableOpacity,
-    Alert,
-    Switch,
-    Modal,
-    TextInput,
-    Platform,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter, useFocusEffect } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
 import { getMyProfile, updateMyProfile, uploadAvatar } from '@/src/axios/api';
 import api from '@/src/axios/config';
 import { API_CONFIG } from '@/src/config/api';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Image,
+    Modal,
+    Platform,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
+} from 'react-native';
 
 interface Profile {
     id?: number;
@@ -34,6 +34,7 @@ interface Profile {
 
 export default function TeamLeadSettingsScreen() {
     const router = useRouter();
+    const { logout } = useLogout();
     const [loading, setLoading] = useState(true);
     const [profile, setProfile] = useState<Profile | null>(null);
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -217,10 +218,7 @@ export default function TeamLeadSettingsScreen() {
                 {
                     text: 'Đăng xuất',
                     style: 'destructive',
-                    onPress: async () => {
-                        await AsyncStorage.multiRemove(['token', 'refreshToken', 'userId', 'hoten', 'manv', 'role', 'user']);
-                        router.replace('/login');
-                    },
+                    onPress: logout,
                 },
             ]
         );
@@ -752,4 +750,4 @@ const modalStyles = StyleSheet.create({
         fontWeight: '600',
     },
 });
- 
+

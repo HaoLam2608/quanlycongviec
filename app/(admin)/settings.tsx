@@ -1,27 +1,24 @@
+import { useLogout } from '@/hooks/useLogout';
+import { getMyProfile, updateMyProfile, uploadAvatar } from '@/src/axios/api';
+import { API_CONFIG } from '@/src/config/api';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { getMyProfile, uploadAvatar, updateMyProfile } from '@/src/axios/api';
-import { API_CONFIG } from '@/src/config/api';
-import { Image } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
 import {
-    Alert,
-    RefreshControl,
+    Alert, Image, Modal, RefreshControl,
     SafeAreaView,
     ScrollView,
     StyleSheet,
     Switch,
-    Text,
-    TouchableOpacity,
-    View,
-    Modal,
-    TextInput,
+    Text, TextInput, TouchableOpacity,
+    View
 } from 'react-native';
 
 export default function SettingsManagement() {
     const router = useRouter();
+    const { logout } = useLogout();
     const [userProfile, setUserProfile] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -132,7 +129,7 @@ export default function SettingsManagement() {
             [key]: !settings[key as keyof typeof settings]
         };
         setSettings(newSettings);
-        
+
         try {
             await AsyncStorage.setItem('appSettings', JSON.stringify(newSettings));
         } catch (error) {
@@ -149,14 +146,7 @@ export default function SettingsManagement() {
                 {
                     text: 'Đăng xuất',
                     style: 'destructive',
-                            onPress: async () => {
-                        try {
-                            await AsyncStorage.multiRemove(['token', 'user']);
-                            router.replace('/login');
-                        } catch (error) {
-                            console.error('Error logging out:', error);
-                        }
-                    }
+                    onPress: logout
                 }
             ]
         );
@@ -253,13 +243,13 @@ export default function SettingsManagement() {
         );
     };
 
-    const SettingItem = ({ 
-        icon, 
-        title, 
-        description, 
-        value, 
-        onToggle, 
-        color = '#3b82f6' 
+    const SettingItem = ({
+        icon,
+        title,
+        description,
+        value,
+        onToggle,
+        color = '#3b82f6'
     }: any) => (
         <View style={styles.settingItem}>
             <View style={[styles.settingIcon, { backgroundColor: color + '20' }]}>
@@ -279,7 +269,7 @@ export default function SettingsManagement() {
     );
 
     const ActionItem = ({ icon, title, color, onPress, showChevron = true }: any) => (
-        <TouchableOpacity 
+        <TouchableOpacity
             style={styles.actionItem}
             onPress={onPress}
         >
@@ -293,7 +283,7 @@ export default function SettingsManagement() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <ScrollView 
+            <ScrollView
                 style={styles.content}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -338,7 +328,7 @@ export default function SettingsManagement() {
                 {/* Profile Info */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>👤 Thông tin cá nhân</Text>
-                    
+
                     <View style={styles.infoCard}>
                         <View style={styles.infoRow}>
                             <View style={styles.infoItem}>
@@ -347,61 +337,61 @@ export default function SettingsManagement() {
                             </View>
                         </View>
 
-                            {/* Edit Profile Modal */}
-                            <Modal visible={showEditModal} animationType="slide" transparent>
-                                <View style={modalStyles.modalOverlay}>
-                                    <View style={modalStyles.modalContent}>
-                                        <Text style={modalStyles.modalTitle}>Chỉnh sửa thông tin</Text>
-                                        <ScrollView>
-                                            <View style={modalStyles.avatarSection}>
-                                                <TouchableOpacity style={modalStyles.avatarPickerContainer} onPress={pickAvatar}>
-                                                    {selectedAvatar ? (
-                                                        <Image source={{ uri: selectedAvatar }} style={modalStyles.avatarPreview} />
-                                                    ) : userProfile?.avatarUri || userProfile?.avatarUrl ? (
-                                                        <Image source={{ uri: userProfile?.avatarUri || userProfile?.avatarUrl }} style={modalStyles.avatarPreview} />
-                                                    ) : (
-                                                        <View style={modalStyles.avatarPlaceholderModal}>
-                                                            <Text style={modalStyles.avatarInitialModal}>{(editName || userProfile?.hoten || '?').charAt(0).toUpperCase()}</Text>
-                                                        </View>
-                                                    )}
-                                                    <View style={modalStyles.avatarOverlay}>
-                                                        <Ionicons name="camera" size={20} color="#fff" />
+                        {/* Edit Profile Modal */}
+                        <Modal visible={showEditModal} animationType="slide" transparent>
+                            <View style={modalStyles.modalOverlay}>
+                                <View style={modalStyles.modalContent}>
+                                    <Text style={modalStyles.modalTitle}>Chỉnh sửa thông tin</Text>
+                                    <ScrollView>
+                                        <View style={modalStyles.avatarSection}>
+                                            <TouchableOpacity style={modalStyles.avatarPickerContainer} onPress={pickAvatar}>
+                                                {selectedAvatar ? (
+                                                    <Image source={{ uri: selectedAvatar }} style={modalStyles.avatarPreview} />
+                                                ) : userProfile?.avatarUri || userProfile?.avatarUrl ? (
+                                                    <Image source={{ uri: userProfile?.avatarUri || userProfile?.avatarUrl }} style={modalStyles.avatarPreview} />
+                                                ) : (
+                                                    <View style={modalStyles.avatarPlaceholderModal}>
+                                                        <Text style={modalStyles.avatarInitialModal}>{(editName || userProfile?.hoten || '?').charAt(0).toUpperCase()}</Text>
                                                     </View>
-                                                </TouchableOpacity>
-                                            </View>
-
-                                            <View style={modalStyles.formGroup}>
-                                                <Text style={modalStyles.label}>Họ và tên *</Text>
-                                                <TextInput style={modalStyles.input} value={editName} onChangeText={setEditName} />
-                                            </View>
-                                            <View style={modalStyles.formGroup}>
-                                                <Text style={modalStyles.label}>Số điện thoại</Text>
-                                                <TextInput style={modalStyles.input} value={editPhone} onChangeText={setEditPhone} keyboardType="phone-pad" />
-                                            </View>
-                                            <View style={modalStyles.formGroup}>
-                                                <Text style={modalStyles.label}>Email</Text>
-                                                <TextInput style={modalStyles.input} value={editEmail} onChangeText={setEditEmail} keyboardType="email-address" autoCapitalize="none" />
-                                            </View>
-                                        </ScrollView>
-                                        <View style={modalStyles.modalActions}>
-                                            <TouchableOpacity style={[modalStyles.modalBtn, { backgroundColor: '#9ca3af' }]} onPress={() => setShowEditModal(false)} disabled={updatingProfile}>
-                                                <Text style={modalStyles.modalBtnText}>Hủy</Text>
-                                            </TouchableOpacity>
-                                            <TouchableOpacity style={[modalStyles.modalBtn, { backgroundColor: '#f59e0b' }]} onPress={handleUpdateProfile} disabled={updatingProfile}>
-                                                <Text style={[modalStyles.modalBtnText, { color: '#fff' }]}>{updatingProfile ? 'Đang lưu...' : 'Cập nhật'}</Text>
+                                                )}
+                                                <View style={modalStyles.avatarOverlay}>
+                                                    <Ionicons name="camera" size={20} color="#fff" />
+                                                </View>
                                             </TouchableOpacity>
                                         </View>
+
+                                        <View style={modalStyles.formGroup}>
+                                            <Text style={modalStyles.label}>Họ và tên *</Text>
+                                            <TextInput style={modalStyles.input} value={editName} onChangeText={setEditName} />
+                                        </View>
+                                        <View style={modalStyles.formGroup}>
+                                            <Text style={modalStyles.label}>Số điện thoại</Text>
+                                            <TextInput style={modalStyles.input} value={editPhone} onChangeText={setEditPhone} keyboardType="phone-pad" />
+                                        </View>
+                                        <View style={modalStyles.formGroup}>
+                                            <Text style={modalStyles.label}>Email</Text>
+                                            <TextInput style={modalStyles.input} value={editEmail} onChangeText={setEditEmail} keyboardType="email-address" autoCapitalize="none" />
+                                        </View>
+                                    </ScrollView>
+                                    <View style={modalStyles.modalActions}>
+                                        <TouchableOpacity style={[modalStyles.modalBtn, { backgroundColor: '#9ca3af' }]} onPress={() => setShowEditModal(false)} disabled={updatingProfile}>
+                                            <Text style={modalStyles.modalBtnText}>Hủy</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={[modalStyles.modalBtn, { backgroundColor: '#f59e0b' }]} onPress={handleUpdateProfile} disabled={updatingProfile}>
+                                            <Text style={[modalStyles.modalBtnText, { color: '#fff' }]}>{updatingProfile ? 'Đang lưu...' : 'Cập nhật'}</Text>
+                                        </TouchableOpacity>
                                     </View>
                                 </View>
-                            </Modal>
-                        
+                            </View>
+                        </Modal>
+
                         <View style={styles.infoRow}>
                             <View style={styles.infoItem}>
                                 <Text style={styles.infoLabel}>Số điện thoại</Text>
                                 <Text style={styles.infoValue}>{userProfile?.sdt || 'Chưa cập nhật'}</Text>
                             </View>
                         </View>
-                        
+
                         <View style={styles.infoRow}>
                             <View style={styles.infoItem}>
                                 <Text style={styles.infoLabel}>Địa chỉ</Text>
@@ -414,7 +404,7 @@ export default function SettingsManagement() {
                 {/* App Settings */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>⚙️ Cài đặt ứng dụng</Text>
-                    
+
                     <SettingItem
                         icon="mail"
                         title="Thông báo Email"
@@ -423,7 +413,7 @@ export default function SettingsManagement() {
                         onToggle={() => handleToggle('emailNotifications')}
                         color="#3b82f6"
                     />
-                    
+
                     <SettingItem
                         icon="notifications"
                         title="Thông báo đẩy"
@@ -432,7 +422,7 @@ export default function SettingsManagement() {
                         onToggle={() => handleToggle('pushNotifications')}
                         color="#f59e0b"
                     />
-                    
+
                     <SettingItem
                         icon="cloud-upload"
                         title="Tự động sao lưu"
@@ -446,7 +436,7 @@ export default function SettingsManagement() {
                 {/* Account Actions */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>� Bảo mật</Text>
-                    
+
                     <ActionItem
                         icon="key"
                         title="Đổi mật khẩu"
@@ -458,14 +448,14 @@ export default function SettingsManagement() {
                 {/* System Actions */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>�️ Hệ thống</Text>
-                    
+
                     <ActionItem
                         icon="document-text"
                         title="Quản lý tài liệu"
                         color="#14b8a6"
                         onPress={() => router.push('/(admin)/documents')}
                     />
-                    
+
                     <ActionItem
                         icon="trash"
                         title="Xóa bộ nhớ cache"
@@ -477,7 +467,7 @@ export default function SettingsManagement() {
                 {/* System Info */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>ℹ️ Thông tin hệ thống</Text>
-                    
+
                     <View style={styles.infoCard}>
                         <View style={styles.infoRow}>
                             <View style={styles.infoItem}>
@@ -485,7 +475,7 @@ export default function SettingsManagement() {
                                 <Text style={styles.infoValue}>1.0.0</Text>
                             </View>
                         </View>
-                        
+
                         <View style={styles.infoRow}>
                             <View style={styles.infoItem}>
                                 <Text style={styles.infoLabel}>Trạng thái server</Text>

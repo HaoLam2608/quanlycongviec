@@ -1,9 +1,10 @@
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-// 🔧 QUAN TRỌNG: IP máy tính chạy backend
-// Lấy IP: chạy "ipconfig" (Windows) -> tìm IPv4 Address
-const COMPUTER_IP = '10.0.2.2'; // IP thực tế của máy bạn
+// 🔧 QUAN TRỌNG: Thay đổi IP này thành IP của máy tính đang chạy backend
+// Để lấy IP: chạy "ipconfig" (Windows) hoặc "ifconfig" (Mac/Linux)
+// Tìm dòng "IPv4 Address" hoặc "inet" (thường là 192.168.x.x)
+const COMPUTER_IP = '192.168.2.7'; // <-- THAY ĐỔI IP NÀY nếu khác!
 
 // Tự động phát hiện môi trường
 const getBaseURL = () => {

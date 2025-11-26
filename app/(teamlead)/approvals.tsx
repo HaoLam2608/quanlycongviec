@@ -1,3 +1,6 @@
+import { approvalAPI } from '@/src/axios/approvalApi';
+import api from '@/src/axios/config';
+import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     ActivityIndicator,
@@ -13,10 +16,6 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { approvalAPI } from '@/src/axios/approvalApi';
-import api from '@/src/axios/config';
-import { notificationUserAPI } from '@/src/axios/notificationAPI';
 
 type ApprovalKind = 'task' | 'subtask' | 'assignment';
 
@@ -183,6 +182,12 @@ export default function TeamLeadApprovalsScreen() {
     const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
 
     const loadApprovals = useCallback(async () => {
+        // Skip loading approvals if on "Chấp nhận nhận việc" tab
+        if (filterMode === 'tasks') {
+            setLoading(false);
+            return;
+        }
+
         setLoading(true);
         try {
             let payload: any = null;
@@ -196,7 +201,7 @@ export default function TeamLeadApprovalsScreen() {
             } else {
                 // Call api directly so we can read res.data.message like web frontend
                 const res = await api.get('/approvals/pending', {
-                    params: { type: filterMode === 'tasks' ? 'tasks' : 'subtasks' }
+                    params: { type: 'subtasks' }
                 });
                 // web returns { success: true, data: { subtasks: [...] }, message }
                 payload = res.data?.data ?? res.data ?? {};
@@ -218,28 +223,38 @@ export default function TeamLeadApprovalsScreen() {
     }, [filterMode]);
 
     useEffect(() => {
-        loadApprovals();
-        loadJoinRequests();
-    }, [loadApprovals]);
+        console.log('🟡 TEAMLEAD useEffect triggered, filterMode:', filterMode);
+        if (filterMode === 'tasks') {
+            // Load join requests only for "Chấp nhận nhận việc" tab
+            console.log('🟡 TEAMLEAD Loading join requests...');
+            loadJoinRequests();
+        } else {
+            // Load approvals for other tabs
+            console.log('🟡 TEAMLEAD Loading approvals...');
+            loadApprovals();
+        }
+    }, [filterMode, loadApprovals]);
 
     const loadJoinRequests = async () => {
         try {
-            const res = await notificationUserAPI.getMyNotifications({ limit: 200 });
-            const items = Array.isArray(res.data) ? res.data : (res.data?.data || res.data || []);
-            const requests = (items || []).filter((n: any) => {
-                const meta = n.userMeta || n.meta || (n.userNotification && n.userNotification.meta);
-                return meta && (meta.requestToJoin === true || meta.requestToJoin) && !meta.processed;
-            }).map((n: any) => ({
-                id: n.id,
+            console.log('🔵 TEAMLEAD loadJoinRequests called');
+            const res = await approvalAPI.getMyJoinRequests();
+            console.log('🔵 TEAMLEAD getMyJoinRequests response:', JSON.stringify(res, null, 2));
+            const raw = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+            console.log('🔵 TEAMLEAD raw data:', raw);
+            const requests = raw.map((n: any) => ({
+                id: String(n.id),
                 title: n.title,
                 content: n.content,
                 createdAt: n.createdAt,
-                meta: n.userMeta || n.meta || (n.userNotification && n.userNotification.meta),
-                isRead: n.isRead || (n.userNotification && n.userNotification.isRead) || false
+                isRead: n.isRead || (n.userNotification && n.userNotification.isRead) || false,
+                meta: n.userMeta || n.meta || (n.userNotification && n.userNotification.meta)
             }));
+            console.log('🔵 TEAMLEAD mapped requests count:', requests.length);
             setJoinRequests(requests);
         } catch (error: any) {
-            console.error('Load join requests error:', error);
+            console.error('❌ TEAMLEAD Load join requests error:', error);
+            console.error('❌ TEAMLEAD Error response:', error?.response?.data);
             setJoinRequests([]);
         }
     };
@@ -247,7 +262,7 @@ export default function TeamLeadApprovalsScreen() {
     const acceptJoinRequest = async (request: any) => {
         setProcessingRequestId(request.id);
         try {
-            await api.post('/assignments/request/accept', {
+            await approvalAPI.acceptRequestToJoin({
                 taskId: request.meta.taskId || null,
                 subtaskId: request.meta.subtaskId || null,
                 requesterId: request.meta.requesterId
@@ -266,7 +281,7 @@ export default function TeamLeadApprovalsScreen() {
     const declineJoinRequest = async (request: any) => {
         setProcessingRequestId(request.id);
         try {
-            await api.post('/assignments/request/decline', {
+            await approvalAPI.declineRequestToJoin({
                 taskId: request.meta.taskId || null,
                 subtaskId: request.meta.subtaskId || null,
                 requesterId: request.meta.requesterId,
@@ -284,8 +299,12 @@ export default function TeamLeadApprovalsScreen() {
 
     const onRefresh = useCallback(() => {
         setRefreshing(true);
-        loadApprovals();
-    }, [loadApprovals]);
+        if (filterMode === 'tasks') {
+            loadJoinRequests().then(() => setRefreshing(false));
+        } else {
+            loadApprovals();
+        }
+    }, [filterMode, loadApprovals]);
 
     const submitDecision = async (item: ApprovalItem, approved: boolean, reason?: string) => {
         try {

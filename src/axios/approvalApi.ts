@@ -2,6 +2,40 @@ import api from './config'
 
 type PendingType = 'all' | 'tasks' | 'subtasks'
 
+// ==================== NEW: Assignment Request-to-Join APIs ====================
+
+// Get my join requests (role-based: admin sees all, manager sees project groups, teamlead sees own groups)
+const getMyJoinRequests = async () => {
+    try {
+        const res = await api.get('/assignments/requests/join')
+        return res.data
+    } catch (err: any) {
+        throw err.response?.data || { message: 'Không thể lấy danh sách yêu cầu tham gia' }
+    }
+}
+
+// Accept a request-to-join (assign requester to task/subtask)
+const acceptRequestToJoin = async (data: { taskId?: number; subtaskId?: number; requesterId: number }) => {
+    try {
+        const res = await api.post('/assignments/request/accept', data)
+        return res.data
+    } catch (err: any) {
+        throw err.response?.data || { message: 'Không thể chấp nhận yêu cầu' }
+    }
+}
+
+// Decline a request-to-join
+const declineRequestToJoin = async (data: { taskId?: number; subtaskId?: number; requesterId: number; reason?: string }) => {
+    try {
+        const res = await api.post('/assignments/request/decline', data)
+        return res.data
+    } catch (err: any) {
+        throw err.response?.data || { message: 'Không thể từ chối yêu cầu' }
+    }
+}
+
+// ==================== LEGACY: Old Approval APIs (kept for backward compatibility) ====================
+
 // API for approval workflow
 const getPendingApprovals = async (options?: { type?: PendingType }) => {
     const queryType = options?.type ?? 'all'
@@ -71,6 +105,12 @@ const approveSubtask = async (subtaskId: number, approved: boolean, reason?: str
 }
 
 export const approvalAPI = {
+    // New APIs
+    getMyJoinRequests,
+    acceptRequestToJoin,
+    declineRequestToJoin,
+    
+    // Legacy APIs
     getPendingApprovals,
     getAllApprovals,
     getApprovedHistory,

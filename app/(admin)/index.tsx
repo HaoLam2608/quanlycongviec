@@ -1,3 +1,4 @@
+import { useLogout } from '@/hooks/useLogout';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
@@ -18,6 +19,7 @@ interface DashboardStats {
 
 export default function AdminDashboard() {
     const router = useRouter();
+    const { logout } = useLogout();
     const [stats, setStats] = useState<DashboardStats>({
         totalUsers: 0,
         totalAdmins: 0,
@@ -44,14 +46,14 @@ export default function AdminDashboard() {
     const loadStats = async () => {
         try {
             console.log('🔄 Loading dashboard stats...');
-            
+
             // Load user stats
             const userResponse = await api.get('/users/stats');
             console.log('📊 User stats response:', JSON.stringify(userResponse.data, null, 2));
-            
+
             if (userResponse.data && userResponse.data.stats) {
                 const backendStats = userResponse.data.stats;
-                
+
                 // Parse usersByRole để lấy số lượng theo role
                 const roleMap = new Map<string, number>();
                 if (backendStats.usersByRole) {
@@ -98,7 +100,7 @@ export default function AdminDashboard() {
                     completedProjects,
                     pendingApprovals,
                 };
-                
+
                 console.log('📈 Final stats:', finalStats);
                 setStats(finalStats);
             }
@@ -113,64 +115,59 @@ export default function AdminDashboard() {
         setRefreshing(false);
     };
 
-    const handleLogout = async () => {
-        await AsyncStorage.multiRemove(['token', 'refreshToken', 'userId', 'hoten', 'manv', 'role']);
-        router.replace('/login');
-    };
-
     const menuItems = [
-        { 
-            title: 'Người dùng', 
-            icon: 'people', 
+        {
+            title: 'Người dùng',
+            icon: 'people',
             route: '/(admin)/users',
             color: '#3b82f6',
             count: stats.totalUsers
         },
-        { 
-            title: 'Vai trò', 
-            icon: 'shield-checkmark', 
+        {
+            title: 'Vai trò',
+            icon: 'shield-checkmark',
             route: '/(admin)/roles',
             color: '#8b5cf6',
             count: null
         },
-        { 
-            title: 'Dự án', 
-            icon: 'folder', 
+        {
+            title: 'Dự án',
+            icon: 'folder',
             route: '/(admin)/projects',
             color: '#10b981',
             count: stats.totalProjects
         },
-        { 
-            title: 'Nhóm', 
-            icon: 'layers', 
+        {
+            title: 'Nhóm',
+            icon: 'layers',
             route: '/(admin)/groups',
             color: '#f59e0b',
             count: null
         },
-        { 
-            title: 'Phê duyệt', 
-            icon: 'checkmark-done', 
+        {
+            title: 'Phê duyệt',
+            icon: 'checkmark-done',
             route: '/(admin)/approvals',
             color: '#ec4899',
             count: stats.pendingApprovals
         },
-        { 
-            title: 'Báo cáo', 
-            icon: 'bar-chart', 
+        {
+            title: 'Báo cáo',
+            icon: 'bar-chart',
             route: '/(admin)/reports',
             color: '#06b6d4',
             count: null
         },
-        { 
-            title: 'Thông báo', 
-            icon: 'notifications', 
+        {
+            title: 'Thông báo',
+            icon: 'notifications',
             route: '/(admin)/notifications',
             color: '#f97316',
             count: null
         },
-        { 
-            title: 'Cài đặt', 
-            icon: 'settings', 
+        {
+            title: 'Cài đặt',
+            icon: 'settings',
             route: '/(admin)/settings',
             color: '#6b7280',
             count: null
@@ -199,12 +196,12 @@ export default function AdminDashboard() {
                     <Text style={styles.welcomeText}>Xin chào, {userName}!</Text>
                     <Text style={styles.headerTitle}>Bảng điều khiển Admin</Text>
                 </View>
-                <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+                <TouchableOpacity onPress={logout} style={styles.logoutButton}>
                     <Ionicons name="log-out-outline" size={24} color="#ef4444" />
                 </TouchableOpacity>
             </View>
 
-            <ScrollView 
+            <ScrollView
                 style={styles.content}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -214,28 +211,28 @@ export default function AdminDashboard() {
                 <View style={styles.statsSection}>
                     <Text style={styles.sectionTitle}>📊 Thống kê tổng quan</Text>
                     <View style={styles.statsGrid}>
-                        <StatCard 
-                            title="Tổng người dùng" 
-                            value={stats.totalUsers} 
-                            icon="people" 
+                        <StatCard
+                            title="Tổng người dùng"
+                            value={stats.totalUsers}
+                            icon="people"
                             color="#3b82f6"
                         />
-                        <StatCard 
-                            title="Quản trị viên" 
-                            value={stats.totalAdmins} 
-                            icon="shield-checkmark" 
+                        <StatCard
+                            title="Quản trị viên"
+                            value={stats.totalAdmins}
+                            icon="shield-checkmark"
                             color="#8b5cf6"
                         />
-                        <StatCard 
-                            title="Quản lý" 
-                            value={stats.totalManagers} 
-                            icon="briefcase" 
+                        <StatCard
+                            title="Quản lý"
+                            value={stats.totalManagers}
+                            icon="briefcase"
                             color="#10b981"
                         />
-                        <StatCard 
-                            title="Nhân viên" 
-                            value={stats.totalEmployees} 
-                            icon="person" 
+                        <StatCard
+                            title="Nhân viên"
+                            value={stats.totalEmployees}
+                            icon="person"
                             color="#f59e0b"
                         />
                     </View>
@@ -261,7 +258,7 @@ export default function AdminDashboard() {
                     <Text style={styles.sectionTitle}>⚡ Quản lý nhanh</Text>
                     <View style={styles.menuGrid}>
                         {menuItems.map((item, index) => (
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 key={index}
                                 style={styles.menuItem}
                                 onPress={() => router.push(item.route as any)}

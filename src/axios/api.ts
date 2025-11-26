@@ -694,6 +694,16 @@ export const claimSubtask = async (subtaskId: number) => {
   }
 };
 
+// Request to join task/subtask (new 3-tier permission workflow)
+export const requestToJoin = async (data: { taskId?: number; subtaskId?: number; message?: string }) => {
+  try {
+    const res = await api.post('/assignments/request', data);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Không thể gửi yêu cầu tham gia' };
+  }
+};
+
 // Public stats for homepage (no auth required)
 export const getPublicStats = async () => {
   try {
@@ -818,11 +828,39 @@ export const declineAssignment = async (assignmentId: string, data: { reason: st
   }
 };
 
+// Legacy: redirect to new requestToJoin API
 export const requestAssignment = async (data: { taskId?: number; subtaskId?: number; message?: string }) => {
+  return requestToJoin(data);
+};
+
+// ==================== TEAMLEAD TASK CLAIMING APIs ====================
+
+// Get unassigned tasks that teamlead can claim
+export const getUnassignedTasks = async () => {
   try {
-    const res = await api.post('/assignments/request', data);
+    const res = await api.get('/assignments/unassigned/available');
     return res.data;
   } catch (err: any) {
-    throw err.response?.data || { message: 'Không thể gửi yêu cầu nhận việc' };
+    throw err.response?.data || { message: "Không thể lấy danh sách công việc chưa ai nhận" };
+  }
+};
+
+// Get pending task assignments (tasks assigned to teamlead waiting for acceptance)
+export const getPendingTaskAssignments = async () => {
+  try {
+    const res = await api.get('/assignments/my-pending-tasks');
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy danh sách công việc được giao" };
+  }
+};
+
+// Request to claim an unassigned task
+export const requestToClaimTask = async (data: { taskId: number }) => {
+  try {
+    const res = await api.post('/assignments/claim-request', data);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể gửi yêu cầu nhận công việc" };
   }
 };

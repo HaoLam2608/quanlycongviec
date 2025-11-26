@@ -67,6 +67,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="member-kanban/index"
         options={{
+          href: null,
           title: 'Kanban',
           tabBarLabel: 'Kanban',
           tabBarIcon: ({ color, focused }) => (
@@ -93,6 +94,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="member-calendar/index"
         options={{
+          href: null,
           title: 'Lịch',
           tabBarLabel: 'Lịch',
           tabBarIcon: ({ color, focused }) => (
