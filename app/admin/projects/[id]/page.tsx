@@ -240,9 +240,9 @@ export default function ProjectDetailPage() {
             console.log('Uploading file:', uploadFile.name, 'to project:', id);
             const result = await uploadDocument(uploadFile, Number(id), uploadDesc);
             console.log('Upload successful:', result);
-            
+
             showSuccess('Tải lên tài liệu thành công!');
-            
+
             const docs = await fetchDocuments(Number(id));
             setDocuments(docs.documents || docs || []);
             setIsUploadOpen(false);
@@ -467,7 +467,7 @@ export default function ProjectDetailPage() {
     const handleRemoveGroupFromProject = async (groupId: number) => {
         const confirmed = await showConfirm('Bạn có chắc chắn muốn xóa nhóm này khỏi dự án?');
         if (!confirmed) return;
-        
+
         try {
             await groupAPI.removeGroupFromProject(groupId, Number(id));
             await loadProjectGroups();
@@ -615,11 +615,11 @@ export default function ProjectDetailPage() {
             return;
         }
         try {
-            await createTask({
+            const response = await createTask({
                 tentask: taskFormData.name,
                 mota: taskFormData.description,
                 duanId: Number(id),
-                nguoiDuocGiaoId: Number(taskFormData.assigneeId),
+                nguoiDuocGiaoId: taskFormData.assigneeId ? Number(taskFormData.assigneeId) : null,
                 ngayBatDau: taskFormData.startDate,
                 ngayKetThuc: taskFormData.dueDate,
                 mucDoUuTien: taskFormData.priority
@@ -631,6 +631,13 @@ export default function ProjectDetailPage() {
 
             setIsAddTaskModalOpen(false);
             setTaskFormData({ name: "", description: "", assigneeId: "", priority: "medium", dueDate: "", startDate: "" });
+
+            // Show message based on whether assignment was created
+            if (response?.requiresConfirmation) {
+                showSuccess('Đã tạo công việc. Đang chờ người được giao xác nhận.');
+            } else {
+                showSuccess('Đã tạo công việc thành công!');
+            }
         } catch (error) {
             console.error("Lỗi tạo task:", error);
             showError("Không thể tạo công việc. Vui lòng thử lại!");
@@ -1365,20 +1372,20 @@ export default function ProjectDetailPage() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-semibold text-foreground mb-2">Người phụ trách *</label>
+                        <label className="block text-sm font-semibold text-foreground mb-2">Người phụ trách</label>
                         <select
-                            required
                             value={taskFormData.assigneeId}
                             onChange={(e) => setTaskFormData({ ...taskFormData, assigneeId: e.target.value })}
                             className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                         >
-                            <option value="">Chọn người phụ trách</option>
+                            <option value="">Không gán người (để trống)</option>
                             {teamLeaders.map((member) => (
                                 <option key={member.id} value={member.id}>
                                     {member.name} - {member.role}
                                 </option>
                             ))}
                         </select>
+                        <p className="text-xs text-muted-foreground mt-1">Nếu chọn người, họ sẽ phải chấp nhận/từ chối công việc</p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -1725,14 +1732,13 @@ export default function ProjectDetailPage() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-semibold text-foreground mb-2">Người thực hiện *</label>
+                        <label className="block text-sm font-semibold text-foreground mb-2">Người thực hiện</label>
                         <select
-                            required
                             value={subtaskFormData.assigneeId}
                             onChange={(e) => setSubtaskFormData({ ...subtaskFormData, assigneeId: e.target.value })}
                             className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                         >
-                            <option value="">Chọn người thực hiện</option>
+                            <option value="">Không gán người (để trống)</option>
                             {(() => {
                                 const members = getGroupMembersForTask(selectedTask);
                                 const useAll = showAllAssigneesFallback;

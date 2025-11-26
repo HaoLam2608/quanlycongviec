@@ -228,7 +228,7 @@ export const createTask = async (data: {
   tentask: string;
   mota?: string;
   duanId: number;
-  nguoiDuocGiaoId: number;
+  nguoiDuocGiaoId: number | null;
   ngayBatDau?: string;
   ngayKetThuc: string;
   mucDoUuTien?: string;

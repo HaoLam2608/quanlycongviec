@@ -154,10 +154,12 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
 
         return true;
     })
-    // General notifications: exclude all assignment notifications
+    // General notifications: only show announcement and system types
     const generalNotifications = notifications.filter(n => {
         const isAssignment = isAssignmentNotification(n) || looksLikeAssignmentByText(n);
-        return !isAssignment;
+        if (isAssignment) return false;
+        // Only include announcement and system types
+        return n.type === 'announcement' || n.type === 'system';
     })
     const activeNotifications = activeTab === 'assignments' ? assignmentNotifications : generalNotifications
     const generalUnreadCount = generalNotifications.filter(n => !n.isRead).length
@@ -203,7 +205,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
             markAsRead(notification.id)
         }
 
-        // If this is an assignment notification, fetch assignment status
+        // If this is an assignment notification, fetch assignment status and show modal
         if (notification.userMeta?.assignmentId) {
             try {
                 const assignmentResponse = await notificationUserAPI.getAssignment(String(notification.userMeta.assignmentId))
@@ -218,12 +220,12 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                 setAssignmentStatus(null)
                 setAssignmentAssigneeName(null)
             }
-        } else {
-            setAssignmentStatus(null)
-            setAssignmentAssigneeName(null)
+            // Show the modal for this assignment notification
+            setSelectedNotification(notification)
+            return
         }
 
-        // If notification has task/subtask metadata, deep-link into manager tasks page
+        // For non-assignment notifications with task metadata, redirect to appropriate tasks page
         const relatedTaskId = notification.userMeta?.taskId || notification.userMeta?.relatedTaskId
         const relatedSubtaskId = notification.userMeta?.subtaskId || notification.userMeta?.relatedSubtaskId
         const relatedCommentId = notification.userMeta?.relatedId || notification.userMeta?.commentId
@@ -235,7 +237,11 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
             if (relatedCommentId) params.set('commentId', String(relatedCommentId))
             // navigate and close the panel
             setIsOpen(false)
-            router.push(`/manager/tasks?${params.toString()}`)
+            // Route based on user role
+            const baseRoute = userRole === 'admin' ? '/admin' :
+                userRole === 'manager' ? '/manager' :
+                    userRole === 'teamleader' ? '/teamlead' : '/member'
+            router.push(`${baseRoute}/tasks?${params.toString()}`)
             return
         }
 
