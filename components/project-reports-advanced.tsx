@@ -1,15 +1,15 @@
 "use client"
 import { useState, useEffect } from "react"
-import { 
-  Plus, FileText, Calendar, User, CheckCircle, Clock, AlertCircle, 
+import {
+  Plus, FileText, Calendar, User, CheckCircle, Clock, AlertCircle,
   Edit, Trash2, Send, Eye, Download, Upload, Filter, Search, X,
   TrendingUp, BarChart3, PieChart, FileDown
 } from "lucide-react"
-import { 
-  getReportsByDuAn, 
-  getReportStatistics, 
-  createReport, 
-  updateReport, 
+import {
+  getReportsByDuAn,
+  getReportStatistics,
+  createReport,
+  updateReport,
   deleteReport,
   submitReport,
   reviewReport,
@@ -18,7 +18,7 @@ import {
   exportReportToPdf,
   type Report,
   type CreateReportData,
-  type ReportFilters 
+  type ReportFilters
 } from "@/axios/reportApi"
 import Modal from "./admin/Modal"
 import ConfirmModal from "./admin/ConfirmModal"
@@ -106,7 +106,7 @@ export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'm
     isOpen: false,
     title: '',
     message: '',
-    onConfirm: () => {},
+    onConfirm: () => { },
     type: 'warning' as 'danger' | 'warning' | 'info' | 'success',
     icon: 'alert' as 'alert' | 'check' | 'trash' | 'send'
   })
@@ -156,7 +156,7 @@ export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'm
 
     if (searchTerm) {
       const term = searchTerm.toLowerCase()
-      filtered = filtered.filter(r => 
+      filtered = filtered.filter(r =>
         r.title.toLowerCase().includes(term) ||
         r.content.toLowerCase().includes(term) ||
         r.creator?.hoten?.toLowerCase().includes(term)
@@ -274,7 +274,7 @@ export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'm
       showError('Không có báo cáo nào được chọn')
       return
     }
-    
+
     try {
       const id = reportId || selectedReport!.id
       await exportReportToPdf(id)
@@ -292,13 +292,13 @@ export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'm
     try {
       const uploadPromises = Array.from(files).map(file => uploadAttachment(file))
       const uploadedFiles = await Promise.all(uploadPromises)
-      
+
       setUploadedFiles(prev => [...prev, ...uploadedFiles])
       setFormData(prev => ({
         ...prev,
         attachments: [...(prev.attachments || []), ...uploadedFiles]
       }))
-      
+
       showSuccess(`Upload ${files.length} file thành công!`)
     } catch (error: any) {
       showError(error.response?.data?.message || 'Không thể upload file')
@@ -482,7 +482,7 @@ export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'm
             </button>
           )}
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Search */}
           <div className="lg:col-span-2">
@@ -584,7 +584,7 @@ export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'm
                       {REPORT_TYPE_LABELS[report.reportType]}
                     </span>
                   </div>
-                  
+
                   <p className="text-sm text-gray-600 line-clamp-3 mb-4">
                     {report.content}
                   </p>
@@ -664,8 +664,8 @@ export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'm
       </div>
 
       {/* Create/Edit Modal */}
-      <Modal 
-        isOpen={showCreateModal} 
+      <Modal
+        isOpen={showCreateModal}
         onClose={() => { setShowCreateModal(false); setSelectedReport(null); resetForm(); }}
         title={selectedReport ? 'Cập nhật báo cáo' : 'Tạo báo cáo mới'}
       >
@@ -788,8 +788,8 @@ export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'm
       </Modal>
 
       {/* View Modal */}
-      <Modal 
-        isOpen={showViewModal} 
+      <Modal
+        isOpen={showViewModal}
         onClose={() => { setShowViewModal(false); setSelectedReport(null); }}
         title={selectedReport?.title || 'Chi tiết báo cáo'}
       >
@@ -859,7 +859,7 @@ export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'm
                           <span className="text-xs text-gray-500">({((file.size || 0) / 1024).toFixed(1)} KB)</span>
                         </div>
                         <a
-                          href={`http://localhost:5000${file.url || `/uploads/reports/${file.filename}`}`}
+                          href={`https://taskhadflow-api.nibies.space${file.url || `/uploads/reports/${file.filename}`}`}
                           download
                           target="_blank"
                           rel="noopener noreferrer"
@@ -895,8 +895,8 @@ export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'm
       </Modal>
 
       {/* Review Modal */}
-      <Modal 
-        isOpen={showReviewModal} 
+      <Modal
+        isOpen={showReviewModal}
         onClose={() => { setShowReviewModal(false); setSelectedReport(null); setReviewData({ reviewNote: '', approved: true }); }}
         title="Xem xét báo cáo"
       >
@@ -961,8 +961,8 @@ export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'm
       </Modal>
 
       {/* Statistics Modal */}
-      <Modal 
-        isOpen={showStatsModal} 
+      <Modal
+        isOpen={showStatsModal}
         onClose={() => setShowStatsModal(false)}
         title="Thống kê báo cáo"
       >
@@ -979,7 +979,7 @@ export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'm
                   <TrendingUp className="w-8 h-8 text-green-600 mb-2" />
                   <p className="text-sm text-green-700 mb-1">Tỷ lệ duyệt</p>
                   <p className="text-3xl font-bold text-green-900">
-                    {statistics.totalReports > 0 
+                    {statistics.totalReports > 0
                       ? Math.round((statistics.approved / statistics.totalReports) * 100)
                       : 0}%
                   </p>

@@ -46,15 +46,15 @@ export default function ProjectDocumentsClient({ projectId }: { projectId: numbe
     const handlePreview = async (doc: any) => {
         try {
             // Try to get the document URL from API
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://taskhadflow-api.nibies.space'
             const docPath = doc.duongDan || doc.filePath || doc.url
-            
+
             if (docPath) {
                 // If path starts with /, it's a server path
-                const fullUrl = docPath.startsWith('http') 
-                    ? docPath 
+                const fullUrl = docPath.startsWith('http')
+                    ? docPath
                     : `${apiUrl}${docPath.startsWith('/') ? '' : '/'}${docPath}`
-                
+
                 window.open(fullUrl, '_blank')
             } else {
                 // Fallback: download and open

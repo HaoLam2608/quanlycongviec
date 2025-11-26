@@ -4,7 +4,7 @@ import {
     BarChart3,
     TrendingUp,
     Calendar,
-    Download,       
+    Download,
     Users,
     FolderOpen,
     CheckCircle,
@@ -31,7 +31,7 @@ import { getUsers } from "@/axios/adminApi"
 import {
     PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip,
     BarChart as RechartsBar, Bar, XAxis, YAxis, CartesianGrid, Legend,
-    LineChart as RechartsLine, Line, AreaChart, Area, RadarChart, PolarGrid, 
+    LineChart as RechartsLine, Line, AreaChart, Area, RadarChart, PolarGrid,
     PolarAngleAxis, PolarRadiusAxis, Radar
 } from "recharts"
 import * as XLSX from 'xlsx'
@@ -83,7 +83,7 @@ export default function ManagerReportsPage() {
     const makeFullUrl = (path?: string) => {
         if (!path) return undefined
         if (path.startsWith('http://') || path.startsWith('https://')) return path
-        return `http://localhost:5000${path.startsWith('/') ? '' : '/'}${path}`
+        return `https://taskhadflow-api.nibies.space${path.startsWith('/') ? '' : '/'}${path}`
     }
 
     useEffect(() => {
@@ -95,7 +95,7 @@ export default function ManagerReportsPage() {
             setLoading(true)
             const userId = localStorage.getItem('userId')
             const manv = localStorage.getItem('manv')
-            
+
             if (!userId && !manv) {
                 showError('Không tìm thấy thông tin người dùng')
                 return
@@ -106,7 +106,7 @@ export default function ManagerReportsPage() {
             const projRes = await fetchProjectsByManager(managerId)
             const projectsList = (projRes.duans || projRes.projects || projRes || []) as Project[]
             console.log('📦 Projects loaded:', projectsList.length)
-            
+
             // Filter projects by date range
             const filteredProjects = filterByDateRange(projectsList)
             setProjects(filteredProjects)
@@ -254,7 +254,7 @@ export default function ManagerReportsPage() {
             const date = new Date().toISOString().split('T')[0]
             const time = new Date().toTimeString().slice(0, 5).replace(':', '')
             XLSX.writeFile(wb, `Bao_cao_quan_ly_${date}_${time}.xlsx`)
-            
+
             showError('Xuất file Excel thành công!')
         } catch (error) {
             console.error('Export Excel error:', error)
@@ -292,13 +292,13 @@ export default function ManagerReportsPage() {
     // Calculate project statistics
     const projectsWithStats = projects.map(project => {
         const projectTasks = tasks.filter(t => t.duanId === project.id)
-        const completedTasks = projectTasks.filter(t => 
+        const completedTasks = projectTasks.filter(t =>
             ['hoan_thanh', 'completed', 'hoàn thành'].includes(t.trangThai?.toLowerCase())
         ).length
-        const inProgressTasks = projectTasks.filter(t => 
+        const inProgressTasks = projectTasks.filter(t =>
             ['dang_thuc_hien', 'in_progress', 'đang thực hiện'].includes(t.trangThai?.toLowerCase())
         ).length
-        const pendingTasks = projectTasks.filter(t => 
+        const pendingTasks = projectTasks.filter(t =>
             ['chua_bat_dau', 'not_started', 'chưa bắt đầu'].includes(t.trangThai?.toLowerCase())
         ).length
         const progress = projectTasks.length > 0 ? Math.round((completedTasks / projectTasks.length) * 100) : 0
@@ -307,7 +307,7 @@ export default function ManagerReportsPage() {
         const endDate = project.ngayKetThuc ? new Date(project.ngayKetThuc) : null
         const now = new Date()
         const isDelayed = endDate && endDate < now && progress < 100
-        
+
         return {
             ...project,
             totalTasks: projectTasks.length,
@@ -322,10 +322,10 @@ export default function ManagerReportsPage() {
     // Calculate user statistics
     const usersWithStats = users.map(user => {
         const userTasks = tasks.filter(t => t.nguoiDuocGiaoId === user.id)
-        const completedTasks = userTasks.filter(t => 
+        const completedTasks = userTasks.filter(t =>
             ['hoan_thanh', 'completed', 'hoàn thành'].includes(t.trangThai?.toLowerCase())
         ).length
-        const inProgressTasks = userTasks.filter(t => 
+        const inProgressTasks = userTasks.filter(t =>
             ['dang_thuc_hien', 'in_progress', 'đang thực hiện'].includes(t.trangThai?.toLowerCase())
         ).length
         const efficiency = userTasks.length > 0 ? Math.round((completedTasks / userTasks.length) * 100) : 0
@@ -354,8 +354,8 @@ export default function ManagerReportsPage() {
         avgEfficiency: usersWithStats.length > 0 ? Math.round(usersWithStats.reduce((sum, m) => sum + m.efficiency, 0) / usersWithStats.length) : 0
     }
 
-    const completionRate = totalStats.totalTasks > 0 
-        ? Math.round((totalStats.completedTasks / totalStats.totalTasks) * 100) 
+    const completionRate = totalStats.totalTasks > 0
+        ? Math.round((totalStats.completedTasks / totalStats.totalTasks) * 100)
         : 0
 
     if (loading) {
@@ -465,7 +465,7 @@ export default function ManagerReportsPage() {
                                 </SelectContent>
                             </Select>
 
-                            <Button 
+                            <Button
                                 onClick={handleExportExcel}
                                 className="bg-green-600 hover:bg-green-700 gap-2"
                             >
@@ -569,17 +569,17 @@ export default function ManagerReportsPage() {
                                                     <Cell key={`cell-${index}`} fill={entry.color} />
                                                 ))}
                                             </Pie>
-                                            <RechartsTooltip 
+                                            <RechartsTooltip
                                                 formatter={(value: any, name: any) => [value, name]}
-                                                contentStyle={{ 
-                                                    backgroundColor: 'white', 
+                                                contentStyle={{
+                                                    backgroundColor: 'white',
                                                     border: '1px solid #e5e7eb',
                                                     borderRadius: '8px',
                                                     padding: '8px 12px'
                                                 }}
                                             />
-                                            <Legend 
-                                                verticalAlign="bottom" 
+                                            <Legend
+                                                verticalAlign="bottom"
                                                 height={36}
                                                 formatter={(value: string, entry: any) => {
                                                     const item = [
@@ -644,9 +644,9 @@ export default function ManagerReportsPage() {
                                         <RechartsTooltip formatter={(value: any) => [`${value}%`, 'Tiến độ']} />
                                         <Bar dataKey="progress" fill="#3b82f6" radius={[8, 8, 0, 0]}>
                                             {projectsWithStats.slice(0, 6).map((entry, index) => (
-                                                <Cell 
-                                                    key={`cell-${index}`} 
-                                                    fill={entry.progress === 100 ? '#10b981' : entry.progress >= 70 ? '#3b82f6' : entry.progress >= 40 ? '#f59e0b' : '#ef4444'} 
+                                                <Cell
+                                                    key={`cell-${index}`}
+                                                    fill={entry.progress === 100 ? '#10b981' : entry.progress >= 70 ? '#3b82f6' : entry.progress >= 40 ? '#f59e0b' : '#ef4444'}
                                                 />
                                             ))}
                                         </Bar>
@@ -693,16 +693,16 @@ export default function ManagerReportsPage() {
                                 }))}>
                                     <defs>
                                         <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                                            <stop offset="95%" stopColor="#10b981" stopOpacity={0.1}/>
+                                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                                            <stop offset="95%" stopColor="#10b981" stopOpacity={0.1} />
                                         </linearGradient>
                                         <linearGradient id="colorInProgress" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1} />
                                         </linearGradient>
                                         <linearGradient id="colorPending" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#6b7280" stopOpacity={0.8}/>
-                                            <stop offset="95%" stopColor="#6b7280" stopOpacity={0.1}/>
+                                            <stop offset="5%" stopColor="#6b7280" stopOpacity={0.8} />
+                                            <stop offset="95%" stopColor="#6b7280" stopOpacity={0.1} />
                                         </linearGradient>
                                     </defs>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -710,29 +710,29 @@ export default function ManagerReportsPage() {
                                     <YAxis fontSize={12} />
                                     <RechartsTooltip />
                                     <Legend />
-                                    <Area 
-                                        type="monotone" 
-                                        dataKey="completed" 
-                                        stroke="#10b981" 
-                                        fillOpacity={1} 
+                                    <Area
+                                        type="monotone"
+                                        dataKey="completed"
+                                        stroke="#10b981"
+                                        fillOpacity={1}
                                         fill="url(#colorCompleted)"
                                         name="Hoàn thành"
                                         stackId="1"
                                     />
-                                    <Area 
-                                        type="monotone" 
-                                        dataKey="inProgress" 
-                                        stroke="#3b82f6" 
-                                        fillOpacity={1} 
+                                    <Area
+                                        type="monotone"
+                                        dataKey="inProgress"
+                                        stroke="#3b82f6"
+                                        fillOpacity={1}
                                         fill="url(#colorInProgress)"
                                         name="Đang thực hiện"
                                         stackId="1"
                                     />
-                                    <Area 
-                                        type="monotone" 
-                                        dataKey="pending" 
-                                        stroke="#6b7280" 
-                                        fillOpacity={1} 
+                                    <Area
+                                        type="monotone"
+                                        dataKey="pending"
+                                        stroke="#6b7280"
+                                        fillOpacity={1}
                                         fill="url(#colorPending)"
                                         name="Chưa bắt đầu"
                                         stackId="1"
@@ -828,10 +828,9 @@ export default function ManagerReportsPage() {
                                                     <div className="flex items-center gap-3">
                                                         <div className="flex-1 bg-gray-200 rounded-full h-2.5">
                                                             <div
-                                                                className={`h-2.5 rounded-full transition-all ${
-                                                                    project.progress === 100 ? 'bg-green-500' : 
-                                                                    project.progress >= 70 ? 'bg-blue-500' : 'bg-yellow-500'
-                                                                }`}
+                                                                className={`h-2.5 rounded-full transition-all ${project.progress === 100 ? 'bg-green-500' :
+                                                                        project.progress >= 70 ? 'bg-blue-500' : 'bg-yellow-500'
+                                                                    }`}
                                                                 style={{ width: `${project.progress}%` }}
                                                             ></div>
                                                         </div>
@@ -955,10 +954,9 @@ export default function ManagerReportsPage() {
                                                     <div className="flex items-center gap-3">
                                                         <div className="flex-1 bg-gray-200 rounded-full h-2.5 max-w-[100px]">
                                                             <div
-                                                                className={`h-2.5 rounded-full ${
-                                                                    member.efficiency >= 80 ? 'bg-green-500' :
-                                                                    member.efficiency >= 60 ? 'bg-yellow-500' : 'bg-red-500'
-                                                                }`}
+                                                                className={`h-2.5 rounded-full ${member.efficiency >= 80 ? 'bg-green-500' :
+                                                                        member.efficiency >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                                                                    }`}
                                                                 style={{ width: `${member.efficiency}%` }}
                                                             ></div>
                                                         </div>

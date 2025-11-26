@@ -81,7 +81,7 @@ export default function ProfilePage() {
         try {
             // Fetch dữ liệu thật từ database
             const userData = await getMyProfile();
-            
+
             // Format dữ liệu từ API
             const profileData: UserProfile = {
                 id: userData.id,
@@ -142,9 +142,9 @@ export default function ProfilePage() {
             if (editProfile.fullName) updateData.hoten = editProfile.fullName;
             if (editProfile.phone) updateData.sdt = editProfile.phone;
             if (editProfile.position) updateData.chucvu = editProfile.position;
-            
+
             await updateMyProfile(updateData);
-            
+
             // Reload profile sau khi cập nhật
             await loadProfile();
             setIsEditing(false);
@@ -178,7 +178,7 @@ export default function ProfilePage() {
         try {
             // Gọi API để đổi mật khẩu
             await updateMyProfile({ password: passwordForm.newPassword });
-            
+
             setPasswordForm({
                 currentPassword: "",
                 newPassword: "",
@@ -197,7 +197,7 @@ export default function ProfilePage() {
             try {
                 // Upload avatar lên server
                 await uploadAvatar(file);
-                
+
                 // Reload profile để lấy avatar mới
                 await loadProfile();
                 showSuccess('Cập nhật avatar thành công!');
@@ -274,7 +274,7 @@ export default function ProfilePage() {
                         <div className="flex items-center gap-6">
                             <div className="relative">
                                 <img
-                                    src={profile.avatar.startsWith('http') ? profile.avatar : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${profile.avatar}`}
+                                    src={profile.avatar.startsWith('http') ? profile.avatar : `${process.env.NEXT_PUBLIC_API_URL || 'https://taskhadflow-api.nibies.space'}${profile.avatar}`}
                                     alt={profile.fullName}
                                     className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
                                     onError={(e) => {
@@ -313,8 +313,8 @@ export default function ProfilePage() {
                             <button
                                 onClick={() => setActiveTab("profile")}
                                 className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "profile"
-                                        ? "border-blue-600 text-blue-600"
-                                        : "border-transparent text-gray-500 hover:text-gray-700"
+                                    ? "border-blue-600 text-blue-600"
+                                    : "border-transparent text-gray-500 hover:text-gray-700"
                                     }`}
                             >
                                 Thông tin cá nhân
@@ -322,8 +322,8 @@ export default function ProfilePage() {
                             <button
                                 onClick={() => setActiveTab("settings")}
                                 className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "settings"
-                                        ? "border-blue-600 text-blue-600"
-                                        : "border-transparent text-gray-500 hover:text-gray-700"
+                                    ? "border-blue-600 text-blue-600"
+                                    : "border-transparent text-gray-500 hover:text-gray-700"
                                     }`}
                             >
                                 Cài đặt
@@ -331,8 +331,8 @@ export default function ProfilePage() {
                             <button
                                 onClick={() => setActiveTab("password")}
                                 className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === "password"
-                                        ? "border-blue-600 text-blue-600"
-                                        : "border-transparent text-gray-500 hover:text-gray-700"
+                                    ? "border-blue-600 text-blue-600"
+                                    : "border-transparent text-gray-500 hover:text-gray-700"
                                     }`}
                             >
                                 Đổi mật khẩu
