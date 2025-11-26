@@ -264,11 +264,12 @@ exports.createTask = async (req, res) => {
             }
         }
 
+        // Tạo task KHÔNG gán người thực hiện (để qua flow assignment)
         const newTask = await Task.create({
             tentask,
             mota,
             duanId,
-            nguoiDuocGiaoId: nguoiDuocGiaoId || null, // Cho phép null - member tự nhận
+            nguoiDuocGiaoId: null, // Không gán trực tiếp
             nguoiGiaoId: req.user.id, // Người tạo task
             ngayBatDau,
             ngayKetThuc,
@@ -277,6 +278,40 @@ exports.createTask = async (req, res) => {
             tienDo: 0,
             ghiChu
         });
+
+        // Nếu có người được chỉ định, tạo assignment để họ chấp nhận/từ chối
+        if (nguoiDuocGiaoId) {
+            const { Notification, UserNotification } = require('../models');
+
+            const assignment = await Assignment.create({
+                taskId: newTask.id,
+                subtaskId: null,
+                managerId: req.user.id,
+                assigneeId: nguoiDuocGiaoId,
+                status: 'pending'
+            });
+
+            // Tạo thông báo cho người được giao
+            const notification = await Notification.create({
+                title: `Bạn được giao công việc: ${tentask}`,
+                content: `${req.user.hoten || req.user.manv} đã giao công việc "${tentask}" cho bạn. Vui lòng xác nhận chấp nhận hoặc từ chối.`,
+                type: 'task',
+                priority: mucDoUuTien === 'cao' ? 'high' : 'medium',
+                targetAudience: 'member',
+                authorId: req.user.id,
+                status: 'published',
+                publishedAt: new Date()
+            });
+
+            await UserNotification.create({
+                userId: nguoiDuocGiaoId,
+                notificationId: notification.id,
+                isRead: false,
+                meta: { assignmentId: assignment.id, taskId: newTask.id }
+            });
+
+            console.log(`✅ Created assignment for task ${newTask.id} to user ${nguoiDuocGiaoId}`);
+        }
 
         // Lấy thông tin đầy đủ của task vừa tạo
         const taskWithDetails = await Task.findByPk(newTask.id, {
@@ -295,8 +330,11 @@ exports.createTask = async (req, res) => {
         });
 
         res.status(201).json({
-            message: 'Tạo công việc thành công',
-            task: taskWithDetails
+            message: nguoiDuocGiaoId
+                ? 'Tạo công việc thành công. Đang chờ người được giao xác nhận.'
+                : 'Tạo công việc thành công',
+            task: taskWithDetails,
+            requiresConfirmation: !!nguoiDuocGiaoId
         });
     } catch (error) {
         console.error('Create task error:', error);

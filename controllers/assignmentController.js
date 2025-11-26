@@ -836,10 +836,11 @@ exports.getMyJoinRequests = async (req, res) => {
                 return res.json({ success: true, data: [] });
             }
 
-            // Get join requests from these members that are not processed
-            userNotifications = await UserNotification.findAll({
+            // Get join requests sent TO manager (userId = manager) FROM these members (meta.requesterId)
+            // Fetch all notifications for this manager first
+            const allManagerNotifications = await UserNotification.findAll({
                 where: {
-                    userId: { [Op.in]: memberIds },
+                    userId: userId,  // Manager receives notifications
                     processed: false,
                     [Op.and]: [
                         sequelize.where(
@@ -872,8 +873,19 @@ exports.getMyJoinRequests = async (req, res) => {
                 raw: false,
                 subQuery: false
             });
+
+            // Filter by requesterId in meta (must be a member in manager's project groups)
+            userNotifications = allManagerNotifications.filter(un => {
+                const requesterId = un.meta?.requesterId ? parseInt(un.meta.requesterId) : null;
+                const isFromProjectMember = requesterId && memberIds.includes(requesterId);
+                if (isFromProjectMember) {
+                    console.log(`✅ Manager notification matched: notificationId=${un.notificationId}, requesterId=${requesterId}`);
+                }
+                return isFromProjectMember;
+            });
+
             console.log('✅ Manager: unprocessed join requests for members in their projects count:', userNotifications.length);
-        } else if (userRole === 'teamlead' || userRole === 'employee') {
+        } else if (userRole === 'teamleader' || userRole === 'employee') {
             // Teamlead: get requests for members in their groups
             const userGroups = await Group.findAll({
                 where: {
@@ -884,8 +896,10 @@ exports.getMyJoinRequests = async (req, res) => {
                 raw: true
             });
             const groupIds = userGroups.map(g => g.id);
+            console.log(`🔵 TEAMLEAD ${userId}: Found ${userGroups.length} groups:`, groupIds);
 
             if (groupIds.length === 0) {
+                console.log(`⚠️ TEAMLEAD ${userId}: No groups found, returning empty`);
                 return res.json({ success: true, data: [] });
             }
 
@@ -897,15 +911,18 @@ exports.getMyJoinRequests = async (req, res) => {
                 raw: true
             });
             const memberIds = membershipRecords.map(m => m.userId);
+            console.log(`🔵 TEAMLEAD ${userId}: Found ${memberIds.length} members in groups:`, memberIds);
 
             if (memberIds.length === 0) {
+                console.log(`⚠️ TEAMLEAD ${userId}: No members in groups, returning empty`);
                 return res.json({ success: true, data: [] });
             }
 
-            // Get join requests from these members that are not processed
-            userNotifications = await UserNotification.findAll({
+            // Get join requests sent TO teamlead (userId = teamlead) FROM members in their groups (meta.requesterId)
+            // Fetch all notifications for this teamlead first
+            const allTeamleadNotifications = await UserNotification.findAll({
                 where: {
-                    userId: { [Op.in]: memberIds },
+                    userId: userId,  // Teamlead receives notifications
                     processed: false,
                     [Op.and]: [
                         sequelize.where(
@@ -938,6 +955,21 @@ exports.getMyJoinRequests = async (req, res) => {
                 raw: false,
                 subQuery: false
             });
+            console.log(`🔵 TEAMLEAD ${userId}: Found ${allTeamleadNotifications.length} total notifications`);
+
+            // Filter by requesterId in meta (must be a member in teamlead's groups)
+            userNotifications = allTeamleadNotifications.filter(un => {
+                const requesterId = un.meta?.requesterId ? parseInt(un.meta.requesterId) : null;
+                const isFromGroupMember = requesterId && memberIds.includes(requesterId);
+                if (requesterId) {
+                    console.log(`🔍 TEAMLEAD checking notification: requesterId=${requesterId}, isInGroup=${isFromGroupMember}`);
+                }
+                if (isFromGroupMember) {
+                    console.log(`✅ Teamlead notification matched: notificationId=${un.notificationId}, requesterId=${requesterId}`);
+                }
+                return isFromGroupMember;
+            });
+
             console.log('✅ Teamlead: unprocessed join requests for members in their groups count:', userNotifications.length);
         }
 
