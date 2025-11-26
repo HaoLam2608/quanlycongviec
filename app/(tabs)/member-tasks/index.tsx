@@ -14,6 +14,7 @@ import {
     View,
 } from 'react-native';
 import TaskCard from '../../../components/member/TaskCard';
+import CommentSection from '../../../components/CommentSection';
 import {
     getMySubtasks,
     getWorklogs,
@@ -358,7 +359,7 @@ export default function MemberTasksScreen() {
                         </View>
 
                         {selectedTask && (
-                            <ScrollView style={styles.modalBody}>
+                            <ScrollView style={styles.modalBody} contentContainerStyle={{ paddingBottom: 4 }}>
                                 <Text style={styles.modalTaskTitle}>
                                     {selectedTask.type === 'subtask' ? '• ' : ''}
                                     {selectedTask.title}
@@ -517,6 +518,11 @@ export default function MemberTasksScreen() {
                                             )}
                                         </View>
                                     )}
+                                </View>
+
+                                {/* Comments Section for members */}
+                                <View style={{ marginTop: 12 }}>
+                                    <CommentSection subtaskId={selectedTask.id} onCommentAdded={loadTasks} />
                                 </View>
                             </ScrollView>
                         )}

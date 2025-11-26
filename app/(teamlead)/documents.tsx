@@ -1,8 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
     FlatList,
+    Modal,
+    RefreshControl,
     SafeAreaView,
     StyleSheet,
     Text,
@@ -10,259 +13,309 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
-import { getGroupDocuments } from '@/src/axios/api';
-import { API_CONFIG, STORAGE_KEYS } from '@/src/config/api';
+import api from '../../src/axios/config';
 
-interface DocumentItem {
+interface Document {
     id: number;
     tenTaiLieu: string;
     moTa?: string;
-    loaiTaiLieu?: string;
-    kichThuoc?: number;
-    createdAt?: string;
-    project?: { id: number; tenduan?: string } | null;
-    uploadedBy?: { hoten: string };
+    loai: string;
+    duongDan: string;
+    duanId?: number;
+    taskId?: number;
+    nguoiTaoId: number;
+    createdAt: string;
+    updatedAt: string;
+    nguoiTao?: {
+        id: number;
+        hoten: string;
+    };
+    duan?: {
+        id: number;
+        tenduan: string;
+    };
 }
 
-const typeLabel = (type?: string) => {
-    if (!type) return 'Khác';
-    if (type.includes('image')) return 'Ảnh';
-    if (type.includes('pdf')) return 'PDF';
-    if (type.includes('sheet') || type.includes('excel') || type.includes('spreadsheet')) return 'Bảng tính';
-    if (type.includes('word') || type.includes('doc')) return 'Tài liệu';
-    if (type.includes('zip') || type.includes('rar')) return 'Nén';
-    return type.split('/')[1] || type;
-};
-
-const formatSize = (bytes?: number) => {
-    if (!bytes) return '0 KB';
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-};
-
-const formatDate = (value?: string) => {
-    if (!value) return 'Chưa rõ';
-    const dt = new Date(value);
-    if (Number.isNaN(dt.getTime())) return 'Chưa rõ';
-    return dt.toLocaleDateString('vi-VN');
-};
-
-export default function TeamLeadDocumentsScreen() {
-    const [documents, setDocuments] = useState<DocumentItem[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [search, setSearch] = useState('');
-    const [selectedProject, setSelectedProject] = useState<number | 'all'>('all');
-    const [selectedType, setSelectedType] = useState<string | 'all'>('all');
-
-    const loadDocuments = async () => {
-        setLoading(true);
-        try {
-            const data = await getGroupDocuments();
-            const list = data?.documents || data || [];
-            const normalized: DocumentItem[] = list.map((doc: any) => ({
-                id: doc.id,
-                tenTaiLieu: doc.tenTaiLieu || doc.originalname || doc.filename || 'Tài liệu',
-                moTa: doc.moTa || doc.description,
-                loaiTaiLieu: doc.loaiTaiLieu || doc.mimetype,
-                kichThuoc: doc.kichThuoc || doc.size,
-                createdAt: doc.createdAt,
-                project: doc.project || doc.duan || null,
-                uploadedBy: doc.uploadedBy || doc.uploader
-            }));
-            setDocuments(normalized);
-        } catch (error) {
-            console.error('Load documents error:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+export default function DocumentsManagement() {
+    const [documents, setDocuments] = useState<Document[]>([]);
+    const [filteredDocuments, setFilteredDocuments] = useState<Document[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedType, setSelectedType] = useState<string>('all');
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
 
     useEffect(() => {
         loadDocuments();
     }, []);
 
-    const projects = useMemo(() => {
-        const map = new Map<number, { id: number; tenduan?: string }>();
-        documents.forEach(doc => {
-            if (doc.project?.id && !map.has(doc.project.id)) {
-                map.set(doc.project.id, { id: doc.project.id, tenduan: doc.project.tenduan });
-            }
-        });
-        return Array.from(map.values());
-    }, [documents]);
+    useEffect(() => {
+        filterDocuments();
+    }, [documents, searchQuery, selectedType]);
 
-    const types = useMemo(() => {
-        const unique = new Set<string>();
-        documents.forEach(doc => {
-            if (doc.loaiTaiLieu) unique.add(typeLabel(doc.loaiTaiLieu));
-        });
-        return Array.from(unique.values());
-    }, [documents]);
-
-    const filteredDocuments = useMemo(() => {
-        return documents.filter(doc => {
-            const matchesSearch = !search
-                || doc.tenTaiLieu.toLowerCase().includes(search.toLowerCase())
-                || doc.moTa?.toLowerCase().includes(search.toLowerCase());
-            const matchesProject = selectedProject === 'all'
-                || doc.project?.id === selectedProject;
-            const docTypeLabel = typeLabel(doc.loaiTaiLieu);
-            const matchesType = selectedType === 'all' || docTypeLabel === selectedType;
-            return matchesSearch && matchesProject && matchesType;
-        });
-    }, [documents, search, selectedProject, selectedType]);
-
-    const handleDownload = async (doc: DocumentItem) => {
+    const loadDocuments = async () => {
+        setLoading(true);
         try {
-            const token = await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
-            const baseDir = FileSystem.documentDirectory ?? FileSystem.cacheDirectory;
-            if (!baseDir) {
-                Alert.alert('Lỗi', 'Không thể xác định thư mục lưu trữ trên thiết bị');
-                return;
-            }
-            const fileUri = `${baseDir}${doc.tenTaiLieu || 'document'}`;
-            const downloadRes = await FileSystem.downloadAsync(
-                `${API_CONFIG.BASE_URL}/documents/${doc.id}/download?download=1`,
-                fileUri,
-                {
-                    headers: token ? { Authorization: `Bearer ${token}` } : undefined
-                }
-            );
-
-            if (await Sharing.isAvailableAsync()) {
-                await Sharing.shareAsync(downloadRes.uri);
-            } else {
-                Alert.alert('Đã tải xuống', `Tệp được lưu tại ${downloadRes.uri}`);
-            }
-        } catch (error: any) {
-            console.error('Download document error:', error);
-            Alert.alert('Lỗi', error?.response?.data?.message || 'Không thể tải tài liệu');
+            const response = await api.get('/documents/list');
+            const docs = response.data?.documents || response.data || [];
+            setDocuments(docs);
+        } catch (error) {
+            console.error('Error loading documents:', error);
+            Alert.alert('Lỗi', 'Không thể tải danh sách tài liệu');
+        } finally {
+            setLoading(false);
         }
     };
 
-    const renderItem = ({ item }: { item: DocumentItem }) => (
-        <View style={styles.card}>
-            <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle} numberOfLines={2}>{item.tenTaiLieu}</Text>
-                <View style={styles.typeBadge}>
-                    <Text style={styles.typeBadgeText}>{typeLabel(item.loaiTaiLieu)}</Text>
+    const filterDocuments = () => {
+        let filtered = [...documents];
+
+        // Filter by search query
+        if (searchQuery.trim()) {
+            const query = searchQuery.toLowerCase();
+            filtered = filtered.filter(doc => 
+                doc.tenTaiLieu.toLowerCase().includes(query) ||
+                doc.moTa?.toLowerCase().includes(query) ||
+                doc.loai?.toLowerCase().includes(query)
+            );
+        }
+
+        // Filter by type
+        if (selectedType !== 'all') {
+            filtered = filtered.filter(doc => doc.loai === selectedType);
+        }
+
+        setFilteredDocuments(filtered);
+    };
+
+    const onRefresh = async () => {
+        setRefreshing(true);
+        await loadDocuments();
+        setRefreshing(false);
+    };
+
+    const handleDeleteDocument = async () => {
+        if (!selectedDocument) return;
+
+        try {
+            await api.delete(`/documents/${selectedDocument.id}`);
+            Alert.alert('Thành công', 'Xóa tài liệu thành công');
+            setShowDeleteModal(false);
+            setSelectedDocument(null);
+            loadDocuments();
+        } catch (error: any) {
+            console.error('Error deleting document:', error);
+            Alert.alert('Lỗi', error.response?.data?.message || 'Không thể xóa tài liệu');
+        }
+    };
+
+    const getFileIcon = (type: string) => {
+        const lowerType = type?.toLowerCase() || '';
+        if (lowerType.includes('pdf')) return 'document-text';
+        if (lowerType.includes('image') || lowerType.includes('jpg') || lowerType.includes('png')) return 'image';
+        if (lowerType.includes('word') || lowerType.includes('doc')) return 'document';
+        if (lowerType.includes('excel') || lowerType.includes('xls')) return 'stats-chart';
+        if (lowerType.includes('video')) return 'videocam';
+        return 'document-attach';
+    };
+
+    const getFileColor = (type: string) => {
+        const lowerType = type?.toLowerCase() || '';
+        if (lowerType.includes('pdf')) return '#ef4444';
+        if (lowerType.includes('image')) return '#8b5cf6';
+        if (lowerType.includes('word')) return '#3b82f6';
+        if (lowerType.includes('excel')) return '#10b981';
+        if (lowerType.includes('video')) return '#f59e0b';
+        return '#6b7280';
+    };
+
+    const formatDate = (dateString: string) => {
+        return new Date(dateString).toLocaleDateString('vi-VN');
+    };
+
+    const getUniqueTypes = () => {
+        const types = new Set(documents.map(doc => doc.loai).filter(Boolean));
+        return Array.from(types);
+    };
+
+    const renderDocument = ({ item }: { item: Document }) => {
+        const color = getFileColor(item.loai);
+        
+        return (
+            <View style={styles.documentCard}>
+                <View style={[styles.documentIcon, { backgroundColor: color + '20' }]}>
+                    <Ionicons name={getFileIcon(item.loai) as any} size={28} color={color} />
                 </View>
-            </View>
-            {item.moTa && <Text style={styles.cardDescription} numberOfLines={2}>{item.moTa}</Text>}
-            <View style={styles.metaRow}>
-                <Ionicons name="save" size={14} color="#7c3aed" />
-                <Text style={styles.metaText}>{formatSize(item.kichThuoc)}</Text>
-            </View>
-            <View style={styles.metaRow}>
-                <Ionicons name="calendar" size={14} color="#7c3aed" />
-                <Text style={styles.metaText}>{formatDate(item.createdAt)}</Text>
-            </View>
-            {item.project?.tenduan && (
-                <View style={styles.metaRow}>
-                    <Ionicons name="folder-open" size={14} color="#7c3aed" />
-                    <Text style={styles.metaText}>{item.project.tenduan}</Text>
+                
+                <View style={styles.documentContent}>
+                    <Text style={styles.documentTitle} numberOfLines={2}>{item.tenTaiLieu}</Text>
+                    
+                    {item.moTa && (
+                        <Text style={styles.documentDesc} numberOfLines={2}>{item.moTa}</Text>
+                    )}
+                    
+                    <View style={styles.documentMeta}>
+                        <View style={styles.metaItem}>
+                            <Ionicons name="folder" size={14} color="#6b7280" />
+                            <Text style={styles.metaText}>
+                                {item.loai || 'Không rõ'}
+                            </Text>
+                        </View>
+                        
+                        {item.nguoiTao && (
+                            <View style={styles.metaItem}>
+                                <Ionicons name="person" size={14} color="#6b7280" />
+                                <Text style={styles.metaText}>{item.nguoiTao.hoten}</Text>
+                            </View>
+                        )}
+                        
+                        <View style={styles.metaItem}>
+                            <Ionicons name="calendar" size={14} color="#6b7280" />
+                            <Text style={styles.metaText}>{formatDate(item.createdAt)}</Text>
+                        </View>
+                    </View>
+
+                    {item.duan && (
+                        <View style={styles.projectTag}>
+                            <Text style={styles.projectTagText}>📁 {item.duan.tenduan}</Text>
+                        </View>
+                    )}
                 </View>
-            )}
-            {item.uploadedBy?.hoten && (
-                <View style={styles.metaRow}>
-                    <Ionicons name="person" size={14} color="#7c3aed" />
-                    <Text style={styles.metaText}>{item.uploadedBy.hoten}</Text>
-                </View>
-            )}
-            <TouchableOpacity style={styles.downloadButton} onPress={() => handleDownload(item)}>
-                <Ionicons name="download" size={18} color="#fff" />
-                <Text style={styles.downloadText}>Tải xuống</Text>
-            </TouchableOpacity>
-        </View>
-    );
+
+                <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => {
+                        setSelectedDocument(item);
+                        setShowDeleteModal(true);
+                    }}
+                >
+                    <Ionicons name="trash-outline" size={20} color="#ef4444" />
+                </TouchableOpacity>
+            </View>
+        );
+    };
 
     return (
         <SafeAreaView style={styles.container}>
+            {/* Header */}
             <View style={styles.header}>
-                <Text style={styles.headerTitle}>Tài liệu của nhóm</Text>
-                <Text style={styles.headerSubtitle}>Quản lý tài liệu theo dự án, loại file</Text>
+                <Text style={styles.title}>Quản lý tài liệu</Text>
+                <Text style={styles.subtitle}>
+                    {filteredDocuments.length} tài liệu
+                </Text>
             </View>
 
-            <View style={styles.searchContainer}>
-                <Ionicons name="search" size={20} color="#9ca3af" />
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder="Tìm kiếm tài liệu..."
-                    placeholderTextColor="#9ca3af"
-                    value={search}
-                    onChangeText={setSearch}
-                />
-                {search ? (
-                    <TouchableOpacity onPress={() => setSearch('')}>
-                        <Ionicons name="close-circle" size={20} color="#9ca3af" />
-                    </TouchableOpacity>
-                ) : null}
-            </View>
+            {/* Search and Filter */}
+            <View style={styles.searchSection}>
+                <View style={styles.searchBox}>
+                    <Ionicons name="search" size={20} color="#9ca3af" />
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Tìm kiếm tài liệu..."
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                    />
+                    {searchQuery.length > 0 && (
+                        <TouchableOpacity onPress={() => setSearchQuery('')}>
+                            <Ionicons name="close-circle" size={20} color="#9ca3af" />
+                        </TouchableOpacity>
+                    )}
+                </View>
 
-            <View style={styles.filterRow}>
-                <TouchableOpacity
-                    style={[styles.filterChip, selectedProject === 'all' && styles.filterChipActive]}
-                    onPress={() => setSelectedProject('all')}
-                >
-                    <Text style={[styles.filterText, selectedProject === 'all' && styles.filterTextActive]}>Tất cả dự án</Text>
-                </TouchableOpacity>
-                {projects.map(project => (
-                    <TouchableOpacity
-                        key={project.id}
-                        style={[styles.filterChip, selectedProject === project.id && styles.filterChipActive]}
-                        onPress={() => setSelectedProject(project.id)}
-                    >
-                        <Text style={[styles.filterText, selectedProject === project.id && styles.filterTextActive]}>
-                            {project.tenduan || `Dự án #${project.id}`}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
-            </View>
-
-            {types.length > 0 && (
+                {/* Type Filter Pills */}
                 <View style={styles.filterRow}>
                     <TouchableOpacity
-                        style={[styles.filterChip, selectedType === 'all' && styles.filterChipActive]}
+                        style={[styles.pill, selectedType === 'all' && styles.pillActive]}
                         onPress={() => setSelectedType('all')}
                     >
-                        <Text style={[styles.filterText, selectedType === 'all' && styles.filterTextActive]}>Tất cả loại</Text>
+                        <Text style={[styles.pillText, selectedType === 'all' && styles.pillTextActive]}>
+                            Tất cả
+                        </Text>
                     </TouchableOpacity>
-                    {types.map(type => (
+                    
+                    {getUniqueTypes().map(type => (
                         <TouchableOpacity
                             key={type}
-                            style={[styles.filterChip, selectedType === type && styles.filterChipActive]}
+                            style={[styles.pill, selectedType === type && styles.pillActive]}
                             onPress={() => setSelectedType(type)}
                         >
-                            <Text style={[styles.filterText, selectedType === type && styles.filterTextActive]}>{type}</Text>
+                            <Text style={[styles.pillText, selectedType === type && styles.pillTextActive]}>
+                                {type}
+                            </Text>
                         </TouchableOpacity>
                     ))}
                 </View>
-            )}
+            </View>
 
+            {/* Documents List */}
             {loading ? (
                 <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#7c3aed" />
-                    <Text style={styles.loadingText}>Đang tải tài liệu...</Text>
+                    <ActivityIndicator size="large" color="#06b6d4" />
+                    <Text style={styles.loadingText}>Đang tải...</Text>
+                </View>
+            ) : filteredDocuments.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                    <Ionicons name="document-outline" size={64} color="#d1d5db" />
+                    <Text style={styles.emptyText}>
+                        {searchQuery || selectedType !== 'all' 
+                            ? 'Không tìm thấy tài liệu'
+                            : 'Chưa có tài liệu nào'
+                        }
+                    </Text>
                 </View>
             ) : (
                 <FlatList
                     data={filteredDocuments}
-                    keyExtractor={item => item.id.toString()}
-                    renderItem={renderItem}
+                    renderItem={renderDocument}
+                    keyExtractor={(item) => item.id.toString()}
                     contentContainerStyle={styles.listContent}
-                    ListEmptyComponent={
-                        <View style={styles.emptyState}>
-                            <Ionicons name="document-text-outline" size={48} color="#c4b5fd" />
-                            <Text style={styles.emptyText}>Chưa có tài liệu phù hợp</Text>
-                        </View>
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
                     }
                 />
             )}
+
+            {/* Delete Confirmation Modal */}
+            <Modal
+                visible={showDeleteModal}
+                animationType="fade"
+                transparent={true}
+                onRequestClose={() => setShowDeleteModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Ionicons name="warning" size={48} color="#ef4444" />
+                        </View>
+                        
+                        <Text style={styles.modalTitle}>Xác nhận xóa</Text>
+                        <Text style={styles.modalMessage}>
+                            Bạn có chắc chắn muốn xóa tài liệu "{selectedDocument?.tenTaiLieu}"?
+                            {'\n\n'}Hành động này không thể hoàn tác.
+                        </Text>
+
+                        <View style={styles.modalButtons}>
+                            <TouchableOpacity
+                                style={[styles.modalButton, styles.cancelButton]}
+                                onPress={() => {
+                                    setShowDeleteModal(false);
+                                    setSelectedDocument(null);
+                                }}
+                            >
+                                <Text style={styles.cancelButtonText}>Hủy</Text>
+                            </TouchableOpacity>
+                            
+                            <TouchableOpacity
+                                style={[styles.modalButton, styles.deleteConfirmButton]}
+                                onPress={handleDeleteDocument}
+                            >
+                                <Text style={styles.deleteButtonText}>Xóa</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -270,138 +323,217 @@ export default function TeamLeadDocumentsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#f5f5ff'
+        backgroundColor: '#f8f9fa',
     },
     header: {
-        paddingHorizontal: 16,
-        paddingTop: 18
+        padding: 20,
+        backgroundColor: '#fff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#e5e7eb',
     },
-    headerTitle: {
+    title: {
         fontSize: 24,
-        fontWeight: '700',
-        color: '#312e81'
+        fontWeight: 'bold',
+        color: '#111827',
     },
-    headerSubtitle: {
+    subtitle: {
+        fontSize: 14,
+        color: '#6b7280',
         marginTop: 4,
-        color: '#6b7280'
     },
-    searchContainer: {
-        margin: 16,
+    searchSection: {
+        backgroundColor: '#fff',
+        padding: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#e5e7eb',
+    },
+    searchBox: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 10,
-        backgroundColor: '#fff',
-        borderRadius: 14,
-        paddingHorizontal: 14,
-        borderWidth: 1,
-        borderColor: '#ede9fe'
+        backgroundColor: '#f3f4f6',
+        borderRadius: 12,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        marginBottom: 12,
     },
     searchInput: {
         flex: 1,
-        height: 44,
-        color: '#111827'
+        marginLeft: 8,
+        fontSize: 15,
+        color: '#111827',
     },
     filterRow: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 10,
-        paddingHorizontal: 16
+        gap: 8,
     },
-    filterChip: {
+    pill: {
+        paddingVertical: 6,
         paddingHorizontal: 14,
-        paddingVertical: 8,
-        borderRadius: 999,
-        backgroundColor: '#ede9fe'
+        borderRadius: 16,
+        backgroundColor: '#f3f4f6',
     },
-    filterChipActive: {
-        backgroundColor: '#7c3aed'
+    pillActive: {
+        backgroundColor: '#06b6d4',
     },
-    filterText: {
-        color: '#5b21b6',
-        fontWeight: '600'
+    pillText: {
+        fontSize: 13,
+        color: '#374151',
+        fontWeight: '500',
     },
-    filterTextActive: {
-        color: '#fff'
+    pillTextActive: {
+        color: '#fff',
+    },
+    listContent: {
+        padding: 16,
+    },
+    documentCard: {
+        flexDirection: 'row',
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    documentIcon: {
+        width: 56,
+        height: 56,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    documentContent: {
+        flex: 1,
+    },
+    documentTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#111827',
+        marginBottom: 4,
+    },
+    documentDesc: {
+        fontSize: 14,
+        color: '#6b7280',
+        marginBottom: 8,
+    },
+    documentMeta: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
+    },
+    metaItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    metaText: {
+        fontSize: 12,
+        color: '#6b7280',
+    },
+    projectTag: {
+        marginTop: 8,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        backgroundColor: '#dbeafe',
+        borderRadius: 6,
+        alignSelf: 'flex-start',
+    },
+    projectTagText: {
+        fontSize: 12,
+        color: '#1e40af',
+        fontWeight: '500',
+    },
+    deleteButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: '#fee2e2',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: 8,
     },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
-        alignItems: 'center'
+        alignItems: 'center',
+        paddingVertical: 40,
     },
     loadingText: {
         marginTop: 12,
-        color: '#6b7280'
+        fontSize: 14,
+        color: '#6b7280',
     },
-    listContent: {
-        paddingHorizontal: 16,
-        paddingBottom: 32
-    },
-    card: {
-        backgroundColor: '#fff',
-        borderRadius: 18,
-        borderWidth: 1,
-        borderColor: '#ede9fe',
-        padding: 18,
-        marginBottom: 16
-    },
-    cardHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: 12
-    },
-    cardTitle: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#1f2937',
-        flex: 1
-    },
-    typeBadge: {
-        backgroundColor: '#f3e8ff',
-        borderRadius: 999,
-        paddingHorizontal: 10,
-        paddingVertical: 4
-    },
-    typeBadgeText: {
-        color: '#7c3aed',
-        fontWeight: '600',
-        fontSize: 12
-    },
-    cardDescription: {
-        color: '#4b5563',
-        marginTop: 8,
-        lineHeight: 20
-    },
-    metaRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        marginTop: 8
-    },
-    metaText: {
-        color: '#4b5563',
-        fontSize: 13
-    },
-    downloadButton: {
-        marginTop: 16,
-        backgroundColor: '#7c3aed',
-        paddingVertical: 12,
-        borderRadius: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
+    emptyContainer: {
+        flex: 1,
         justifyContent: 'center',
-        gap: 8
-    },
-    downloadText: {
-        color: '#fff',
-        fontWeight: '600'
-    },
-    emptyState: {
         alignItems: 'center',
-        marginTop: 32
+        paddingVertical: 60,
     },
     emptyText: {
-        marginTop: 12,
-        color: '#6b7280'
-    }
+        fontSize: 16,
+        color: '#9ca3af',
+        marginTop: 16,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalContent: {
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 24,
+        width: '85%',
+        maxWidth: 400,
+    },
+    modalHeader: {
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#111827',
+        textAlign: 'center',
+        marginBottom: 12,
+    },
+    modalMessage: {
+        fontSize: 15,
+        color: '#6b7280',
+        textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: 24,
+    },
+    modalButtons: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    modalButton: {
+        flex: 1,
+        padding: 14,
+        borderRadius: 10,
+        alignItems: 'center',
+    },
+    cancelButton: {
+        backgroundColor: '#f3f4f6',
+    },
+    cancelButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#374151',
+    },
+    deleteConfirmButton: {
+        backgroundColor: '#ef4444',
+    },
+    deleteButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#fff',
+    },
 });

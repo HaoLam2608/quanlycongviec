@@ -5,6 +5,8 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { createTask, deleteTask, fetchDocuments } from '@/src/axios/api';
 import { API_CONFIG } from '@/src/config/api';
 import { PRIORITY_LEVELS, PRIORITY_LABELS } from '../../constants/roles';
@@ -146,6 +148,42 @@ export default function ProjectDetail() {
         } catch (err) {
             console.error('Error loading documents for project', err);
             setDocuments([]);
+        } finally {
+            setLoadingDocs(false);
+        }
+    };
+
+    const handleDownloadDocument = async (item: any) => {
+        try {
+            setLoadingDocs(true);
+            const token = await AsyncStorage.getItem('accessToken');
+            const baseDir = FileSystem.documentDirectory || FileSystem.cacheDirectory;
+            if (!baseDir) {
+                Alert.alert('Lỗi', 'Không thể xác định thư mục lưu trữ trên thiết bị');
+                return;
+            }
+
+            const safeName = (item.tenTaiLieu || `document-${item.id}`).replace(/[:\\/*"<>|?]/g, '_');
+            const fileUri = `${baseDir}${safeName}`;
+
+            const downloadUrl = `${API_CONFIG.BASE_URL}/documents/${item.id}/download?download=1`;
+            const downloadRes = await FileSystem.downloadAsync(downloadUrl, fileUri, {
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined
+            });
+
+            if (await Sharing.isAvailableAsync()) {
+                await Sharing.shareAsync(downloadRes.uri);
+            } else {
+                Alert.alert('Đã tải xuống', `Tệp được lưu tại ${downloadRes.uri}`);
+            }
+        } catch (error: any) {
+            console.error('Download document error:', error);
+            const serverMsg = error?.response?.data?.message || error?.message || '';
+            if (serverMsg && (serverMsg.toLowerCase().includes('file data missing') || serverMsg.toLowerCase().includes('document not found') || (error?.status === 404))) {
+                Alert.alert('Tệp không khả dụng', 'Tài liệu hiện chưa có trên máy chủ hoặc đã bị xóa. Vui lòng liên hệ quản trị.');
+            } else {
+                Alert.alert('Lỗi', serverMsg || 'Không thể tải tài liệu');
+            }
         } finally {
             setLoadingDocs(false);
         }
@@ -714,7 +752,7 @@ export default function ProjectDetail() {
                                     </View>
 
                                     <View style={styles.documentActions}>
-                                        <TouchableOpacity style={[styles.smallButton, { backgroundColor: '#2563eb' }]} onPress={() => Linking.openURL(`${API_CONFIG.BASE_URL}/documents/${item.id}/download?download=1`)}>
+                                        <TouchableOpacity style={[styles.smallButton, { backgroundColor: '#2563eb' }]} onPress={() => handleDownloadDocument(item)}>
                                             <Text style={styles.smallButtonText}>Tải xuống</Text>
                                         </TouchableOpacity>
                                         <TouchableOpacity style={[styles.smallButton, { backgroundColor: '#ef4444' }]} onPress={() => Alert.alert('Xóa', 'Bạn không có quyền xóa tài liệu ở đây')}>

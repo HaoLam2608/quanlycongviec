@@ -3,6 +3,7 @@ import { API_CONFIG } from '@/src/config/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -347,7 +348,9 @@ export default function Documents() {
             console.log('🔗 Download URL:', url);
             
             // @ts-ignore - FileSystem.documentDirectory exists at runtime
-            const fileUri = `${FileSystem.documentDirectory}${doc.tenTaiLieu}`;
+            // Create a safe filename to avoid illegal characters
+            const safeName = (doc.tenTaiLieu || `document-${doc.id}`).replace(/[:\\/*"<>|?]/g, '_');
+            const fileUri = `${FileSystem.documentDirectory}${safeName}`;
             
             const downloadResumable = FileSystem.createDownloadResumable(
                 url,
@@ -362,30 +365,26 @@ export default function Documents() {
             const result = await downloadResumable.downloadAsync();
             if (result) {
                 console.log('✅ Download complete:', result.uri);
-                Alert.alert(
-                    'Tải xuống thành công',
-                    `File đã được lưu vào: ${result.uri}`,
-                    [
-                        { text: 'OK' },
-                        {
-                            text: 'Mở file',
-                            onPress: () => {
-                                if (Platform.OS === 'ios') {
-                                    Linking.openURL(result.uri);
-                                } else {
-                                    // Android cần content:// URI
-                                    FileSystem.getContentUriAsync(result.uri).then(contentUri => {
-                                        Linking.openURL(contentUri);
-                                    });
-                                }
-                            }
-                        }
-                    ]
-                );
+                // Use Sharing (same as admin) to open or share the downloaded file
+                try {
+                    if (await Sharing.isAvailableAsync()) {
+                        await Sharing.shareAsync(result.uri);
+                    } else {
+                        Alert.alert('Tải xuống thành công', `File đã được lưu vào: ${result.uri}`);
+                    }
+                } catch (shareErr) {
+                    console.warn('Share failed, show saved location', shareErr);
+                    Alert.alert('Tải xuống thành công', `File đã được lưu vào: ${result.uri}`);
+                }
             }
         } catch (error: any) {
             console.error('❌ Download error:', error);
-            Alert.alert('Lỗi', error.message || 'Không thể tải xuống tài liệu');
+            const serverMsg = error?.response?.data?.message || error?.message || '';
+            if (serverMsg && (serverMsg.toLowerCase().includes('file data missing') || serverMsg.toLowerCase().includes('document not found') || (error?.status === 404))) {
+                Alert.alert('Tệp không khả dụng', 'Tài liệu hiện chưa có trên máy chủ hoặc đã bị xóa. Vui lòng liên hệ quản trị.');
+            } else {
+                Alert.alert('Lỗi', serverMsg || 'Không thể tải xuống tài liệu');
+            }
         }
     };
 

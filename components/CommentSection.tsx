@@ -17,6 +17,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '@/src/axios/config';
+import { API_CONFIG, STORAGE_KEYS } from '@/src/config/api';
 
 interface User {
     id: number;
@@ -238,13 +239,14 @@ export default function CommentSection({ taskId, subtaskId, onCommentAdded }: Co
                 formData.append('files', fileObj as any);
             }
 
-            // Use fetch API instead of axios for better FormData support
-            const token = await AsyncStorage.getItem('accessToken');
-            const response = await fetch('http://10.0.2.2:5000/comments', {
+            // Use fetch with configured BASE_URL for FormData uploads to avoid RN axios multipart issues
+            const token = await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN as string) || await AsyncStorage.getItem('accessToken');
+            const url = `${API_CONFIG.BASE_URL.replace(/\/$/, '')}/comments`;
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${token}`,
-                    // Don't set Content-Type - let browser set it with boundary
+                    'Authorization': token ? `Bearer ${token}` : '',
+                    // Do NOT set Content-Type - let the runtime set the multipart boundary
                 },
                 body: formData,
             });

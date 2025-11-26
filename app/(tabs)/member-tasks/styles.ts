@@ -146,10 +146,14 @@ export const styles = StyleSheet.create({
     alignItems: 'center'
   },
   modalContent: {
-    width: '90%',
+    width: '96%',
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16
+    borderRadius: 8,
+    paddingTop: 10,
+    paddingHorizontal: 12,
+    paddingBottom: 6,
+    // Allow modal to use more vertical space so content is visible
+    maxHeight: '96%'
   },
   modalHeader: {
     flexDirection: 'row',
@@ -161,7 +165,10 @@ export const styles = StyleSheet.create({
     fontWeight: '700'
   },
   modalBody: {
-    marginTop: 12
+    marginTop: 12,
+    // Constrain modal body height so inner ScrollView can scroll properly
+    maxHeight: '88%',
+    paddingBottom: 4,
   },
   modalTaskTitle: {
     fontSize: 16,

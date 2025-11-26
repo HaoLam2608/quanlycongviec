@@ -12,13 +12,16 @@ import {
     Linking,
     Modal,
     Alert,
-    TextInput
+    TextInput,
+    Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { fetchDocuments } from '@/src/axios/api';
-import { API_CONFIG } from '@/src/config/api';
+import { fetchDocuments, deleteDocument } from '@/src/axios/api';
+import { API_CONFIG, STORAGE_KEYS } from '@/src/config/api';
 import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getGroupDetail, getMyProjects, getMyTasks } from '@/src/axios/api';
 
@@ -104,6 +107,9 @@ export default function TeamLeadProjectDetailScreen() {
     const [activeTab, setActiveTab] = useState<TabType>('overview');
     const [documents, setDocuments] = useState<any[]>([]);
     const [loadingDocs, setLoadingDocs] = useState(false);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const [currentUserName, setCurrentUserName] = useState<string | null>(null);
+    const [currentRole, setCurrentRole] = useState<string | null>(null);
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [selectedFile, setSelectedFile] = useState<any | null>(null);
     const [uploadDescription, setUploadDescription] = useState('');
@@ -202,6 +208,69 @@ export default function TeamLeadProjectDetailScreen() {
             setLoadingDocs(false);
         }
     };
+
+    const handleDownloadDocument = async (item: any) => {
+        try {
+            setLoadingDocs(true);
+            const token = await AsyncStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN as any);
+            const baseDir = FileSystem.documentDirectory || FileSystem.cacheDirectory;
+            if (!baseDir) {
+                Alert.alert('Lỗi', 'Không thể xác định thư mục lưu trữ trên thiết bị');
+                return;
+            }
+
+            const safeName = (item.tenTaiLieu || `document-${item.id}`).replace(/[:\\/*"<>\|?]/g, '_');
+            const fileUri = `${baseDir}${safeName}`;
+
+            const downloadUrl = `${API_CONFIG.BASE_URL}/documents/${item.id}/download?download=1`;
+            const downloadRes = await FileSystem.downloadAsync(downloadUrl, fileUri, {
+                headers: token ? { Authorization: `Bearer ${token}` } : undefined
+            });
+
+            // Use Sharing (same as admin) instead of attempting direct content URI open
+            if (await Sharing.isAvailableAsync()) {
+                await Sharing.shareAsync(downloadRes.uri);
+            } else {
+                Alert.alert('Đã tải xuống', `Tệp được lưu tại ${downloadRes.uri}`);
+            }
+
+        } catch (error: any) {
+            console.error('Download document error:', error);
+            // Friendly handling when server reports missing file
+            const serverMsg = error?.response?.data?.message || error?.message || '';
+            if (serverMsg && (serverMsg.toLowerCase().includes('file data missing') || serverMsg.toLowerCase().includes('document not found') || (error?.status === 404))) {
+                Alert.alert('Tệp không khả dụng', 'Tài liệu hiện chưa có trên máy chủ hoặc đã bị xóa. Vui lòng liên hệ quản trị.');
+            } else {
+                Alert.alert('Lỗi', serverMsg || 'Không thể tải tài liệu');
+            }
+        } finally {
+            setLoadingDocs(false);
+        }
+    };
+
+    useEffect(() => {
+        // load current user info for permission checks
+        (async () => {
+            try {
+                const uid = await AsyncStorage.getItem(STORAGE_KEYS.USER_ID);
+                const uname = await AsyncStorage.getItem(STORAGE_KEYS.HOTEN);
+                // role may be stored under different keys in various screens
+                const roleCandidates = [STORAGE_KEYS.ROLE, 'USER_ROLE', 'role', 'userRole'];
+                let role: string | null = null;
+                for (const k of roleCandidates) {
+                    try {
+                        const v = await AsyncStorage.getItem(k as string);
+                        if (v) { role = v; break; }
+                    } catch (e) { /* ignore */ }
+                }
+                setCurrentUserId(uid);
+                setCurrentUserName(uname);
+                setCurrentRole(role);
+            } catch (e) {
+                console.warn('Error loading user info', e);
+            }
+        })();
+    }, []);
 
     const handlePickDocument = async () => {
         try {
@@ -463,20 +532,64 @@ export default function TeamLeadProjectDetailScreen() {
                     data={documents}
                     keyExtractor={(item) => String(item.id)}
                     ListHeaderComponent={renderHeader}
-                    renderItem={({ item }) => (
-                        <View style={styles.documentCard}>
-                            <View style={{ flex: 1 }}>
-                                <Text style={styles.documentTitle} numberOfLines={2}>{item.tenTaiLieu}</Text>
-                                {item.uploadedBy && <Text style={styles.documentMeta}>{item.uploadedBy.hoten || item.uploadedBy}</Text>}
-                                {item.kichThuoc ? <Text style={styles.documentMeta}>{(item.kichThuoc/1024).toFixed(2)} KB</Text> : null}
+                    renderItem={({ item }) => {
+                        // reconcile uploader info (could be object or string)
+                        let uploaderId: any = undefined;
+                        let uploaderName: string | undefined = undefined;
+                        if (item.uploadedBy) {
+                            if (typeof item.uploadedBy === 'object') {
+                                uploaderId = item.uploadedBy.id || item.uploadedBy.userId || item.uploadedBy.manv;
+                                uploaderName = item.uploadedBy.hoten || item.uploadedBy.name;
+                            } else {
+                                uploaderName = String(item.uploadedBy);
+                            }
+                        }
+
+                        const isUploaderById = uploaderId && currentUserId && String(uploaderId) === String(currentUserId);
+                        const isUploaderByName = uploaderName && currentUserName && String(uploaderName).trim() === String(currentUserName).trim();
+                        const roleLower = String(currentRole || '').toLowerCase();
+                        const canDelete = (isUploaderById || isUploaderByName) && (roleLower.includes('teamlead') || roleLower.includes('admin'));
+
+                        return (
+                            <View style={styles.documentCard}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.documentTitle} numberOfLines={2}>{item.tenTaiLieu}</Text>
+                                    {item.uploadedBy && <Text style={styles.documentMeta}>{(item.uploadedBy.hoten || item.uploadedBy) as any}</Text>}
+                                    {item.kichThuoc ? <Text style={styles.documentMeta}>{(item.kichThuoc/1024).toFixed(2)} KB</Text> : null}
+                                </View>
+                                <View style={styles.documentActions}>
+                                    <TouchableOpacity style={[styles.smallButton, { backgroundColor: '#2563eb' }]} onPress={() => handleDownloadDocument(item)}>
+                                        <Text style={styles.smallButtonText}>Tải xuống</Text>
+                                    </TouchableOpacity>
+                                    {canDelete ? (
+                                        <TouchableOpacity
+                                            style={[styles.smallButton, { backgroundColor: '#ef4444' }]}
+                                            onPress={() => {
+                                                Alert.alert('Xác nhận', 'Bạn có chắc muốn xoá tài liệu này không?', [
+                                                    { text: 'Huỷ', style: 'cancel' },
+                                                    { text: 'Xoá', style: 'destructive', onPress: async () => {
+                                                        try {
+                                                            setLoadingDocs(true);
+                                                            await deleteDocument(item.id);
+                                                            setDocuments(prev => prev.filter(d => d.id !== item.id));
+                                                            Alert.alert('Đã xoá', 'Tài liệu đã được xoá thành công');
+                                                        } catch (err: any) {
+                                                            console.error('Delete doc error', err);
+                                                            Alert.alert('Lỗi', err?.message || 'Không thể xoá tài liệu');
+                                                        } finally {
+                                                            setLoadingDocs(false);
+                                                        }
+                                                    }}
+                                                ]);
+                                            }}
+                                        >
+                                            <Text style={styles.smallButtonText}>Xóa</Text>
+                                        </TouchableOpacity>
+                                    ) : null}
+                                </View>
                             </View>
-                            <View style={styles.documentActions}>
-                                <TouchableOpacity style={[styles.smallButton, { backgroundColor: '#2563eb' }]} onPress={() => Linking.openURL(`${API_CONFIG.BASE_URL}/documents/${item.id}/download?download=1`)}>
-                                    <Text style={styles.smallButtonText}>Tải xuống</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    )}
+                        );
+                    }}
                     refreshing={refreshing}
                     onRefresh={onRefresh}
                 />

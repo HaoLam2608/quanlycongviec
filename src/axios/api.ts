@@ -295,9 +295,19 @@ export const updateMyProfile = async (data: { hoten?: string; sdt?: string; chuc
 
 export const deleteDocument = async (id: number) => {
   try {
-    const res = await api.delete(`/documents/delete/${id}`);
+    // Try the RESTful endpoint first (/documents/:id)
+    const res = await api.delete(`/documents/${id}`);
     return res.data;
   } catch (err: any) {
+    // If the server expects /documents/delete/:id (older style), try fallback
+    if (err?.response?.status === 404) {
+      try {
+        const res2 = await api.delete(`/documents/delete/${id}`);
+        return res2.data;
+      } catch (err2: any) {
+        throw err2.response?.data || { message: 'Không thể xoá tài liệu' };
+      }
+    }
     throw err.response?.data || { message: 'Không thể xoá tài liệu' };
   }
 };
