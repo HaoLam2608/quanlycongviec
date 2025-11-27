@@ -13,9 +13,9 @@ import { cn } from '@/lib/utils';
 interface ConversationListProps {
   onSelectConversation?: (conversationId: number) => void | Promise<void>;
 }
-
-export const ConversationList: React.FC<ConversationListProps> = ({ 
-  onSelectConversation 
+const SOCKET_URL = "https://taskhadflow-api.nibies.space";
+export const ConversationList: React.FC<ConversationListProps> = ({
+  onSelectConversation
 }) => {
   const { conversations, activeConversation, selectConversation, isLoading, onlineUsers } = useChatContext();
 
@@ -23,30 +23,30 @@ export const ConversationList: React.FC<ConversationListProps> = ({
     if (conversation.type === 'group') {
       return conversation.name || 'Nhóm chat';
     }
-    
+
     // Direct conversation - get other participant's name
     const otherParticipant = conversation.participants.find(
       (p: any) => p.userId.toString() !== currentUserId
     );
-    
+
     // Debug log
     console.log('🔍 Conversation:', conversation.id, {
       participants: conversation.participants,
       otherParticipant,
       currentUserId
     });
-    
+
     if (!otherParticipant || !otherParticipant.user) {
       console.log('⚠️ No participant or user data found');
       return 'Người dùng';
     }
-    
+
     // Try hoten first, fallback to manv or email
-    const name = otherParticipant.user.hoten || 
-           otherParticipant.user.manv || 
-           otherParticipant.user.email?.split('@')[0] ||
-           'Người dùng';
-           
+    const name = otherParticipant.user.hoten ||
+      otherParticipant.user.manv ||
+      otherParticipant.user.email?.split('@')[0] ||
+      'Người dùng';
+
     console.log('✅ Resolved name:', name);
     return name;
   };
@@ -55,7 +55,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
     if (conversation.type === 'group') {
       return null; // Will use fallback
     }
-    
+
     const otherParticipant = conversation.participants.find(
       (p: any) => p.userId.toString() !== currentUserId
     );
@@ -103,10 +103,10 @@ export const ConversationList: React.FC<ConversationListProps> = ({
           const avatar = getConversationAvatar(conversation, currentUserId);
           const isActive = activeConversation?.id === conversation.id;
           const lastMessageTime = conversation.lastMessageAt
-            ? formatDistanceToNow(new Date(conversation.lastMessageAt), { 
-                addSuffix: true, 
-                locale: vi 
-              })
+            ? formatDistanceToNow(new Date(conversation.lastMessageAt), {
+              addSuffix: true,
+              locale: vi
+            })
             : '';
 
           // Check if the other user is online (for direct conversations)
@@ -140,8 +140,8 @@ export const ConversationList: React.FC<ConversationListProps> = ({
               <Avatar className="h-12 w-12 flex-shrink-0 relative">
                 {conversation.type === 'group' ? (
                   <>
-                    <AvatarImage 
-                      src={`${process.env.NEXT_PUBLIC_API_URL}/chat/conversations/${conversation.id}/avatar`} 
+                    <AvatarImage
+                      src={`${SOCKET_URL}/chat/conversations/${conversation.id}/avatar`}
                       alt={conversation.name}
                     />
                     <AvatarFallback>
@@ -150,7 +150,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                   </>
                 ) : (
                   <>
-                    {avatar && <AvatarImage src={`${process.env.NEXT_PUBLIC_API_URL}${avatar}`} />}
+                    {avatar && <AvatarImage src={`${SOCKET_URL}${avatar}`} />}
                     <AvatarFallback>
                       <User className="h-6 w-6" />
                     </AvatarFallback>
@@ -159,9 +159,8 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                 {/* Online status indicator for direct chats */}
                 {conversation.type === 'direct' && (
                   <div
-                    className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${
-                      isOnline ? 'bg-green-500' : 'bg-gray-400'
-                    }`}
+                    className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${isOnline ? 'bg-green-500' : 'bg-gray-400'
+                      }`}
                   />
                 )}
               </Avatar>
@@ -183,7 +182,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
 
                 {conversation.lastMessage && (
                   <p className="text-sm text-muted-foreground truncate">
-                    {conversation.lastMessage.type === 'text' 
+                    {conversation.lastMessage.type === 'text'
                       ? conversation.lastMessage.content
                       : '📎 File đính kèm'
                     }
