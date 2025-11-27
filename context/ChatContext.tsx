@@ -77,7 +77,7 @@ interface ChatContextType {
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
-
+const SOCKET_URL = "https://taskhadflow-api.nibies.space";
 export const useChatContext = () => {
   const context = useContext(ChatContext);
   if (!context) {
@@ -120,8 +120,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Clear online users when initializing new connection
     setOnlineUsers(new Set());
     console.log('🔄 Cleared online users, waiting for fresh data from server');
-
-    const SOCKET_URL = "https://taskhadflow-api.nibies.space";
 
     console.log('🔌 Initializing socket with:', {
       url: SOCKET_URL,
@@ -291,7 +289,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setIsLoading(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/conversations`, {
+      const response = await fetch(`${SOCKET_URL}/chat/conversations`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -332,10 +330,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Load conversation details
       const [convResponse, messagesResponse] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/conversations/${conversationId}`, {
+        fetch(`${SOCKET_URL}/chat/conversations/${conversationId}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/conversations/${conversationId}/messages?limit=50`, {
+        fetch(`${SOCKET_URL}/chat/conversations/${conversationId}/messages?limit=50`, {
           headers: { 'Authorization': `Bearer ${token}` }
         })
       ]);
@@ -417,7 +415,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('Request body:', { userId });
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/conversations/direct`, {
+      const response = await fetch(`${SOCKET_URL}/chat/conversations/direct`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -457,7 +455,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const token = getToken();
     if (!token) throw new Error('Not authenticated');
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/conversations/group`, {
+    const response = await fetch(`${SOCKET_URL}/chat/conversations/group`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -495,7 +493,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (replyTo) formData.append('replyTo', replyTo.toString());
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/conversations/${activeConversation.id}/upload`, {
+      const response = await fetch(`${SOCKET_URL}/chat/conversations/${activeConversation.id}/upload`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
