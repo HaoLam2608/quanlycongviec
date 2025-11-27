@@ -25,6 +25,7 @@
     "puppeteer": "^24.29.0",
     "sequelize": "^6.37.7",
     "socket.io": "^4.7.2",
+    "socket.io-client": "^4.8.1",
     "uuid": "^13.0.0"
   },
   "scripts": {

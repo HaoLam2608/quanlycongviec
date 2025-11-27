@@ -1,7 +1,7 @@
 {
   "development": {
     "username": "root",
-    "password": "hao260804",
+    "password": "123456",
     "database": "qlcv",
     "host": "127.0.0.1",
     "dialect": "mysql"
