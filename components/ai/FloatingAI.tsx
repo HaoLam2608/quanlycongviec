@@ -8,12 +8,13 @@ import { Bot, X, Minimize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const FloatingAI: React.FC = () => {
-  const [isOpen, setIsOpen] = useState(false);
+  // Default: panel closed on page load
+  const [isOpen, setIsOpen] = useState<boolean>(false);
   const [isMinimized, setIsMinimized] = useState(false);
 
-  if (!isOpen) {
+    if (!isOpen) {
     return (
-      <div className="fixed bottom-6 left-6 z-50">
+        <div className="fixed bottom-22 right-6 z-40">
         <Button
           size="lg"
           className="h-14 w-14 rounded-full shadow-lg relative bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
@@ -29,9 +30,9 @@ export const FloatingAI: React.FC = () => {
     );
   }
 
-  if (isMinimized) {
+    if (isMinimized) {
     return (
-      <div className="fixed bottom-6 left-6 z-50">
+        <div className="fixed bottom-28 right-6 z-40">
         <Button
           size="lg"
           variant="secondary"
@@ -46,7 +47,7 @@ export const FloatingAI: React.FC = () => {
   }
 
   return (
-    <div className="fixed bottom-6 left-6 z-50">
+    <div className="fixed bottom-28 right-6 z-40">
       <div className="w-[420px] h-[650px] bg-card border rounded-lg shadow-2xl flex flex-col overflow-hidden">
         {/* Header with minimize and close */}
         <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-3 flex items-center justify-between">

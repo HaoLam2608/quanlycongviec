@@ -1,10 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { 
-    CheckSquare, Clock, Calendar, User, Plus, Filter, Search, Eye, Edit3, 
-    Trash2, AlertCircle, CheckCircle, XCircle, PlayCircle, FolderOpen, 
-    Users, LayoutGrid, List, Download, Upload, MoreVertical, Tag, 
+import {
+    CheckSquare, Clock, Calendar, User, Plus, Filter, Search, Eye, Edit3,
+    Trash2, AlertCircle, CheckCircle, XCircle, PlayCircle, FolderOpen,
+    Users, LayoutGrid, List, Download, Upload, MoreVertical, Tag,
     TrendingUp, MessageSquare, Paperclip, ChevronDown, X as CloseIcon
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -170,19 +170,23 @@ export default function ManagerTasksPage() {
 
     const handleSaveTask = async () => {
         try {
-            if (!taskForm.tentask || !taskForm.duanId || !taskForm.nguoiDuocGiaoId || !taskForm.ngayKetThuc) {
+            if (!taskForm.tentask || !taskForm.duanId || !taskForm.ngayKetThuc) {
                 showError('Vui lòng điền đầy đủ thông tin bắt buộc')
                 return
             }
 
-            const payload = {
+            const payload: any = {
                 tentask: taskForm.tentask,
                 mota: taskForm.mota,
                 duanId: parseInt(taskForm.duanId),
-                nguoiDuocGiaoId: parseInt(taskForm.nguoiDuocGiaoId),
                 mucDoUuTien: taskForm.mucDoUuTien,
                 ngayBatDau: taskForm.ngayBatDau,
                 ngayKetThuc: taskForm.ngayKetThuc
+            }
+
+            // Người được giao là optional - nếu không chọn, member tự nhận
+            if (taskForm.nguoiDuocGiaoId) {
+                payload.nguoiDuocGiaoId = parseInt(taskForm.nguoiDuocGiaoId)
             }
 
             if (isEditMode && selectedTask) {
@@ -204,7 +208,7 @@ export default function ManagerTasksPage() {
     const handleDeleteTask = async (taskId: number) => {
         const confirmed = await showConfirm('Bạn có chắc chắn muốn xóa nhiệm vụ này?')
         if (!confirmed) return
-        
+
         try {
             await deleteTask(taskId)
             showSuccess('Xóa nhiệm vụ thành công')
@@ -224,17 +228,17 @@ export default function ManagerTasksPage() {
         switch (status?.toLowerCase()) {
             case 'hoan_thanh':
             case 'completed':
-            case 'hoàn thành': 
+            case 'hoàn thành':
                 return 'bg-green-100 text-green-800 border-green-200'
             case 'dang_thuc_hien':
             case 'in_progress':
-            case 'đang thực hiện': 
+            case 'đang thực hiện':
                 return 'bg-blue-100 text-blue-800 border-blue-200'
             case 'chua_bat_dau':
             case 'not_started':
-            case 'chưa bắt đầu': 
+            case 'chưa bắt đầu':
                 return 'bg-gray-100 text-gray-800 border-gray-200'
-            default: 
+            default:
                 return 'bg-gray-100 text-gray-800 border-gray-200'
         }
     }
@@ -279,7 +283,7 @@ export default function ManagerTasksPage() {
         const matchesSearch = task.tentask.toLowerCase().includes(searchTerm.toLowerCase()) ||
             task.nguoiDuocGiao?.hoten.toLowerCase().includes(searchTerm.toLowerCase()) ||
             task.duan?.tenduan.toLowerCase().includes(searchTerm.toLowerCase())
-        
+
         const matchesProject = projectFilter === "all" || task.duanId.toString() === projectFilter
         const matchesStatus = statusFilter === "all" || task.trangThai?.toLowerCase() === statusFilter.toLowerCase()
         const matchesPriority = priorityFilter === "all" || task.mucDoUuTien?.toLowerCase() === priorityFilter.toLowerCase()
@@ -296,7 +300,7 @@ export default function ManagerTasksPage() {
     }
 
     const toggleTaskSelection = (taskId: number) => {
-        setSelectedTasks(prev => 
+        setSelectedTasks(prev =>
             prev.includes(taskId) ? prev.filter(id => id !== taskId) : [...prev, taskId]
         )
     }
@@ -823,12 +827,13 @@ export default function ManagerTasksPage() {
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="nguoiDuocGiaoId">Người thực hiện *</Label>
+                                <Label htmlFor="nguoiDuocGiaoId">Người thực hiện (Tùy chọn - để trống cho member tự nhận)</Label>
                                 <Select value={taskForm.nguoiDuocGiaoId} onValueChange={(value) => setTaskForm(prev => ({ ...prev, nguoiDuocGiaoId: value }))}>
                                     <SelectTrigger>
-                                        <SelectValue placeholder="Chọn người" />
+                                        <SelectValue placeholder="Chọn người hoặc để trống" />
                                     </SelectTrigger>
                                     <SelectContent>
+                                        <SelectItem value="">-- Không giao ai (để member tự nhận) --</SelectItem>
                                         {users.map(user => (
                                             <SelectItem key={user.id} value={user.id.toString()}>
                                                 {user.hoten} ({user.manv})

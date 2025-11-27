@@ -30,6 +30,7 @@ export const authAPI = {
 
   register: (userData: any) =>
     api.post('/auth/register', userData),
+
   logout: () =>
     api.post('/auth/logout'),
 };
@@ -144,11 +145,9 @@ export const uploadDocument = async (file: File, duanId?: number, description?: 
     if (duanId) form.append('duanId', String(duanId));
     if (description) form.append('description', description);
 
-    // Don't set Content-Type header manually - let axios handle it with proper boundary
-    const res = await api.post('/documents/upload', form);
+    const res = await api.post('/documents/upload', form, { headers: { 'Content-Type': 'multipart/form-data' } });
     return res.data;
   } catch (err: any) {
-    console.error('Error uploading document:', err);
     throw err.response?.data || { message: 'Không thể upload tài liệu' };
   }
 };
@@ -229,7 +228,7 @@ export const createTask = async (data: {
   tentask: string;
   mota?: string;
   duanId: number;
-  nguoiDuocGiaoId: number;
+  nguoiDuocGiaoId: number | null;
   ngayBatDau?: string;
   ngayKetThuc: string;
   mucDoUuTien?: string;
@@ -529,6 +528,101 @@ export const getMemberProjects = async () => {
     return res.data;
   } catch (err: any) {
     throw err.response?.data || { message: "Không thể lấy danh sách dự án" };
+  }
+};
+
+
+// Assignment API calls for teamlead task acceptance
+export const getPendingTaskAssignments = async () => {
+  try {
+    const res = await api.get('/assignments/my-pending-tasks');
+    return res.data?.data || [];
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy công việc chờ xác nhận" };
+  }
+};
+
+export const getUnassignedTasks = async () => {
+  try {
+    const res = await api.get('/assignments/unassigned/available');
+    return res.data?.data || [];
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy danh sách công việc chưa ai nhận" };
+  }
+};
+
+export const requestToClaimTask = async (taskId: number) => {
+  try {
+    const res = await api.post('/assignments/claim-request', { taskId });
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể gửi yêu cầu nhận công việc" };
+  }
+};
+
+export const acceptAssignment = async (assignmentId: number) => {
+  try {
+    const res = await api.post(`/assignments/${assignmentId}/accept`);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể chấp nhận công việc" };
+  }
+};
+
+export const declineAssignment = async (assignmentId: number, reason: string) => {
+  try {
+    const res = await api.post(`/assignments/${assignmentId}/decline`, { reason });
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể từ chối công việc" };
+  }
+};
+
+// Manager API calls for claim requests
+export const getClaimRequests = async () => {
+  try {
+    const res = await api.get('/assignments/claim-requests/my');
+    return res.data?.data || [];
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy danh sách yêu cầu nhận công việc" };
+  }
+};
+
+// Admin API to get ALL claim requests
+export const getAllClaimRequests = async () => {
+  try {
+    const res = await api.get('/assignments/claim-requests/all');
+    return res.data?.data || [];
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy danh sách tất cả yêu cầu nhận công việc" };
+  }
+};
+
+// Get join requests for current user (teamlead/manager/admin)
+export const getMyJoinRequests = async () => {
+  try {
+    const res = await api.get('/assignments/requests/join');
+    return res.data?.data || [];
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy danh sách yêu cầu tham gia" };
+  }
+};
+
+export const approveClaimRequest = async (assignmentId: number) => {
+  try {
+    const res = await api.post('/assignments/claim-requests/approve', { assignmentId });
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể phê duyệt yêu cầu nhận công việc" };
+  }
+};
+
+export const rejectClaimRequest = async (assignmentId: number, reason?: string) => {
+  try {
+    const res = await api.post('/assignments/claim-requests/reject', { assignmentId, reason });
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể từ chối yêu cầu nhận công việc" };
   }
 };
 

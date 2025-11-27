@@ -300,7 +300,7 @@ export default function ProjectDetailPage() {
         startDate: "",
         endDate: "",
     });
-    
+
     const [editTaskForm, setEditTaskForm] = useState({
         name: "",
         description: "",
@@ -470,7 +470,7 @@ export default function ProjectDetailPage() {
             groupName: group.name // Thêm tên nhóm để hiển thị
         }))
         // Loại bỏ trùng lặp nếu một leader quản lý nhiều nhóm
-        .filter((leader, index, self) => 
+        .filter((leader, index, self) =>
             index === self.findIndex((l) => l.id === leader.id)
         );
 
@@ -564,15 +564,21 @@ export default function ProjectDetailPage() {
     const handleAddTask = async (e: React.FormEvent) => {
         e.preventDefault()
         try {
-            await createTask({
+            const payload: any = {
                 tentask: taskFormData.name,
                 mota: taskFormData.description,
                 duanId: Number(id),
-                nguoiDuocGiaoId: Number(taskFormData.assigneeId),
                 ngayBatDau: taskFormData.startDate,
                 ngayKetThuc: taskFormData.dueDate,
                 mucDoUuTien: taskFormData.priority
-            });
+            }
+
+            // Người được giao là optional - nếu không chọn, team leader tự nhận
+            if (taskFormData.assigneeId) {
+                payload.nguoiDuocGiaoId = Number(taskFormData.assigneeId)
+            }
+
+            await createTask(payload);
 
             // Refresh tasks list
             const tasksData = await getTasksByProject(id as string);
@@ -1194,14 +1200,13 @@ export default function ProjectDetailPage() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-semibold text-foreground mb-2">Người phụ trách *</label>
+                        <label className="block text-sm font-semibold text-foreground mb-2">Người phụ trách (Tùy chọn - để trống cho team leader tự nhận)</label>
                         <select
-                            required
                             value={taskFormData.assigneeId}
                             onChange={(e) => setTaskFormData({ ...taskFormData, assigneeId: e.target.value })}
                             className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                         >
-                            <option value="">Chọn người phụ trách</option>
+                            <option value="">-- Không giao ai (để team leader tự nhận) --</option>
                             {teamLeaders.map((member) => (
                                 <option key={member.id} value={member.id}>
                                     {member.name} - {member.role}
@@ -1553,14 +1558,13 @@ export default function ProjectDetailPage() {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-semibold text-foreground mb-2">Người thực hiện *</label>
+                        <label className="block text-sm font-semibold text-foreground mb-2">Người thực hiện (Tùy chọn - để trống cho member tự nhận)</label>
                         <select
-                            required
                             value={subtaskFormData.assigneeId}
                             onChange={(e) => setSubtaskFormData({ ...subtaskFormData, assigneeId: e.target.value })}
                             className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                         >
-                            <option value="">Chọn người thực hiện</option>
+                            <option value="">-- Không giao ai (để member tự nhận) --</option>
                             {(() => {
                                 const members = getGroupMembersForTask(selectedTask);
                                 const useAll = showAllAssigneesFallback;
@@ -1726,7 +1730,7 @@ export default function ProjectDetailPage() {
                         const projectEnd = project?.ngayketthuc ? new Date(project.ngayketthuc) : null;
                         const taskStart = editTaskForm.startDate ? new Date(editTaskForm.startDate) : null;
                         const taskEnd = editTaskForm.dueDate ? new Date(editTaskForm.dueDate) : null;
-                        
+
                         if (projectStart && taskStart && taskStart < projectStart) {
                             showWarning('Ngày bắt đầu của công việc phải lớn hơn hoặc bằng ngày bắt đầu của dự án!');
                             return;
@@ -1739,7 +1743,7 @@ export default function ProjectDetailPage() {
                             showWarning('Ngày bắt đầu của công việc phải nhỏ hơn hoặc bằng ngày kết thúc!');
                             return;
                         }
-                        
+
                         try {
                             await updateTask(editTask.id, {
                                 tentask: editTaskForm.name,

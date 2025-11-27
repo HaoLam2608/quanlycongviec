@@ -1,10 +1,10 @@
 "use client"
 import { useState, useEffect } from "react"
-import { Search, Plus, Filter, Clock, Users, Calendar, AlertCircle, CheckCircle2, Folder, Edit, Trash2, Eye, Building2, X, ArrowLeft, MessageSquare, ListChecks } from "lucide-react"
+import { Search, Plus, Filter, Clock, Users, Calendar, AlertCircle, CheckCircle2, Folder, Edit, Trash2, Eye, Building2, X, ArrowLeft, MessageSquare, ListChecks, ThumbsUp, ThumbsDown, Hand } from "lucide-react"
 import api from "@/axios/config"
 import { useToastContext } from '@/components/providers/toast-provider'
 import { showConfirm, showWarning } from '@/lib/notifications'
-import { updateTask } from "@/axios/api"
+import { updateTask, getPendingTaskAssignments, getUnassignedTasks, requestToClaimTask, acceptAssignment, declineAssignment } from "@/axios/api"
 import CommentTask from "@/components/comment-task"
 import WorklogTask from "@/components/worklog-task"
 import CommentSubtask from "@/components/comment-subtask"
@@ -42,6 +42,8 @@ interface Group {
 export default function TeamLeadTasksPage() {
     const { showError, showSuccess } = useToastContext()
     const [tasks, setTasks] = useState<Task[]>([])
+    const [pendingAssignments, setPendingAssignments] = useState<any[]>([])
+    const [unassignedTasks, setUnassignedTasks] = useState<any[]>([])
     const [projects, setProjects] = useState<Project[]>([])
     const [groups, setGroups] = useState<Group[]>([])
     const [loading, setLoading] = useState(true)
@@ -50,11 +52,11 @@ export default function TeamLeadTasksPage() {
     const [priorityFilter, setPriorityFilter] = useState<string>("all")
     const [projectFilter, setProjectFilter] = useState<string>("all")
     const [groupFilter, setGroupFilter] = useState<string>("all")
-    
+
     // Modal states
     const [showModal, setShowModal] = useState(false)
     const [selectedTask, setSelectedTask] = useState<Task | null>(null)
-    
+
     // Subtask modal states
     const [showSubtaskModal, setShowSubtaskModal] = useState(false)
     const [subtaskFormData, setSubtaskFormData] = useState({
@@ -66,12 +68,12 @@ export default function TeamLeadTasksPage() {
         ghiChu: ''
     })
     const [groupMembers, setGroupMembers] = useState<any[]>([])
-    
+
     // Subtask list and detail modals
     const [showSubtaskListModal, setShowSubtaskListModal] = useState(false)
     const [showSubtaskDetailModal, setShowSubtaskDetailModal] = useState(false)
     const [selectedSubtask, setSelectedSubtask] = useState<any>(null)
-    
+
     // Edit task modal states
     const [showEditTaskModal, setShowEditTaskModal] = useState(false)
     const [editingTask, setEditingTask] = useState<Task | null>(null)
@@ -82,7 +84,7 @@ export default function TeamLeadTasksPage() {
         startDate: '',
         dueDate: ''
     })
-    
+
     // Edit subtask modal states
     const [showEditSubtaskModal, setShowEditSubtaskModal] = useState(false)
     const [editingSubtask, setEditingSubtask] = useState<any>(null)
@@ -94,12 +96,22 @@ export default function TeamLeadTasksPage() {
         nguoiThucHienId: '',
         ghiChu: ''
     })
-    
+
     // Comment and Worklog expand states
     const [expandedCommentTaskId, setExpandedCommentTaskId] = useState<number | null>(null)
     const [expandedWorklogTaskId, setExpandedWorklogTaskId] = useState<number | null>(null)
     const [expandedCommentSubtaskId, setExpandedCommentSubtaskId] = useState<number | null>(null)
     const [expandedWorklogSubtaskId, setExpandedWorklogSubtaskId] = useState<number | null>(null)
+
+    // Decline assignment modal states
+    const [showDeclineModal, setShowDeclineModal] = useState(false)
+    const [declineReason, setDeclineReason] = useState('')
+    const [declineAssignmentId, setDeclineAssignmentId] = useState<number | null>(null)
+
+    // Claim task modal states
+    const [showClaimModal, setShowClaimModal] = useState(false)
+    const [claimTaskId, setClaimTaskId] = useState<number | null>(null)
+    const [claimTaskDetails, setClaimTaskDetails] = useState<any>(null)
 
     useEffect(() => {
         console.log('Edit subtask form updated:', editSubtaskForm)
@@ -109,12 +121,16 @@ export default function TeamLeadTasksPage() {
         loadTasks()
         loadProjects()
         loadGroups()
-        
+        loadPendingAssignments()
+        loadUnassignedTasks()
+
         // Auto refresh every 30 seconds to catch updates from members
         const interval = setInterval(() => {
             loadTasks()
+            loadPendingAssignments()
+            loadUnassignedTasks()
         }, 30000)
-        
+
         return () => clearInterval(interval)
     }, [])
 
@@ -124,19 +140,19 @@ export default function TeamLeadTasksPage() {
             // Lấy tasks của nhóm mà teamlead quản lý
             const res = await api.get('/tasks/my-tasks')
             const tasks = res.data.tasks || res.data || []
-            
+
             // Load subtasks for each task
             const tasksWithSubtasks = await Promise.all(
                 tasks.map(async (task: Task) => {
                     try {
                         const subtaskRes = await api.get(`/tasks/${task.id}/subtasks`)
                         const subtasks = subtaskRes.data.subtasks || subtaskRes.data || []
-                        
+
                         // Debug: Log để kiểm tra subtasks có assignments không
                         if (subtasks.length > 0) {
                             console.log(`Task ${task.id} subtasks:`, subtasks)
                         }
-                        
+
                         return {
                             ...task,
                             subtasks: subtasks
@@ -147,13 +163,94 @@ export default function TeamLeadTasksPage() {
                     }
                 })
             )
-            
+
             setTasks(tasksWithSubtasks)
         } catch (error: any) {
             console.error('Load tasks error:', error)
             showError(error.response?.data?.message || 'Lỗi tải danh sách công việc')
         } finally {
             setLoading(false)
+        }
+    }
+
+    const loadPendingAssignments = async () => {
+        try {
+            const res = await getPendingTaskAssignments()
+            setPendingAssignments(res.data || [])
+        } catch (error: any) {
+            console.error('Load pending assignments error:', error)
+            // Không hiển thị error, chỉ log
+        }
+    }
+
+    const handleAcceptAssignment = async (assignmentId: number) => {
+        try {
+            await acceptAssignment(assignmentId)
+            showSuccess('Đã chấp nhận công việc!')
+            await loadPendingAssignments()
+            await loadTasks()
+        } catch (error: any) {
+            console.error('Accept assignment error:', error)
+            showError(error.message || 'Lỗi khi chấp nhận công việc')
+        }
+    }
+
+    const handleDeclineAssignment = (assignmentId: number) => {
+        setDeclineAssignmentId(assignmentId)
+        setShowDeclineModal(true)
+        setDeclineReason('')
+    }
+
+    const handleDeclineAssignmentConfirm = async (assignmentId: number) => {
+        if (!declineReason.trim()) {
+            showError('Vui lòng nhập lý do từ chối')
+            return
+        }
+
+        try {
+            await declineAssignment(assignmentId, declineReason)
+            showSuccess('Đã từ chối công việc!')
+            setShowDeclineModal(false)
+            setDeclineReason('')
+            setDeclineAssignmentId(null)
+            await loadPendingAssignments()
+        } catch (error: any) {
+            console.error('Decline assignment error:', error)
+            showError(error.message || 'Lỗi khi từ chối công việc')
+        }
+    }
+
+    const loadUnassignedTasks = async () => {
+        try {
+            const res = await getUnassignedTasks()
+            console.log('Unassigned tasks loaded:', res)
+            setUnassignedTasks(res || [])
+        } catch (error: any) {
+            console.error('Load unassigned tasks error:', error)
+            // Không hiển thị error, chỉ log
+        }
+    }
+
+    const handleClaimTask = (task: any) => {
+        setClaimTaskId(task.id)
+        setClaimTaskDetails(task)
+        setShowClaimModal(true)
+    }
+
+    const handleClaimTaskConfirm = async () => {
+        if (!claimTaskId) return
+
+        try {
+            await requestToClaimTask(claimTaskId)
+            showSuccess('Đã gửi yêu cầu nhận công việc!')
+            setShowClaimModal(false)
+            setClaimTaskId(null)
+            setClaimTaskDetails(null)
+            await loadUnassignedTasks()
+            await loadPendingAssignments()
+        } catch (error: any) {
+            console.error('Claim task error:', error)
+            showError(error.message || 'Lỗi khi gửi yêu cầu nhận công việc')
         }
     }
 
@@ -190,7 +287,7 @@ export default function TeamLeadTasksPage() {
     const openViewModal = async (task: Task) => {
         setSelectedTask(task)
         setShowModal(true)
-        
+
         // Load subtasks for this task
         try {
             const res = await api.get(`/tasks/${task.id}/subtasks`)
@@ -248,7 +345,7 @@ export default function TeamLeadTasksPage() {
         setShowModal(false)
         setSelectedTask(null)
     }
-    
+
     const closeSubtaskModal = () => {
         setShowSubtaskModal(false)
         setSubtaskFormData({
@@ -260,23 +357,23 @@ export default function TeamLeadTasksPage() {
             ghiChu: ''
         })
     }
-    
+
     const openSubtaskListModal = (task: Task) => {
         console.log('Open subtask list for task', task.id, task.subtasks)
         setSelectedTask(task)
         loadGroupMembersForTask(task)
         setShowSubtaskListModal(true)
     }
-    
+
     const closeSubtaskListModal = () => {
         setShowSubtaskListModal(false)
     }
-    
+
     const openSubtaskDetailModal = (subtask: any) => {
         setSelectedSubtask(subtask)
         setShowSubtaskDetailModal(true)
     }
-    
+
     const closeSubtaskDetailModal = () => {
         setShowSubtaskDetailModal(false)
         setSelectedSubtask(null)
@@ -301,13 +398,13 @@ export default function TeamLeadTasksPage() {
             showError('Vui lòng nhập tên công việc con')
             return
         }
-        
+
         // Cho phép tạo subtask không cần chọn người thực hiện (member có thể tự nhận sau)
         // if (!subtaskFormData.nguoiThucHienId) {
         //     showError('Vui lòng chọn người thực hiện')
         //     return
         // }
-        
+
         if (!subtaskFormData.ngayBatDau) {
             showWarning('Vui lòng chọn ngày bắt đầu cho công việc con')
             return
@@ -350,20 +447,20 @@ export default function TeamLeadTasksPage() {
                 nguoiThucHienId: subtaskFormData.nguoiThucHienId ? parseInt(subtaskFormData.nguoiThucHienId) : null,
                 ghiChu: subtaskFormData.ghiChu || null
             }
-            
+
             await api.post(`/tasks/${selectedTask?.id}/subtasks`, payload)
             showSuccess('Tạo công việc con thành công!')
             closeSubtaskModal()
-            
+
             // Reload tasks to get updated data with assignments
             await loadTasks()
-            
+
             // If modal is still showing selected task, reload it with assignments
             if (selectedTask) {
                 try {
                     const taskRes = await api.get(`/tasks/${selectedTask.id}`)
                     const taskWithAssignments = taskRes.data
-                    
+
                     // Load subtasks
                     const subtaskRes = await api.get(`/tasks/${selectedTask.id}/subtasks`)
                     const updatedTask = {
@@ -402,13 +499,13 @@ export default function TeamLeadTasksPage() {
 
     const handleUpdateTask = async (e: React.FormEvent) => {
         e.preventDefault()
-        
+
         if (!editingTask) return
 
         // Validate dates
         const taskStart = editTaskForm.startDate ? new Date(editTaskForm.startDate) : null
         const taskEnd = editTaskForm.dueDate ? new Date(editTaskForm.dueDate) : null
-        
+
         if (taskStart && taskEnd && taskStart > taskEnd) {
             showWarning('Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc!')
             return
@@ -419,10 +516,10 @@ export default function TeamLeadTasksPage() {
             try {
                 const projectRes = await api.get(`/duans/${editingTask.duanId}`)
                 const project = projectRes.data
-                
+
                 const projectStart = project.ngaybatdau ? new Date(project.ngaybatdau) : null
                 const projectEnd = project.ngayketthuc ? new Date(project.ngayketthuc) : null
-                
+
                 if (projectStart && taskStart && taskStart < projectStart) {
                     showWarning('Ngày bắt đầu của công việc phải lớn hơn hoặc bằng ngày bắt đầu của dự án!')
                     return
@@ -435,7 +532,7 @@ export default function TeamLeadTasksPage() {
                 console.error('Error fetching project:', error)
             }
         }
-        
+
         try {
             await updateTask(editingTask.id, {
                 tentask: editTaskForm.name,
@@ -444,7 +541,7 @@ export default function TeamLeadTasksPage() {
                 ngayBatDau: editTaskForm.startDate,
                 ngayKetThuc: editTaskForm.dueDate
             })
-            
+
             showSuccess('Cập nhật công việc thành công!')
             setShowEditTaskModal(false)
             setEditingTask(null)
@@ -474,7 +571,7 @@ export default function TeamLeadTasksPage() {
 
     const handleUpdateSubtask = async (e: React.FormEvent) => {
         e.preventDefault()
-        
+
         if (!editingSubtask || !selectedTask) return
 
         // Validate
@@ -502,10 +599,10 @@ export default function TeamLeadTasksPage() {
             showSuccess('Cập nhật công việc con thành công!')
             setShowEditSubtaskModal(false)
             setEditingSubtask(null)
-            
+
             // Reload tasks and update selected task
             await loadTasks()
-            
+
             if (selectedTask) {
                 try {
                     const subtaskRes = await api.get(`/tasks/${selectedTask.id}/subtasks`)
@@ -533,10 +630,10 @@ export default function TeamLeadTasksPage() {
         try {
             await api.delete(`/tasks/${selectedTask.id}/subtasks/${subtaskId}`)
             showSuccess('Xóa công việc con thành công!')
-            
+
             // Reload tasks and update selected task
             await loadTasks()
-            
+
             if (selectedTask) {
                 try {
                     const subtaskRes = await api.get(`/tasks/${selectedTask.id}/subtasks`)
@@ -761,6 +858,141 @@ export default function TeamLeadTasksPage() {
                 </div>
             </div>
 
+            {/* Unassigned Tasks Section - Available to Claim */}
+            {unassignedTasks.length > 0 && (
+                <div className="bg-white rounded-2xl shadow-lg border border-blue-200 bg-blue-50">
+                    <div className="p-6 border-b border-blue-300 bg-blue-100">
+                        <h2 className="text-xl font-bold text-blue-900 flex items-center gap-2">
+                            <Hand className="w-6 h-6" />
+                            Công việc chưa ai nhận ({unassignedTasks.length})
+                        </h2>
+                    </div>
+                    <div className="divide-y divide-blue-200">
+                        {unassignedTasks.map(task => (
+                            <div key={task.id} className="p-6 hover:bg-blue-100 transition-all">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-start gap-3 mb-3">
+                                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-400 to-cyan-600 flex items-center justify-center flex-shrink-0">
+                                                <Folder className="w-5 h-5 text-white" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="text-lg font-bold text-gray-900 mb-1">{task.tentask}</h3>
+                                                {task.mota && (
+                                                    <p className="text-sm text-gray-600 line-clamp-2">{task.mota}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-3 text-sm mb-3">
+                                            <span className="px-3 py-1 rounded-lg font-semibold bg-blue-200 text-blue-900">
+                                                Chưa giao
+                                            </span>
+                                            {task.mucDoUuTien && (
+                                                <span className={`px-3 py-1 rounded-lg font-semibold ${getPriorityColor(task.mucDoUuTien)}`}>
+                                                    {getPriorityLabel(task.mucDoUuTien)}
+                                                </span>
+                                            )}
+                                            <span className="text-gray-600">
+                                                <span className="font-semibold">Tạo bởi:</span> {task.nguoiGiao?.hoten || 'Quản lý'}
+                                            </span>
+                                            {task.ngayKetThuc && (
+                                                <span className="text-gray-600">
+                                                    <span className="font-semibold">Hạn chót:</span> {new Date(task.ngayKetThuc).toLocaleDateString('vi-VN')}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {task.duan && (
+                                            <p className="text-sm text-gray-600">
+                                                <span className="font-semibold">Dự án:</span> {task.duan?.tenduan}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={() => handleClaimTask(task)}
+                                        className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-semibold transition-colors flex items-center gap-2 flex-shrink-0"
+                                    >
+                                        <Hand className="w-4 h-4" />
+                                        Yêu cầu nhận
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Pending Assignments Section */}
+            {pendingAssignments.length > 0 && (
+                <div className="bg-white rounded-2xl shadow-lg border border-amber-200 bg-amber-50">
+                    <div className="p-6 border-b border-amber-300 bg-amber-100">
+                        <h2 className="text-xl font-bold text-amber-900 flex items-center gap-2">
+                            <AlertCircle className="w-6 h-6" />
+                            Công việc chờ xác nhận ({pendingAssignments.length})
+                        </h2>
+                    </div>
+                    <div className="divide-y divide-amber-200">
+                        {pendingAssignments.map(assignment => (
+                            <div key={assignment.id} className="p-6 hover:bg-amber-100 transition-all">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-start gap-3 mb-3">
+                                            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center flex-shrink-0">
+                                                <Folder className="w-5 h-5 text-white" />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <h3 className="text-lg font-bold text-gray-900 mb-1">{assignment.task?.tentask}</h3>
+                                                {assignment.task?.moTa && (
+                                                    <p className="text-sm text-gray-600 line-clamp-2">{assignment.task?.moTa}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-3 text-sm mb-3">
+                                            <span className="px-3 py-1 rounded-lg font-semibold bg-amber-200 text-amber-900">
+                                                Chờ xác nhận
+                                            </span>
+                                            {assignment.task?.mucDoUuTien && (
+                                                <span className={`px-3 py-1 rounded-lg font-semibold ${getPriorityColor(assignment.task?.mucDoUuTien)}`}>
+                                                    {getPriorityLabel(assignment.task?.mucDoUuTien)}
+                                                </span>
+                                            )}
+                                            <span className="text-gray-600">
+                                                <span className="font-semibold">Giao bởi:</span> {assignment.task?.user?.hoVaTen || 'Quản lý'}
+                                            </span>
+                                            {assignment.task?.hanChot && (
+                                                <span className="text-gray-600">
+                                                    <span className="font-semibold">Hạn chót:</span> {new Date(assignment.task?.hanChot).toLocaleDateString('vi-VN')}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {assignment.task?.duAn && (
+                                            <p className="text-sm text-gray-600">
+                                                <span className="font-semibold">Dự án:</span> {assignment.task?.duAn?.tenDuAn}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="flex gap-2 flex-shrink-0">
+                                        <button
+                                            onClick={() => handleAcceptAssignment(assignment.id)}
+                                            className="px-4 py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white font-semibold transition-colors flex items-center gap-2"
+                                        >
+                                            <ThumbsUp className="w-4 h-4" />
+                                            Chấp nhận
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeclineAssignment(assignment.id)}
+                                            className="px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white font-semibold transition-colors flex items-center gap-2"
+                                        >
+                                            <ThumbsDown className="w-4 h-4" />
+                                            Từ chối
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* Task List */}
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100">
                 <div className="p-6 border-b border-gray-200">
@@ -774,8 +1006,8 @@ export default function TeamLeadTasksPage() {
                         </div>
                     ) : (
                         filteredTasks.map(task => (
-                            <div 
-                                key={task.id} 
+                            <div
+                                key={task.id}
                                 className="p-6 hover:bg-blue-50 transition-all cursor-pointer"
                                 onClick={() => openViewModal(task)}
                             >
@@ -807,7 +1039,7 @@ export default function TeamLeadTasksPage() {
                                                 const hasPendingAssignment = task.assignments?.some(
                                                     (a: any) => a.status === 'pending'
                                                 )
-                                                
+
                                                 if (hasPendingAssignment) {
                                                     // Hiển thị trạng thái "Đang chờ xác nhận"
                                                     return (
@@ -847,21 +1079,21 @@ export default function TeamLeadTasksPage() {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                        <button 
+                                        <button
                                             onClick={() => openViewModal(task)}
                                             className="p-2 hover:bg-blue-100 text-blue-600 rounded-lg transition-all"
                                             title="Xem chi tiết"
                                         >
                                             <Eye size={18} />
                                         </button>
-                                        <button 
+                                        <button
                                             onClick={() => openEditTaskModal(task)}
                                             className="p-2 hover:bg-yellow-100 text-yellow-600 rounded-lg transition-all"
                                             title="Chỉnh sửa"
                                         >
                                             <Edit size={18} />
                                         </button>
-                                        <button 
+                                        <button
                                             onClick={() => handleDeleteTask(task.id)}
                                             className="p-2 hover:bg-red-100 text-red-600 rounded-lg transition-all"
                                             title="Xóa"
@@ -961,11 +1193,11 @@ export default function TeamLeadTasksPage() {
                                                 Ngày bắt đầu
                                             </label>
                                             <p className="text-gray-900 font-semibold">
-                                                {selectedTask.ngayBatDau ? new Date(selectedTask.ngayBatDau).toLocaleDateString('vi-VN', { 
-                                                    weekday: 'short', 
-                                                    year: 'numeric', 
-                                                    month: 'long', 
-                                                    day: 'numeric' 
+                                                {selectedTask.ngayBatDau ? new Date(selectedTask.ngayBatDau).toLocaleDateString('vi-VN', {
+                                                    weekday: 'short',
+                                                    year: 'numeric',
+                                                    month: 'long',
+                                                    day: 'numeric'
                                                 }) : 'Chưa xác định'}
                                             </p>
                                         </div>
@@ -1021,7 +1253,7 @@ export default function TeamLeadTasksPage() {
                                         const hasPendingAssignment = selectedTask.assignments?.some(
                                             (a: any) => a.status === 'pending'
                                         )
-                                        
+
                                         if (hasPendingAssignment) {
                                             return (
                                                 <div className="bg-orange-50 p-4 rounded-xl border border-orange-200">
@@ -1064,7 +1296,7 @@ export default function TeamLeadTasksPage() {
 
                                     {/* Subtasks Summary */}
                                     {selectedTask.subtasks && selectedTask.subtasks.length > 0 && (
-                                        <div 
+                                        <div
                                             onClick={() => {
                                                 closeModal()
                                                 openSubtaskListModal(selectedTask)
@@ -1103,7 +1335,7 @@ export default function TeamLeadTasksPage() {
                                     <div className="text-center pt-2 border-t border-gray-200">
                                         <p className="text-xs text-gray-400">Task ID: #{selectedTask.id}</p>
                                     </div>
-                                    
+
                                     {/* Worklog and Comment sections for Task - Always visible */}
                                     <div className="mt-4 pt-4 border-t border-gray-200 bg-blue-50 rounded-lg p-4">
                                         <WorklogTask taskId={selectedTask.id} taskStatus={selectedTask.trangThai} />
@@ -1173,7 +1405,7 @@ export default function TeamLeadTasksPage() {
                                 <input
                                     type="text"
                                     value={subtaskFormData.tenSubtask}
-                                    onChange={(e) => setSubtaskFormData({...subtaskFormData, tenSubtask: e.target.value})}
+                                    onChange={(e) => setSubtaskFormData({ ...subtaskFormData, tenSubtask: e.target.value })}
                                     className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all"
                                     placeholder="Nhập tên công việc con..."
                                 />
@@ -1183,7 +1415,7 @@ export default function TeamLeadTasksPage() {
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả</label>
                                 <textarea
                                     value={subtaskFormData.mota}
-                                    onChange={(e) => setSubtaskFormData({...subtaskFormData, mota: e.target.value})}
+                                    onChange={(e) => setSubtaskFormData({ ...subtaskFormData, mota: e.target.value })}
                                     rows={3}
                                     className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all resize-none"
                                     placeholder="Nhập mô tả..."
@@ -1198,7 +1430,7 @@ export default function TeamLeadTasksPage() {
                                     <input
                                         type="date"
                                         value={subtaskFormData.ngayBatDau}
-                                        onChange={(e) => setSubtaskFormData({...subtaskFormData, ngayBatDau: e.target.value})}
+                                        onChange={(e) => setSubtaskFormData({ ...subtaskFormData, ngayBatDau: e.target.value })}
                                         min={selectedTask.ngayBatDau || undefined}
                                         max={selectedTask.ngayKetThuc || undefined}
                                         className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 outline-none"
@@ -1209,7 +1441,7 @@ export default function TeamLeadTasksPage() {
                                     <input
                                         type="date"
                                         value={subtaskFormData.ngayKetThuc}
-                                        onChange={(e) => setSubtaskFormData({...subtaskFormData, ngayKetThuc: e.target.value})}
+                                        onChange={(e) => setSubtaskFormData({ ...subtaskFormData, ngayKetThuc: e.target.value })}
                                         min={subtaskFormData.ngayBatDau || selectedTask.ngayBatDau || undefined}
                                         max={selectedTask.ngayKetThuc || undefined}
                                         className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 outline-none"
@@ -1223,7 +1455,7 @@ export default function TeamLeadTasksPage() {
                                 </label>
                                 <select
                                     value={subtaskFormData.nguoiThucHienId}
-                                    onChange={(e) => setSubtaskFormData({...subtaskFormData, nguoiThucHienId: e.target.value})}
+                                    onChange={(e) => setSubtaskFormData({ ...subtaskFormData, nguoiThucHienId: e.target.value })}
                                     className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 outline-none bg-white"
                                 >
                                     <option value="">Không chọn - Member tự nhận sau</option>
@@ -1243,7 +1475,7 @@ export default function TeamLeadTasksPage() {
                                 <label className="block text-sm font-medium text-gray-700 mb-2">Ghi chú</label>
                                 <textarea
                                     value={subtaskFormData.ghiChu}
-                                    onChange={(e) => setSubtaskFormData({...subtaskFormData, ghiChu: e.target.value})}
+                                    onChange={(e) => setSubtaskFormData({ ...subtaskFormData, ghiChu: e.target.value })}
                                     rows={2}
                                     className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all resize-none"
                                     placeholder="Nhập ghi chú..."
@@ -1307,7 +1539,7 @@ export default function TeamLeadTasksPage() {
                             {selectedTask.subtasks && selectedTask.subtasks.length > 0 ? (
                                 <div className="space-y-4">
                                     {selectedTask.subtasks.map((subtask: any, index: number) => (
-                                        <div 
+                                        <div
                                             key={subtask.id}
                                             className="group bg-white border-2 border-gray-200 rounded-2xl p-5 hover:border-indigo-400 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
                                         >
@@ -1318,39 +1550,38 @@ export default function TeamLeadTasksPage() {
                                                         <span className="text-white font-bold text-lg">#{index + 1}</span>
                                                     </div>
                                                 </div>
-                                                
+
                                                 {/* Content */}
                                                 <div className="flex-1 min-w-0">
                                                     {/* Title */}
                                                     <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors">
                                                         {subtask.tenSubtask}
                                                     </h3>
-                                                    
+
                                                     {/* Description */}
                                                     {subtask.mota && (
                                                         <p className="text-sm text-gray-600 mb-3 line-clamp-2 leading-relaxed">
                                                             {subtask.mota}
                                                         </p>
                                                     )}
-                                                    
+
                                                     {/* Info Tags */}
                                                     <div className="flex items-center gap-3 flex-wrap">
                                                         {/* Status Badge */}
-                                                        <div className={`px-4 py-1.5 rounded-full text-xs font-bold shadow-sm ${
-                                                            subtask.trangThai === 'Hoàn thành' ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white' :
+                                                        <div className={`px-4 py-1.5 rounded-full text-xs font-bold shadow-sm ${subtask.trangThai === 'Hoàn thành' ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white' :
                                                             subtask.trangThai === 'Đang chạy' ? 'bg-gradient-to-r from-blue-400 to-cyan-500 text-white' :
-                                                            subtask.trangThai === 'Chờ xác nhận hoàn thành' ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white' :
-                                                            'bg-gradient-to-r from-gray-300 to-gray-400 text-gray-700'
-                                                        }`}>
+                                                                subtask.trangThai === 'Chờ xác nhận hoàn thành' ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white' :
+                                                                    'bg-gradient-to-r from-gray-300 to-gray-400 text-gray-700'
+                                                            }`}>
                                                             {subtask.trangThai}
                                                         </div>
-                                                        
+
                                                         {/* Assignee - Kiểm tra assignment status */}
                                                         {(() => {
                                                             const hasPendingAssignment = subtask.assignments?.some(
                                                                 (a: any) => a.status === 'pending'
                                                             )
-                                                            
+
                                                             if (hasPendingAssignment) {
                                                                 return (
                                                                     <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-full border border-orange-200">
@@ -1372,7 +1603,7 @@ export default function TeamLeadTasksPage() {
                                                             }
                                                             return null
                                                         })()}
-                                                        
+
                                                         {/* Due Date */}
                                                         {subtask.ngayKetThuc && (
                                                             <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-full border border-orange-200">
@@ -1388,7 +1619,7 @@ export default function TeamLeadTasksPage() {
                                                         )}
                                                     </div>
                                                 </div>
-                                                
+
                                                 {/* Action Buttons */}
                                                 <div className="flex-shrink-0 flex items-center gap-2">
                                                     <button
@@ -1443,7 +1674,7 @@ export default function TeamLeadTasksPage() {
                                                     </button>
                                                 </div>
                                             </div>
-                                            
+
                                             {/* Worklog and Comment sections for Subtask */}
                                             {expandedWorklogSubtaskId === subtask.id && (
                                                 <div className="mt-4 pt-4 border-t border-gray-200 bg-blue-50/50 rounded-lg p-4">
@@ -1548,11 +1779,10 @@ export default function TeamLeadTasksPage() {
                             {/* Status */}
                             <div className="bg-white p-4 rounded-xl border-2 border-gray-200 shadow-sm">
                                 <label className="text-sm font-medium text-gray-500 mb-2 block">Trạng thái</label>
-                                <div className={`px-3 py-2 rounded-lg font-semibold text-center ${
-                                    selectedSubtask.trangThai === 'Hoàn thành' ? 'bg-green-100 text-green-700' :
+                                <div className={`px-3 py-2 rounded-lg font-semibold text-center ${selectedSubtask.trangThai === 'Hoàn thành' ? 'bg-green-100 text-green-700' :
                                     selectedSubtask.trangThai === 'Đang chạy' ? 'bg-blue-100 text-blue-700' :
-                                    'bg-gray-100 text-gray-700'
-                                }`}>
+                                        'bg-gray-100 text-gray-700'
+                                    }`}>
                                     {selectedSubtask.trangThai}
                                 </div>
                             </div>
@@ -1590,11 +1820,10 @@ export default function TeamLeadTasksPage() {
                             </div>
 
                             {/* Assignee */}
-                            <div className={`p-4 rounded-xl border ${
-                                selectedSubtask.nguoiThucHien 
-                                    ? 'bg-blue-50 border-blue-200' 
-                                    : 'bg-yellow-50 border-yellow-300'
-                            }`}>
+                            <div className={`p-4 rounded-xl border ${selectedSubtask.nguoiThucHien
+                                ? 'bg-blue-50 border-blue-200'
+                                : 'bg-yellow-50 border-yellow-300'
+                                }`}>
                                 <label className="text-sm font-medium text-gray-500 mb-3 block flex items-center gap-2">
                                     <Users className="w-4 h-4" />
                                     Người thực hiện
@@ -1800,7 +2029,7 @@ export default function TeamLeadTasksPage() {
                                     <input
                                         type="text"
                                         value={editSubtaskForm.tenSubtask}
-                                        onChange={(e) => setEditSubtaskForm({...editSubtaskForm, tenSubtask: e.target.value})}
+                                        onChange={(e) => setEditSubtaskForm({ ...editSubtaskForm, tenSubtask: e.target.value })}
                                         className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none transition-all"
                                         placeholder="Nhập tên công việc con..."
                                         required
@@ -1811,7 +2040,7 @@ export default function TeamLeadTasksPage() {
                                     <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả</label>
                                     <textarea
                                         value={editSubtaskForm.mota}
-                                        onChange={(e) => setEditSubtaskForm({...editSubtaskForm, mota: e.target.value})}
+                                        onChange={(e) => setEditSubtaskForm({ ...editSubtaskForm, mota: e.target.value })}
                                         rows={3}
                                         className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none transition-all resize-none"
                                         placeholder="Nhập mô tả công việc..."
@@ -1824,7 +2053,7 @@ export default function TeamLeadTasksPage() {
                                         <input
                                             type="date"
                                             value={editSubtaskForm.ngayBatDau}
-                                            onChange={(e) => setEditSubtaskForm({...editSubtaskForm, ngayBatDau: e.target.value})}
+                                            onChange={(e) => setEditSubtaskForm({ ...editSubtaskForm, ngayBatDau: e.target.value })}
                                             className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none transition-all"
                                         />
                                     </div>
@@ -1833,7 +2062,7 @@ export default function TeamLeadTasksPage() {
                                         <input
                                             type="date"
                                             value={editSubtaskForm.ngayKetThuc}
-                                            onChange={(e) => setEditSubtaskForm({...editSubtaskForm, ngayKetThuc: e.target.value})}
+                                            onChange={(e) => setEditSubtaskForm({ ...editSubtaskForm, ngayKetThuc: e.target.value })}
                                             className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none transition-all"
                                         />
                                     </div>
@@ -1845,7 +2074,7 @@ export default function TeamLeadTasksPage() {
                                     </label>
                                     <select
                                         value={editSubtaskForm.nguoiThucHienId}
-                                        onChange={(e) => setEditSubtaskForm({...editSubtaskForm, nguoiThucHienId: e.target.value})}
+                                        onChange={(e) => setEditSubtaskForm({ ...editSubtaskForm, nguoiThucHienId: e.target.value })}
                                         className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none transition-all"
                                         required
                                     >
@@ -1866,7 +2095,7 @@ export default function TeamLeadTasksPage() {
                                     <label className="block text-sm font-medium text-gray-700 mb-2">Ghi chú</label>
                                     <textarea
                                         value={editSubtaskForm.ghiChu}
-                                        onChange={(e) => setEditSubtaskForm({...editSubtaskForm, ghiChu: e.target.value})}
+                                        onChange={(e) => setEditSubtaskForm({ ...editSubtaskForm, ghiChu: e.target.value })}
                                         rows={2}
                                         className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-yellow-500 focus:ring-2 focus:ring-yellow-200 outline-none transition-all resize-none"
                                         placeholder="Nhập ghi chú..."
@@ -1908,6 +2137,89 @@ export default function TeamLeadTasksPage() {
                                 </div>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Claim Task Modal */}
+            {showClaimModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                            <Hand className="w-6 h-6 text-blue-600" />
+                            <h2 className="text-xl font-bold text-gray-900">Xác nhận nhận công việc</h2>
+                        </div>
+                        <div className="mb-6">
+                            <p className="text-gray-600 mb-3">Bạn muốn nhận công việc này?</p>
+                            {claimTaskDetails && (
+                                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                                    <p className="font-semibold text-gray-900 mb-2">{claimTaskDetails.tentask}</p>
+                                    {claimTaskDetails.mota && (
+                                        <p className="text-sm text-gray-600 line-clamp-2">{claimTaskDetails.mota}</p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={() => {
+                                    setShowClaimModal(false)
+                                    setClaimTaskId(null)
+                                    setClaimTaskDetails(null)
+                                }}
+                                className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleClaimTaskConfirm}
+                                className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors font-medium"
+                            >
+                                Xác nhận nhận
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Decline Assignment Modal */}
+            {showDeclineModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+                        <div className="flex items-center gap-3 mb-4">
+                            <ThumbsDown className="w-6 h-6 text-red-600" />
+                            <h2 className="text-xl font-bold text-gray-900">Từ chối công việc</h2>
+                        </div>
+                        <p className="text-gray-600 mb-4">Vui lòng cho biết lý do từ chối công việc này:</p>
+                        <textarea
+                            value={declineReason}
+                            onChange={(e) => setDeclineReason(e.target.value)}
+                            placeholder="Nhập lý do từ chối..."
+                            rows={4}
+                            className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-red-500 focus:ring-2 focus:ring-red-200 outline-none transition-all resize-none mb-4"
+                        />
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={() => {
+                                    setShowDeclineModal(false)
+                                    setDeclineReason('')
+                                    setDeclineAssignmentId(null)
+                                }}
+                                className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    if (declineAssignmentId) {
+                                        await handleDeclineAssignmentConfirm(declineAssignmentId)
+                                    }
+                                }}
+                                className="px-6 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors font-medium"
+                            >
+                                Xác nhận từ chối
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

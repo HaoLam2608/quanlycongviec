@@ -90,7 +90,6 @@ export const useWebRTC = ({
     const pc = new RTCPeerConnection(iceServers);
     peerConnectionRef.current = pc;
 
-
     // Handle ICE candidates
     pc.onicecandidate = (event) => {
       if (event.candidate && socket) {
@@ -119,38 +118,72 @@ export const useWebRTC = ({
       // Use audio element for audio calls, video element for video calls
       if (callType === 'audio' && remoteAudioRef?.current) {
         console.log('AUDIO CALL: Setting srcObject to audio element');
-        remoteAudioRef.current.srcObject = stream;
-        remoteAudioRef.current.volume = 1.0;
+        const audioEl = remoteAudioRef.current;
+        audioEl.srcObject = stream;
+        audioEl.volume = 1.0;
         console.log('AUDIO ELEMENT:', {
-          src: remoteAudioRef.current.src,
-          volume: remoteAudioRef.current.volume,
-          muted: remoteAudioRef.current.muted,
-          paused: remoteAudioRef.current.paused
+          src: audioEl.src,
+          volume: audioEl.volume,
+          muted: audioEl.muted,
+          paused: audioEl.paused
         });
-        remoteAudioRef.current.play().then(() => {
-          console.log('AUDIO PLAYBACK STARTED');
-        }).catch(err => {
-          console.error('AUDIO PLAYBACK ERROR:', err);
-        });
+        
+        // Wait for metadata to be loaded before playing
+        audioEl.onloadedmetadata = () => {
+          audioEl.play().then(() => {
+            console.log('✅ AUDIO PLAYBACK STARTED');
+          }).catch(err => {
+            console.error('❌ AUDIO PLAYBACK ERROR:', err);
+          });
+        };
       } else if (callType === 'video' && remoteVideoRef.current) {
         console.log('VIDEO CALL: Setting srcObject to video element');
-        remoteVideoRef.current.srcObject = stream;
-        remoteVideoRef.current.muted = false; // Ensure not muted
-        remoteVideoRef.current.volume = 1.0; // Max volume
-        console.log('VIDEO ELEMENT:', {
-          muted: remoteVideoRef.current.muted,
-          volume: remoteVideoRef.current.volume,
+        const videoEl = remoteVideoRef.current;
+        
+        // Important: Stop any existing playback first to prevent interruption error
+        if (videoEl.srcObject) {
+          console.log('⚠️ Stopping existing video playback before setting new stream');
+          videoEl.pause();
+          videoEl.srcObject = null;
+        }
+        
+        // Set new stream
+        videoEl.srcObject = stream;
+        videoEl.muted = false; // Ensure not muted for audio
+        videoEl.volume = 1.0; // Max volume
+        
+        console.log('VIDEO ELEMENT CONFIG:', {
+          muted: videoEl.muted,
+          volume: videoEl.volume,
           audioTracks: stream.getAudioTracks().map(t => ({
             enabled: t.enabled,
             muted: t.muted,
             readyState: t.readyState
+          })),
+          videoTracks: stream.getVideoTracks().map(t => ({
+            enabled: t.enabled,
+            readyState: t.readyState
           }))
         });
-        remoteVideoRef.current.play().then(() => {
-          console.log('VIDEO PLAYBACK STARTED');
-        }).catch(err => {
-          console.error('VIDEO PLAYBACK ERROR:', err);
-        });
+        
+        // Wait for metadata to be loaded before playing
+        videoEl.onloadedmetadata = () => {
+          console.log('📹 Video metadata loaded, starting playback...');
+          videoEl.play().then(() => {
+            console.log('✅ VIDEO PLAYBACK STARTED');
+          }).catch(err => {
+            console.error('❌ VIDEO PLAYBACK ERROR:', err.name, err.message);
+            // Retry once after short delay if play was interrupted
+            if (err.name === 'AbortError') {
+              console.log('⚠️ Play was aborted, retrying in 100ms...');
+              setTimeout(() => {
+                videoEl.play().catch(retryErr => {
+                  console.error('❌ VIDEO PLAYBACK RETRY FAILED:', retryErr);
+                });
+              }, 100);
+            }
+          });
+        };
       }
     };
 

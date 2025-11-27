@@ -223,12 +223,12 @@ export default function MyTasksPage() {
     const updateTaskStatus = async (taskId: number, newStatus: string, type: 'task' | 'subtask') => {
         try {
             console.log('🔄 [updateTaskStatus] Starting update:', { taskId, newStatus, type });
-            
+
             if (type === 'task') {
                 console.log('📤 [updateTaskStatus] Calling updateMemberTaskStatus...');
                 const response = await updateMemberTaskStatus(taskId, newStatus)
                 console.log('✅ [updateTaskStatus] Response:', response);
-                
+
                 // Backend returns actual status (may be "Chờ xác nhận hoàn thành" instead of "Hoàn thành")
                 const actualStatus = response.task?.trangThai || (newStatus === 'Hoàn thành' ? 'Chờ xác nhận hoàn thành' : newStatus)
 
@@ -250,28 +250,28 @@ export default function MyTasksPage() {
                 console.log('🔍 [updateTaskStatus] Finding subtask in list...');
                 const subtask = subtasks.find(st => st.id === taskId)
                 console.log('📋 [updateTaskStatus] Found subtask:', subtask);
-                
+
                 if (!subtask) {
                     console.error('❌ [updateTaskStatus] Subtask not found in list:', taskId);
                     showError('Không tìm thấy công việc con');
                     return;
                 }
-                
+
                 if (!subtask.task) {
                     console.error('❌ [updateTaskStatus] Subtask has no parent task:', subtask);
                     showError('Công việc con không có task cha');
                     return;
                 }
-                
+
                 console.log('📤 [updateTaskStatus] Calling updateMemberSubtaskStatus...', {
                     taskId: subtask.task.id,
                     subtaskId: taskId,
                     newStatus
                 });
-                
+
                 const response = await updateMemberSubtaskStatus(subtask.task.id, taskId, newStatus)
                 console.log('✅ [updateTaskStatus] Response:', response);
-                
+
                 // Backend returns actual status (may be "Chờ xác nhận hoàn thành" instead of "Hoàn thành")
                 const actualStatus = response.subtask?.trangThai || (newStatus === 'Hoàn thành' ? 'Chờ xác nhận hoàn thành' : newStatus)
 
@@ -390,13 +390,15 @@ export default function MyTasksPage() {
                 {/* Request available tasks button */}
                 <div className="mb-4 flex justify-end">
                     <button
+                        disabled={loading}
                         onClick={async () => {
                             // Load unassigned subtasks từ team lead
                             try {
                                 setLoading(true)
+                                console.log('🔄 Fetching unassigned subtasks...')
                                 const res = await getUnassignedSubtasks()
                                 console.log('📋 Unassigned subtasks response:', res)
-                                
+
                                 if (res && res.subtasks) {
                                     // Format subtasks thành availableItems
                                     const formattedItems = res.subtasks.map((subtask: any) => ({
@@ -415,10 +417,12 @@ export default function MyTasksPage() {
                                             }
                                         }
                                     }))
-                                    
+
+                                    console.log('✅ Formatted items:', formattedItems)
                                     setAvailableItems(formattedItems)
+                                    console.log('🔓 Opening modal...')
                                     setIsAvailableModalOpen(true)
-                                    
+
                                     if (formattedItems.length === 0) {
                                         showSuccess('Hiện không có công việc nào chưa được nhận từ team lead của bạn')
                                     }
@@ -432,10 +436,10 @@ export default function MyTasksPage() {
                                 setLoading(false)
                             }
                         }}
-                        className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-2"
+                        className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                     >
-                        <span>🎯</span>
-                        <span>Nhận công việc từ Team Lead</span>
+                        <span>{loading ? '⏳' : '🎯'}</span>
+                        <span>{loading ? 'Đang tải...' : 'Yêu cầu nhận công việc'}</span>
                     </button>
                 </div>
 
@@ -507,99 +511,6 @@ export default function MyTasksPage() {
                                 <div className="flex items-start justify-between">
                                     <div className="flex-1">
                                         <div className="flex items-center gap-3 mb-2">
-                        {/* Available Tasks Modal */}
-                        {isAvailableModalOpen && (
-                            <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
-                                <div className="bg-white rounded-lg w-full max-w-3xl max-h-[80vh] overflow-y-auto shadow-2xl">
-                                    <div className="p-4 border-b flex items-center justify-between">
-                                        <h3 className="font-semibold text-lg">Công việc chưa có người nhận từ Team Lead</h3>
-                                        <button 
-                                            onClick={() => setIsAvailableModalOpen(false)} 
-                                            className="text-gray-500 hover:text-gray-700 text-2xl leading-none px-2"
-                                        >
-                                            ×
-                                        </button>
-                                    </div>
-                                    <div className="p-4 space-y-3">
-                                        {availableItems.length === 0 ? (
-                                            <div className="text-center py-8 text-gray-500">
-                                                <p className="mb-2">✨ Không có công việc nào chưa được nhận</p>
-                                                <p className="text-sm">Tất cả công việc từ team lead của bạn đã có người đảm nhận</p>
-                                            </div>
-                                        ) : (
-                                            availableItems.map((ai, idx) => (
-                                                <div key={idx} className="border rounded-lg p-4 hover:border-blue-300 transition-colors">
-                                                    <div className="flex items-start justify-between gap-4">
-                                                        <div className="flex-1">
-                                                            <div className="font-medium text-lg mb-1">
-                                                                {ai.type === 'subtask' ? ai.item.tenSubtask : ai.item.tentask}
-                                                            </div>
-                                                            <div className="text-sm text-gray-600 space-y-1">
-                                                                {ai.type === 'subtask' && ai.item.task && (
-                                                                    <>
-                                                                        <div className="flex items-center gap-2">
-                                                                            <span className="text-gray-500">📋 Task cha:</span>
-                                                                            <span className="font-medium">{ai.item.task.tentask}</span>
-                                                                        </div>
-                                                                        {ai.item.task.duan && (
-                                                                            <div className="flex items-center gap-2">
-                                                                                <span className="text-gray-500">📁 Dự án:</span>
-                                                                                <span>{ai.item.task.duan.tenduan}</span>
-                                                                            </div>
-                                                                        )}
-                                                                        {ai.item.task.nguoiGiao && (
-                                                                            <div className="flex items-center gap-2">
-                                                                                <span className="text-gray-500">👤 Team Lead:</span>
-                                                                                <span>{ai.item.task.nguoiGiao.hoten} ({ai.item.task.nguoiGiao.manv})</span>
-                                                                            </div>
-                                                                        )}
-                                                                        {ai.item.ngayKetThuc && (
-                                                                            <div className="flex items-center gap-2">
-                                                                                <span className="text-gray-500">⏰ Deadline:</span>
-                                                                                <span>{new Date(ai.item.ngayKetThuc).toLocaleDateString('vi-VN')}</span>
-                                                                            </div>
-                                                                        )}
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                            {ai.item.mota && (
-                                                                <div className="mt-2 text-sm text-gray-600 bg-gray-50 p-2 rounded">
-                                                                    {ai.item.mota}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        {requestedIds.includes(ai.item.id) ? (
-                                                            <button disabled className="px-4 py-2 bg-gray-300 text-white rounded-lg whitespace-nowrap flex items-center gap-2">
-                                                                <span>⏳</span>
-                                                                <span>Đã gửi yêu cầu</span>
-                                                            </button>
-                                                        ) : (
-                                                            <button
-                                                                onClick={async () => {
-                                                                    try {
-                                                                        await claimSubtask(ai.item.id)
-                                                                        showSuccess('Yêu cầu nhận việc đã được gửi tới người phê duyệt.')
-                                                                        // Mark as requested (keep in list but disabled)
-                                                                        setRequestedIds(prev => [...prev, ai.item.id])
-                                                                    } catch (err: any) {
-                                                                        console.error('claimSubtask error', err)
-                                                                        showError(err?.response?.data?.message || err?.message || 'Không thể gửi yêu cầu nhận công việc')
-                                                                    }
-                                                                }}
-                                                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap flex items-center gap-2"
-                                                            >
-                                                                <span>✅</span>
-                                                                <span>Yêu cầu nhận việc</span>
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
                                             <h3 className="text-lg font-semibold text-gray-900">
                                                 {task.type === 'subtask' ? '• ' : ''}{task.title}
                                             </h3>
@@ -741,6 +652,99 @@ export default function MyTasksPage() {
                         ))
                     )}
                 </div>
+
+                {/* Available Tasks Modal */}
+                {isAvailableModalOpen && (
+                    <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-lg w-full max-w-3xl max-h-[80vh] overflow-y-auto shadow-2xl">
+                            <div className="p-4 border-b flex items-center justify-between">
+                                <h3 className="font-semibold text-lg">Công việc chưa có người nhận từ Team Lead</h3>
+                                <button
+                                    onClick={() => setIsAvailableModalOpen(false)}
+                                    className="text-gray-500 hover:text-gray-700 text-2xl leading-none px-2"
+                                >
+                                    ×
+                                </button>
+                            </div>
+                            <div className="p-4 space-y-3">
+                                {availableItems.length === 0 ? (
+                                    <div className="text-center py-8 text-gray-500">
+                                        <p className="mb-2">✨ Không có công việc nào chưa được nhận</p>
+                                        <p className="text-sm">Tất cả công việc từ team lead của bạn đã có người đảm nhận</p>
+                                    </div>
+                                ) : (
+                                    availableItems.map((ai, idx) => (
+                                        <div key={idx} className="border rounded-lg p-4 hover:border-blue-300 transition-colors">
+                                            <div className="flex items-start justify-between gap-4">
+                                                <div className="flex-1">
+                                                    <div className="font-medium text-lg mb-1">
+                                                        {ai.type === 'subtask' ? ai.item.tenSubtask : ai.item.tentask}
+                                                    </div>
+                                                    <div className="text-sm text-gray-600 space-y-1">
+                                                        {ai.type === 'subtask' && ai.item.task && (
+                                                            <>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-gray-500">📋 Task cha:</span>
+                                                                    <span className="font-medium">{ai.item.task.tentask}</span>
+                                                                </div>
+                                                                {ai.item.task.duan && (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-gray-500">📁 Dự án:</span>
+                                                                        <span>{ai.item.task.duan.tenduan}</span>
+                                                                    </div>
+                                                                )}
+                                                                {ai.item.task.nguoiGiao && (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-gray-500">👤 Team Lead:</span>
+                                                                        <span>{ai.item.task.nguoiGiao.hoten} ({ai.item.task.nguoiGiao.manv})</span>
+                                                                    </div>
+                                                                )}
+                                                                {ai.item.ngayKetThuc && (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="text-gray-500">⏰ Deadline:</span>
+                                                                        <span>{new Date(ai.item.ngayKetThuc).toLocaleDateString('vi-VN')}</span>
+                                                                    </div>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                    {ai.item.mota && (
+                                                        <div className="mt-2 text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                                                            {ai.item.mota}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {requestedIds.includes(ai.item.id) ? (
+                                                    <button disabled className="px-4 py-2 bg-gray-300 text-white rounded-lg whitespace-nowrap flex items-center gap-2">
+                                                        <span>⏳</span>
+                                                        <span>Đã gửi yêu cầu</span>
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={async () => {
+                                                            try {
+                                                                await claimSubtask(ai.item.id)
+                                                                showSuccess('Yêu cầu nhận việc đã được gửi tới người phê duyệt.')
+                                                                setRequestedIds(prev => [...prev, ai.item.id])
+                                                            } catch (err: any) {
+                                                                console.error('claimSubtask error', err)
+                                                                showError(err?.response?.data?.message || err?.message || 'Không thể gửi yêu cầu nhận công việc')
+                                                            }
+                                                        }}
+                                                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap flex items-center gap-2"
+                                                    >
+                                                        <span>✅</span>
+                                                        <span>Yêu cầu nhận việc</span>
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Task Detail Modal */}
                 <Modal isOpen={isDetailModalOpen} onClose={() => setIsDetailModalOpen(false)} title="Chi tiết công việc">
