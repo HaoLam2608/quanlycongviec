@@ -2,7 +2,7 @@
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
-    await queryInterface.createTable('ConversationParticipants', {
+    await queryInterface.createTable('conversationparticipants', {
       id: {
         allowNull: false,
         autoIncrement: true,
@@ -63,18 +63,18 @@ module.exports = {
     });
 
     // Unique constraint: one user per conversation
-    await queryInterface.addConstraint('ConversationParticipants', {
+    await queryInterface.addConstraint('conversationparticipants', {
       fields: ['conversationId', 'userId'],
       type: 'unique',
       name: 'unique_conversation_user'
     });
 
-    await queryInterface.addIndex('ConversationParticipants', ['conversationId']);
-    await queryInterface.addIndex('ConversationParticipants', ['userId']);
-    await queryInterface.addIndex('ConversationParticipants', ['lastReadAt']);
+    await queryInterface.addIndex('conversationparticipants', ['conversationId']);
+    await queryInterface.addIndex('conversationparticipants', ['userId']);
+    await queryInterface.addIndex('conversationparticipants', ['lastReadAt']);
   },
 
   down: async (queryInterface, Sequelize) => {
-    await queryInterface.dropTable('ConversationParticipants');
+    await queryInterface.dropTable('conversationparticipants');
   }
 };

@@ -28,8 +28,8 @@ class ChatService {
         // Find existing direct conversation
         const existingConversation = await sequelize.query(`
             SELECT c.* FROM Conversations c
-            INNER JOIN ConversationParticipants cp1 ON cp1.conversationId = c.id AND cp1.userId = ?
-            INNER JOIN ConversationParticipants cp2 ON cp2.conversationId = c.id AND cp2.userId = ?
+            INNER JOIN conversationparticipants cp1 ON cp1.conversationId = c.id AND cp1.userId = ?
+            INNER JOIN conversationparticipants cp2 ON cp2.conversationId = c.id AND cp2.userId = ?
             WHERE c.type = 'direct' AND cp1.leftAt IS NULL AND cp2.leftAt IS NULL
             LIMIT 1
         `, {
@@ -177,7 +177,7 @@ class ChatService {
                 id: {
                     [Op.in]: sequelize.literal(`(
                         SELECT conversationId 
-                        FROM ConversationParticipants 
+                        FROM conversationparticipants 
                         WHERE userId = ${userId} AND leftAt IS NULL
                     )`)
                 }
