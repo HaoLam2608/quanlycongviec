@@ -70,9 +70,27 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
 
                     let avatar = user.avatarUrl || user.avatar || `/users/${user.id}/avatar`
 
+                    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
+
+                    // Make full url when needed
                     if (avatar && !avatar.startsWith('http') && !avatar.startsWith('data:')) {
-                        const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
                         avatar = `${base.replace(/\/$/, '')}${avatar.startsWith('/') ? '' : '/'}${avatar}`
+                    }
+
+                    // If avatar is served from the API and requires Authorization, fetch it
+                    // via `api` (which attaches auth headers) and convert to an object URL.
+                    try {
+                        const avatarPath = `/users/${user.id}/avatar`
+                        if (avatar && (avatar.includes(avatarPath) || avatar.startsWith(base))) {
+                            // Add cache buster to force fresh fetch
+                            const avatarUrl = avatarPath + '?t=' + Date.now();
+                            const resAvatar = await api.get(avatarUrl, { responseType: 'blob' })
+                            const blob = resAvatar.data
+                            const objectUrl = URL.createObjectURL(blob)
+                            avatar = objectUrl
+                        }
+                    } catch (err) {
+                        console.warn('Failed to fetch avatar with auth, will fallback to provided URL', err)
                     }
 
                     setCurrentUser({
@@ -96,6 +114,20 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
             const role = roleLS
             const avatarLS = localStorage.getItem('avatar')
 
+            // If avatar from localStorage points to server path that requires auth, fetch it too
+            let avatarFromLS = avatarLS
+            try {
+                if (avatarFromLS && !avatarFromLS.startsWith('http') && !avatarFromLS.startsWith('data:')) {
+                    // Add cache buster
+                    const avatarUrl = `/users/${parseInt(userId || '0')}/avatar?t=${Date.now()}`;
+                    const resAvatarLS = await api.get(avatarUrl, { responseType: 'blob' })
+                    const blobLS = resAvatarLS.data
+                    avatarFromLS = URL.createObjectURL(blobLS)
+                }
+            } catch (err) {
+                // ignore, keep avatarLS as-is (may be a full URL)
+            }
+
             if (token && userId && hoten) {
                 setCurrentUser({
                     id: parseInt(userId),
@@ -103,12 +135,22 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
                     manv,
                     role,
                     chucvu: 'Trưởng nhóm',
-                    avatar: avatarLS
+                    avatar: avatarFromLS || avatarLS
                 })
             }
         }
 
         loadUserInfo()
+
+        // Listen for avatar update events
+        const handleAvatarUpdate = () => {
+            loadUserInfo()
+        }
+        window.addEventListener('avatarUpdated', handleAvatarUpdate)
+
+        return () => {
+            window.removeEventListener('avatarUpdated', handleAvatarUpdate)
+        }
     }, [])
 
     const handleLogout = async () => {
@@ -269,9 +311,9 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
                                     <div>
                                         {currentUser?.avatar ? (
                                             <Avatar className="w-8 h-8">
-                                                <AvatarImage src={currentUser.avatar} alt={currentUser?.hoten || 'Team Lead'} />
+                                                <AvatarImage src={currentUser.avatar} alt={currentUser?.hoten || 'Nhóm Trưởng'} />
                                                 <AvatarFallback className="text-xs">
-                                                    {(currentUser?.hoten || 'T').substring(0, 2).toUpperCase()}
+                                                    {(currentUser?.hoten || 'NT').substring(0, 2).toUpperCase()}
                                                 </AvatarFallback>
                                             </Avatar>
                                         ) : (
@@ -282,7 +324,7 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
                                     </div>
                                     <div className="ml-3 flex-1">
                                         <p className="text-sm font-medium text-gray-700">
-                                            {currentUser?.hoten || 'Team Leader'}
+                                            {currentUser?.hoten || 'Nhóm Trưởng'}
                                         </p>
                                         <p className="text-xs text-gray-500">
                                             {currentUser?.manv || 'Trưởng nhóm'}

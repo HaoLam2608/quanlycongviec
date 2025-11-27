@@ -18,7 +18,7 @@ import Image from "next/image"
 const menuCategories = [
     {
         title: "Chính",
-        items: [{ name: "Dashboard", href: "/manager", icon: Home }],
+        items: [{ name: "Trang chủ", href: "/manager", icon: Home }],
     },
     {
         title: "Quản lý",

@@ -19,6 +19,8 @@ import {
 } from "lucide-react"
 import { showSuccess, showError, showWarning } from "@/lib/notifications"
 import { getMyProfile, updateMyProfile, uploadAvatar } from "@/axios/api"
+import api from '@/axios/config'
+import { useRef } from 'react'
 
 interface UserProfile {
     id: number
@@ -71,6 +73,12 @@ export default function ProfilePage() {
         newPassword: "",
         confirmPassword: ""
     })
+    useEffect(() => {
+        loadProfile()
+        loadSettings()
+    }, [])
+
+    const lastAvatarUrl = useRef<string | null>(null)
 
     useEffect(() => {
         loadProfile()
@@ -96,6 +104,27 @@ export default function ProfilePage() {
             }
 
             setProfile(profileData)
+            // If avatar is a protected API path (not absolute), fetch as blob with auth and convert to object URL
+            if (profileData.avatar && !profileData.avatar.startsWith('http')) {
+                try {
+                    // Add cache buster to force fresh fetch
+                    const avatarUrl = profileData.avatar + '?t=' + Date.now();
+                    const res = await api.get(avatarUrl, { responseType: 'blob' })
+                    const blob = res.data
+                    const objectUrl = URL.createObjectURL(blob)
+                    // revoke previous object URL if any
+                    if (lastAvatarUrl.current) {
+                        try { URL.revokeObjectURL(lastAvatarUrl.current) } catch (e) {}
+                    }
+                    // replace avatar with object URL so <img> can load it
+                    setProfile(prev => prev ? { ...prev, avatar: objectUrl } : prev)
+                    // remember to revoke when component unmounts or avatar changes
+                    lastAvatarUrl.current = objectUrl
+                } catch (err) {
+                    // ignore; fallback to default avatar handling
+                    console.debug('Could not fetch protected avatar as blob', err)
+                }
+            }
             setEditProfile({
                 fullName: profileData.fullName,
                 phone: profileData.phone,
@@ -106,6 +135,15 @@ export default function ProfilePage() {
             console.error("Error loading profile:", error)
         }
     }
+
+    useEffect(() => {
+        return () => {
+            if (lastAvatarUrl.current) {
+                try { URL.revokeObjectURL(lastAvatarUrl.current) } catch (e) {}
+                lastAvatarUrl.current = null
+            }
+        }
+    }, [])
 
     const loadSettings = async () => {
         try {
@@ -201,6 +239,9 @@ export default function ProfilePage() {
                 // Reload profile để lấy avatar mới
                 await loadProfile();
                 showSuccess('Cập nhật avatar thành công!');
+
+                // Notify layout to reload avatar
+                window.dispatchEvent(new CustomEvent('avatarUpdated'));
             } catch (error: any) {
                 console.error("Error uploading avatar:", error);
                 showError(error.message || 'Có lỗi xảy ra khi upload avatar');
@@ -274,7 +315,7 @@ export default function ProfilePage() {
                         <div className="flex items-center gap-6">
                             <div className="relative">
                                 <img
-                                    src={profile.avatar.startsWith('http') ? profile.avatar : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${profile.avatar}`}
+                                    src={(profile.avatar && (profile.avatar.startsWith('http') || profile.avatar.startsWith('blob:') || profile.avatar.startsWith('data:'))) ? profile.avatar : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${profile.avatar}`}
                                     alt={profile.fullName}
                                     className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
                                     onError={(e) => {

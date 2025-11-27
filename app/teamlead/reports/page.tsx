@@ -19,19 +19,72 @@ import { useToastContext } from '@/components/providers/toast-provider'
 import dynamic from "next/dynamic"
 import * as XLSX from "xlsx"
 
-const ResponsiveContainer = dynamic(() => import("recharts").then(m => m.ResponsiveContainer), { ssr: false })
-const BarChart = dynamic(() => import("recharts").then(m => m.BarChart), { ssr: false })
-const CartesianGrid = dynamic(() => import("recharts").then(m => m.CartesianGrid), { ssr: false })
-const XAxis = dynamic(() => import("recharts").then(m => m.XAxis), { ssr: false })
-const YAxis = dynamic(() => import("recharts").then(m => m.YAxis), { ssr: false })
-const Tooltip = dynamic(() => import("recharts").then(m => m.Tooltip), { ssr: false })
-const Legend = dynamic(() => import("recharts").then(m => m.Legend), { ssr: false })
-const Bar = dynamic(() => import("recharts").then(m => m.Bar), { ssr: false })
-const PieChartComponent = dynamic(() => import("recharts").then(m => m.PieChart), { ssr: false })
-const Pie = dynamic(() => import("recharts").then(m => m.Pie), { ssr: false })
-const Cell = dynamic(() => import("recharts").then(m => m.Cell), { ssr: false })
-const LineChartComponent = dynamic(() => import("recharts").then(m => m.LineChart), { ssr: false })
-const Line = dynamic(() => import("recharts").then(m => m.Line), { ssr: false })
+// Lightweight inline chart components (fallbacks to show data reliably)
+function MemberBars({ data }: { data: any[] }) {
+    if (!data || !data.length) return <div className="text-center text-gray-500">Chưa có dữ liệu thành viên</div>
+    return (
+        <div className="h-72 overflow-y-auto">
+            <div className="space-y-3 py-2">
+                {data.map(member => (
+                    <div key={member.memberId} className="flex items-center gap-3">
+                        <div className="w-40 text-sm text-gray-700 truncate">{member.memberName}</div>
+                        <div className="flex-1">
+                            <div className="w-full bg-gray-200 h-4 rounded-full overflow-hidden">
+                                <div className="h-4 bg-gradient-to-r from-green-400 to-green-600" style={{ width: `${member.productivity}%` }} />
+                            </div>
+                        </div>
+                        <div className="w-12 text-right text-sm font-semibold text-gray-800">{member.productivity}%</div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    )
+}
+
+function Sparkline({ values }: { values: number[] }) {
+    if (!values || values.length === 0) return <div className="text-center text-gray-500">Chưa có dữ liệu xu hướng</div>
+    const w = 400
+    const h = 140
+    const max = Math.max(...values, 1)
+    const min = Math.min(...values, 0)
+    const points = values.map((v, i) => {
+        const x = (i / (values.length - 1 || 1)) * w
+        const y = h - ((v - min) / (max - min || 1)) * h
+        return `${x},${y}`
+    }).join(' ')
+
+    return (
+        <div className="flex items-center justify-center">
+            <svg width="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="w-full h-full">
+                <polyline points={points} fill="none" stroke="#16a34a" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+        </div>
+    )
+}
+
+function Donut({ values, colors, labels }: { values: number[]; colors: string[]; labels?: string[] }) {
+    const total = values.reduce((a, b) => a + b, 0) || 1
+    let start = 0
+    const segments = values.map((v, i) => {
+        const perc = (v / total) * 100
+        const seg = { start, end: start + perc, color: colors[i] || '#ccc', label: labels?.[i] }
+        start += perc
+        return seg
+    })
+
+    const gradient = segments.map(s => `${s.color} ${s.start}% ${s.end}%`).join(', ')
+    return (
+        <div className="flex items-center justify-center">
+            <div className="relative w-40 h-40 rounded-full" style={{ background: `conic-gradient(${gradient})` }}>
+                <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-24 h-24 bg-white rounded-full shadow-inner flex items-center justify-center">
+                        <div className="text-sm text-gray-700 font-semibold">{Math.round((values[2] || 0) / total * 100)}%</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+}
 
 interface ReportData {
     groupName: string
@@ -75,7 +128,39 @@ export default function TeamLeadReportsPage() {
             const group = groupRes.data.group || groupRes.data
 
             const subtasksRes = await api.get('/tasks/subtasks/group-subtasks')
-            const subtasks = subtasksRes.data.subtasks || subtasksRes.data || []
+            let subtasks = subtasksRes.data.subtasks || subtasksRes.data || []
+
+            // Debug logs to help trace why charts may be empty
+            console.debug('[Reports] group:', group)
+            console.debug('[Reports] initial subtasks count:', Array.isArray(subtasks) ? subtasks.length : 0)
+
+            // Fallback: if no subtasks returned, try fetching tasks of the group and then their subtasks
+            // This covers cases where backend exposes group subtasks via another endpoint
+            if ((!subtasks || subtasks.length === 0)) {
+                try {
+                    const tasksRes = await api.get('/tasks/group/tasks')
+                    const tasks = tasksRes.data.tasks || tasksRes.data || []
+                    console.debug('[Reports] fallback fetched tasks count:', Array.isArray(tasks) ? tasks.length : 0)
+
+                    const allSubtasks: any[] = []
+                    for (const t of tasks) {
+                        try {
+                            const sRes = await api.get(`/tasks/${t.id}/subtasks`)
+                            const sList = sRes.data || []
+                            if (Array.isArray(sList) && sList.length) allSubtasks.push(...sList)
+                        } catch (err) {
+                            // ignore per-task failures
+                        }
+                    }
+
+                    if (allSubtasks.length) {
+                        subtasks = allSubtasks
+                        console.debug('[Reports] fallback aggregated subtasks count:', subtasks.length)
+                    }
+                } catch (err) {
+                    console.debug('[Reports] fallback tasks fetch failed', err)
+                }
+            }
 
             const now = new Date()
             const filterByRange = (dateStr?: string) => {
@@ -402,17 +487,7 @@ export default function TeamLeadReportsPage() {
                         <span className="text-sm text-gray-500">% hoàn thành</span>
                     </div>
                     <div className="h-72">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={reportData.memberStats}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="memberName" tick={{ fontSize: 12 }} interval={0} angle={-15} textAnchor="end" height={70} />
-                                <YAxis />
-                                <Tooltip formatter={(value: number) => `${value}%`} />
-                                <Legend />
-                                <Bar dataKey="productivity" fill="#22c55e" name="Hiệu suất (%)" radius={[6, 6, 0, 0]} />
-                                <Bar dataKey="overdue" fill="#ef4444" name="Trễ hạn" radius={[6, 6, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
+                        <MemberBars data={reportData.memberStats} />
                     </div>
                 </div>
 
@@ -422,18 +497,7 @@ export default function TeamLeadReportsPage() {
                         <span className="text-sm text-gray-500">Cập nhật gần nhất</span>
                     </div>
                     <div className="h-72">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChartComponent data={reportData.weeklyTrend}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="week" tick={{ fontSize: 12 }} />
-                                <YAxis />
-                                <Tooltip />
-                                <Legend />
-                                <Line type="monotone" dataKey="completed" stroke="#22c55e" name="Hoàn thành" strokeWidth={2} activeDot={{ r: 6 }} />
-                                <Line type="monotone" dataKey="inProgress" stroke="#3b82f6" name="Đang chạy" strokeWidth={2} />
-                                <Line type="monotone" dataKey="pending" stroke="#9ca3af" name="Chờ làm" strokeWidth={2} strokeDasharray="5 5" />
-                            </LineChartComponent>
-                        </ResponsiveContainer>
+                        <Sparkline values={reportData.weeklyTrend.map(w => w.completed)} />
                     </div>
                 </div>
             </div>
@@ -443,29 +507,12 @@ export default function TeamLeadReportsPage() {
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2"><PieChartIcon className="w-5 h-5 text-purple-500" /> Phân bổ trạng thái</h2>
                     </div>
-                    <div className="h-72">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <PieChartComponent>
-                                <Pie
-                                    dataKey="value"
-                                    data={[
-                                        { name: 'Chưa bắt đầu', value: reportData.pendingSubtasks },
-                                        { name: 'Đang chạy', value: reportData.inProgressSubtasks },
-                                        { name: 'Hoàn thành', value: reportData.completedSubtasks }
-                                    ]}
-                                    innerRadius={70}
-                                    outerRadius={110}
-                                    paddingAngle={4}
-                                    cornerRadius={6}
-                                >
-                                    {['#9ca3af', '#3b82f6', '#22c55e'].map((color, index) => (
-                                        <Cell key={`cell-${index}`} fill={color} />
-                                    ))}
-                                </Pie>
-                                <Tooltip formatter={(value: number) => `${value} công việc`} />
-                                <Legend />
-                            </PieChartComponent>
-                        </ResponsiveContainer>
+                    <div className="h-72 flex items-center justify-center">
+                        <Donut
+                            values={[reportData.pendingSubtasks, reportData.inProgressSubtasks, reportData.completedSubtasks]}
+                            colors={["#9ca3af", "#3b82f6", "#22c55e"]}
+                            labels={["Chưa bắt đầu", "Đang chạy", "Hoàn thành"]}
+                        />
                     </div>
                 </div>
 

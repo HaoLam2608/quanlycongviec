@@ -1,4 +1,5 @@
 import api from "./config";
+import axios from "axios";
 
 export const registerUser = async (data: {
   manv: string;
@@ -154,12 +155,29 @@ export const uploadDocument = async (file: File, duanId?: number, description?: 
 
 export const uploadAvatar = async (file: File) => {
   try {
+    // Use a fresh axios instance without default headers to avoid Content-Type interference
+    const uploadApi = axios.create({
+      baseURL: api.defaults.baseURL,
+      headers: {
+        'Authorization': api.defaults.headers.common?.['Authorization'] || localStorage.getItem('accessToken') ? `Bearer ${localStorage.getItem('accessToken')}` : undefined
+      }
+    });
+
     const form = new FormData();
     form.append('avatar', file);
 
-    const res = await api.post('/users/avatar', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+    // Debug: log what we're sending
+    console.debug('uploadAvatar: FormData contents:', {
+      avatar: form.get('avatar'),
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type
+    });
+
+    const res = await uploadApi.post('/users/avatar', form);
     return res.data;
   } catch (err: any) {
+    console.error('uploadAvatar error:', err?.response || err)
     throw err.response?.data || { message: 'Không thể upload avatar' };
   }
 };

@@ -32,7 +32,7 @@ const base_url = process.env.NEXT_PUBLIC_API_URL || ""
 const menuCategories = [
     {
         title: "Chính",
-        items: [{ name: "Dashboard", href: "/admin", icon: Home }],
+        items: [{ name: "Trang chủ", href: "/admin", icon: Home }],
     },
     {
         title: "Quản lý người dùng",
@@ -152,7 +152,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                     />
                                 </div>
                                 <div className="flex-shrink-0 flex items-center px-4">
-                                    <h2 className="text-lg font-semibold text-gray-900">Admin Portal</h2>
+                                    <h2 className="text-lg font-semibold text-gray-900">Trang Quản trị</h2>
                                 </div>
                                 <nav className="mt-5 px-2 space-y-2">
                                     {menuCategories.map((category) => (
@@ -203,7 +203,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                     />
                                 </div>
                                 <div className="flex items-center flex-shrink-0 px-4">
-                                    <h2 className="text-xl font-bold text-gray-900">Admin Portal</h2>
+                                    <h2 className="text-xl font-bold text-gray-900">Trang Quản trị</h2>
                                 </div>
                                 <nav className="mt-5 flex-1 px-2 space-y-2">
                                     {menuCategories.map((category) => (

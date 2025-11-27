@@ -21,6 +21,8 @@ import { showSuccess, showError, showWarning } from "@/lib/notifications"
 import { getMyProfile, updateMyProfile, uploadAvatar } from "@/axios/api"
 import api from '@/axios/config'
 import { useRef } from 'react'
+import api from '@/axios/config'
+import { useRef } from 'react'
 
 interface UserProfile {
     id: number
@@ -81,6 +83,8 @@ export default function ProfilePage() {
 
     const lastAvatarUrl = useRef<string | null>(null)
 
+    const lastAvatarUrl = useRef<string | null>(null)
+
     const loadProfile = async () => {
         try {
             // Fetch dữ liệu thật từ database
@@ -99,6 +103,8 @@ export default function ProfilePage() {
                 avatar: userData.avatarUrl || `/users/${userData.id}/avatar`,
                 role: userData.role?.name || 'Member'
             }
+
+            console.debug('[Profile] formatted profileData.avatar:', profileData.avatar);
 
             console.debug('[Profile] formatted profileData.avatar:', profileData.avatar);
 
@@ -232,8 +238,11 @@ export default function ProfilePage() {
         const file = event.target.files?.[0]
         if (file) {
             console.debug('[Profile] selected avatar file:', { name: file.name, size: file.size, type: file.type })
+            console.debug('[Profile] selected avatar file:', { name: file.name, size: file.size, type: file.type })
             try {
                 // Upload avatar lên server
+                const res = await uploadAvatar(file);
+                console.debug('[Profile] uploadAvatar response:', res)
                 const res = await uploadAvatar(file);
                 console.debug('[Profile] uploadAvatar response:', res)
 
@@ -243,8 +252,44 @@ export default function ProfilePage() {
 
                 // Notify layout to reload avatar
                 window.dispatchEvent(new CustomEvent('avatarUpdated'));
+
+                // Notify layout to reload avatar
+                window.dispatchEvent(new CustomEvent('avatarUpdated'));
             } catch (error: any) {
                 console.error("Error uploading avatar:", error);
+                // show detailed server response when available
+                const serverMsg = error?.response?.data || error?.message || error
+                try {
+                    showError(typeof serverMsg === 'string' ? serverMsg : JSON.stringify(serverMsg))
+                } catch (e) {
+                    showError('Có lỗi xảy ra khi upload avatar')
+                }
+                // Diagnostic: try uploading via fetch directly so we can see the raw network request
+                try {
+                    console.debug('[Profile] Attempting diagnostic fetch upload...')
+                    const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000') + '/users/avatar'
+                    const form = new FormData()
+                    form.append('avatar', file)
+                    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
+                    const resp = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
+                        body: form
+                    })
+                    console.debug('[Profile] diagnostic fetch status:', resp.status)
+                    try {
+                        const body = await resp.json()
+                        console.debug('[Profile] diagnostic fetch JSON:', body)
+                        showError('Diagnostic upload response: ' + (body?.message || JSON.stringify(body)))
+                    } catch (e) {
+                        const text = await resp.text()
+                        console.debug('[Profile] diagnostic fetch text:', text)
+                        showError('Diagnostic upload response (text): ' + text)
+                    }
+                } catch (diagErr) {
+                    console.error('Diagnostic fetch upload error:', diagErr)
+                    showError('Lỗi chẩn đoán upload: kiểm tra console Network và Console')
+                }
                 // show detailed server response when available
                 const serverMsg = error?.response?.data || error?.message || error
                 try {
@@ -351,6 +396,7 @@ export default function ProfilePage() {
                         <div className="flex items-center gap-6">
                             <div className="relative group">
                                 <img
+                                    src={(profile.avatar && (profile.avatar.startsWith('http') || profile.avatar.startsWith('blob:') || profile.avatar.startsWith('data:'))) ? profile.avatar : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${profile.avatar}`}
                                     src={(profile.avatar && (profile.avatar.startsWith('http') || profile.avatar.startsWith('blob:') || profile.avatar.startsWith('data:'))) ? profile.avatar : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${profile.avatar}`}
                                     alt={profile.fullName}
                                     className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg ring-2 ring-blue-500/20 transition-transform duration-200 group-hover:scale-105"

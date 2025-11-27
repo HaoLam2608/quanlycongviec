@@ -74,7 +74,7 @@ export default function WorklogTask({ taskId, taskStatus }: WorklogTaskProps) {
             setShowForm(false);
             fetchWorklogs(); // Tải lại danh sách worklog
         } catch (err) {
-            setError("Không thể thêm worklog");
+            setError("Không thể thêm nhật ký");
         }
     };
 
@@ -93,9 +93,9 @@ export default function WorklogTask({ taskId, taskStatus }: WorklogTaskProps) {
                     }`} 
                     onClick={() => !isCompleted && setShowForm((v) => !v)}
                     disabled={isCompleted}
-                    title={isCompleted ? 'Không thể thêm worklog cho công việc đã hoàn thành' : ''}
+                    title={isCompleted ? 'Không thể thêm nhật ký cho công việc đã hoàn thành' : ''}
                 >
-                    {showForm ? "Đóng" : "Thêm worklog cho công việc này"}
+                    {showForm ? "Đóng" : "Thêm nhật ký cho công việc này"}
                 </button>
             </div>
             {showForm && (

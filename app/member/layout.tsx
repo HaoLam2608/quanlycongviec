@@ -1,10 +1,11 @@
 "use client"
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { usePathname, useRouter } from "next/navigation"
 import { authAPI, getMyProfile } from "@/axios/api"
+import api from '@/axios/config'
 import NotificationBell from "@/components/NotificationBell"
 import { useToastContext } from "@/components/providers/toast-provider"
 import { showConfirm } from '@/lib/notifications'
@@ -27,47 +28,22 @@ interface MemberLayoutProps {
 }
 
 const navigation = [
-    {
-        name: "Dashboard",
-        href: "/member/dashboard",
-        icon: LayoutDashboard,
-        current: false
-    },
-    {
-        name: "Công việc của tôi",
-        href: "/member/tasks",
-        icon: CheckSquare,
-        current: false
-    },
-    {
-        name: "Dự án của tôi",
-        href: "/member/projects",
-        icon: FolderOpen,
-        current: false
-    },
-    {
-        name: "Thời gian làm việc",
-        href: "/member/timesheet",
-        icon: Clock,
-        current: false
-    },
-    {
-        name: "Hồ sơ",
-        href: "/member/profile",
-        icon: User,
-        current: false
-    }
+    { name: "Trang chủ", href: "/member/dashboard", icon: LayoutDashboard },
+    { name: "Công việc của tôi", href: "/member/tasks", icon: CheckSquare },
+    { name: "Dự án của tôi", href: "/member/projects", icon: FolderOpen },
+    { name: "Thời gian làm việc", href: "/member/timesheet", icon: Clock },
+    { name: "Hồ sơ", href: "/member/profile", icon: User },
 ]
 
 export default function MemberLayout({ children }: MemberLayoutProps) {
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [currentUser, setCurrentUser] = useState<any>(null)
     const [isLoggingOut, setIsLoggingOut] = useState(false)
+    const lastAvatarUrl = useRef<string | null>(null)
     const pathname = usePathname()
     const { showSuccess } = useToastContext()
     const router = useRouter()
 
-    // Load user info from localStorage
     useEffect(() => {
         const loadUserInfo = async () => {
             const token = localStorage.getItem('accessToken')
@@ -76,18 +52,27 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
             const manvLS = localStorage.getItem('manv')
             const roleLS = localStorage.getItem('role')
 
-            // Try to fetch fresh profile from API (preferred)
             if (token) {
                 try {
                     const user = await getMyProfile()
-
-                    // Profile page sets avatar as avatarUrl or fallback `/users/:id/avatar`
                     let avatar = user.avatarUrl || user.avatar || `/users/${user.id}/avatar`
 
-                    // If avatar is a relative path, prefix API base URL
                     if (avatar && !avatar.startsWith('http') && !avatar.startsWith('data:')) {
-                        const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
-                        avatar = `${base.replace(/\/$/, '')}${avatar.startsWith('/') ? '' : '/'}${avatar}`
+                        try {
+                            // Add cache buster to force fresh fetch
+                            const avatarUrl = avatar + '?t=' + Date.now();
+                            const res = await api.get(avatarUrl, { responseType: 'blob' })
+                            const blob = res.data
+                            const objectUrl = URL.createObjectURL(blob)
+                            if (lastAvatarUrl.current) {
+                                try { URL.revokeObjectURL(lastAvatarUrl.current) } catch (e) { }
+                            }
+                            avatar = objectUrl
+                            lastAvatarUrl.current = objectUrl
+                        } catch (err) {
+                            const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
+                            avatar = `${base.replace(/\/$/, '')}${avatar.startsWith('/') ? '' : '/'}${avatar}`
+                        }
                     }
 
                     setCurrentUser({
@@ -100,70 +85,63 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
 
                     return
                 } catch (err) {
-                    // If API call fails, fall back to localStorage values
                     console.warn('getMyProfile failed, falling back to localStorage', err)
                 }
             }
 
-            // Fallback: read from localStorage (legacy behavior)
             const hoten = hotenLS
             const manv = manvLS
             const role = roleLS
             const avatarLS = localStorage.getItem('avatar')
 
             if (token && userId && hoten) {
-                setCurrentUser({
-                    id: parseInt(userId),
-                    hoten,
-                    manv,
-                    role,
-                    avatar: avatarLS
-                })
+                setCurrentUser({ id: parseInt(userId), hoten, manv, role, avatar: avatarLS })
             }
         }
 
         loadUserInfo()
+
+        // Listen for avatar update events
+        const handleAvatarUpdate = () => {
+            loadUserInfo()
+        }
+        window.addEventListener('avatarUpdated', handleAvatarUpdate)
+
+        return () => {
+            window.removeEventListener('avatarUpdated', handleAvatarUpdate)
+        }
     }, [])
 
-    const updatedNavigation = navigation.map(item => ({
-        ...item,
-        current: pathname === item.href
-    }))
+    useEffect(() => {
+        return () => {
+            if (lastAvatarUrl.current) {
+                try { URL.revokeObjectURL(lastAvatarUrl.current) } catch (e) { }
+                lastAvatarUrl.current = null
+            }
+        }
+    }, [])
+
+    const updatedNavigation = navigation.map(item => ({ ...item, current: pathname === item.href }))
 
     const handleLogout = async () => {
-        // Confirm logout
         const confirmed = await showConfirm('Bạn có chắc muốn đăng xuất?')
-        if (confirmed) {
-            setIsLoggingOut(true)
+        if (!confirmed) return
+        setIsLoggingOut(true)
+        try { await authAPI.logout() } catch (e) { console.warn(e) }
 
-            try {
-                // Call logout API (optional - to invalidate token on server)
-                await authAPI.logout()
-            } catch (error) {
-                console.error('Logout API error:', error)
-                // Continue with logout even if API call fails
-            }
+        localStorage.removeItem('accessToken')
+        localStorage.removeItem('accesstoken')
+        localStorage.removeItem('token')
+        localStorage.removeItem('refreshToken')
+        localStorage.removeItem('userId')
+        localStorage.removeItem('hoten')
+        localStorage.removeItem('manv')
+        localStorage.removeItem('role')
+        localStorage.removeItem('avatar')
+        sessionStorage.clear()
 
-            // Clear all authentication data
-            // remove canonical key and any legacy variants
-            localStorage.removeItem('accessToken')
-            localStorage.removeItem('accesstoken')
-            localStorage.removeItem('token')
-            localStorage.removeItem('refreshToken')
-            localStorage.removeItem('userId')
-            localStorage.removeItem('hoten')
-            localStorage.removeItem('manv')
-            localStorage.removeItem('role')
-            localStorage.removeItem('avatar')
-
-            // Clear sessionStorage as well
-            sessionStorage.clear()
-
-            showSuccess('Đăng xuất thành công!')
-
-            // Redirect to login page
-            router.push('/')
-        }
+        showSuccess('Đăng xuất thành công!')
+        router.push('/')
     }
 
     return (

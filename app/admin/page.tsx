@@ -202,7 +202,7 @@ export default function AdminDashboard() {
                             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
                                 <Zap className="w-8 h-8 text-white" />
                             </div>
-                            Dashboard
+                            Trang chủ
                         </h1>
                         <p className="text-slate-600 text-lg flex items-center gap-2">
                             <Calendar className="w-5 h-5" />

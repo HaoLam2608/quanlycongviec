@@ -957,6 +957,7 @@ export default function TimesheetPage() {
                                     }`}
                             >
                                 Đếm giờ đơn
+                                Đếm giờ đơn
                             </button>
                             <button
                                 onClick={() => setIsMultiTimerMode(true)}
@@ -965,6 +966,7 @@ export default function TimesheetPage() {
                                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                                     }`}
                             >
+                                Đếm giờ đa năng
                                 Đếm giờ đa năng
                                 {multiTimers.length > 0 && (
                                     <span className="ml-2 bg-red-500 text-white rounded-full px-2 py-0.5 text-xs">
@@ -993,6 +995,7 @@ export default function TimesheetPage() {
                                         <div className="text-4xl font-mono font-bold text-gray-400 mb-2">
                                             00:00:00
                                         </div>
+                                        <p className="text-gray-500">Dừng hẹn giờ</p>
                                         <p className="text-gray-500">Dừng hẹn giờ</p>
                                     </div>
                                 )}
@@ -1117,6 +1120,8 @@ export default function TimesheetPage() {
                                     <Timer className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                                     <p className="text-gray-600 font-medium mb-1">Chưa có bộ đếm giờ nào</p>
                                     <p className="text-gray-500 text-sm">Chọn công việc ở trên để bắt đầu đếm giờ mới</p>
+                                    <p className="text-gray-600 font-medium mb-1">Chưa có bộ đếm giờ nào</p>
+                                    <p className="text-gray-500 text-sm">Chọn công việc ở trên để bắt đầu đếm giờ mới</p>
                                 </div>
                             ) : (
                                 <div className="space-y-3">
@@ -1230,6 +1235,7 @@ export default function TimesheetPage() {
                                         month: 'long',
                                         day: 'numeric'
                                     }) : 'Tất cả nhật ký'}
+                                    }) : 'Tất cả nhật ký'}
                                 </span>
                             </div>
 
@@ -1282,6 +1288,7 @@ export default function TimesheetPage() {
                             >
                                 <Plus className="w-4 h-4" />
                                 Thêm nhật ký
+                                Thêm nhật ký
                             </button>
                         </div>
                     </div>
@@ -1318,11 +1325,13 @@ export default function TimesheetPage() {
                         <div className="p-12 text-center">
                             <Clock className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                             <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa có nhật ký</h3>
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa có nhật ký</h3>
                             <p className="text-gray-500 mb-4">Bắt đầu ghi nhận thời gian làm việc của bạn</p>
                             <button
                                 onClick={() => setIsAddModalOpen(true)}
                                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                             >
+                                Thêm nhật ký đầu tiên
                                 Thêm nhật ký đầu tiên
                             </button>
                         </div>
@@ -1425,6 +1434,7 @@ export default function TimesheetPage() {
                                                 <td className="px-6 py-4 whitespace-nowrap text-right">
                                                     <div className="text-sm text-gray-500">
                                                         {group.worklogs.length} nhật ký
+                                                        {group.worklogs.length} nhật ký
                                                     </div>
                                                 </td>
                                             </tr>
@@ -1441,6 +1451,7 @@ export default function TimesheetPage() {
                                                     )}
                                                     <td className="px-6 py-4 pl-16">
                                                         <div className="text-sm text-gray-600">
+                                                            <span className="text-gray-400">↳</span> nhật ký chi tiết
                                                             <span className="text-gray-400">↳</span> nhật ký chi tiết
                                                         </div>
                                                     </td>
@@ -1502,6 +1513,7 @@ export default function TimesheetPage() {
                                             {!selectedDate && worklogs.length > 0 && (
                                                 <div className="text-xs font-normal text-gray-500">
                                                     ({worklogs.length} nhật ký)
+                                                    ({worklogs.length} nhật ký)
                                                 </div>
                                             )}
                                         </td>
@@ -1528,6 +1540,7 @@ export default function TimesheetPage() {
                         >
                             <div className="p-6 border-b border-gray-200">
                                 <div className="flex items-center justify-between">
+                                    <h2 className="text-xl font-bold text-gray-900">Thêm nhật ký</h2>
                                     <h2 className="text-xl font-bold text-gray-900">Thêm nhật ký</h2>
                                     <div className="flex gap-2">
                                         <button
@@ -1585,6 +1598,7 @@ export default function TimesheetPage() {
                                             </select>
                                             {mySubtasks.length === 0 && !loadingSubtasks && (
                                                 <p className="text-sm text-red-600 mt-1">
+                                                    Không tìm thấy công việc nào. Vui lòng kiểm tra lại.
                                                     Không tìm thấy công việc nào. Vui lòng kiểm tra lại.
                                                 </p>
                                             )}

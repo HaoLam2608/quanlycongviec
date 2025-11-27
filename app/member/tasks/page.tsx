@@ -520,6 +520,7 @@ export default function MyTasksPage() {
                                             {task.type === 'subtask' && (
                                                 <span className="text-sm text-gray-500">
                                                     (Công việc của: {task.parentTask})
+                                                    (Công việc của: {task.parentTask})
                                                 </span>
                                             )}
                                         </div>
@@ -669,6 +670,7 @@ export default function MyTasksPage() {
                                                             <>
                                                                 <div className="flex items-center gap-2">
                                                                     <span className="text-gray-500">📋 Công việc chính:</span>
+                                                                    <span className="text-gray-500">📋 Công việc chính:</span>
                                                                     <span className="font-medium">{ai.item.task.tentask}</span>
                                                                 </div>
                                                                 {ai.item.task.duan && (
@@ -679,6 +681,7 @@ export default function MyTasksPage() {
                                                                 )}
                                                                 {ai.item.task.nguoiGiao && (
                                                                     <div className="flex items-center gap-2">
+                                                                        <span className="text-gray-500">👤 Người giao:</span>
                                                                         <span className="text-gray-500">👤 Người giao:</span>
                                                                         <span>{ai.item.task.nguoiGiao.hoten} ({ai.item.task.nguoiGiao.manv})</span>
                                                                     </div>
@@ -766,6 +769,7 @@ export default function MyTasksPage() {
                                     </p>
                                 </div>
                                 <div>
+                                    <label className="text-sm font-medium text-muted-foreground">Công việc chính</label>
                                     <label className="text-sm font-medium text-muted-foreground">Công việc chính</label>
                                     <p className="mt-1 text-foreground">{selectedTask.parentTask || 'Không có'}</p>
                                 </div>
