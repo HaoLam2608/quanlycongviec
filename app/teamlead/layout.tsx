@@ -16,16 +16,34 @@ import Image from "next/image"
 import { GlobalChatProvider } from "@/components/chat/GlobalChatProvider"
 import { FloatingAI } from "@/components/ai/FloatingAI"
 
-const navigation = [
-    { name: "Dashboard", href: "/teamlead", icon: Home },
-    { name: "Nhóm của tôi", href: "/teamlead/group", icon: Users },
-    { name: "Dự án", href: "/teamlead/projects", icon: Briefcase },
-    { name: "Công việc chính", href: "/teamlead/tasks", icon: ListTodo },
-    { name: "Công việc con", href: "/teamlead/subtasks", icon: CheckSquare },
-    { name: "Tài liệu", href: "/teamlead/documents", icon: FileText },
-    { name: "Phê duyệt", href: "/teamlead/approvals", icon: ClipboardCheck },
-    { name: "Báo cáo", href: "/teamlead/reports", icon: BarChart3 },
-    { name: "Hồ sơ", href: "/teamlead/profile", icon: User },
+const menuCategories = [
+    {
+        title: "Chính",
+        items: [{ name: "Dashboard", href: "/teamlead", icon: Home }],
+    },
+    {
+        title: "Quản lý chung",
+        items: [
+            { name: "Nhóm của tôi", href: "/teamlead/group", icon: Users },
+            { name: "Dự án", href: "/teamlead/projects", icon: Briefcase },
+        ],
+    },
+    {
+        title: "Quản lý công việc",
+        items: [
+            { name: "Công việc lớn", href: "/teamlead/tasks", icon: ListTodo },
+            { name: "Công việc nhỏ", href: "/teamlead/subtasks", icon: CheckSquare },
+            { name: "Phê duyệt", href: "/teamlead/approvals", icon: ClipboardCheck },
+        ],
+    },
+    {
+        title: "Khác",
+        items: [
+            { name: "Tài liệu", href: "/teamlead/documents", icon: FileText },
+            { name: "Báo cáo", href: "/teamlead/reports", icon: BarChart3 },
+            { name: "Hồ sơ", href: "/teamlead/profile", icon: User },
+        ],
+    },
 ]
 
 export default function TeamLeadLayout({ children }: { children: React.ReactNode }) {
@@ -93,11 +111,6 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
         loadUserInfo()
     }, [])
 
-    const updatedNavigation = navigation.map(item => ({
-        ...item,
-        current: pathname === item.href
-    }))
-
     const handleLogout = async () => {
         const confirmed = await showConfirm("Bạn có chắc muốn đăng xuất?")
         if (confirmed) {
@@ -148,29 +161,41 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
                                         className="h-8 w-auto object-contain"
                                     />
                                 </div>
-                                <div className="flex-shrink-0 flex items-center px-4">
+                                <div className="flex-shrink-0 flex items-center px-4 mb-4">
                                     <h2 className="text-lg font-semibold text-gray-900">Team Lead Portal</h2>
                                 </div>
-                                <nav className="mt-5 px-2 space-y-1">
-                                    {updatedNavigation.map((item) => (
-                                        <Link
-                                            key={item.name}
-                                            href={item.href}
-                                            className={`${item.current
-                                                ? 'bg-blue-100 text-blue-900'
-                                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                                } group flex items-center px-2 py-2 text-base font-medium rounded-md`}
-                                            onClick={() => setSidebarOpen(false)}
-                                        >
-                                            <item.icon
-                                                className={`${item.current ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'
-                                                    } mr-4 flex-shrink-0 h-6 w-6`}
-                                            />
-                                            {item.name}
-                                            {item.name === "Phê duyệt" && (
-                                                <ApprovalCountBadge className="ml-auto" />
-                                            )}
-                                        </Link>
+                                <nav className="mt-5 px-2 space-y-4">
+                                    {menuCategories.map((category) => (
+                                        <div key={category.title}>
+                                            <h3 className="px-3 text-xs font-semibold text-blue-600 uppercase tracking-wider mb-2">
+                                                {category.title}
+                                            </h3>
+                                            <div className="space-y-1">
+                                                {category.items.map((item) => {
+                                                    const isActive = pathname === item.href
+                                                    return (
+                                                        <Link
+                                                            key={item.name}
+                                                            href={item.href}
+                                                            className={`${isActive
+                                                                ? 'bg-blue-100 text-blue-900'
+                                                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                                                } group flex items-center px-2 py-2 text-base font-medium rounded-md`}
+                                                            onClick={() => setSidebarOpen(false)}
+                                                        >
+                                                            <item.icon
+                                                                className={`${isActive ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'
+                                                                    } mr-4 flex-shrink-0 h-6 w-6`}
+                                                            />
+                                                            {item.name}
+                                                            {item.name === "Phê duyệt" && (
+                                                                <ApprovalCountBadge className="ml-auto" />
+                                                            )}
+                                                        </Link>
+                                                    )
+                                                })}
+                                            </div>
+                                        </div>
                                     ))}
 
                                     {/* Logout for mobile */}
@@ -200,28 +225,40 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
                                         className="h-10 w-auto object-contain"
                                     />
                                 </div>
-                                <div className="flex items-center flex-shrink-0 px-4">
+                                <div className="flex items-center flex-shrink-0 px-4 mb-4">
                                     <h2 className="text-xl font-bold text-gray-900">Team Lead Portal</h2>
                                 </div>
-                                <nav className="mt-5 flex-1 px-2 space-y-1">
-                                    {updatedNavigation.map((item) => (
-                                        <Link
-                                            key={item.name}
-                                            href={item.href}
-                                            className={`${item.current
-                                                ? 'bg-blue-100 text-blue-900 border-r-2 border-blue-500'
-                                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                                } group flex items-center px-2 py-3 text-sm font-medium rounded-l-md transition-colors`}
-                                        >
-                                            <item.icon
-                                                className={`${item.current ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'
-                                                    } mr-3 flex-shrink-0 h-5 w-5`}
-                                            />
-                                            {item.name}
-                                            {item.name === "Phê duyệt" && (
-                                                <ApprovalCountBadge className="ml-auto" />
-                                            )}
-                                        </Link>
+                                <nav className="mt-5 flex-1 px-2 space-y-4">
+                                    {menuCategories.map((category) => (
+                                        <div key={category.title}>
+                                            <h3 className="px-3 text-xs font-semibold text-blue-600 uppercase tracking-wider mb-2">
+                                                {category.title}
+                                            </h3>
+                                            <div className="space-y-1">
+                                                {category.items.map((item) => {
+                                                    const isActive = pathname === item.href
+                                                    return (
+                                                        <Link
+                                                            key={item.name}
+                                                            href={item.href}
+                                                            className={`${isActive
+                                                                ? 'bg-blue-100 text-blue-900 border-r-2 border-blue-500'
+                                                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                                                } group flex items-center px-2 py-3 text-sm font-medium rounded-l-md transition-colors`}
+                                                        >
+                                                            <item.icon
+                                                                className={`${isActive ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'
+                                                                    } mr-3 flex-shrink-0 h-5 w-5`}
+                                                            />
+                                                            {item.name}
+                                                            {item.name === "Phê duyệt" && (
+                                                                <ApprovalCountBadge className="ml-auto" />
+                                                            )}
+                                                        </Link>
+                                                    )
+                                                })}
+                                            </div>
+                                        </div>
                                     ))}
                                 </nav>
                             </div>
@@ -290,41 +327,6 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
                                     <Settings className="h-5 w-5" />
                                 </button>
 
-                                {/* User menu */}
-                                <div className="relative flex items-center space-x-3">
-                                    <div>
-                                        {currentUser?.avatar ? (
-                                            <Avatar className="w-8 h-8">
-                                                <AvatarImage src={currentUser.avatar} alt={currentUser?.hoten || 'Team Lead'} />
-                                                <AvatarFallback className="text-xs">
-                                                    {(currentUser?.hoten || 'T').substring(0, 2).toUpperCase()}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                        ) : (
-                                            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                                                <User className="w-4 h-4 text-white" />
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="hidden lg:block">
-                                        <p className="text-sm font-medium text-gray-700">
-                                            {currentUser?.hoten || 'Team Leader'}
-                                        </p>
-                                        <p className="text-xs text-gray-500">
-                                            {currentUser?.manv || 'Trưởng nhóm'}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {/* Logout */}
-                                <button
-                                    onClick={handleLogout}
-                                    disabled={isLoggingOut}
-                                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors disabled:opacity-50"
-                                    title="Đăng xuất"
-                                >
-                                    <LogOut className={`h-5 w-5 ${isLoggingOut ? 'animate-spin' : ''}`} />
-                                </button>
                             </div>
                         </div>
 

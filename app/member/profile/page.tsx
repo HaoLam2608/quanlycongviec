@@ -19,6 +19,8 @@ import {
 } from "lucide-react"
 import { showSuccess, showError, showWarning } from "@/lib/notifications"
 import { getMyProfile, updateMyProfile, uploadAvatar } from "@/axios/api"
+import api from '@/axios/config'
+import { useRef } from 'react'
 
 interface UserProfile {
     id: number
@@ -77,10 +79,13 @@ export default function ProfilePage() {
         loadSettings()
     }, [])
 
+    const lastAvatarUrl = useRef<string | null>(null)
+
     const loadProfile = async () => {
         try {
             // Fetch dữ liệu thật từ database
             const userData = await getMyProfile();
+            console.debug('[Profile] getMyProfile response:', userData);
 
             // Format dữ liệu từ API
             const profileData: UserProfile = {
@@ -95,7 +100,30 @@ export default function ProfilePage() {
                 role: userData.role?.name || 'Member'
             }
 
+            console.debug('[Profile] formatted profileData.avatar:', profileData.avatar);
+
             setProfile(profileData)
+            // If avatar is a protected API path (not absolute), fetch as blob with auth and convert to object URL
+            if (profileData.avatar && !profileData.avatar.startsWith('http')) {
+                try {
+                    console.debug('[Profile] fetching avatar blob from:', profileData.avatar);
+                    // Add cache buster to force fresh fetch
+                    const avatarUrl = profileData.avatar + '?t=' + Date.now();
+                    const res = await api.get(avatarUrl, { responseType: 'blob' })
+                    const blob = res.data
+                    console.debug('[Profile] avatar blob received, size:', blob.size, 'type:', blob.type);
+                    const objectUrl = URL.createObjectURL(blob)
+                    if (lastAvatarUrl.current) {
+                        try { URL.revokeObjectURL(lastAvatarUrl.current) } catch (e) { }
+                    }
+                    setProfile(prev => prev ? { ...prev, avatar: objectUrl } : prev)
+                    lastAvatarUrl.current = objectUrl
+                    console.debug('[Profile] avatar updated to object URL');
+                } catch (err) {
+                    console.debug('Could not fetch protected avatar as blob', err)
+                }
+            }
+
             setEditProfile({
                 fullName: profileData.fullName,
                 phone: profileData.phone,
@@ -106,6 +134,15 @@ export default function ProfilePage() {
             console.error("Error loading profile:", error)
         }
     }
+
+    useEffect(() => {
+        return () => {
+            if (lastAvatarUrl.current) {
+                try { URL.revokeObjectURL(lastAvatarUrl.current) } catch (e) { }
+                lastAvatarUrl.current = null
+            }
+        }
+    }, [])
 
     const loadSettings = async () => {
         try {
@@ -194,16 +231,53 @@ export default function ProfilePage() {
     const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0]
         if (file) {
+            console.debug('[Profile] selected avatar file:', { name: file.name, size: file.size, type: file.type })
             try {
                 // Upload avatar lên server
-                await uploadAvatar(file);
+                const res = await uploadAvatar(file);
+                console.debug('[Profile] uploadAvatar response:', res)
 
                 // Reload profile để lấy avatar mới
                 await loadProfile();
                 showSuccess('Cập nhật avatar thành công!');
+
+                // Notify layout to reload avatar
+                window.dispatchEvent(new CustomEvent('avatarUpdated'));
             } catch (error: any) {
                 console.error("Error uploading avatar:", error);
-                showError(error.message || 'Có lỗi xảy ra khi upload avatar');
+                // show detailed server response when available
+                const serverMsg = error?.response?.data || error?.message || error
+                try {
+                    showError(typeof serverMsg === 'string' ? serverMsg : JSON.stringify(serverMsg))
+                } catch (e) {
+                    showError('Có lỗi xảy ra khi upload avatar')
+                }
+                // Diagnostic: try uploading via fetch directly so we can see the raw network request
+                try {
+                    console.debug('[Profile] Attempting diagnostic fetch upload...')
+                    const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000') + '/users/avatar'
+                    const form = new FormData()
+                    form.append('avatar', file)
+                    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
+                    const resp = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: token ? { 'Authorization': `Bearer ${token}` } : undefined,
+                        body: form
+                    })
+                    console.debug('[Profile] diagnostic fetch status:', resp.status)
+                    try {
+                        const body = await resp.json()
+                        console.debug('[Profile] diagnostic fetch JSON:', body)
+                        showError('Diagnostic upload response: ' + (body?.message || JSON.stringify(body)))
+                    } catch (e) {
+                        const text = await resp.text()
+                        console.debug('[Profile] diagnostic fetch text:', text)
+                        showError('Diagnostic upload response (text): ' + text)
+                    }
+                } catch (diagErr) {
+                    console.error('Diagnostic fetch upload error:', diagErr)
+                    showError('Lỗi chẩn đoán upload: kiểm tra console Network và Console')
+                }
             }
         }
     }
@@ -260,28 +334,31 @@ export default function ProfilePage() {
     }
 
     return (
-        <div className="p-6 bg-gray-50 min-h-screen">
+        <div className="p-6 bg-gradient-to-br from-slate-50 via-blue-50/20 to-slate-50 min-h-screen">
             <div className="max-w-4xl mx-auto">
                 {/* Header */}
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">Hồ sơ cá nhân</h1>
-                    <p className="text-gray-600">Quản lý thông tin cá nhân và cài đặt tài khoản</p>
+                <div className="mb-8 animate-fade-in">
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="h-3 w-3 rounded-full bg-blue-500 animate-pulse" />
+                        <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">Hồ sơ cá nhân</h1>
+                    </div>
+                    <p className="text-slate-600 ml-6">Quản lý thông tin cá nhân và cài đặt tài khoản</p>
                 </div>
 
                 {/* Profile Card */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-8">
-                    <div className="p-6 border-b border-gray-200">
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-blue-100 mb-8 overflow-hidden hover:shadow-xl transition-all duration-300">
+                    <div className="p-6 border-b border-blue-100 bg-gradient-to-r from-blue-50 to-slate-50">
                         <div className="flex items-center gap-6">
-                            <div className="relative">
+                            <div className="relative group">
                                 <img
-                                    src={profile.avatar.startsWith('http') ? profile.avatar : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${profile.avatar}`}
+                                    src={(profile.avatar && (profile.avatar.startsWith('http') || profile.avatar.startsWith('blob:') || profile.avatar.startsWith('data:'))) ? profile.avatar : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${profile.avatar}`}
                                     alt={profile.fullName}
-                                    className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
+                                    className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg ring-2 ring-blue-500/20 transition-transform duration-200 group-hover:scale-105"
                                     onError={(e) => {
                                         (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(profile.fullName) + '&background=3b82f6&color=fff';
                                     }}
                                 />
-                                <label className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full cursor-pointer hover:bg-blue-700 transition-colors">
+                                <label className="absolute bottom-0 right-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white p-2 rounded-full cursor-pointer hover:from-blue-700 hover:to-blue-800 transition-all duration-200 hover:scale-110 shadow-md">
                                     <Camera className="w-4 h-4" />
                                     <input
                                         type="file"

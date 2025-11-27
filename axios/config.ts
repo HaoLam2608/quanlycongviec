@@ -74,7 +74,7 @@ api.interceptors.response.use(
       const url = err?.config?.url || ''
       const currentRole = localStorage.getItem('role')
       const currentPath = typeof window !== 'undefined' ? window.location.pathname : ''
-      
+
       // Log detailed 403 info for debugging
       console.error('🚨 403 FORBIDDEN - API Call Failed:', {
         api: url,
@@ -84,20 +84,20 @@ api.interceptors.response.use(
         message,
         timestamp: new Date().toISOString()
       });
-      
+
       // Check if this is from notifications endpoint - don't redirect
       if (url.includes('/notifications/') || url.includes('/assignments/')) {
         console.warn('⚠️ API action permission denied - will not redirect to 403')
         return Promise.reject(err);
       }
-      
+
       // Don't redirect to 403 if on public pages (landing, login, signup)
       const publicPaths = ['/', '/login', '/signup', '/forgot-password']
       if (publicPaths.includes(currentPath)) {
         console.warn('⚠️ 403 on public page - will not redirect, just rejecting request')
         return Promise.reject(err);
       }
-      
+
       // Don't redirect if we're in the middle of login process (within 2 seconds of login)
       const lastLogin = localStorage.getItem('lastLoginTime')
       if (lastLogin) {
@@ -107,22 +107,22 @@ api.interceptors.response.use(
           return Promise.reject(err);
         }
       }
-      
+
       console.warn('🚫 403 Error - Redirecting to /403 page')
-      
+
       try {
         // diagnostic: record permission-denied event
         try {
-          localStorage.setItem('lastAuthEvent', JSON.stringify({ 
-            time: new Date().toISOString(), 
-            type: 'permissionDenied', 
+          localStorage.setItem('lastAuthEvent', JSON.stringify({
+            time: new Date().toISOString(),
+            type: 'permissionDenied',
             message,
             url,
             currentRole,
             currentPath
           }))
         } catch (e) { /* ignore */ }
-        
+
         // Redirect to 403 page
         setTimeout(() => {
           if (typeof window !== 'undefined') {

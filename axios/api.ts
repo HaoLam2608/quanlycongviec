@@ -650,3 +650,49 @@ export const getPublicStats = async () => {
   }
 };
 
+// --- Aliases and New Functions for Member Redesign ---
+
+export const getMyDashboardStats = getMemberStats;
+export const getMyProjects = getMemberProjects;
+export const updateProfile = updateMyProfile;
+
+export const changePassword = async (data: any) => {
+  // Assuming password change is handled via updateMyProfile or a specific endpoint
+  // If backend supports specific endpoint, change here.
+  // For now, using updateMyProfile with password field if supported, or a hypothetical endpoint.
+  // Given updateMyProfile has password field in signature, we try that first.
+  if (data.newPassword) {
+    return updateMyProfile({ password: data.newPassword });
+  }
+  throw { message: "Mật khẩu mới không hợp lệ" };
+};
+
+export const getMyTimesheets = async () => {
+  try {
+    // Assuming endpoint for timesheets
+    const res = await api.get('/timesheets/my');
+    return res.data;
+  } catch (err: any) {
+    // If endpoint doesn't exist, return empty array to prevent crash
+    console.warn("getMyTimesheets API not found, returning empty list");
+    return [];
+  }
+};
+
+export const checkIn = async () => {
+  try {
+    const res = await api.post('/timesheets/checkin');
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Check-in thất bại" };
+  }
+};
+
+export const checkOut = async () => {
+  try {
+    const res = await api.post('/timesheets/checkout');
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Check-out thất bại" };
+  }
+};

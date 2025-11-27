@@ -373,17 +373,20 @@ export default function MyTasksPage() {
     }
 
     return (
-        <div className="p-6 bg-gray-50 min-h-screen">
+        <div className="p-6 bg-gradient-to-br from-slate-50 via-blue-50/20 to-slate-50 min-h-screen">
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
-                <div className="mb-6 flex items-center justify-between">
+                <div className="mb-6 flex items-center justify-between animate-fade-in">
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Công việc nhỏ của tôi</h1>
-                        <p className="text-gray-600">Quản lý và theo dõi tiến độ các subtask được giao</p>
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="h-3 w-3 rounded-full bg-blue-500 animate-pulse" />
+                            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">Công việc của tôi</h1>
+                        </div>
+                        <p className="text-slate-600 ml-6">Quản lý và theo dõi tiến độ các công việc được giao</p>
                     </div>
                     <div className="text-right">
-                        <p className="text-sm text-gray-500">Tổng số subtask</p>
-                        <p className="text-2xl font-bold text-blue-600">{allItems.length}</p>
+                        <p className="text-sm text-slate-600 font-medium">Tổng số công việc</p>
+                        <p className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">{allItems.length}</p>
                     </div>
                 </div>
 
@@ -424,7 +427,7 @@ export default function MyTasksPage() {
                                     setIsAvailableModalOpen(true)
 
                                     if (formattedItems.length === 0) {
-                                        showSuccess('Hiện không có công việc nào chưa được nhận từ team lead của bạn')
+                                        showSuccess('Hiện không có công việc nào')
                                     }
                                 } else {
                                     showError('Không thể lấy danh sách công việc chưa có người nhận')
@@ -436,7 +439,7 @@ export default function MyTasksPage() {
                                 setLoading(false)
                             }
                         }}
-                        className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                        className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 hover:shadow-lg flex items-center gap-2 font-medium"
                     >
                         <span>{loading ? '⏳' : '🎯'}</span>
                         <span>{loading ? 'Đang tải...' : 'Yêu cầu nhận công việc'}</span>
@@ -444,17 +447,17 @@ export default function MyTasksPage() {
                 </div>
 
                 {/* Filters and Search */}
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 mb-6">
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-blue-100 mb-6 hover:shadow-xl transition-all duration-300">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         {/* Search */}
                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-400 w-5 h-5" />
                             <input
                                 type="text"
                                 placeholder="Tìm kiếm công việc..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="w-full pl-10 pr-4 py-2 border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white transition-all"
                             />
                         </div>
 
@@ -507,7 +510,7 @@ export default function MyTasksPage() {
                         </div>
                     ) : (
                         filteredTasks.map(task => (
-                            <div key={task.id} className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
+                            <div key={task.id} className="group bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-blue-100 hover:shadow-xl hover:scale-102 transition-all duration-300">
                                 <div className="flex items-start justify-between">
                                     <div className="flex-1">
                                         <div className="flex items-center gap-3 mb-2">
@@ -516,7 +519,7 @@ export default function MyTasksPage() {
                                             </h3>
                                             {task.type === 'subtask' && (
                                                 <span className="text-sm text-gray-500">
-                                                    (Subtask của: {task.parentTask})
+                                                    (Công việc của: {task.parentTask})
                                                 </span>
                                             )}
                                         </div>
@@ -534,7 +537,6 @@ export default function MyTasksPage() {
                                             </span>
                                             <span className="text-sm text-gray-500">{task.project}</span>
                                         </div>
-
                                         <div className="flex items-center gap-6 text-sm text-gray-500">
                                             {task.deadline && (
                                                 <div className="flex items-center gap-1">
@@ -553,112 +555,94 @@ export default function MyTasksPage() {
                                                     </span>
                                                 </div>
                                             )}
-                                        </div>
 
-                                        {task.progress !== undefined && (
-                                            <div className="mt-3">
-                                                <div className="flex items-center justify-between mb-1">
-                                                    <span className="text-sm text-gray-600">Tiến độ</span>
-                                                    <span className="text-sm font-medium text-gray-900">{task.progress}%</span>
-                                                </div>
-                                                <div className="w-full bg-gray-200 rounded-full h-2">
-                                                    <div
-                                                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                                        style={{ width: `${task.progress}%` }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="flex items-center gap-2 ml-4">
-                                        {/* Status Update Buttons */}
-                                        {task.status === "Chưa bắt đầu" && (
-                                            <button
-                                                onClick={() => updateTaskStatus(task.id, "Đang chạy", task.type)}
-                                                className="px-3 py-1 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors flex items-center gap-1"
-                                            >
-                                                <Play className="w-4 h-4" />
-                                                Bắt đầu
-                                            </button>
-                                        )}
-                                        {task.status === "Đang chạy" && (
-                                            <>
+                                            {/* Status Update Buttons */}
+                                            {task.status === "Chưa bắt đầu" && (
                                                 <button
-                                                    onClick={() => updateTaskStatus(task.id, "Chưa bắt đầu", task.type)}
-                                                    className="px-3 py-1 bg-gray-600 text-white rounded-lg text-sm hover:bg-gray-700 transition-colors flex items-center gap-1"
+                                                    onClick={() => updateTaskStatus(task.id, "Đang chạy", task.type)}
+                                                    className="px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl text-sm hover:from-blue-600 hover:to-blue-700 transition-all duration-200 hover:scale-105 hover:shadow-md flex items-center gap-1.5 font-medium"
                                                 >
-                                                    <Pause className="w-4 h-4" />
-                                                    Tạm dừng
+                                                    <Play className="w-4 h-4" />
+                                                    Bắt đầu
                                                 </button>
-                                                <button
-                                                    onClick={() => updateTaskStatus(task.id, "Hoàn thành", task.type)}
-                                                    className="px-3 py-1 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors flex items-center gap-1"
-                                                >
-                                                    <CheckCircle2 className="w-4 h-4" />
-                                                    Hoàn thành
-                                                </button>
-                                            </>
-                                        )}
-                                        {task.status === "Chờ xác nhận hoàn thành" && (
-                                            <div className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-lg text-sm flex items-center gap-1">
-                                                <Clock className="w-4 h-4" />
-                                                Chờ phê duyệt
-                                            </div>
-                                        )}
+                                            )}
+                                            {task.status === "Đang chạy" && (
+                                                <>
+                                                    <button
+                                                        onClick={() => updateTaskStatus(task.id, "Chưa bắt đầu", task.type)}
+                                                        className="px-3 py-2 bg-gradient-to-r from-slate-500 to-slate-600 text-white rounded-xl text-sm hover:from-slate-600 hover:to-slate-700 transition-all duration-200 hover:scale-105 hover:shadow-md flex items-center gap-1.5 font-medium"
+                                                    >
+                                                        <Pause className="w-4 h-4" />
+                                                        Tạm dừng
+                                                    </button>
+                                                    <button
+                                                        onClick={() => updateTaskStatus(task.id, "Hoàn thành", task.type)}
+                                                        className="px-3 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl text-sm hover:from-green-600 hover:to-green-700 transition-all duration-200 hover:scale-105 hover:shadow-md flex items-center gap-1.5 font-medium"
+                                                    >
+                                                        <CheckCircle2 className="w-4 h-4" />
+                                                        Hoàn thành
+                                                    </button>
+                                                </>
+                                            )}
+                                            {task.status === "Chờ xác nhận hoàn thành" && (
+                                                <div className="px-3 py-2 bg-gradient-to-r from-yellow-100 to-yellow-50 text-yellow-800 rounded-xl text-sm flex items-center gap-1.5 font-medium border border-yellow-200">
+                                                    <Clock className="w-4 h-4" />
+                                                    Chờ phê duyệt
+                                                </div>
+                                            )}
 
-                                        {/* Task Details Button */}
-                                        <button
-                                            onClick={() => {
-                                                setSelectedTask(task)
-                                                setIsDetailModalOpen(true)
-                                            }}
-                                            className="px-3 py-1 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700 transition-colors flex items-center gap-1"
-                                        >
-                                            <Eye className="w-4 h-4" />
-                                            Chi tiết
-                                        </button>
-                                        {/* Request to join button - hidden if already has an assignee */}
-                                        {!task.assigneeId && (
+                                            {/* Task Details Button */}
                                             <button
-                                                onClick={async () => {
-                                                    // For subtasks we send subtaskId and taskId
-                                                    try {
-                                                        const payload: any = {}
-                                                        if (task.type === 'subtask') {
-                                                            payload.subtaskId = task.id
-                                                        } else {
-                                                            payload.taskId = task.id
-                                                        }
-                                                        const res = await assignmentAPI.requestToJoin(payload)
-                                                        if (res && res.success) {
-                                                            showSuccess('Đã gửi yêu cầu tham gia tới người quản lý')
-                                                        } else {
-                                                            showError(res?.message || 'Không thể gửi yêu cầu')
-                                                        }
-                                                    } catch (err: any) {
-                                                        console.error('requestToJoin error', err)
-                                                        showError(err?.response?.data?.message || 'Lỗi khi gửi yêu cầu')
-                                                    }
+                                                onClick={() => {
+                                                    setSelectedTask(task)
+                                                    setIsDetailModalOpen(true)
                                                 }}
-                                                className="px-3 py-1 bg-amber-500 text-white rounded-lg text-sm hover:bg-amber-600 transition-colors flex items-center gap-1"
+                                                className="px-3 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl text-sm hover:from-blue-700 hover:to-blue-800 transition-all duration-200 hover:scale-105 hover:shadow-md flex items-center gap-1.5 font-medium"
                                             >
-                                                Yêu cầu nhận việc
+                                                <Eye className="w-4 h-4" />
+                                                Chi tiết
                                             </button>
-                                        )}
+                                            {/* Request to join button - hidden if already has an assignee */}
+                                            {!task.assigneeId && (
+                                                <button
+                                                    onClick={async () => {
+                                                        // For subtasks we send subtaskId and taskId
+                                                        try {
+                                                            const payload: any = {}
+                                                            if (task.type === 'subtask') {
+                                                                payload.subtaskId = task.id
+                                                            } else {
+                                                                payload.taskId = task.id
+                                                            }
+                                                            const res = await assignmentAPI.requestToJoin(payload)
+                                                            if (res && res.success) {
+                                                                showSuccess('Đã gửi yêu cầu tham gia tới người quản lý')
+                                                            } else {
+                                                                showError(res?.message || 'Không thể gửi yêu cầu')
+                                                            }
+                                                        } catch (err: any) {
+                                                            console.error('requestToJoin error', err)
+                                                            showError(err?.response?.data?.message || 'Lỗi khi gửi yêu cầu')
+                                                        }
+                                                    }}
+                                                    className="px-3 py-1 bg-amber-500 text-white rounded-lg text-sm hover:bg-amber-600 transition-colors flex items-center gap-1"
+                                                >
+                                                    Yêu cầu nhận việc
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         ))
                     )}
                 </div>
-
                 {/* Available Tasks Modal */}
                 {isAvailableModalOpen && (
                     <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
                         <div className="bg-white rounded-lg w-full max-w-3xl max-h-[80vh] overflow-y-auto shadow-2xl">
                             <div className="p-4 border-b flex items-center justify-between">
-                                <h3 className="font-semibold text-lg">Công việc chưa có người nhận từ Team Lead</h3>
+                                <h3 className="font-semibold text-lg">Công việc chưa có người nhận</h3>
                                 <button
                                     onClick={() => setIsAvailableModalOpen(false)}
                                     className="text-gray-500 hover:text-gray-700 text-2xl leading-none px-2"
@@ -669,8 +653,8 @@ export default function MyTasksPage() {
                             <div className="p-4 space-y-3">
                                 {availableItems.length === 0 ? (
                                     <div className="text-center py-8 text-gray-500">
-                                        <p className="mb-2">✨ Không có công việc nào chưa được nhận</p>
-                                        <p className="text-sm">Tất cả công việc từ team lead của bạn đã có người đảm nhận</p>
+                                        <p className="mb-2">Không có công việc nào chưa được nhận</p>
+                                        <p className="text-sm">Tất cả công việc đã có người đảm nhận</p>
                                     </div>
                                 ) : (
                                     availableItems.map((ai, idx) => (
@@ -684,7 +668,7 @@ export default function MyTasksPage() {
                                                         {ai.type === 'subtask' && ai.item.task && (
                                                             <>
                                                                 <div className="flex items-center gap-2">
-                                                                    <span className="text-gray-500">📋 Task cha:</span>
+                                                                    <span className="text-gray-500">📋 Công việc chính:</span>
                                                                     <span className="font-medium">{ai.item.task.tentask}</span>
                                                                 </div>
                                                                 {ai.item.task.duan && (
@@ -695,7 +679,7 @@ export default function MyTasksPage() {
                                                                 )}
                                                                 {ai.item.task.nguoiGiao && (
                                                                     <div className="flex items-center gap-2">
-                                                                        <span className="text-gray-500">👤 Team Lead:</span>
+                                                                        <span className="text-gray-500">👤 Người giao:</span>
                                                                         <span>{ai.item.task.nguoiGiao.hoten} ({ai.item.task.nguoiGiao.manv})</span>
                                                                     </div>
                                                                 )}
@@ -782,7 +766,7 @@ export default function MyTasksPage() {
                                     </p>
                                 </div>
                                 <div>
-                                    <label className="text-sm font-medium text-muted-foreground">Task cha</label>
+                                    <label className="text-sm font-medium text-muted-foreground">Công việc chính</label>
                                     <p className="mt-1 text-foreground">{selectedTask.parentTask || 'Không có'}</p>
                                 </div>
                             </div>

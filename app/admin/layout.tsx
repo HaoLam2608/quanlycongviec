@@ -288,32 +288,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                     </button>
                                 </Link>
 
-                                {/* User menu */}
-                                <div className="relative flex items-center space-x-3">
-                                    <Link href="/admin/profile" className="flex items-center group">
-                                        <div className="w-8 h-8 rounded-full overflow-hidden bg-blue-500 flex items-center justify-center group-hover:ring-2 group-hover:ring-blue-400 transition">
-                                            {userInfo.avatar && userInfo.avatar.startsWith('/users/') ? (
-                                                <img src={`${base_url}${userInfo.avatar}`} alt="avatar" className="w-full h-full object-cover" />
-                                            ) : userInfo.avatar ? (
-                                                <img src={userInfo.avatar} alt="avatar" className="w-full h-full object-cover" />
-                                            ) : (
-                                                <span className="w-full h-full flex items-center justify-center text-2xl text-white">?</span>
-                                            )}
-                                        </div>
-                                        <div className="hidden lg:block ml-3">
-                                            <p className="text-sm font-medium text-gray-700 group-hover:underline cursor-pointer">{userInfo.hoten}</p>
-                                            <p className="text-xs text-gray-500">Quản trị viên</p>
-                                        </div>
-                                    </Link>
-                                </div>
-
-                                {/* Logout */}
-                                <button
-                                    onClick={handleLogout}
-                                    className="p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
-                                >
-                                    <LogOut className="h-5 w-5" />
-                                </button>
                             </div>
                         </div>
 
