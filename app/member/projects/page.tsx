@@ -474,21 +474,11 @@ export default function MyProjectsPage() {
                                             setShowDocuments(false);
                                             setShowKanban(false);
                                         }}
-<<<<<<< HEAD
-                                        className={`px-3 py-2 rounded-md transition-colors flex items-center gap-2 ${
-                                            showTimeline 
-                                                ? 'bg-blue-700 text-white' 
-                                                : 'bg-blue-600 text-white hover:bg-blue-700'
-                                        }`}
-                                    >
-                                        <Eye className="w-4 h-4" />
-=======
                                         className={`px-3 py-2 rounded-md transition-colors ${showTimeline
                                             ? 'bg-blue-700 text-white'
                                             : 'bg-blue-600 text-white hover:bg-blue-700'
                                             }`}
                                     >
->>>>>>> 64428cb4e4b1282cd9aff04338b0e7a05bb73003
                                         Xem Timeline
                                     </button>
                                     <button
@@ -498,21 +488,11 @@ export default function MyProjectsPage() {
                                             setShowDocuments(false);
                                             setShowKanban(false);
                                         }}
-<<<<<<< HEAD
-                                        className={`px-3 py-2 rounded-md transition-colors flex items-center gap-2 ${
-                                            showMyTasks 
-                                                ? 'bg-green-700 text-white' 
-                                                : 'bg-green-600 text-white hover:bg-green-700'
-                                        }`}
-                                    >
-                                        <Target className="w-4 h-4" />
-=======
                                         className={`px-3 py-2 rounded-md transition-colors ${showMyTasks
                                             ? 'bg-green-700 text-white'
                                             : 'bg-green-600 text-white hover:bg-green-700'
                                             }`}
                                     >
->>>>>>> 64428cb4e4b1282cd9aff04338b0e7a05bb73003
                                         Công việc của tôi
                                     </button>
                                     {/* Tất cả công việc button removed as requested */}
@@ -523,21 +503,11 @@ export default function MyProjectsPage() {
                                             setShowMyTasks(false);
                                             setShowDocuments(false);
                                         }}
-<<<<<<< HEAD
-                                        className={`px-3 py-2 rounded-md transition-colors flex items-center gap-2 ${
-                                            showKanban 
-                                                ? 'bg-indigo-700 text-white' 
-                                                : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                                        }`}
-                                    >
-                                        <FolderOpen className="w-4 h-4" />
-=======
                                         className={`px-3 py-2 rounded-md transition-colors ${showKanban
                                             ? 'bg-indigo-700 text-white'
                                             : 'bg-indigo-600 text-white hover:bg-indigo-700'
                                             }`}
                                     >
->>>>>>> 64428cb4e4b1282cd9aff04338b0e7a05bb73003
                                         Kanban
                                     </button>
 
@@ -548,21 +518,11 @@ export default function MyProjectsPage() {
                                             setShowMyTasks(false);
                                             setShowKanban(false);
                                         }}
-<<<<<<< HEAD
-                                        className={`px-3 py-2 rounded-md transition-colors flex items-center gap-2 ${
-                                            showDocuments 
-                                                ? 'bg-violet-700 text-white' 
-                                                : 'bg-violet-600 text-white hover:bg-violet-700'
-                                        }`}
-                                    >
-                                        <FileText className="w-4 h-4" />
-=======
                                         className={`px-3 py-2 rounded-md transition-colors ${showDocuments
                                             ? 'bg-violet-700 text-white'
                                             : 'bg-violet-600 text-white hover:bg-violet-700'
                                             }`}
                                     >
->>>>>>> 64428cb4e4b1282cd9aff04338b0e7a05bb73003
                                         Tài liệu
                                     </button>
                                 </div>
