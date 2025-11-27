@@ -63,6 +63,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const pathname = usePathname()
     const router = useRouter()
     const { showSuccess } = useToastContext()
+    const [isLoggingOut, setIsLoggingOut] = useState(false)
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [userInfo, setUserInfo] = useState({
         hoten: "",
@@ -255,6 +256,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                             <p className="text-xs text-gray-500">Quản trị viên</p>
                                         </div>
                                     </Link>
+                                    <button onClick={handleLogout} disabled={isLoggingOut} className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors disabled:opacity-50" title="Đăng xuất">
+                                        <LogOut className={`w-4 h-4 ${isLoggingOut ? 'animate-spin' : ''}`} />
+                                    </button>
                                 </div>
                             </div>
                         </div>
