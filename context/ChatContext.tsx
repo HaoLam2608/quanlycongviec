@@ -121,7 +121,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setOnlineUsers(new Set());
     console.log('🔄 Cleared online users, waiting for fresh data from server');
 
-    const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    const SOCKET_URL = "https://taskhadflow-api.nibies.space";
 
     console.log('🔌 Initializing socket with:', {
       url: SOCKET_URL,
