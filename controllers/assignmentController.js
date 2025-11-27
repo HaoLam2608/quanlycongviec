@@ -1362,7 +1362,7 @@ exports.requestToClaimTask = async (req, res) => {
             userId: task.nguoiGiaoId,
             notificationId: notification.id,
             isRead: false,
-            meta: { assignmentId: assignment.id, action: 'claim_request' }
+            meta: { assignmentId: assignment.id, action: 'claim_request', requestToJoin: true }
         });
 
         res.status(201).json({
@@ -1382,6 +1382,7 @@ exports.requestToClaimTask = async (req, res) => {
 
 // Manager: Get all pending task claim requests
 // Shows all pending assignments where current user is the manager (task creator)
+// Note: This includes assignments created by manager assigning tasks/subtasks to members
 exports.getClaimRequests = async (req, res) => {
     try {
         const managerId = req.user.id;
@@ -1390,6 +1391,7 @@ exports.getClaimRequests = async (req, res) => {
             where: {
                 managerId,
                 taskId: { [require('sequelize').Op.ne]: null },
+                subtaskId: null, // Only task assignments, not subtask assignments
                 status: 'pending'
             },
             include: [
