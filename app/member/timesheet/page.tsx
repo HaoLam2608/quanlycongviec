@@ -1235,7 +1235,6 @@ export default function TimesheetPage() {
                                         month: 'long',
                                         day: 'numeric'
                                     }) : 'Tất cả nhật ký'}
-                                    }) : 'Tất cả nhật ký'}
                                 </span>
                             </div>
 
