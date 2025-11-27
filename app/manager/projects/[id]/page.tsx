@@ -337,6 +337,21 @@ export default function ProjectDetailPage() {
         }
     }, [editTask]);
 
+    const handleDeleteTask = async () => {
+        const confirmed = await showConfirm('Bạn có chắc chắn muốn xóa công việc này? Hành động này không thể hoàn tác.');
+        if (!confirmed) return;
+        try {
+            await deleteTask(editTask.id);
+            const tasksData = await getTasksByProject(id as string);
+            setTasks(tasksData.tasks || []);
+            setIsEditTaskModalOpen(false);
+            setEditTask(null);
+            showSuccess('Xóa công việc thành công!');
+        } catch (error) {
+            showError('Lỗi khi xóa công việc!');
+        }
+    };
+
 
 
 
@@ -1852,6 +1867,13 @@ export default function ProjectDetailPage() {
                             className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all"
                         >
                             Lưu thay đổi
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleDeleteTask}
+                            className="px-6 py-3 bg-red-500 text-white rounded-xl font-semibold hover:bg-red-600 transition-all"
+                        >
+                            Xóa công việc
                         </button>
                     </div>
                 </form>

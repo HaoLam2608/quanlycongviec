@@ -594,6 +594,23 @@ export default function ProjectDetailPage() {
         }
     }
 
+    const handleDeleteTask = async () => {
+        const confirmed = await showConfirm('Bạn có chắc muốn xóa task này?')
+        if (!confirmed) return
+
+        try {
+            await deleteTask(editTask.id)
+            showSuccess('Xóa task thành công')
+            const tasksData = await getTasksByProject(id as string)
+            setTasks(tasksData.tasks || [])
+            setIsEditTaskModalOpen(false)
+            setEditTask(null)
+        } catch (error: any) {
+            console.error('Delete task error:', error)
+            showError(error.response?.data?.message || 'Lỗi xóa task')
+        }
+    }
+
     const handleAddTask = async (e: React.FormEvent) => {
         e.preventDefault();
         // Kiểm tra ngày bắt đầu và kết thúc của task phải nằm trong khoảng ngày của dự án
@@ -1105,6 +1122,13 @@ export default function ProjectDetailPage() {
                                                                             className="flex-1 px-6 py-3 bg-secondary text-foreground rounded-xl font-semibold hover:bg-secondary/80 transition-all"
                                                                         >
                                                                             Hủy
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={handleDeleteTask}
+                                                                            className="px-6 py-3 bg-red-500 text-white rounded-xl font-semibold hover:bg-red-600 transition-all"
+                                                                        >
+                                                                            Xóa Task
                                                                         </button>
                                                                         <button
                                                                             type="submit"

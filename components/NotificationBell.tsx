@@ -410,7 +410,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                                         : 'text-gray-600 hover:bg-gray-100'
                                         }`}
                                 >
-                                    Công việc được giao
+                                    Công việc
                                     {assignmentUnreadCount > 0 && (
                                         <span className="ml-2 inline-flex items-center justify-center w-5 h-5 text-xs font-medium text-white bg-red-500 rounded-full">
                                             {assignmentUnreadCount > 9 ? '9+' : assignmentUnreadCount}

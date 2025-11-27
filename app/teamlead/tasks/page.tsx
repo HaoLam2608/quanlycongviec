@@ -379,20 +379,6 @@ export default function TeamLeadTasksPage() {
         setSelectedSubtask(null)
     }
 
-    const handleDeleteTask = async (taskId: number) => {
-        const confirmed = await showConfirm('Bạn có chắc muốn xóa task này?')
-        if (!confirmed) return
-
-        try {
-            await api.delete(`/tasks/${taskId}`)
-            showSuccess('Xóa task thành công')
-            loadTasks()
-        } catch (error: any) {
-            console.error('Delete task error:', error)
-            showError(error.response?.data?.message || 'Lỗi xóa task')
-        }
-    }
-
     const handleCreateSubtask = async () => {
         if (!subtaskFormData.tenSubtask.trim()) {
             showError('Vui lòng nhập tên công việc con')
@@ -1092,13 +1078,6 @@ export default function TeamLeadTasksPage() {
                                             title="Chỉnh sửa"
                                         >
                                             <Edit size={18} />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDeleteTask(task.id)}
-                                            className="p-2 hover:bg-red-100 text-red-600 rounded-lg transition-all"
-                                            title="Xóa"
-                                        >
-                                            <Trash2 size={18} />
                                         </button>
                                     </div>
                                 </div>
