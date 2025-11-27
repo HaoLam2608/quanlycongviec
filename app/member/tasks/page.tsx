@@ -378,11 +378,11 @@ export default function MyTasksPage() {
                 {/* Header */}
                 <div className="mb-6 flex items-center justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Công việc nhỏ của tôi</h1>
-                        <p className="text-gray-600">Quản lý và theo dõi tiến độ các subtask được giao</p>
+                        <h1 className="text-3xl font-bold text-gray-900 mb-2">Công việc của tôi</h1>
+                        <p className="text-gray-600">Quản lý và theo dõi tiến độ các công việc được giao</p>
                     </div>
                     <div className="text-right">
-                        <p className="text-sm text-gray-500">Tổng số subtask</p>
+                        <p className="text-sm text-gray-500">Tổng số công việc</p>
                         <p className="text-2xl font-bold text-blue-600">{allItems.length}</p>
                     </div>
                 </div>
@@ -516,7 +516,7 @@ export default function MyTasksPage() {
                                             </h3>
                                             {task.type === 'subtask' && (
                                                 <span className="text-sm text-gray-500">
-                                                    (Subtask của: {task.parentTask})
+                                                    (Công việc của: {task.parentTask})
                                                 </span>
                                             )}
                                         </div>
@@ -658,7 +658,7 @@ export default function MyTasksPage() {
                     <div className="fixed inset-0 bg-black/30 z-50 flex items-center justify-center p-4">
                         <div className="bg-white rounded-lg w-full max-w-3xl max-h-[80vh] overflow-y-auto shadow-2xl">
                             <div className="p-4 border-b flex items-center justify-between">
-                                <h3 className="font-semibold text-lg">Công việc chưa có người nhận từ Team Lead</h3>
+                                <h3 className="font-semibold text-lg">Công việc chưa có người nhận từ Nhóm trưởng</h3>
                                 <button
                                     onClick={() => setIsAvailableModalOpen(false)}
                                     className="text-gray-500 hover:text-gray-700 text-2xl leading-none px-2"
@@ -684,7 +684,7 @@ export default function MyTasksPage() {
                                                         {ai.type === 'subtask' && ai.item.task && (
                                                             <>
                                                                 <div className="flex items-center gap-2">
-                                                                    <span className="text-gray-500">📋 Task cha:</span>
+                                                                    <span className="text-gray-500">📋 Công việc chính:</span>
                                                                     <span className="font-medium">{ai.item.task.tentask}</span>
                                                                 </div>
                                                                 {ai.item.task.duan && (
@@ -695,7 +695,7 @@ export default function MyTasksPage() {
                                                                 )}
                                                                 {ai.item.task.nguoiGiao && (
                                                                     <div className="flex items-center gap-2">
-                                                                        <span className="text-gray-500">👤 Team Lead:</span>
+                                                                        <span className="text-gray-500">👤 Người giao:</span>
                                                                         <span>{ai.item.task.nguoiGiao.hoten} ({ai.item.task.nguoiGiao.manv})</span>
                                                                     </div>
                                                                 )}
@@ -782,7 +782,7 @@ export default function MyTasksPage() {
                                     </p>
                                 </div>
                                 <div>
-                                    <label className="text-sm font-medium text-muted-foreground">Task cha</label>
+                                    <label className="text-sm font-medium text-muted-foreground">Công việc chính</label>
                                     <p className="mt-1 text-foreground">{selectedTask.parentTask || 'Không có'}</p>
                                 </div>
                             </div>

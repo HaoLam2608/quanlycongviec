@@ -17,7 +17,7 @@ import { GlobalChatProvider } from "@/components/chat/GlobalChatProvider"
 import { FloatingAI } from "@/components/ai/FloatingAI"
 
 const navigation = [
-    { name: "Dashboard", href: "/teamlead", icon: Home },
+    { name: "Trang chủ", href: "/teamlead", icon: Home },
     { name: "Nhóm của tôi", href: "/teamlead/group", icon: Users },
     { name: "Dự án", href: "/teamlead/projects", icon: Briefcase },
     { name: "Công việc chính", href: "/teamlead/tasks", icon: ListTodo },
@@ -52,9 +52,25 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
 
                     let avatar = user.avatarUrl || user.avatar || `/users/${user.id}/avatar`
 
+                    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
+
+                    // Make full url when needed
                     if (avatar && !avatar.startsWith('http') && !avatar.startsWith('data:')) {
-                        const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
                         avatar = `${base.replace(/\/$/, '')}${avatar.startsWith('/') ? '' : '/'}${avatar}`
+                    }
+
+                    // If avatar is served from the API and requires Authorization, fetch it
+                    // via `api` (which attaches auth headers) and convert to an object URL.
+                    try {
+                        const avatarPath = `/users/${user.id}/avatar`
+                        if (avatar && (avatar.includes(avatarPath) || avatar.startsWith(base))) {
+                            const resAvatar = await api.get(avatarPath, { responseType: 'blob' })
+                            const blob = resAvatar.data
+                            const objectUrl = URL.createObjectURL(blob)
+                            avatar = objectUrl
+                        }
+                    } catch (err) {
+                        console.warn('Failed to fetch avatar with auth, will fallback to provided URL', err)
                     }
 
                     setCurrentUser({
@@ -78,14 +94,26 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
             const role = roleLS
             const avatarLS = localStorage.getItem('avatar')
 
-            if (token && userId && hoten) {
+            // If avatar from localStorage points to server path that requires auth, fetch it too
+            let avatarFromLS = avatarLS
+            try {
+                if (avatarFromLS && !avatarFromLS.startsWith('http') && !avatarFromLS.startsWith('data:')) {
+                    const resAvatarLS = await api.get(`/users/${parseInt(userId || '0')}/avatar`, { responseType: 'blob' })
+                    const blobLS = resAvatarLS.data
+                    avatarFromLS = URL.createObjectURL(blobLS)
+                }
+            } catch (err) {
+                // ignore, keep avatarLS as-is (may be a full URL)
+            }
+
+                    if (token && userId && hoten) {
                 setCurrentUser({
                     id: parseInt(userId),
                     hoten,
                     manv,
                     role,
                     chucvu: 'Trưởng nhóm',
-                    avatar: avatarLS
+                    avatar: avatarFromLS || avatarLS
                 })
             }
         }
@@ -149,7 +177,7 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
                                     />
                                 </div>
                                 <div className="flex-shrink-0 flex items-center px-4">
-                                    <h2 className="text-lg font-semibold text-gray-900">Team Lead Portal</h2>
+                                    <h2 className="text-lg font-semibold text-gray-900">Trang Nhóm Trưởng</h2>
                                 </div>
                                 <nav className="mt-5 px-2 space-y-1">
                                     {updatedNavigation.map((item) => (
@@ -201,7 +229,7 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
                                     />
                                 </div>
                                 <div className="flex items-center flex-shrink-0 px-4">
-                                    <h2 className="text-xl font-bold text-gray-900">Team Lead Portal</h2>
+                                    <h2 className="text-xl font-bold text-gray-900">Trang Nhóm Trưởng</h2>
                                 </div>
                                 <nav className="mt-5 flex-1 px-2 space-y-1">
                                     {updatedNavigation.map((item) => (
@@ -232,10 +260,10 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
                                     <div>
                                         {currentUser?.avatar ? (
                                             <Avatar className="w-8 h-8">
-                                                <AvatarImage src={currentUser.avatar} alt={currentUser?.hoten || 'Team Lead'} />
-                                                <AvatarFallback className="text-xs">
-                                                    {(currentUser?.hoten || 'T').substring(0, 2).toUpperCase()}
-                                                </AvatarFallback>
+                                                <AvatarImage src={currentUser.avatar} alt={currentUser?.hoten || 'Nhóm Trưởng'} />
+                                                    <AvatarFallback className="text-xs">
+                                                        {(currentUser?.hoten || 'NT').substring(0, 2).toUpperCase()}
+                                                    </AvatarFallback>
                                             </Avatar>
                                         ) : (
                                             <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
@@ -245,7 +273,7 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
                                     </div>
                                     <div className="ml-3 flex-1">
                                         <p className="text-sm font-medium text-gray-700">
-                                            {currentUser?.hoten || 'Team Leader'}
+                                            {currentUser?.hoten || 'Nhóm Trưởng'}
                                         </p>
                                         <p className="text-xs text-gray-500">
                                             {currentUser?.manv || 'Trưởng nhóm'}
@@ -295,20 +323,21 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
                                     <div>
                                         {currentUser?.avatar ? (
                                             <Avatar className="w-8 h-8">
-                                                <AvatarImage src={currentUser.avatar} alt={currentUser?.hoten || 'Team Lead'} />
+                                                <AvatarImage src={currentUser.avatar} alt={currentUser?.hoten || 'Nhóm Trưởng'} />
                                                 <AvatarFallback className="text-xs">
-                                                    {(currentUser?.hoten || 'T').substring(0, 2).toUpperCase()}
+                                                    {(currentUser?.hoten || 'NT').substring(0, 2).toUpperCase()}
                                                 </AvatarFallback>
                                             </Avatar>
                                         ) : (
                                             <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
                                                 <User className="w-4 h-4 text-white" />
                                             </div>
+
                                         )}
                                     </div>
                                     <div className="hidden lg:block">
                                         <p className="text-sm font-medium text-gray-700">
-                                            {currentUser?.hoten || 'Team Leader'}
+                                            {currentUser?.hoten || 'Nhóm Trưởng'}
                                         </p>
                                         <p className="text-xs text-gray-500">
                                             {currentUser?.manv || 'Trưởng nhóm'}

@@ -940,7 +940,7 @@ export default function ProjectDetailPage() {
                                                                 onClick={() => setExpandedWorklogTaskId(expandedWorklogTaskId === task.id ? null : task.id)}
                                                                 className="w-full px-3 py-2 bg-slate-100 text-slate-700 rounded-lg text-xs font-medium hover:bg-slate-200 transition-all duration-200 flex items-center justify-center gap-1 border border-slate-200"
                                                             >
-                                                                Worklog
+                                                                Nhật ký
                                                             </button>
                                                         </div>
                                                     </td>

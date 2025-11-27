@@ -156,10 +156,25 @@ export const uploadAvatar = async (file: File) => {
   try {
     const form = new FormData();
     form.append('avatar', file);
-
-    const res = await api.post('/users/avatar', form, { headers: { 'Content-Type': 'multipart/form-data' } });
-    return res.data;
+    // Ensure we don't send the default JSON Content-Type from the api instance.
+    // Some axios defaults may still set application/json — temporarily clear them so the browser can set multipart boundary.
+    const prevCommon = api.defaults.headers && api.defaults.headers.common ? api.defaults.headers.common['Content-Type'] : undefined
+    const prevPost = api.defaults.headers && api.defaults.headers.post ? api.defaults.headers.post['Content-Type'] : undefined
+    try {
+      if (api.defaults.headers && api.defaults.headers.common) delete api.defaults.headers.common['Content-Type']
+      if (api.defaults.headers && api.defaults.headers.post) delete api.defaults.headers.post['Content-Type']
+      const res = await api.post('/users/avatar', form);
+      return res.data;
+    } finally {
+      try {
+        if (api.defaults.headers && api.defaults.headers.common && typeof prevCommon !== 'undefined') api.defaults.headers.common['Content-Type'] = prevCommon
+        if (api.defaults.headers && api.defaults.headers.post && typeof prevPost !== 'undefined') api.defaults.headers.post['Content-Type'] = prevPost
+      } catch (e) {
+        // ignore
+      }
+    }
   } catch (err: any) {
+    console.error('uploadAvatar error:', err?.response || err)
     throw err.response?.data || { message: 'Không thể upload avatar' };
   }
 };

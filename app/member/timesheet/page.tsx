@@ -941,7 +941,7 @@ export default function TimesheetPage() {
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
                             <Timer className="w-6 h-6 text-blue-600" />
-                            Timer
+                            Đếm giờ làm việc 
                         </h2>
                         <div className="flex gap-2">
                             <button
@@ -951,7 +951,7 @@ export default function TimesheetPage() {
                                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                     }`}
                             >
-                                Timer đơn
+                                Đếm giờ đơn
                             </button>
                             <button
                                 onClick={() => setIsMultiTimerMode(true)}
@@ -960,7 +960,7 @@ export default function TimesheetPage() {
                                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                     }`}
                             >
-                                Multi-timer
+                                Đếm giờ đa năng
                                 {multiTimers.length > 0 && (
                                     <span className="ml-2 bg-red-500 text-white rounded-full px-2 py-0.5 text-xs">
                                         {multiTimers.length}
@@ -988,7 +988,7 @@ export default function TimesheetPage() {
                                         <div className="text-4xl font-mono font-bold text-gray-400 mb-2">
                                             00:00:00
                                         </div>
-                                        <p className="text-gray-500">Timer dừng</p>
+                                        <p className="text-gray-500">Dừng hẹn giờ</p>
                                     </div>
                                 )}
                             </div>
@@ -1110,8 +1110,8 @@ export default function TimesheetPage() {
                             {multiTimers.length === 0 ? (
                                 <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                                     <Timer className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                                    <p className="text-gray-600 font-medium mb-1">Chưa có timer nào</p>
-                                    <p className="text-gray-500 text-sm">Chọn công việc ở trên để bắt đầu timer mới</p>
+                                    <p className="text-gray-600 font-medium mb-1">Chưa có bộ đếm giờ nào</p>
+                                    <p className="text-gray-500 text-sm">Chọn công việc ở trên để bắt đầu đếm giờ mới</p>
                                 </div>
                             ) : (
                                 <div className="space-y-3">
@@ -1222,7 +1222,7 @@ export default function TimesheetPage() {
                                         year: 'numeric',
                                         month: 'long',
                                         day: 'numeric'
-                                    }) : 'Tất cả worklog'}
+                                    }) : 'Tất cả nhật ký'}
                                 </span>
                             </div>
 
@@ -1274,7 +1274,7 @@ export default function TimesheetPage() {
                                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
                             >
                                 <Plus className="w-4 h-4" />
-                                Thêm worklog
+                                Thêm nhật ký
                             </button>
                         </div>
                     </div>
@@ -1310,13 +1310,13 @@ export default function TimesheetPage() {
                     {worklogs.length === 0 ? (
                         <div className="p-12 text-center">
                             <Clock className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                            <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa có worklog</h3>
+                            <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa có nhật ký</h3>
                             <p className="text-gray-500 mb-4">Bắt đầu ghi nhận thời gian làm việc của bạn</p>
                             <button
                                 onClick={() => setIsAddModalOpen(true)}
                                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                             >
-                                Thêm worklog đầu tiên
+                                Thêm nhật ký đầu tiên
                             </button>
                         </div>
                     ) : (
@@ -1417,7 +1417,7 @@ export default function TimesheetPage() {
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-right">
                                                     <div className="text-sm text-gray-500">
-                                                        {group.worklogs.length} worklog
+                                                        {group.worklogs.length} nhật ký
                                                     </div>
                                                 </td>
                                             </tr>
@@ -1434,7 +1434,7 @@ export default function TimesheetPage() {
                                                     )}
                                                     <td className="px-6 py-4 pl-16">
                                                         <div className="text-sm text-gray-600">
-                                                            <span className="text-gray-400">↳</span> Worklog chi tiết
+                                                            <span className="text-gray-400">↳</span> nhật ký chi tiết
                                                         </div>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap">
@@ -1494,7 +1494,7 @@ export default function TimesheetPage() {
                                             {calculateTotalTimeHMS()}
                                             {!selectedDate && worklogs.length > 0 && (
                                                 <div className="text-xs font-normal text-gray-500">
-                                                    ({worklogs.length} worklog)
+                                                    ({worklogs.length} nhật ký)
                                                 </div>
                                             )}
                                         </td>
@@ -1521,7 +1521,7 @@ export default function TimesheetPage() {
                         >
                             <div className="p-6 border-b border-gray-200">
                                 <div className="flex items-center justify-between">
-                                    <h2 className="text-xl font-bold text-gray-900">Thêm worklog</h2>
+                                    <h2 className="text-xl font-bold text-gray-900">Thêm nhật ký</h2>
                                     <div className="flex gap-2">
                                         <button
                                             onClick={() => setIsBatchMode(false)}
@@ -1578,7 +1578,7 @@ export default function TimesheetPage() {
                                             </select>
                                             {mySubtasks.length === 0 && !loadingSubtasks && (
                                                 <p className="text-sm text-red-600 mt-1">
-                                                    Không tìm thấy subtask nào. Vui lòng kiểm tra lại.
+                                                    Không tìm thấy công việc nào. Vui lòng kiểm tra lại.
                                                 </p>
                                             )}
                                         </div>
