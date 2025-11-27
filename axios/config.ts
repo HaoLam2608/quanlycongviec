@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://localhost:5000", // URL backend của bạn
+  baseURL: "https://taskhadflow-api.nibies.space", // URL backend của bạn
   headers: {
     "Content-Type": "application/json",
   },
@@ -28,8 +28,17 @@ api.interceptors.response.use(
       originalRequest._retry = true;
       try {
         const refreshToken = typeof window !== 'undefined' ? localStorage.getItem("refreshToken") : null;
+        // Diagnostic: record what tokens we have when attempting refresh
+        try {
+          console.debug('Auth refresh attempt, tokens:', {
+            accessToken: typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null,
+            refreshToken
+          });
+        } catch (e) { /* ignore debug errors */ }
         if (!refreshToken) throw new Error('Missing refresh token');
-        const response = await axios.post("http://localhost:5000/auth/refresh", { refreshToken });
+        // Use env var if provided, otherwise fall back to the api instance baseURL
+        const refreshBase = process.env.NEXT_PUBLIC_API_URL || api.defaults.baseURL || 'http://localhost:5000';
+        const response = await axios.post(`${refreshBase}/auth/refresh`, { refreshToken });
         const newAccessToken = response.data.accessToken;
         // store new access token under the canonical key used by the app
         localStorage.setItem("accessToken", newAccessToken);
@@ -74,7 +83,7 @@ api.interceptors.response.use(
       const url = err?.config?.url || ''
       const currentRole = localStorage.getItem('role')
       const currentPath = typeof window !== 'undefined' ? window.location.pathname : ''
-      
+
       // Log detailed 403 info for debugging
       console.error('🚨 403 FORBIDDEN - API Call Failed:', {
         api: url,
@@ -84,20 +93,20 @@ api.interceptors.response.use(
         message,
         timestamp: new Date().toISOString()
       });
-      
+
       // Check if this is from notifications endpoint - don't redirect
       if (url.includes('/notifications/') || url.includes('/assignments/')) {
         console.warn('⚠️ API action permission denied - will not redirect to 403')
         return Promise.reject(err);
       }
-      
+
       // Don't redirect to 403 if on public pages (landing, login, signup)
       const publicPaths = ['/', '/login', '/signup', '/forgot-password']
       if (publicPaths.includes(currentPath)) {
         console.warn('⚠️ 403 on public page - will not redirect, just rejecting request')
         return Promise.reject(err);
       }
-      
+
       // Don't redirect if we're in the middle of login process (within 2 seconds of login)
       const lastLogin = localStorage.getItem('lastLoginTime')
       if (lastLogin) {
@@ -107,22 +116,22 @@ api.interceptors.response.use(
           return Promise.reject(err);
         }
       }
-      
+
       console.warn('🚫 403 Error - Redirecting to /403 page')
-      
+
       try {
         // diagnostic: record permission-denied event
         try {
-          localStorage.setItem('lastAuthEvent', JSON.stringify({ 
-            time: new Date().toISOString(), 
-            type: 'permissionDenied', 
+          localStorage.setItem('lastAuthEvent', JSON.stringify({
+            time: new Date().toISOString(),
+            type: 'permissionDenied',
             message,
             url,
             currentRole,
             currentPath
           }))
         } catch (e) { /* ignore */ }
-        
+
         // Redirect to 403 page
         setTimeout(() => {
           if (typeof window !== 'undefined') {

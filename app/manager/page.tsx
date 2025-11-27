@@ -368,7 +368,7 @@ export default function PMDashboard() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-4xl font-bold text-foreground mb-2 text-balance">
-                        Dashboard Quản lý 📊
+                        Trang chủ Quản lý 📊
                     </h1>
                     <p className="text-muted-foreground text-lg">
                         Tổng quan dự án và nhiệm vụ của bạn
@@ -428,7 +428,7 @@ export default function PMDashboard() {
                             Cần xử lý
                         </span>
                     </div>
-                    <p className="text-sm text-muted-foreground mb-1">Tasks quá hạn</p>
+                    <p className="text-sm text-muted-foreground mb-1">Công việc quá hạn</p>
                     <p className="text-3xl font-bold text-red-600">{overdueTasks}</p>
                 </div>
 
@@ -454,7 +454,7 @@ export default function PMDashboard() {
                             Khẩn cấp
                         </span>
                     </div>
-                    <p className="text-sm text-muted-foreground mb-1">Tasks cần xử lý gấp</p>
+                    <p className="text-sm text-muted-foreground mb-1">Công việc cần xử lý gấp</p>
                     <p className="text-3xl font-bold text-orange-600">{urgentTasks.length}</p>
                 </div>
             </div>
@@ -502,7 +502,7 @@ export default function PMDashboard() {
                                                 {project.tenduan || project.ten || 'Không có tên'}
                                             </p>
                                             <p className="text-xs text-muted-foreground mt-1">
-                                                {completedTasks}/{projectTasks.length} tasks hoàn thành
+                                                {completedTasks}/{projectTasks.length} công việc hoàn thành
                                             </p>
                                         </div>
                                         <div className="flex items-center gap-3 ml-4">
@@ -528,7 +528,7 @@ export default function PMDashboard() {
                 <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
                     <div className="flex items-center justify-between mb-6">
                         <div>
-                            <h3 className="text-lg font-bold text-foreground">Tasks khẩn cấp</h3>
+                            <h3 className="text-lg font-bold text-foreground">Công việc khẩn cấp</h3>
                             <p className="text-sm text-muted-foreground">Cần hoàn thành trong 3 ngày</p>
                         </div>
                         <Timer className="w-5 h-5 text-orange-500" />
@@ -537,7 +537,7 @@ export default function PMDashboard() {
                         {urgentTasks.length === 0 ? (
                             <div className="text-center py-12 text-muted-foreground">
                                 <CheckCircle2 className="w-12 h-12 mx-auto mb-2 text-green-500" />
-                                <p className="text-sm">Không có tasks khẩn cấp</p>
+                                <p className="text-sm">Không có công việc khẩn cấp</p>
                                 <p className="text-xs mt-1">Tất cả đều trong tầm kiểm soát! 🎉</p>
                             </div>
                         ) : (

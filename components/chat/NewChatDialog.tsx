@@ -27,7 +27,7 @@ interface UserItem {
   email: string;
   avatar?: string;
 }
-
+const SOCKET_URL = "https://taskhadflow-api.nibies.space";
 export const NewChatDialog: React.FC = () => {
   const { createDirectConversation, createGroupConversation, selectConversation, onlineUsers } = useChatContext();
   const [open, setOpen] = useState(false);
@@ -59,9 +59,9 @@ export const NewChatDialog: React.FC = () => {
       }
 
       console.log('Loading users...');
-      console.log('API URL:', `${process.env.NEXT_PUBLIC_API_URL}/users?limit=100`);
+      console.log('API URL:', `${SOCKET_URL}/users?limit=100`);
       
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users?limit=100`, {
+      const response = await fetch(`${SOCKET_URL}/users?limit=100`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -213,7 +213,7 @@ export const NewChatDialog: React.FC = () => {
                         <div className="relative">
                           <Avatar className="h-10 w-10">
                             {user.avatar && (
-                              <AvatarImage src={`${process.env.NEXT_PUBLIC_API_URL}${user.avatar}`} />
+                              <AvatarImage src={`${SOCKET_URL}${user.avatar}`} />
                             )}
                             <AvatarFallback>
                               <User className="h-5 w-5" />
@@ -281,7 +281,7 @@ export const NewChatDialog: React.FC = () => {
                       <div className="relative">
                         <Avatar className="h-10 w-10">
                           {user.avatar && (
-                            <AvatarImage src={`${process.env.NEXT_PUBLIC_API_URL}${user.avatar}`} />
+                            <AvatarImage src={`${SOCKET_URL}${user.avatar}`} />
                           )}
                           <AvatarFallback>
                             <User className="h-5 w-5" />

@@ -140,7 +140,7 @@ export const uploadAttachment = async (file: File) => {
 
 // Tải file đính kèm
 export const downloadAttachment = (filename: string) => {
-  const apiUrl = api.defaults.baseURL || 'http://localhost:5000';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "";
   return `${apiUrl}/reports/attachments/${filename}`;
 };
 

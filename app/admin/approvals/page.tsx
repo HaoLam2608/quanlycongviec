@@ -81,6 +81,7 @@ interface JoinRequest {
     content: string
     createdAt: string
     isRead: boolean
+    assignmentId?: number
     meta: {
         requestToJoin: boolean
         taskId?: number
@@ -178,7 +179,7 @@ interface ApprovedItem {
     type?: "task" | "subtask" | "assignment"
 }
 
-type ApprovalTab = "completion" | "join" | "history"
+type ApprovalTab = "completion" | "requests" | "history"
 
 export default function AdminApprovalsPage() {
     const [pendingTasks, setPendingTasks] = useState<PendingTask[]>([])
@@ -191,6 +192,7 @@ export default function AdminApprovalsPage() {
     const [filter, setFilter] = useState<"all" | "tasks" | "subtasks">("all")
     const [historyFilter, setHistoryFilter] = useState<"all" | "completion" | "assignment">("all")
     const [activeTab, setActiveTab] = useState<ApprovalTab>("completion")
+    const [requestFilter, setRequestFilter] = useState<string>("Tất cả yêu cầu")
     const [searchTerm, setSearchTerm] = useState("")
     const [selectedItem, setSelectedItem] = useState<any>(null)
     const [isModalOpen, setIsModalOpen] = useState(false)
@@ -510,7 +512,7 @@ export default function AdminApprovalsPage() {
                             <p className="text-gray-600">
                                 {activeTab === "completion"
                                     ? "Theo dõi và xử lý các yêu cầu hoàn thành công việc trên toàn hệ thống"
-                                    : activeTab === "join"
+                                    : activeTab === "requests"
                                         ? "Giám sát các yêu cầu nhận việc từ nhân viên ở mọi dự án"
                                         : "Xem lại lịch sử phê duyệt, tiếp nhận công việc toàn công ty"}
                             </p>
@@ -565,8 +567,8 @@ export default function AdminApprovalsPage() {
                                 </div>
                             </button>
                             <button
-                                onClick={() => setActiveTab("join")}
-                                className={`flex-1 px-4 py-3 rounded-lg font-medium text-sm transition-all ${activeTab === "join"
+                                onClick={() => setActiveTab("requests")}
+                                className={`flex-1 px-4 py-3 rounded-lg font-medium text-sm transition-all ${activeTab === "requests"
                                     ? "bg-green-600 text-white shadow-md"
                                     : "text-gray-600 hover:bg-gray-50"
                                     }`}
@@ -576,7 +578,7 @@ export default function AdminApprovalsPage() {
                                     <span>Yêu cầu nhận việc</span>
                                     {(joinRequests.length + claimRequests.length) > 0 && (
                                         <span
-                                            className={`px-2 py-0.5 rounded-full text-xs ${activeTab === "join" ? "bg-white/20" : "bg-green-100 text-green-800"
+                                            className={`px-2 py-0.5 rounded-full text-xs ${activeTab === "requests" ? "bg-white/20" : "bg-green-100 text-green-800"
                                                 }`}
                                         >
                                             {joinRequests.length + claimRequests.length}
@@ -804,13 +806,36 @@ export default function AdminApprovalsPage() {
                     </div>
                 )}
 
-                {activeTab === "join" && (
+                {activeTab === "requests" && (
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200">
                         <div className="p-6 border-b border-gray-200">
-                            <h2 className="text-lg font-semibold text-gray-900">
-                                Yêu cầu nhận công việc ({joinRequests.length + claimRequests.length})
-                            </h2>
-                            <p className="text-sm text-gray-500 mt-1">Bao gồm yêu cầu nhận task và yêu cầu tham gia nhóm</p>
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h2 className="text-lg font-semibold text-gray-900">
+                                        Yêu cầu nhận công việc ({(() => {
+                                            const claimCount = requestFilter === "Tất cả yêu cầu" || requestFilter === "Yêu cầu nhận việc"
+                                                ? claimRequests.filter(r => r.status === 'pending').length
+                                                : 0;
+                                            const joinCount = requestFilter === "Tất cả yêu cầu" || requestFilter === "Yêu cầu chung"
+                                                ? joinRequests.filter(r => !r.meta.processed).length
+                                                : 0;
+                                            return claimCount + joinCount;
+                                        })()})
+                                    </h2>
+                                    <p className="text-sm text-gray-500 mt-1">Bao gồm yêu cầu nhận task và yêu cầu tham gia nhóm</p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <select
+                                        value={requestFilter}
+                                        onChange={(e) => setRequestFilter(e.target.value)}
+                                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                                    >
+                                        <option value="Tất cả yêu cầu">Tất cả yêu cầu</option>
+                                        <option value="Yêu cầu nhận việc">Yêu cầu nhận việc</option>
+                                        <option value="Yêu cầu chung">Yêu cầu chung</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                         <div className="divide-y divide-gray-200">
                             {(joinRequests.length + claimRequests.length) === 0 ? (
@@ -823,8 +848,19 @@ export default function AdminApprovalsPage() {
                                 </div>
                             ) : (
                                 <>
-                                    {/* Claim Requests (Task Assignment Requests) */}
-                                    {claimRequests.filter(r => r.status === 'pending').map(request => {
+                                    {/* Filter requests based on requestFilter */}
+                                    {(() => {
+                                        const filteredClaimRequests = requestFilter === "Tất cả yêu cầu" || requestFilter === "Yêu cầu nhận việc"
+                                            ? claimRequests.filter(r => r.status === 'pending')
+                                            : [];
+                                        const filteredJoinRequests = requestFilter === "Tất cả yêu cầu" || requestFilter === "Yêu cầu chung"
+                                            ? joinRequests.filter(r => !r.meta.processed)
+                                            : [];
+
+                                        return (
+                                            <>
+                                                {/* Claim Requests (Task Assignment Requests) */}
+                                                {filteredClaimRequests.map(request => {
                                         const isSubtask = !!request.subtaskId;
                                         const itemName = isSubtask ? request.subtask?.tenSubtask : request.task?.tentask;
                                         const itemDesc = isSubtask ? request.subtask?.mota : request.task?.mota;
@@ -921,7 +957,7 @@ export default function AdminApprovalsPage() {
                                     })}
 
                                     {/* Join Requests (Group Membership Requests) */}
-                                    {joinRequests.map(request => {
+                                    {filteredJoinRequests.map(request => {
                                         const isProcessed = request.meta?.processed === true
                                         const action = request.meta?.action
                                         const targetLabel = request.meta?.taskId
@@ -1024,6 +1060,9 @@ export default function AdminApprovalsPage() {
                                             </div>
                                         )
                                     })}
+                                        </>
+                                        )
+                                    })()}
                                 </>
                             )}
                         </div>

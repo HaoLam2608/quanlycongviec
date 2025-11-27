@@ -116,17 +116,17 @@ export default function MyProjectsPage() {
         try {
             setLoading(true)
             setError(null)
-            
+
             // Debug: Check if user is logged in
             const token = localStorage.getItem('accessToken')
             console.log('🔐 Token exists:', !!token)
-            
+
             // Fetch real data from API
             console.log('📡 Fetching member projects...')
             const data = await getMemberProjects()
             console.log('✅ Projects received:', data.length, 'projects')
             console.log('📊 Projects data:', data)
-            
+
             setProjects(data)
         } catch (error: any) {
             console.error("Error loading projects:", error)
@@ -236,7 +236,7 @@ export default function MyProjectsPage() {
                     <AlertTriangle className="w-12 h-12 text-red-600 mx-auto mb-4" />
                     <p className="text-gray-900 font-semibold mb-2">Lỗi khi tải dữ liệu</p>
                     <p className="text-gray-600 mb-4">{error}</p>
-                    <button 
+                    <button
                         onClick={loadProjects}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                     >
@@ -248,25 +248,30 @@ export default function MyProjectsPage() {
     }
 
     return (
-        <div className="p-6 bg-gray-50 min-h-screen">
+        <div className="p-6 bg-gradient-to-br from-slate-50 via-blue-50/20 to-slate-50 min-h-screen">
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">Dự án của tôi</h1>
-                    <p className="text-gray-600">Theo dõi tiến độ và thông tin các dự án đang tham gia</p>
+                <div className="mb-8 animate-fade-in">
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="h-3 w-3 rounded-full bg-blue-500 animate-pulse" />
+                        <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">Dự án của tôi</h1>
+                    </div>
+                    <p className="text-slate-600 ml-6">Theo dõi tiến độ và thông tin các dự án đang tham gia</p>
                 </div>
 
                 {/* Quick actions removed from top — actions now live inside each project's detail modal */}
 
                 {/* Stats Overview */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                    <div className="group bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-blue-100 hover:shadow-xl transition-all duration-300 hover:scale-105">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-gray-600">Tổng dự án</p>
-                                <p className="text-2xl font-bold text-gray-900">{projects.length}</p>
+                                <p className="text-sm font-medium text-slate-600">Tổng dự án</p>
+                                <p className="text-2xl font-bold text-slate-900">{projects.length}</p>
                             </div>
-                            <FolderOpen className="w-8 h-8 text-blue-600" />
+                            <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center transition-transform duration-200 group-hover:scale-110">
+                                <FolderOpen className="w-6 h-6 text-blue-600" />
+                            </div>
                         </div>
                     </div>
 
@@ -333,105 +338,105 @@ export default function MyProjectsPage() {
                                             </span>
                                         </div>
                                     </div>
-                                <button
-                                    onClick={() => {
-                                        setSelectedProject(project)
-                                        setIsDetailModalOpen(true)
-                                    }}
-                                    className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                                >
-                                    <Eye className="w-4 h-4" />
-                                    Chi tiết
-                                </button>
-                            </div>
-
-                            {/* Progress */}
-                            <div className="mb-4">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-sm font-medium text-gray-700">Tiến độ tổng thể</span>
-                                    <span className="text-sm font-bold text-gray-900">{project.progress}%</span>
+                                    <button
+                                        onClick={() => {
+                                            setSelectedProject(project)
+                                            setIsDetailModalOpen(true)
+                                        }}
+                                        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 hover:scale-105 hover:shadow-md flex items-center gap-2 font-medium"
+                                    >
+                                        <Eye className="w-4 h-4" />
+                                        Chi tiết
+                                    </button>
                                 </div>
-                                <div className="w-full bg-gray-200 rounded-full h-3">
-                                    <div
-                                        className={`h-3 rounded-full transition-all duration-300 ${getProgressColor(project.progress)}`}
-                                        style={{ width: `${project.progress}%` }}
-                                    />
-                                </div>
-                            </div>
 
-                            {/* Project Stats */}
-                            <div className="grid grid-cols-2 gap-4 mb-4">
-                                <div className="bg-gray-50 rounded-lg p-3">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <Users className="w-4 h-4 text-gray-600" />
-                                        <span className="text-sm font-medium text-gray-700">Nhóm</span>
+                                {/* Progress */}
+                                <div className="mb-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-sm font-medium text-gray-700">Tiến độ tổng thể</span>
+                                        <span className="text-sm font-bold text-gray-900">{project.progress}%</span>
                                     </div>
-                                    <p className="text-lg font-bold text-gray-900">{project.teamSize} thành viên</p>
+                                    <div className="w-full bg-gray-200 rounded-full h-3">
+                                        <div
+                                            className={`h-3 rounded-full transition-all duration-300 ${getProgressColor(project.progress)}`}
+                                            style={{ width: `${project.progress}%` }}
+                                        />
+                                    </div>
                                 </div>
 
-                                <div className="bg-gray-50 rounded-lg p-3">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <Target className="w-4 h-4 text-gray-600" />
-                                        <span className="text-sm font-medium text-gray-700">Công việc</span>
+                                {/* Project Stats */}
+                                <div className="grid grid-cols-2 gap-4 mb-4">
+                                    <div className="bg-gray-50 rounded-lg p-3">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <Users className="w-4 h-4 text-gray-600" />
+                                            <span className="text-sm font-medium text-gray-700">Nhóm</span>
+                                        </div>
+                                        <p className="text-lg font-bold text-gray-900">{project.teamSize} thành viên</p>
                                     </div>
-                                    <p className="text-lg font-bold text-gray-900">
-                                        {project.completedTasks}/{project.totalTasks}
+
+                                    <div className="bg-gray-50 rounded-lg p-3">
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <Target className="w-4 h-4 text-gray-600" />
+                                            <span className="text-sm font-medium text-gray-700">Công việc</span>
+                                        </div>
+                                        <p className="text-lg font-bold text-gray-900">
+                                            {project.completedTasks}/{project.totalTasks}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* My Tasks */}
+                                <div className="bg-blue-50 rounded-lg p-3 mb-4">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                                        <span className="text-sm font-medium text-blue-700">Công việc của tôi</span>
+                                    </div>
+                                    <p className="text-lg font-bold text-blue-900">
+                                        {project.myCompletedTasks}/{project.myTasks} hoàn thành
                                     </p>
+                                    <div className="w-full bg-blue-200 rounded-full h-2 mt-2">
+                                        <div
+                                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                            style={{ width: `${project.myTasks > 0 ? (project.myCompletedTasks / project.myTasks) * 100 : 0}%` }}
+                                        />
+                                    </div>
                                 </div>
-                            </div>
 
-                            {/* My Tasks */}
-                            <div className="bg-blue-50 rounded-lg p-3 mb-4">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <CheckCircle2 className="w-4 h-4 text-blue-600" />
-                                    <span className="text-sm font-medium text-blue-700">Công việc của tôi</span>
+                                {/* Timeline */}
+                                <div className="flex items-center justify-between text-sm text-gray-500">
+                                    <div className="flex items-center gap-1">
+                                        <Calendar className="w-4 h-4" />
+                                        <span>Bắt đầu: {new Date(project.startDate).toLocaleDateString('vi-VN')}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <Clock className="w-4 h-4" />
+                                        <span className={
+                                            getDaysUntilDeadline(project.deadline) < 0 && project.status !== "Hoàn thành"
+                                                ? "text-red-600 font-medium"
+                                                : getDaysUntilDeadline(project.deadline) <= 7 && project.status !== "Hoàn thành"
+                                                    ? "text-orange-600 font-medium"
+                                                    : ""
+                                        }>
+                                            Deadline: {new Date(project.deadline).toLocaleDateString('vi-VN')}
+                                        </span>
+                                    </div>
                                 </div>
-                                <p className="text-lg font-bold text-blue-900">
-                                    {project.myCompletedTasks}/{project.myTasks} hoàn thành
-                                </p>
-                                <div className="w-full bg-blue-200 rounded-full h-2 mt-2">
-                                    <div
-                                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                        style={{ width: `${project.myTasks > 0 ? (project.myCompletedTasks / project.myTasks) * 100 : 0}%` }}
-                                    />
-                                </div>
-                            </div>
 
-                            {/* Timeline */}
-                            <div className="flex items-center justify-between text-sm text-gray-500">
-                                <div className="flex items-center gap-1">
-                                    <Calendar className="w-4 h-4" />
-                                    <span>Bắt đầu: {new Date(project.startDate).toLocaleDateString('vi-VN')}</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                    <Clock className="w-4 h-4" />
-                                    <span className={
-                                        getDaysUntilDeadline(project.deadline) < 0 && project.status !== "Hoàn thành"
-                                            ? "text-red-600 font-medium"
-                                            : getDaysUntilDeadline(project.deadline) <= 7 && project.status !== "Hoàn thành"
-                                                ? "text-orange-600 font-medium"
-                                                : ""
-                                    }>
-                                        Deadline: {new Date(project.deadline).toLocaleDateString('vi-VN')}
-                                    </span>
-                                </div>
+                                {/* Warning for overdue projects */}
+                                {getDaysUntilDeadline(project.deadline) < 0 && project.status !== "Hoàn thành" && (
+                                    <div className="mt-3 flex items-center gap-2 text-red-600 text-sm font-medium">
+                                        <AlertTriangle className="w-4 h-4" />
+                                        <span>Dự án đã quá hạn {Math.abs(getDaysUntilDeadline(project.deadline))} ngày</span>
+                                    </div>
+                                )}
                             </div>
-
-                            {/* Warning for overdue projects */}
-                            {getDaysUntilDeadline(project.deadline) < 0 && project.status !== "Hoàn thành" && (
-                                <div className="mt-3 flex items-center gap-2 text-red-600 text-sm font-medium">
-                                    <AlertTriangle className="w-4 h-4" />
-                                    <span>Dự án đã quá hạn {Math.abs(getDaysUntilDeadline(project.deadline))} ngày</span>
-                                </div>
-                            )}
-                        </div>
-                    ))}
+                        ))}
                     </div>
                 )}
 
                 {/* Project Detail Modal */}
                 {isDetailModalOpen && selectedProject && (
-                    <div 
+                    <div
                         className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
                         onClick={() => {
                             setIsDetailModalOpen(false)
@@ -440,7 +445,7 @@ export default function MyProjectsPage() {
                             setShowDocuments(false)
                         }}
                     >
-                        <div 
+                        <div
                             className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
                             onClick={(e) => e.stopPropagation()}
                         >
@@ -448,11 +453,11 @@ export default function MyProjectsPage() {
                                 <h2 className="text-2xl font-bold text-gray-900">{selectedProject.name}</h2>
                                 <button
                                     onClick={() => {
-                                            setIsDetailModalOpen(false)
-                                            setShowTimeline(false)
-                                            setShowMyTasks(false)
-                                            setShowDocuments(false)
-                                        }}
+                                        setIsDetailModalOpen(false)
+                                        setShowTimeline(false)
+                                        setShowMyTasks(false)
+                                        setShowDocuments(false)
+                                    }}
                                     className="text-gray-500 hover:text-gray-700"
                                 >
                                     <Eye className="w-5 h-5" />
@@ -463,12 +468,13 @@ export default function MyProjectsPage() {
                                 {/* Action buttons for this project (in-detail) */}
                                 <div className="flex items-center gap-3">
                                     <button
-                                        onClick={() => { 
-                                            setShowTimeline(!showTimeline); 
-                                            setShowMyTasks(false); 
+                                        onClick={() => {
+                                            setShowTimeline(!showTimeline);
+                                            setShowMyTasks(false);
                                             setShowDocuments(false);
                                             setShowKanban(false);
                                         }}
+<<<<<<< HEAD
                                         className={`px-3 py-2 rounded-md transition-colors flex items-center gap-2 ${
                                             showTimeline 
                                                 ? 'bg-blue-700 text-white' 
@@ -476,15 +482,23 @@ export default function MyProjectsPage() {
                                         }`}
                                     >
                                         <Eye className="w-4 h-4" />
+=======
+                                        className={`px-3 py-2 rounded-md transition-colors ${showTimeline
+                                            ? 'bg-blue-700 text-white'
+                                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                                            }`}
+                                    >
+>>>>>>> 64428cb4e4b1282cd9aff04338b0e7a05bb73003
                                         Xem Timeline
                                     </button>
                                     <button
-                                        onClick={() => { 
-                                            setShowMyTasks(!showMyTasks); 
-                                            setShowTimeline(false); 
+                                        onClick={() => {
+                                            setShowMyTasks(!showMyTasks);
+                                            setShowTimeline(false);
                                             setShowDocuments(false);
                                             setShowKanban(false);
                                         }}
+<<<<<<< HEAD
                                         className={`px-3 py-2 rounded-md transition-colors flex items-center gap-2 ${
                                             showMyTasks 
                                                 ? 'bg-green-700 text-white' 
@@ -492,16 +506,24 @@ export default function MyProjectsPage() {
                                         }`}
                                     >
                                         <Target className="w-4 h-4" />
+=======
+                                        className={`px-3 py-2 rounded-md transition-colors ${showMyTasks
+                                            ? 'bg-green-700 text-white'
+                                            : 'bg-green-600 text-white hover:bg-green-700'
+                                            }`}
+                                    >
+>>>>>>> 64428cb4e4b1282cd9aff04338b0e7a05bb73003
                                         Công việc của tôi
                                     </button>
                                     {/* Tất cả công việc button removed as requested */}
                                     <button
-                                        onClick={() => { 
-                                            setShowKanban(!showKanban); 
-                                            setShowTimeline(false); 
-                                            setShowMyTasks(false); 
+                                        onClick={() => {
+                                            setShowKanban(!showKanban);
+                                            setShowTimeline(false);
+                                            setShowMyTasks(false);
                                             setShowDocuments(false);
                                         }}
+<<<<<<< HEAD
                                         className={`px-3 py-2 rounded-md transition-colors flex items-center gap-2 ${
                                             showKanban 
                                                 ? 'bg-indigo-700 text-white' 
@@ -509,16 +531,24 @@ export default function MyProjectsPage() {
                                         }`}
                                     >
                                         <FolderOpen className="w-4 h-4" />
+=======
+                                        className={`px-3 py-2 rounded-md transition-colors ${showKanban
+                                            ? 'bg-indigo-700 text-white'
+                                            : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                                            }`}
+                                    >
+>>>>>>> 64428cb4e4b1282cd9aff04338b0e7a05bb73003
                                         Kanban
                                     </button>
 
                                     <button
-                                        onClick={() => { 
-                                            setShowDocuments(!showDocuments); 
-                                            setShowTimeline(false); 
-                                            setShowMyTasks(false); 
+                                        onClick={() => {
+                                            setShowDocuments(!showDocuments);
+                                            setShowTimeline(false);
+                                            setShowMyTasks(false);
                                             setShowKanban(false);
                                         }}
+<<<<<<< HEAD
                                         className={`px-3 py-2 rounded-md transition-colors flex items-center gap-2 ${
                                             showDocuments 
                                                 ? 'bg-violet-700 text-white' 
@@ -526,6 +556,13 @@ export default function MyProjectsPage() {
                                         }`}
                                     >
                                         <FileText className="w-4 h-4" />
+=======
+                                        className={`px-3 py-2 rounded-md transition-colors ${showDocuments
+                                            ? 'bg-violet-700 text-white'
+                                            : 'bg-violet-600 text-white hover:bg-violet-700'
+                                            }`}
+                                    >
+>>>>>>> 64428cb4e4b1282cd9aff04338b0e7a05bb73003
                                         Tài liệu
                                     </button>
                                 </div>
@@ -634,7 +671,7 @@ export default function MyProjectsPage() {
                                         <h4 className="text-lg font-semibold mt-2">Quản lý dự án</h4>
                                         <div className="bg-gray-50 rounded-lg p-4 flex items-center gap-3 mt-3">
                                             <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
-                                                {String(fmt(selectedProject.manager)).slice(0,1).toUpperCase() || 'P'}
+                                                {String(fmt(selectedProject.manager)).slice(0, 1).toUpperCase() || 'P'}
                                             </div>
                                             <div>
                                                 <p className="font-semibold text-gray-900">{fmt(selectedProject.manager)}</p>
@@ -652,7 +689,7 @@ export default function MyProjectsPage() {
                                             ) : (
                                                 projectMembers.map((m: any) => (
                                                     <div key={m.id} className="flex items-center gap-3 bg-gray-50 rounded-lg p-2">
-                                                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-medium">{m.hoten ? String(m.hoten).slice(0,1).toUpperCase() : String(m.manv || m.id).slice(0,1).toUpperCase()}</div>
+                                                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-medium">{m.hoten ? String(m.hoten).slice(0, 1).toUpperCase() : String(m.manv || m.id).slice(0, 1).toUpperCase()}</div>
                                                         <div className="text-sm">
                                                             <div className="font-medium">{m.hoten || m.name || m.manv || m.username}</div>
                                                             <div className="text-xs text-muted-foreground">{m.chucvu || m.position || ''}</div>

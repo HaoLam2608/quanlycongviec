@@ -9,7 +9,7 @@ import { vi } from 'date-fns/locale';
 import { User, File as FileIcon, Image as ImageIcon, Check, CheckCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
-
+const SOCKET_URL = "https://taskhadflow-api.nibies.space";
 export const MessageThread: React.FC = () => {
   const { messages, activeConversation, typingUsers, isLoading } = useChatContext();
   const user = useAuth();
@@ -80,7 +80,7 @@ export const MessageThread: React.FC = () => {
   // Check if message is read by other participants
   const getMessageStatus = (message: any) => {
     if (!activeConversation) return null;
-    
+
     // Only show status for own messages
     if (!currentUserId || message.senderId !== currentUserId) return null;
 
@@ -114,7 +114,7 @@ export const MessageThread: React.FC = () => {
         {messages.map((message, index) => {
           const isOwnMessage = currentUserId && message.senderId === currentUserId;
           const showAvatar = !isOwnMessage && (
-            index === 0 || 
+            index === 0 ||
             messages[index - 1]?.senderId !== message.senderId
           );
           const showName = !isOwnMessage && showAvatar && activeConversation.type === 'group';
@@ -130,7 +130,7 @@ export const MessageThread: React.FC = () => {
               {showAvatar && (
                 <Avatar className="h-8 w-8 flex-shrink-0">
                   {message.sender.avatar && (
-                    <AvatarImage src={`${process.env.NEXT_PUBLIC_API_URL}${message.sender.avatar}`} />
+                    <AvatarImage src={`${SOCKET_URL}${message.sender.avatar}`} />
                   )}
                   <AvatarFallback>
                     <User className="h-4 w-4" />
@@ -190,7 +190,7 @@ export const MessageThread: React.FC = () => {
                         {parseAttachments(message.attachments).map((attachment: any, i: number) => (
                           <img
                             key={i}
-                            src={`${process.env.NEXT_PUBLIC_API_URL}${attachment.path}`}
+                            src={`${SOCKET_URL}${attachment.path}`}
                             alt={attachment.originalName}
                             className="rounded-lg max-w-full max-h-80 object-contain"
                           />
@@ -209,7 +209,7 @@ export const MessageThread: React.FC = () => {
                         {parseAttachments(message.attachments).map((attachment: any, i: number) => (
                           <a
                             key={i}
-                            href={`${process.env.NEXT_PUBLIC_API_URL}${attachment.path}`}
+                            href={`${SOCKET_URL}${attachment.path}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className={cn(
@@ -232,13 +232,13 @@ export const MessageThread: React.FC = () => {
                   "text-xs text-muted-foreground px-1 flex items-center gap-1",
                   isOwnMessage && "text-right"
                 )}>
-                  {formatDistanceToNow(new Date(message.createdAt), { 
-                    addSuffix: true, 
-                    locale: vi 
+                  {formatDistanceToNow(new Date(message.createdAt), {
+                    addSuffix: true,
+                    locale: vi
                   })}
                   {' • '}
                   {format(new Date(message.createdAt), 'HH:mm', { locale: vi })}
-                  
+
                   {isOwnMessage && (() => {
                     const status = getMessageStatus(message);
                     return status ? (

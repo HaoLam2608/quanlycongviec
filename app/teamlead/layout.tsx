@@ -16,16 +16,34 @@ import Image from "next/image"
 import { GlobalChatProvider } from "@/components/chat/GlobalChatProvider"
 import { FloatingAI } from "@/components/ai/FloatingAI"
 
-const navigation = [
-    { name: "Dashboard", href: "/teamlead", icon: Home },
-    { name: "Nhóm của tôi", href: "/teamlead/group", icon: Users },
-    { name: "Dự án", href: "/teamlead/projects", icon: Briefcase },
-    { name: "Công việc chính", href: "/teamlead/tasks", icon: ListTodo },
-    { name: "Công việc con", href: "/teamlead/subtasks", icon: CheckSquare },
-    { name: "Tài liệu", href: "/teamlead/documents", icon: FileText },
-    { name: "Phê duyệt", href: "/teamlead/approvals", icon: ClipboardCheck },
-    { name: "Báo cáo", href: "/teamlead/reports", icon: BarChart3 },
-    { name: "Hồ sơ", href: "/teamlead/profile", icon: User },
+const menuCategories = [
+    {
+        title: "Chính",
+        items: [{ name: "Dashboard", href: "/teamlead", icon: Home }],
+    },
+    {
+        title: "Quản lý chung",
+        items: [
+            { name: "Nhóm của tôi", href: "/teamlead/group", icon: Users },
+            { name: "Dự án", href: "/teamlead/projects", icon: Briefcase },
+        ],
+    },
+    {
+        title: "Quản lý công việc",
+        items: [
+            { name: "Công việc lớn", href: "/teamlead/tasks", icon: ListTodo },
+            { name: "Công việc nhỏ", href: "/teamlead/subtasks", icon: CheckSquare },
+            { name: "Phê duyệt", href: "/teamlead/approvals", icon: ClipboardCheck },
+        ],
+    },
+    {
+        title: "Khác",
+        items: [
+            { name: "Tài liệu", href: "/teamlead/documents", icon: FileText },
+            { name: "Báo cáo", href: "/teamlead/reports", icon: BarChart3 },
+            { name: "Hồ sơ", href: "/teamlead/profile", icon: User },
+        ],
+    },
 ]
 
 export default function TeamLeadLayout({ children }: { children: React.ReactNode }) {
@@ -52,9 +70,27 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
 
                     let avatar = user.avatarUrl || user.avatar || `/users/${user.id}/avatar`
 
+                    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
+
+                    // Make full url when needed
                     if (avatar && !avatar.startsWith('http') && !avatar.startsWith('data:')) {
-                        const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
                         avatar = `${base.replace(/\/$/, '')}${avatar.startsWith('/') ? '' : '/'}${avatar}`
+                    }
+
+                    // If avatar is served from the API and requires Authorization, fetch it
+                    // via `api` (which attaches auth headers) and convert to an object URL.
+                    try {
+                        const avatarPath = `/users/${user.id}/avatar`
+                        if (avatar && (avatar.includes(avatarPath) || avatar.startsWith(base))) {
+                            // Add cache buster to force fresh fetch
+                            const avatarUrl = avatarPath + '?t=' + Date.now();
+                            const resAvatar = await api.get(avatarUrl, { responseType: 'blob' })
+                            const blob = resAvatar.data
+                            const objectUrl = URL.createObjectURL(blob)
+                            avatar = objectUrl
+                        }
+                    } catch (err) {
+                        console.warn('Failed to fetch avatar with auth, will fallback to provided URL', err)
                     }
 
                     setCurrentUser({
@@ -78,6 +114,20 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
             const role = roleLS
             const avatarLS = localStorage.getItem('avatar')
 
+            // If avatar from localStorage points to server path that requires auth, fetch it too
+            let avatarFromLS = avatarLS
+            try {
+                if (avatarFromLS && !avatarFromLS.startsWith('http') && !avatarFromLS.startsWith('data:')) {
+                    // Add cache buster
+                    const avatarUrl = `/users/${parseInt(userId || '0')}/avatar?t=${Date.now()}`;
+                    const resAvatarLS = await api.get(avatarUrl, { responseType: 'blob' })
+                    const blobLS = resAvatarLS.data
+                    avatarFromLS = URL.createObjectURL(blobLS)
+                }
+            } catch (err) {
+                // ignore, keep avatarLS as-is (may be a full URL)
+            }
+
             if (token && userId && hoten) {
                 setCurrentUser({
                     id: parseInt(userId),
@@ -85,18 +135,23 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
                     manv,
                     role,
                     chucvu: 'Trưởng nhóm',
-                    avatar: avatarLS
+                    avatar: avatarFromLS || avatarLS
                 })
             }
         }
 
         loadUserInfo()
-    }, [])
 
-    const updatedNavigation = navigation.map(item => ({
-        ...item,
-        current: pathname === item.href
-    }))
+        // Listen for avatar update events
+        const handleAvatarUpdate = () => {
+            loadUserInfo()
+        }
+        window.addEventListener('avatarUpdated', handleAvatarUpdate)
+
+        return () => {
+            window.removeEventListener('avatarUpdated', handleAvatarUpdate)
+        }
+    }, [])
 
     const handleLogout = async () => {
         const confirmed = await showConfirm("Bạn có chắc muốn đăng xuất?")
@@ -123,217 +178,206 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
         <AuthGuard>
             <GlobalChatProvider>
                 <FloatingAI />
-            <div className="h-screen flex bg-gray-100">
-                {/* Mobile sidebar */}
-                <div className={`fixed inset-0 flex z-40 md:hidden ${sidebarOpen ? '' : 'hidden'}`}>
-                    <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
+                <div className="h-screen flex bg-gray-100">
+                    {/* Mobile sidebar */}
+                    <div className={`fixed inset-0 flex z-40 md:hidden ${sidebarOpen ? '' : 'hidden'}`}>
+                        <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
 
-                    <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white">
-                        <div className="absolute top-0 right-0 -mr-12 pt-2">
-                            <button
-                                className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
-                                onClick={() => setSidebarOpen(false)}
-                            >
-                                <X className="h-6 w-6 text-white" />
-                            </button>
-                        </div>
-
-                        <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
-                            <div className="flex-shrink-0 flex items-center px-4 mb-4">
-                                <Image
-                                    src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Logo_Huit-IWimrgiEFAgwC7TB8MBStRusseaQ9A.png"
-                                    alt="HUIT Logo"
-                                    width={120}
-                                    height={40}
-                                    className="h-8 w-auto object-contain"
-                                />
-                            </div>
-                            <div className="flex-shrink-0 flex items-center px-4">
-                                <h2 className="text-lg font-semibold text-gray-900">Team Lead Portal</h2>
-                            </div>
-                            <nav className="mt-5 px-2 space-y-1">
-                                {updatedNavigation.map((item) => (
-                                    <Link
-                                        key={item.name}
-                                        href={item.href}
-                                        className={`${item.current
-                                            ? 'bg-blue-100 text-blue-900'
-                                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                            } group flex items-center px-2 py-2 text-base font-medium rounded-md`}
-                                        onClick={() => setSidebarOpen(false)}
-                                    >
-                                        <item.icon
-                                            className={`${item.current ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'
-                                                } mr-4 flex-shrink-0 h-6 w-6`}
-                                        />
-                                        {item.name}
-                                        {item.name === "Phê duyệt" && (
-                                            <ApprovalCountBadge className="ml-auto" />
-                                        )}
-                                    </Link>
-                                ))}
-
-                                {/* Logout for mobile */}
+                        <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white">
+                            <div className="absolute top-0 right-0 -mr-12 pt-2">
                                 <button
-                                    onClick={handleLogout}
-                                    disabled={isLoggingOut}
-                                    className="w-full text-left text-gray-600 hover:bg-red-50 hover:text-red-700 group flex items-center px-2 py-2 text-base font-medium rounded-md disabled:opacity-50"
+                                    className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
+                                    onClick={() => setSidebarOpen(false)}
                                 >
-                                    <LogOut className={`text-gray-400 group-hover:text-red-500 mr-4 flex-shrink-0 h-6 w-6 ${isLoggingOut ? 'animate-spin' : ''}`} />
-                                    {isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}
-                                </button>
-                            </nav>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Desktop sidebar */}
-                <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
-                    <div className="flex-1 flex flex-col min-h-0 border-r border-gray-200 bg-white">
-                        <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-                            <div className="flex items-center flex-shrink-0 px-4 mb-4">
-                                <Image
-                                    src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Logo_Huit-IWimrgiEFAgwC7TB8MBStRusseaQ9A.png"
-                                    alt="HUIT Logo"
-                                    width={150}
-                                    height={50}
-                                    className="h-10 w-auto object-contain"
-                                />
-                            </div>
-                            <div className="flex items-center flex-shrink-0 px-4">
-                                <h2 className="text-xl font-bold text-gray-900">Team Lead Portal</h2>
-                            </div>
-                            <nav className="mt-5 flex-1 px-2 space-y-1">
-                                {updatedNavigation.map((item) => (
-                                    <Link
-                                        key={item.name}
-                                        href={item.href}
-                                        className={`${item.current
-                                            ? 'bg-blue-100 text-blue-900 border-r-2 border-blue-500'
-                                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                            } group flex items-center px-2 py-3 text-sm font-medium rounded-l-md transition-colors`}
-                                    >
-                                        <item.icon
-                                            className={`${item.current ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'
-                                                } mr-3 flex-shrink-0 h-5 w-5`}
-                                        />
-                                        {item.name}
-                                        {item.name === "Phê duyệt" && (
-                                            <ApprovalCountBadge className="ml-auto" />
-                                        )}
-                                    </Link>
-                                ))}
-                            </nav>
-                        </div>
-
-                        {/* User section */}
-                        <div className="flex-shrink-0 border-t border-gray-200">
-                            <div className="flex items-center p-4">
-                                <div>
-                                    {currentUser?.avatar ? (
-                                        <Avatar className="w-8 h-8">
-                                            <AvatarImage src={currentUser.avatar} alt={currentUser?.hoten || 'Team Lead'} />
-                                            <AvatarFallback className="text-xs">
-                                                {(currentUser?.hoten || 'T').substring(0, 2).toUpperCase()}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                    ) : (
-                                        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                                            <User className="w-4 h-4 text-white" />
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="ml-3 flex-1">
-                                    <p className="text-sm font-medium text-gray-700">
-                                        {currentUser?.hoten || 'Team Leader'}
-                                    </p>
-                                    <p className="text-xs text-gray-500">
-                                        {currentUser?.manv || 'Trưởng nhóm'}
-                                    </p>
-                                </div>
-                                <button
-                                    onClick={handleLogout}
-                                    disabled={isLoggingOut}
-                                    className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
-                                    title="Đăng xuất"
-                                >
-                                    <LogOut className={`w-4 h-4 ${isLoggingOut ? 'animate-spin' : ''}`} />
+                                    <X className="h-6 w-6 text-white" />
                                 </button>
                             </div>
+
+                            <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
+                                <div className="flex-shrink-0 flex items-center px-4 mb-4">
+                                    <Image
+                                        src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Logo_Huit-IWimrgiEFAgwC7TB8MBStRusseaQ9A.png"
+                                        alt="HUIT Logo"
+                                        width={120}
+                                        height={40}
+                                        className="h-8 w-auto object-contain"
+                                    />
+                                </div>
+                                <div className="flex-shrink-0 flex items-center px-4 mb-4">
+                                    <h2 className="text-lg font-semibold text-gray-900">Team Lead Portal</h2>
+                                </div>
+                                <nav className="mt-5 px-2 space-y-4">
+                                    {menuCategories.map((category) => (
+                                        <div key={category.title}>
+                                            <h3 className="px-3 text-xs font-semibold text-blue-600 uppercase tracking-wider mb-2">
+                                                {category.title}
+                                            </h3>
+                                            <div className="space-y-1">
+                                                {category.items.map((item) => {
+                                                    const isActive = pathname === item.href
+                                                    return (
+                                                        <Link
+                                                            key={item.name}
+                                                            href={item.href}
+                                                            className={`${isActive
+                                                                ? 'bg-blue-100 text-blue-900'
+                                                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                                                } group flex items-center px-2 py-2 text-base font-medium rounded-md`}
+                                                            onClick={() => setSidebarOpen(false)}
+                                                        >
+                                                            <item.icon
+                                                                className={`${isActive ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'
+                                                                    } mr-4 flex-shrink-0 h-6 w-6`}
+                                                            />
+                                                            {item.name}
+                                                            {item.name === "Phê duyệt" && (
+                                                                <ApprovalCountBadge className="ml-auto" />
+                                                            )}
+                                                        </Link>
+                                                    )
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    {/* Logout for mobile */}
+                                    <button
+                                        onClick={handleLogout}
+                                        disabled={isLoggingOut}
+                                        className="w-full text-left text-gray-600 hover:bg-red-50 hover:text-red-700 group flex items-center px-2 py-2 text-base font-medium rounded-md disabled:opacity-50"
+                                    >
+                                        <LogOut className={`text-gray-400 group-hover:text-red-500 mr-4 flex-shrink-0 h-6 w-6 ${isLoggingOut ? 'animate-spin' : ''}`} />
+                                        {isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}
+                                    </button>
+                                </nav>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                {/* Main content */}
-                <div className="md:pl-64 flex flex-col flex-1">
-                    {/* Top navigation */}
-                    <div className="sticky top-0 z-10 md:hidden pl-1 pt-1 sm:pl-3 sm:pt-3 bg-white border-b border-gray-200">
-                        <button
-                            className="-ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
-                            onClick={() => setSidebarOpen(true)}
-                        >
-                            <Menu className="h-6 w-6" />
-                        </button>
-                    </div>
-
-                    {/* Desktop header */}
-                    <div className="hidden md:flex sticky top-0 z-10 flex-shrink-0 h-16 bg-white border-b border-gray-200 items-center justify-between px-6">
-                        <div className="flex-1" />
-
-                        {/* Header actions */}
-                        <div className="flex items-center space-x-4">
-                            {/* Notifications */}
-                            <NotificationBell userRole="teamleader" />
-
-                            {/* Settings */}
-                            <button className="p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
-                                <Settings className="h-5 w-5" />
-                            </button>
-
-                            {/* User menu */}
-                            <div className="relative flex items-center space-x-3">
-                                <div>
-                                    {currentUser?.avatar ? (
-                                        <Avatar className="w-8 h-8">
-                                            <AvatarImage src={currentUser.avatar} alt={currentUser?.hoten || 'Team Lead'} />
-                                            <AvatarFallback className="text-xs">
-                                                {(currentUser?.hoten || 'T').substring(0, 2).toUpperCase()}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                    ) : (
-                                        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                                            <User className="w-4 h-4 text-white" />
+                    {/* Desktop sidebar */}
+                    <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
+                        <div className="flex-1 flex flex-col min-h-0 border-r border-gray-200 bg-white">
+                            <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
+                                <div className="flex items-center flex-shrink-0 px-4 mb-4">
+                                    <Image
+                                        src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Logo_Huit-IWimrgiEFAgwC7TB8MBStRusseaQ9A.png"
+                                        alt="HUIT Logo"
+                                        width={150}
+                                        height={50}
+                                        className="h-10 w-auto object-contain"
+                                    />
+                                </div>
+                                <div className="flex items-center flex-shrink-0 px-4 mb-4">
+                                    <h2 className="text-xl font-bold text-gray-900">Team Lead Portal</h2>
+                                </div>
+                                <nav className="mt-5 flex-1 px-2 space-y-4">
+                                    {menuCategories.map((category) => (
+                                        <div key={category.title}>
+                                            <h3 className="px-3 text-xs font-semibold text-blue-600 uppercase tracking-wider mb-2">
+                                                {category.title}
+                                            </h3>
+                                            <div className="space-y-1">
+                                                {category.items.map((item) => {
+                                                    const isActive = pathname === item.href
+                                                    return (
+                                                        <Link
+                                                            key={item.name}
+                                                            href={item.href}
+                                                            className={`${isActive
+                                                                ? 'bg-blue-100 text-blue-900 border-r-2 border-blue-500'
+                                                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                                                } group flex items-center px-2 py-3 text-sm font-medium rounded-l-md transition-colors`}
+                                                        >
+                                                            <item.icon
+                                                                className={`${isActive ? 'text-blue-500' : 'text-gray-400 group-hover:text-gray-500'
+                                                                    } mr-3 flex-shrink-0 h-5 w-5`}
+                                                            />
+                                                            {item.name}
+                                                            {item.name === "Phê duyệt" && (
+                                                                <ApprovalCountBadge className="ml-auto" />
+                                                            )}
+                                                        </Link>
+                                                    )
+                                                })}
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
-                                <div className="hidden lg:block">
-                                    <p className="text-sm font-medium text-gray-700">
-                                        {currentUser?.hoten || 'Team Leader'}
-                                    </p>
-                                    <p className="text-xs text-gray-500">
-                                        {currentUser?.manv || 'Trưởng nhóm'}
-                                    </p>
-                                </div>
+                                    ))}
+                                </nav>
                             </div>
 
-                            {/* Logout */}
-                            <button
-                                onClick={handleLogout}
-                                disabled={isLoggingOut}
-                                className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors disabled:opacity-50"
-                                title="Đăng xuất"
-                            >
-                                <LogOut className={`h-5 w-5 ${isLoggingOut ? 'animate-spin' : ''}`} />
-                            </button>
+                            {/* User section */}
+                            <div className="flex-shrink-0 border-t border-gray-200">
+                                <div className="flex items-center p-4">
+                                    <div>
+                                        {currentUser?.avatar ? (
+                                            <Avatar className="w-8 h-8">
+                                                <AvatarImage src={currentUser.avatar} alt={currentUser?.hoten || 'Nhóm Trưởng'} />
+                                                <AvatarFallback className="text-xs">
+                                                    {(currentUser?.hoten || 'NT').substring(0, 2).toUpperCase()}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                        ) : (
+                                            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                                <User className="w-4 h-4 text-white" />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="ml-3 flex-1">
+                                        <p className="text-sm font-medium text-gray-700">
+                                            {currentUser?.hoten || 'Nhóm Trưởng'}
+                                        </p>
+                                        <p className="text-xs text-gray-500">
+                                            {currentUser?.manv || 'Trưởng nhóm'}
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={handleLogout}
+                                        disabled={isLoggingOut}
+                                        className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                                        title="Đăng xuất"
+                                    >
+                                        <LogOut className={`w-4 h-4 ${isLoggingOut ? 'animate-spin' : ''}`} />
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    {/* Page content */}
-                    <main className="flex-1 relative overflow-y-auto focus:outline-none">
-                        {children}
-                    </main>
+                    {/* Main content */}
+                    <div className="md:pl-64 flex flex-col flex-1">
+                        {/* Top navigation */}
+                        <div className="sticky top-0 z-10 md:hidden pl-1 pt-1 sm:pl-3 sm:pt-3 bg-white border-b border-gray-200">
+                            <button
+                                className="-ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+                                onClick={() => setSidebarOpen(true)}
+                            >
+                                <Menu className="h-6 w-6" />
+                            </button>
+                        </div>
+
+                        {/* Desktop header */}
+                        <div className="hidden md:flex sticky top-0 z-10 flex-shrink-0 h-16 bg-white border-b border-gray-200 items-center justify-between px-6">
+                            <div className="flex-1" />
+
+                            {/* Header actions */}
+                            <div className="flex items-center space-x-4">
+                                {/* Notifications */}
+                                <NotificationBell userRole="teamleader" />
+
+                                {/* Settings */}
+                                <button className="p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
+                                    <Settings className="h-5 w-5" />
+                                </button>
+
+                            </div>
+                        </div>
+
+                        {/* Page content */}
+                        <main className="flex-1 relative overflow-y-auto focus:outline-none">
+                            {children}
+                        </main>
+                    </div>
                 </div>
-            </div>
             </GlobalChatProvider>
         </AuthGuard>
     )

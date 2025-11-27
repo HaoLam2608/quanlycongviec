@@ -45,7 +45,7 @@ export default function UserForm({ isOpen, onClose, onSuccess, editUser }: UserF
         }
         // Nếu là đường dẫn backend thì prefix domain như layout
         if (avatarUrl && avatarUrl.startsWith('/users/')) {
-          avatarUrl = `http://localhost:5000${avatarUrl}`;
+          avatarUrl = `${process.env.NEXT_PUBLIC_API_URL}${avatarUrl}`;
         }
         setFormData({
           manv: editUser.manv || "",

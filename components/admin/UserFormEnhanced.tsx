@@ -44,7 +44,7 @@ export default function UserFormEnhanced({ isOpen, onClose, onSuccess, editUser 
           avatarUrl = `/users/${editUser.id}/avatar`;
         }
         if (avatarUrl && avatarUrl.startsWith('/users/')) {
-          avatarUrl = `http://localhost:5000${avatarUrl}`;
+          avatarUrl = `${process.env.NEXT_PUBLIC_API_URL}${avatarUrl}`;
         }
         setFormData({
           manv: editUser.manv || "",
@@ -134,7 +134,7 @@ export default function UserFormEnhanced({ isOpen, onClose, onSuccess, editUser 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const target = e.target as HTMLInputElement
     const { name, value, files } = target
-    
+
     if (name === "avatarFile" && files && files[0]) {
       setFormData(prev => ({
         ...prev,
@@ -204,7 +204,7 @@ export default function UserFormEnhanced({ isOpen, onClose, onSuccess, editUser 
                 <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Ảnh đại diện</h4>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Tải lên ảnh của bạn</p>
               </div>
-              
+
               <div className="relative group">
                 <div className="w-32 h-32 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900 dark:to-indigo-900 border-4 border-white dark:border-gray-700 flex items-center justify-center shadow-xl overflow-hidden">
                   {formData.avatarUrl ? (
@@ -248,14 +248,14 @@ export default function UserFormEnhanced({ isOpen, onClose, onSuccess, editUser 
                   </svg>
                   Mã nhân viên <span className="text-red-500">*</span>
                 </label>
-                <input 
-                  type="text" 
-                  name="manv" 
-                  value={formData.manv} 
-                  onChange={handleChange} 
-                  required 
-                  className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white transition-all" 
-                  placeholder="Nhập mã nhân viên" 
+                <input
+                  type="text"
+                  name="manv"
+                  value={formData.manv}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white transition-all"
+                  placeholder="Nhập mã nhân viên"
                 />
               </div>
 
@@ -267,14 +267,14 @@ export default function UserFormEnhanced({ isOpen, onClose, onSuccess, editUser 
                   </svg>
                   Họ và tên <span className="text-red-500">*</span>
                 </label>
-                <input 
-                  type="text" 
-                  name="hoten" 
-                  value={formData.hoten} 
-                  onChange={handleChange} 
-                  required 
-                  className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white transition-all" 
-                  placeholder="Nhập họ và tên" 
+                <input
+                  type="text"
+                  name="hoten"
+                  value={formData.hoten}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white transition-all"
+                  placeholder="Nhập họ và tên"
                 />
               </div>
 
@@ -286,13 +286,13 @@ export default function UserFormEnhanced({ isOpen, onClose, onSuccess, editUser 
                   </svg>
                   Email
                 </label>
-                <input 
-                  type="email" 
-                  name="email" 
-                  value={formData.email} 
-                  onChange={handleChange} 
-                  className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white transition-all" 
-                  placeholder="Nhập email" 
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white transition-all"
+                  placeholder="Nhập email"
                 />
               </div>
 
@@ -304,13 +304,13 @@ export default function UserFormEnhanced({ isOpen, onClose, onSuccess, editUser 
                   </svg>
                   Chức vụ
                 </label>
-                <input 
-                  type="text" 
-                  name="chucvu" 
-                  value={formData.chucvu} 
-                  onChange={handleChange} 
-                  className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white transition-all" 
-                  placeholder="Nhập chức vụ" 
+                <input
+                  type="text"
+                  name="chucvu"
+                  value={formData.chucvu}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white transition-all"
+                  placeholder="Nhập chức vụ"
                 />
               </div>
 
@@ -322,13 +322,13 @@ export default function UserFormEnhanced({ isOpen, onClose, onSuccess, editUser 
                   </svg>
                   Số điện thoại
                 </label>
-                <input 
-                  type="text" 
-                  name="sdt" 
-                  value={formData.sdt} 
-                  onChange={handleChange} 
-                  className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white transition-all" 
-                  placeholder="Nhập số điện thoại" 
+                <input
+                  type="text"
+                  name="sdt"
+                  value={formData.sdt}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white transition-all"
+                  placeholder="Nhập số điện thoại"
                 />
               </div>
 
@@ -340,11 +340,11 @@ export default function UserFormEnhanced({ isOpen, onClose, onSuccess, editUser 
                   </svg>
                   Vai trò <span className="text-red-500">*</span>
                 </label>
-                <select 
-                  name="roleId" 
-                  value={formData.roleId} 
-                  onChange={handleChange} 
-                  required 
+                <select
+                  name="roleId"
+                  value={formData.roleId}
+                  onChange={handleChange}
+                  required
                   className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white transition-all"
                 >
                   <option value="">Chọn vai trò</option>
@@ -362,14 +362,14 @@ export default function UserFormEnhanced({ isOpen, onClose, onSuccess, editUser 
                   </svg>
                   Mật khẩu {!editUser && <span className="text-red-500">*</span>}
                 </label>
-                <input 
-                  type="password" 
-                  name="password" 
-                  value={formData.password} 
-                  onChange={handleChange} 
-                  required={!editUser} 
-                  className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white transition-all" 
-                  placeholder={editUser ? "Để trống nếu không đổi mật khẩu" : "Nhập mật khẩu"} 
+                <input
+                  type="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  required={!editUser}
+                  className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white transition-all"
+                  placeholder={editUser ? "Để trống nếu không đổi mật khẩu" : "Nhập mật khẩu"}
                 />
                 {editUser && (
                   <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
@@ -399,21 +399,21 @@ export default function UserFormEnhanced({ isOpen, onClose, onSuccess, editUser 
                 {message}
               </div>
             )}
-            
+
             <div className="flex flex-col sm:flex-row gap-3">
-              <button 
-                type="button" 
-                onClick={onClose} 
+              <button
+                type="button"
+                onClick={onClose}
                 className="flex-1 px-6 py-3 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-all font-semibold"
               >
                 Hủy bỏ
               </button>
-              
+
               {editUser && (
-                <button 
-                  type="button" 
-                  onClick={handleResetPassword} 
-                  disabled={loading} 
+                <button
+                  type="button"
+                  onClick={handleResetPassword}
+                  disabled={loading}
                   className="flex-1 px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg hover:from-orange-600 hover:to-red-600 disabled:opacity-50 transition-all font-semibold shadow-md hover:shadow-lg flex items-center justify-center gap-2"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -422,10 +422,10 @@ export default function UserFormEnhanced({ isOpen, onClose, onSuccess, editUser 
                   Reset MK: 123456
                 </button>
               )}
-              
-              <button 
-                type="submit" 
-                disabled={loading} 
+
+              <button
+                type="submit"
+                disabled={loading}
                 className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 transition-all font-semibold shadow-md hover:shadow-lg flex items-center justify-center gap-2"
               >
                 <Save className="w-5 h-5" />

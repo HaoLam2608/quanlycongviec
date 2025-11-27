@@ -594,6 +594,23 @@ export default function ProjectDetailPage() {
         }
     }
 
+    const handleDeleteTask = async () => {
+        const confirmed = await showConfirm('Bạn có chắc muốn xóa task này?')
+        if (!confirmed) return
+
+        try {
+            await deleteTask(editTask.id)
+            showSuccess('Xóa task thành công')
+            const tasksData = await getTasksByProject(id as string)
+            setTasks(tasksData.tasks || [])
+            setIsEditTaskModalOpen(false)
+            setEditTask(null)
+        } catch (error: any) {
+            console.error('Delete task error:', error)
+            showError(error.response?.data?.message || 'Lỗi xóa task')
+        }
+    }
+
     const handleAddTask = async (e: React.FormEvent) => {
         e.preventDefault();
         // Kiểm tra ngày bắt đầu và kết thúc của task phải nằm trong khoảng ngày của dự án
@@ -1107,6 +1124,13 @@ export default function ProjectDetailPage() {
                                                                             Hủy
                                                                         </button>
                                                                         <button
+                                                                            type="button"
+                                                                            onClick={handleDeleteTask}
+                                                                            className="px-6 py-3 bg-red-500 text-white rounded-xl font-semibold hover:bg-red-600 transition-all"
+                                                                        >
+                                                                            Xóa Task
+                                                                        </button>
+                                                                        <button
                                                                             type="submit"
                                                                             className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all"
                                                                         >
@@ -1119,7 +1143,7 @@ export default function ProjectDetailPage() {
                                                                 onClick={() => setExpandedWorklogTaskId(expandedWorklogTaskId === task.id ? null : task.id)}
                                                                 className="w-full px-3 py-2 bg-slate-100 text-slate-700 rounded-lg text-xs font-medium hover:bg-slate-200 transition-all duration-200 flex items-center justify-center gap-1 border border-slate-200"
                                                             >
-                                                                Worklog
+                                                                Nhật ký
                                                             </button>
                                                         </div>
                                                     </td>

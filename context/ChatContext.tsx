@@ -62,7 +62,7 @@ interface ChatContextType {
   onlineUsers: Set<number>;
   isConnected: boolean;
   isLoading: boolean;
-  
+
   // Actions
   loadConversations: () => Promise<void>;
   selectConversation: (conversationId: number) => Promise<void>;
@@ -77,7 +77,7 @@ interface ChatContextType {
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
-
+const SOCKET_URL = "https://taskhadflow-api.nibies.space";
 export const useChatContext = () => {
   const context = useContext(ChatContext);
   if (!context) {
@@ -97,10 +97,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [onlineUsers, setOnlineUsers] = useState<Set<number>>(new Set());
   const [isLoading, setIsLoading] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // Use ref to always have the latest activeConversation in socket listeners
   const activeConversationRef = useRef<Conversation | null>(null);
-  
+
   // Sync ref with state
   useEffect(() => {
     activeConversationRef.current = activeConversation;
@@ -121,17 +121,15 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setOnlineUsers(new Set());
     console.log('🔄 Cleared online users, waiting for fresh data from server');
 
-    const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-    
-    console.log('🔌 Initializing socket with:', { 
-      url: SOCKET_URL, 
+    console.log('🔌 Initializing socket with:', {
+      url: SOCKET_URL,
       userId: user.id,
       tokenPreview: token.substring(0, 20) + '...',
       tokenLength: token.length
     });
-    
+
     console.log('⚠️ NOTE: If you see "Invalid token" error, please LOGOUT and LOGIN again to get a fresh token!');
-    
+
     const newSocket = io(SOCKET_URL, {
       auth: { token },
       transports: ['websocket', 'polling']
@@ -159,7 +157,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('📩 Active conversation (from ref):', currentActiveConv?.id);
       console.log('📩 Message conversationId:', message.conversationId);
       console.log('📩 Should add to messages?', currentActiveConv && message.conversationId === currentActiveConv.id);
-      
+
       // Add to messages if in active conversation
       if (currentActiveConv && message.conversationId === currentActiveConv.id) {
         console.log('✅ Adding message to state');
@@ -167,7 +165,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } else {
         console.log('❌ Not adding message - conversation mismatch or no active conversation');
       }
-      
+
       // Update conversation list
       setConversations(prev => {
         const updated = prev.map(conv => {
@@ -181,7 +179,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           return conv;
         });
-        
+
         // Sort by last message time
         return updated.sort((a, b) => {
           const timeA = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
@@ -211,7 +209,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     newSocket.on('typing:start', ({ conversationId, userId, userName }: { conversationId: number; userId: number; userName: string }) => {
       const currentUserId = user.id ? parseInt(user.id) : null;
       if (currentUserId && userId === currentUserId) return; // Ignore own typing
-      
+
       setTypingUsers(prev => {
         const newMap = new Map(prev);
         const users = newMap.get(conversationId) || [];
@@ -242,7 +240,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (conv.id === conversationId) {
           return {
             ...conv,
-            participants: conv.participants.map(p => 
+            participants: conv.participants.map(p =>
               p.userId === userId ? { ...p, lastReadAt: new Date().toISOString() } : p
             )
           };
@@ -288,15 +286,15 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loadConversations = useCallback(async () => {
     const token = getToken();
     if (!token) return;
-    
+
     setIsLoading(true);
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/conversations`, {
+      const response = await fetch(`${SOCKET_URL}/chat/conversations`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setConversations(data);
@@ -317,7 +315,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('❌ Cannot select conversation - no token or socket');
       return;
     }
-    
+
     setIsLoading(true);
     try {
       // Leave previous conversation
@@ -326,16 +324,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         socket.emit('conversation:leave', activeConversation.id);
       }
 
-    // Join new conversation
-    console.log('📥 Joining conversation:', conversationId);
-    socket.emit('conversation:join', conversationId);
+      // Join new conversation
+      console.log('📥 Joining conversation:', conversationId);
+      socket.emit('conversation:join', conversationId);
 
       // Load conversation details
       const [convResponse, messagesResponse] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/conversations/${conversationId}`, {
+        fetch(`${SOCKET_URL}/chat/conversations/${conversationId}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/conversations/${conversationId}/messages?limit=50`, {
+        fetch(`${SOCKET_URL}/chat/conversations/${conversationId}/messages?limit=50`, {
           headers: { 'Authorization': `Bearer ${token}` }
         })
       ]);
@@ -343,13 +341,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (convResponse.ok && messagesResponse.ok) {
         const conversation = await convResponse.json();
         const messages = await messagesResponse.json();
-        
+
         console.log('✅ Loaded conversation:', conversation);
         console.log('✅ Loaded messages:', messages.length, 'messages');
-        
+
         setActiveConversation(conversation);
         setMessages(messages);
-        
+
         // Mark as read
         await markAsRead(conversationId);
       }
@@ -379,7 +377,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (isTyping) {
       socket.emit('typing:start', { conversationId: activeConversation.id });
-      
+
       // Auto-stop typing after 3 seconds
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
@@ -403,7 +401,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socket.emit('message:read', { conversationId });
 
     // Update local unread count
-    setConversations(prev => prev.map(conv => 
+    setConversations(prev => prev.map(conv =>
       conv.id === conversationId ? { ...conv, unreadCount: 0 } : conv
     ));
   }, [socket]);
@@ -417,7 +415,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('Request body:', { userId });
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/conversations/direct`, {
+      const response = await fetch(`${SOCKET_URL}/chat/conversations/direct`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -434,10 +432,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Error response:', errorText);
         throw new Error('Failed to create conversation');
       }
-      
+
       const conversation = await response.json();
       console.log('Conversation created:', conversation);
-      
+
       // Add to conversations if new
       setConversations(prev => {
         const exists = prev.find(c => c.id === conversation.id);
@@ -457,7 +455,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const token = getToken();
     if (!token) throw new Error('Not authenticated');
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/conversations/group`, {
+    const response = await fetch(`${SOCKET_URL}/chat/conversations/group`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -467,7 +465,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     if (!response.ok) throw new Error('Failed to create group');
-    
+
     const conversation = await response.json();
     setConversations(prev => [conversation, ...prev]);
     return conversation;
@@ -495,7 +493,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (replyTo) formData.append('replyTo', replyTo.toString());
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat/conversations/${activeConversation.id}/upload`, {
+      const response = await fetch(`${SOCKET_URL}/chat/conversations/${activeConversation.id}/upload`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -504,7 +502,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (!response.ok) throw new Error('Upload failed');
-      
+
       const message = await response.json();
       setMessages(prev => [...prev, message]);
     } catch (error) {

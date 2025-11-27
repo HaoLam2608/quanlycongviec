@@ -12,7 +12,7 @@ const tabs = [
   { key: "system", label: "Hệ thống", icon: Database },
   { key: "appearance", label: "Giao diện", icon: Palette },
 ]
-
+const API_URL = process.env.NEXT_PUBLIC_API_URL || ""
 export default function AdminSettingsPage() {
   const [activeTab, setActiveTab] = useState("profile")
   const [loading, setLoading] = useState(false)
@@ -228,11 +228,10 @@ export default function AdminSettingsPage() {
                     setActiveTab(tab.key)
                     setMessage("")
                   }}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all ${
-                    activeTab === tab.key
-                      ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/20"
-                      : "hover:bg-secondary text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all ${activeTab === tab.key
+                    ? "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/20"
+                    : "hover:bg-secondary text-muted-foreground hover:text-foreground"
+                    }`}
                 >
                   <Icon className="w-5 h-5" />
                   <span className="font-medium">{tab.label}</span>
@@ -247,11 +246,10 @@ export default function AdminSettingsPage() {
           <div className="bg-card border border-border rounded-2xl p-8 shadow-sm">
             {message && (
               <div
-                className={`mb-6 p-4 rounded-xl text-sm font-medium ${
-                  message.includes("thành công")
-                    ? "bg-green-100 text-green-700 border border-green-200"
-                    : "bg-red-100 text-red-700 border border-red-200"
-                }`}
+                className={`mb-6 p-4 rounded-xl text-sm font-medium ${message.includes("thành công")
+                  ? "bg-green-100 text-green-700 border border-green-200"
+                  : "bg-red-100 text-red-700 border border-red-200"
+                  }`}
               >
                 {message}
               </div>
@@ -269,7 +267,7 @@ export default function AdminSettingsPage() {
                 <div className="flex items-center gap-6 pb-6 border-b border-border">
                   <div className="w-24 h-24 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
                     {profileData.avatar && typeof profileData.avatar === 'string' && profileData.avatar.startsWith('/users/') ? (
-                      <img src={`http://localhost:5000${profileData.avatar}`} alt="avatar" className="w-full h-full object-cover" />
+                      <img src={`${API_URL}${profileData.avatar}`} alt="avatar" className="w-full h-full object-cover" />
                     ) : profileData.avatar ? (
                       <img src={profileData.avatar} alt="avatar" className="w-full h-full object-cover" />
                     ) : (
