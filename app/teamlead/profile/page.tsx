@@ -107,7 +107,9 @@ export default function ProfilePage() {
             // If avatar is a protected API path (not absolute), fetch as blob with auth and convert to object URL
             if (profileData.avatar && !profileData.avatar.startsWith('http')) {
                 try {
-                    const res = await api.get(profileData.avatar, { responseType: 'blob' })
+                    // Add cache buster to force fresh fetch
+                    const avatarUrl = profileData.avatar + '?t=' + Date.now();
+                    const res = await api.get(avatarUrl, { responseType: 'blob' })
                     const blob = res.data
                     const objectUrl = URL.createObjectURL(blob)
                     // revoke previous object URL if any
@@ -237,6 +239,9 @@ export default function ProfilePage() {
                 // Reload profile để lấy avatar mới
                 await loadProfile();
                 showSuccess('Cập nhật avatar thành công!');
+
+                // Notify layout to reload avatar
+                window.dispatchEvent(new CustomEvent('avatarUpdated'));
             } catch (error: any) {
                 console.error("Error uploading avatar:", error);
                 showError(error.message || 'Có lỗi xảy ra khi upload avatar');

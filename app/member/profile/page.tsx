@@ -85,6 +85,7 @@ export default function ProfilePage() {
         try {
             // Fetch dữ liệu thật từ database
             const userData = await getMyProfile();
+            console.debug('[Profile] getMyProfile response:', userData);
             
             // Format dữ liệu từ API
             const profileData: UserProfile = {
@@ -99,18 +100,25 @@ export default function ProfilePage() {
                 role: userData.role?.name || 'Member'
             }
 
+            console.debug('[Profile] formatted profileData.avatar:', profileData.avatar);
+
             setProfile(profileData)
             // If avatar is a protected API path (not absolute), fetch as blob with auth and convert to object URL
             if (profileData.avatar && !profileData.avatar.startsWith('http')) {
                 try {
-                    const res = await api.get(profileData.avatar, { responseType: 'blob' })
+                    console.debug('[Profile] fetching avatar blob from:', profileData.avatar);
+                    // Add cache buster to force fresh fetch
+                    const avatarUrl = profileData.avatar + '?t=' + Date.now();
+                    const res = await api.get(avatarUrl, { responseType: 'blob' })
                     const blob = res.data
+                    console.debug('[Profile] avatar blob received, size:', blob.size, 'type:', blob.type);
                     const objectUrl = URL.createObjectURL(blob)
                     if (lastAvatarUrl.current) {
                         try { URL.revokeObjectURL(lastAvatarUrl.current) } catch (e) {}
                     }
                     setProfile(prev => prev ? { ...prev, avatar: objectUrl } : prev)
                     lastAvatarUrl.current = objectUrl
+                    console.debug('[Profile] avatar updated to object URL');
                 } catch (err) {
                     console.debug('Could not fetch protected avatar as blob', err)
                 }
@@ -232,6 +240,9 @@ export default function ProfilePage() {
                 // Reload profile để lấy avatar mới
                 await loadProfile();
                 showSuccess('Cập nhật avatar thành công!');
+
+                // Notify layout to reload avatar
+                window.dispatchEvent(new CustomEvent('avatarUpdated'));
             } catch (error: any) {
                 console.error("Error uploading avatar:", error);
                 // show detailed server response when available

@@ -60,7 +60,9 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
 
                     if (avatar && !avatar.startsWith('http') && !avatar.startsWith('data:')) {
                         try {
-                            const res = await api.get(avatar, { responseType: 'blob' })
+                            // Add cache buster to force fresh fetch
+                            const avatarUrl = avatar + '?t=' + Date.now();
+                            const res = await api.get(avatarUrl, { responseType: 'blob' })
                             const blob = res.data
                             const objectUrl = URL.createObjectURL(blob)
                             if (lastAvatarUrl.current) {
@@ -99,6 +101,16 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
         }
 
         loadUserInfo()
+
+        // Listen for avatar update events
+        const handleAvatarUpdate = () => {
+            loadUserInfo()
+        }
+        window.addEventListener('avatarUpdated', handleAvatarUpdate)
+
+        return () => {
+            window.removeEventListener('avatarUpdated', handleAvatarUpdate)
+        }
     }, [])
 
     useEffect(() => {

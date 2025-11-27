@@ -64,7 +64,9 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
                     try {
                         const avatarPath = `/users/${user.id}/avatar`
                         if (avatar && (avatar.includes(avatarPath) || avatar.startsWith(base))) {
-                            const resAvatar = await api.get(avatarPath, { responseType: 'blob' })
+                            // Add cache buster to force fresh fetch
+                            const avatarUrl = avatarPath + '?t=' + Date.now();
+                            const resAvatar = await api.get(avatarUrl, { responseType: 'blob' })
                             const blob = resAvatar.data
                             const objectUrl = URL.createObjectURL(blob)
                             avatar = objectUrl
@@ -98,7 +100,9 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
             let avatarFromLS = avatarLS
             try {
                 if (avatarFromLS && !avatarFromLS.startsWith('http') && !avatarFromLS.startsWith('data:')) {
-                    const resAvatarLS = await api.get(`/users/${parseInt(userId || '0')}/avatar`, { responseType: 'blob' })
+                    // Add cache buster
+                    const avatarUrl = `/users/${parseInt(userId || '0')}/avatar?t=${Date.now()}`;
+                    const resAvatarLS = await api.get(avatarUrl, { responseType: 'blob' })
                     const blobLS = resAvatarLS.data
                     avatarFromLS = URL.createObjectURL(blobLS)
                 }
@@ -119,6 +123,16 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
         }
 
         loadUserInfo()
+
+        // Listen for avatar update events
+        const handleAvatarUpdate = () => {
+            loadUserInfo()
+        }
+        window.addEventListener('avatarUpdated', handleAvatarUpdate)
+
+        return () => {
+            window.removeEventListener('avatarUpdated', handleAvatarUpdate)
+        }
     }, [])
 
     const updatedNavigation = navigation.map(item => ({

@@ -28,8 +28,17 @@ api.interceptors.response.use(
       originalRequest._retry = true;
       try {
         const refreshToken = typeof window !== 'undefined' ? localStorage.getItem("refreshToken") : null;
+        // Diagnostic: record what tokens we have when attempting refresh
+        try {
+          console.debug('Auth refresh attempt, tokens:', {
+            accessToken: typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null,
+            refreshToken
+          });
+        } catch (e) { /* ignore debug errors */ }
         if (!refreshToken) throw new Error('Missing refresh token');
-        const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`, { refreshToken });
+        // Use env var if provided, otherwise fall back to the api instance baseURL
+        const refreshBase = process.env.NEXT_PUBLIC_API_URL || api.defaults.baseURL || 'http://localhost:5000';
+        const response = await axios.post(`${refreshBase}/auth/refresh`, { refreshToken });
         const newAccessToken = response.data.accessToken;
         // store new access token under the canonical key used by the app
         localStorage.setItem("accessToken", newAccessToken);
