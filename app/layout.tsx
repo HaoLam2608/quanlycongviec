@@ -26,6 +26,7 @@ export default function RootLayout({
     <html lang="vi">
       <head>
         <meta charSet="utf-8" />
+        <link rel="icon" type="image/png" href="/cropped_circle_image.png" />
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
         <ToastProvider>
