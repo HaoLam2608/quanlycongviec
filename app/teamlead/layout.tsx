@@ -308,28 +308,31 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
                             {/* User section */}
                             <div className="flex-shrink-0 border-t border-gray-200">
                                 <div className="flex items-center p-4">
-                                    <div>
-                                        {currentUser?.avatar ? (
-                                            <Avatar className="w-8 h-8">
-                                                <AvatarImage src={currentUser.avatar} alt={currentUser?.hoten || 'Nhóm Trưởng'} />
-                                                <AvatarFallback className="text-xs">
-                                                    {(currentUser?.hoten || 'NT').substring(0, 2).toUpperCase()}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                        ) : (
-                                            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-                                                <User className="w-4 h-4 text-white" />
+                                    <Link href="/teamlead/profile" className="flex items-center group">
+                                            <div>
+                                                {currentUser?.avatar ? (
+                                                    <Avatar className="w-8 h-8">
+                                                        <AvatarImage src={currentUser.avatar} alt={currentUser?.hoten || 'Nhóm Trưởng'} />
+                                                        <AvatarFallback className="text-xs">
+                                                            {(currentUser?.hoten || 'NT').substring(0, 2).toUpperCase()}
+                                                        </AvatarFallback>
+                                                    </Avatar>
+                                                ) : (
+                                                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                                        <User className="w-4 h-4 text-white" />
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
-                                    </div>
-                                    <div className="ml-3 flex-1">
-                                        <p className="text-sm font-medium text-gray-700">
-                                            {currentUser?.hoten || 'Nhóm Trưởng'}
-                                        </p>
-                                        <p className="text-xs text-gray-500">
-                                            {currentUser?.manv || 'Trưởng nhóm'}
-                                        </p>
-                                    </div>
+                                        
+                                            <div className="ml-3 flex-1">
+                                                <p className="text-sm font-medium text-gray-700">
+                                                    {currentUser?.hoten || 'Nhóm Trưởng'}
+                                                </p>
+                                                <p className="text-xs text-gray-500">
+                                                    {currentUser?.manv || 'Trưởng nhóm'}
+                                                </p>
+                                            </div>
+                                    </Link>
                                     <button
                                         onClick={handleLogout}
                                         disabled={isLoggingOut}
@@ -369,6 +372,44 @@ export default function TeamLeadLayout({ children }: { children: React.ReactNode
                                     <Settings className="h-5 w-5" />
                                 </button>
 
+                                {/* User section */}
+                                <div className="flex-shrink-0 border-t border-gray-200">
+                                    <div className="flex items-center p-4">
+                                        <Link href="/teamlead/profile" className="flex items-center group">
+                                            <div>
+                                                {currentUser?.avatar ? (
+                                                    <Avatar className="w-8 h-8">
+                                                        <AvatarImage src={currentUser.avatar} alt={currentUser?.hoten || 'Nhóm Trưởng'} />
+                                                        <AvatarFallback className="text-xs">
+                                                            {(currentUser?.hoten || 'NT').substring(0, 2).toUpperCase()}
+                                                        </AvatarFallback>
+                                                    </Avatar>
+                                                ) : (
+                                                    <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                                        <User className="w-4 h-4 text-white" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        
+                                            <div className="ml-3 flex-1">
+                                                <p className="text-sm font-medium text-gray-700">
+                                                    {currentUser?.hoten || 'Nhóm Trưởng'}
+                                                </p>
+                                                <p className="text-xs text-gray-500">
+                                                    {currentUser?.manv || 'Trưởng nhóm'}
+                                                </p>
+                                            </div>
+                                        </Link>
+                                        <button
+                                            onClick={handleLogout}
+                                            disabled={isLoggingOut}
+                                            className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                                            title="Đăng xuất"
+                                        >
+                                            <LogOut className={`w-4 h-4 ${isLoggingOut ? 'animate-spin' : ''}`} />
+                                        </button>
+                                    </div>
+                            </div>        
                             </div>
                         </div>
 

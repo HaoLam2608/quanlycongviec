@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from 'next/navigation'
 import {
-    CheckSquare, Clock, Calendar, User, Plus, Filter, Search, Eye, Edit3,
+    CheckSquare, Clock, Calendar, User, Filter, Search, Eye, Edit3,
     Trash2, AlertCircle, CheckCircle, XCircle, PlayCircle, FolderOpen,
-    Users, LayoutGrid, List, Download, Upload, MoreVertical, Tag,
+    Users, Download, Upload, MoreVertical, Tag,
     TrendingUp, MessageSquare, Paperclip, ChevronDown, X as CloseIcon
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -13,11 +14,12 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import Modal from '@/components/admin/Modal'
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useToastContext } from "@/components/providers/toast-provider"
 import { showConfirm, showSuccess, showError } from "@/lib/notifications"
-import { fetchProjectsByManager, getTasksByProject, createTask, updateTask, deleteTask } from "@/axios/api"
+import { fetchProjectsByManager, getTasksByProject, createTask, updateTask, deleteTask, getSubtasksByTask, getProjectById } from "@/axios/api"
 import { getUsers } from "@/axios/adminApi"
 
 interface Task {
@@ -60,6 +62,7 @@ export default function ManagerTasksPage() {
     const [loading, setLoading] = useState(true)
     const [viewMode, setViewMode] = useState<"list" | "kanban">("list")
     const { showError, showSuccess } = useToastContext()
+    const router = useRouter()
 
     // Filters
     const [searchTerm, setSearchTerm] = useState("")
@@ -85,6 +88,9 @@ export default function ManagerTasksPage() {
     // Detail modal
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
     const [detailTask, setDetailTask] = useState<Task | null>(null)
+    const [detailSubtasks, setDetailSubtasks] = useState<any[]>([])
+    const [apiErrorMessage, setApiErrorMessage] = useState<string | null>(null)
+    const [projectDateBounds, setProjectDateBounds] = useState<{ start?: string | null; end?: string | null }>({ start: null, end: null })
 
     // Bulk actions
     const [selectedTasks, setSelectedTasks] = useState<number[]>([])
@@ -138,40 +144,78 @@ export default function ManagerTasksPage() {
         }
     }
 
-    const openCreateModal = () => {
-        setIsEditMode(false)
-        setSelectedTask(null)
-        setTaskForm({
-            tentask: "",
-            mota: "",
-            duanId: "",
-            nguoiDuocGiaoId: "",
-            mucDoUuTien: "trung_binh",
-            ngayBatDau: "",
-            ngayKetThuc: ""
-        })
-        setIsTaskModalOpen(true)
-    }
+    // Create modal is opened from edit buttons; explicit create button removed per request
 
     const openEditModal = (task: Task) => {
-        setIsEditMode(true)
-        setSelectedTask(task)
+        try {
+            setApiErrorMessage(null)
+            setIsEditMode(true)
+            setSelectedTask(task)
+        const duanIdStr = task.duanId !== undefined && task.duanId !== null ? String(task.duanId) : (task.duan?.id ? String(task.duan.id) : "")
+        const nguoiIdStr = task.nguoiDuocGiaoId !== undefined && task.nguoiDuocGiaoId !== null ? String(task.nguoiDuocGiaoId) : (task.nguoiDuocGiao?.id ? String(task.nguoiDuocGiao.id) : "")
         setTaskForm({
             tentask: task.tentask,
             mota: task.mota || "",
-            duanId: task.duanId.toString(),
-            nguoiDuocGiaoId: task.nguoiDuocGiaoId.toString(),
+            duanId: duanIdStr,
+            nguoiDuocGiaoId: nguoiIdStr,
             mucDoUuTien: task.mucDoUuTien || "trung_binh",
             ngayBatDau: task.ngayBatDau || "",
             ngayKetThuc: task.ngayKetThuc || ""
         })
-        setIsTaskModalOpen(true)
+            setIsTaskModalOpen(true)
+        } catch (err) {
+            console.error('openEditModal error', err)
+            setApiErrorMessage(String(err))
+            showError('Có lỗi khi mở form chỉnh sửa')
+        }
     }
+
+    // Load project date bounds whenever selected project changes in the form
+    useEffect(() => {
+        let mounted = true
+        const loadBounds = async () => {
+            try {
+                if (!taskForm.duanId) {
+                    setProjectDateBounds({ start: null, end: null })
+                    return
+                }
+                const projId = parseInt(taskForm.duanId)
+                if (isNaN(projId)) return
+                const res = await getProjectById(String(projId))
+                // API may return project or { project }
+                const proj = res?.project || res
+                if (!mounted) return
+                setProjectDateBounds({ start: proj?.ngaybatdau || null, end: proj?.ngayketthuc || null })
+            } catch (err) {
+                console.error('Failed to load project bounds', err)
+                setProjectDateBounds({ start: null, end: null })
+            }
+        }
+
+        loadBounds()
+
+        return () => { mounted = false }
+    }, [taskForm.duanId])
 
     const handleSaveTask = async () => {
         try {
             if (!taskForm.tentask || !taskForm.duanId || !taskForm.ngayKetThuc) {
                 showError('Vui lòng điền đầy đủ thông tin bắt buộc')
+                return
+            }
+
+            // Validate dates against project bounds if available
+            const projStart = projectDateBounds.start ? new Date(projectDateBounds.start) : null
+            const projEnd = projectDateBounds.end ? new Date(projectDateBounds.end) : null
+            const tStart = taskForm.ngayBatDau ? new Date(taskForm.ngayBatDau) : null
+            const tEnd = taskForm.ngayKetThuc ? new Date(taskForm.ngayKetThuc) : null
+
+            if (projStart && tStart && tStart < projStart) {
+                showError('Ngày bắt đầu phải lớn hơn hoặc bằng ngày bắt đầu của dự án')
+                return
+            }
+            if (projEnd && tEnd && tEnd > projEnd) {
+                showError('Ngày kết thúc phải nhỏ hơn hoặc bằng ngày kết thúc của dự án')
                 return
             }
 
@@ -184,16 +228,23 @@ export default function ManagerTasksPage() {
                 ngayKetThuc: taskForm.ngayKetThuc
             }
 
-            // Người được giao là optional - nếu không chọn, member tự nhận
-            if (taskForm.nguoiDuocGiaoId) {
-                payload.nguoiDuocGiaoId = parseInt(taskForm.nguoiDuocGiaoId)
+            // Người được giao là optional - nếu chọn 'none' hoặc blank, send null so backend treats as not assigned
+            if (taskForm.nguoiDuocGiaoId && taskForm.nguoiDuocGiaoId !== 'none') {
+                const parsed = parseInt(taskForm.nguoiDuocGiaoId)
+                if (!isNaN(parsed)) payload.nguoiDuocGiaoId = parsed
+            } else {
+                payload.nguoiDuocGiaoId = null
             }
 
             if (isEditMode && selectedTask) {
-                await updateTask(selectedTask.id, payload)
+                console.debug('Updating task', selectedTask.id, payload)
+                const res = await updateTask(selectedTask.id, payload)
+                console.debug('Update response', res)
                 showSuccess('Cập nhật nhiệm vụ thành công')
             } else {
-                await createTask(payload)
+                console.debug('Creating task', payload)
+                const res = await createTask(payload)
+                console.debug('Create response', res)
                 showSuccess('Tạo nhiệm vụ thành công')
             }
 
@@ -201,7 +252,9 @@ export default function ManagerTasksPage() {
             loadData()
         } catch (err: any) {
             console.error('Save task error', err)
-            showError(err?.message || 'Không thể lưu nhiệm vụ')
+            const msg = err?.message || err?.response?.data?.message || (typeof err === 'string' ? err : JSON.stringify(err))
+            setApiErrorMessage(msg || 'Không thể lưu nhiệm vụ')
+            showError(msg || 'Không thể lưu nhiệm vụ')
         }
     }
 
@@ -210,18 +263,31 @@ export default function ManagerTasksPage() {
         if (!confirmed) return
 
         try {
-            await deleteTask(taskId)
+            console.debug('Deleting task', taskId)
+            const res = await deleteTask(taskId)
+            console.debug('Delete response', res)
             showSuccess('Xóa nhiệm vụ thành công')
             loadData()
         } catch (err: any) {
             console.error('Delete task error', err)
-            showError(err?.message || 'Không thể xóa nhiệm vụ')
+            const msg = err?.message || err?.response?.data?.message || (typeof err === 'string' ? err : JSON.stringify(err))
+            setApiErrorMessage(msg || 'Không thể xóa nhiệm vụ')
+            showError(msg || 'Không thể xóa nhiệm vụ')
         }
     }
 
-    const openDetailModal = (task: Task) => {
+    const openDetailModal = async (task: Task) => {
         setDetailTask(task)
         setIsDetailModalOpen(true)
+        try {
+            const res = await getSubtasksByTask(task.id)
+            // API may return { subtasks: [...] } or an array
+            const list = res?.subtasks || res || []
+            setDetailSubtasks(list)
+        } catch (err) {
+            console.error('Failed to load subtasks', err)
+            setDetailSubtasks([])
+        }
     }
 
     const getStatusColor = (status: string) => {
@@ -411,18 +477,7 @@ export default function ManagerTasksPage() {
                         <p className="text-slate-600 mt-2">Theo dõi và quản lý tất cả nhiệm vụ trong các dự án</p>
                     </div>
                     <div className="flex gap-3">
-                        <Button
-                            variant="outline"
-                            onClick={() => setViewMode(viewMode === "list" ? "kanban" : "list")}
-                            className="gap-2"
-                        >
-                            {viewMode === "list" ? <LayoutGrid className="w-4 h-4" /> : <List className="w-4 h-4" />}
-                            {viewMode === "list" ? "Kanban" : "Danh sách"}
-                        </Button>
-                        <Button onClick={openCreateModal} className="bg-[#003D82] hover:bg-[#0052A3] gap-2">
-                            <Plus className="w-4 h-4" />
-                            Tạo nhiệm vụ
-                        </Button>
+                        {/* Create button removed - managers no longer create tasks from this view */}
                     </div>
                 </div>
 
@@ -781,115 +836,139 @@ export default function ManagerTasksPage() {
                 )}
             </div>
 
-            {/* Create/Edit Task Modal */}
-            <Dialog open={isTaskModalOpen} onOpenChange={setIsTaskModalOpen}>
-                <DialogContent className="sm:max-w-[600px]">
-                    <DialogHeader>
-                        <DialogTitle>{isEditMode ? 'Chỉnh sửa nhiệm vụ' : 'Tạo nhiệm vụ mới'}</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="tentask">Tên nhiệm vụ *</Label>
-                            <Input
-                                id="tentask"
+            {/* Create/Edit Task Modal (copied from project detail page) */}
+            <Modal isOpen={isTaskModalOpen} onClose={() => setIsTaskModalOpen(false)} title={isEditMode ? 'Chỉnh sửa công việc' : 'Tạo công việc mới'}>
+                <form
+                    onSubmit={async (e) => {
+                        e.preventDefault();
+                        await handleSaveTask();
+                    }}
+                    className="space-y-5"
+                >
+                    {apiErrorMessage && (
+                        <div className="mb-3 p-3 bg-red-50 border border-red-100 rounded text-sm text-red-700">
+                            <strong>Lỗi từ server:</strong> {apiErrorMessage}
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-3">
+                            <label className="block text-sm font-semibold text-foreground mb-2">Tên công việc *</label>
+                            <input
+                                type="text"
+                                required
                                 value={taskForm.tentask}
                                 onChange={(e) => setTaskForm(prev => ({ ...prev, tentask: e.target.value }))}
-                                placeholder="Nhập tên nhiệm vụ"
+                                className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                                placeholder="Nhập tên công việc"
                             />
-                        </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="mota">Mô tả</Label>
-                            <Textarea
-                                id="mota"
-                                value={taskForm.mota}
-                                onChange={(e) => setTaskForm(prev => ({ ...prev, mota: e.target.value }))}
-                                placeholder="Mô tả chi tiết nhiệm vụ"
-                                rows={3}
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="duanId">Dự án *</Label>
-                                <Select value={taskForm.duanId} onValueChange={(value) => setTaskForm(prev => ({ ...prev, duanId: value }))}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Chọn dự án" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {projects.map(project => (
-                                            <SelectItem key={project.id} value={project.id.toString()}>
-                                                {project.tenduan}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="nguoiDuocGiaoId">Người thực hiện (Tùy chọn - để trống cho member tự nhận)</Label>
-                                <Select value={taskForm.nguoiDuocGiaoId} onValueChange={(value) => setTaskForm(prev => ({ ...prev, nguoiDuocGiaoId: value }))}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Chọn người hoặc để trống" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="">-- Không giao ai (để member tự nhận) --</SelectItem>
-                                        {users.map(user => (
-                                            <SelectItem key={user.id} value={user.id.toString()}>
-                                                {user.hoten} ({user.manv})
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="ngayBatDau">Ngày bắt đầu</Label>
-                                <Input
-                                    id="ngayBatDau"
-                                    type="date"
-                                    value={taskForm.ngayBatDau}
-                                    onChange={(e) => setTaskForm(prev => ({ ...prev, ngayBatDau: e.target.value }))}
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="ngayKetThuc">Hạn hoàn thành *</Label>
-                                <Input
-                                    id="ngayKetThuc"
-                                    type="date"
-                                    value={taskForm.ngayKetThuc}
-                                    onChange={(e) => setTaskForm(prev => ({ ...prev, ngayKetThuc: e.target.value }))}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="mucDoUuTien">Mức độ ưu tiên</Label>
-                            <Select value={taskForm.mucDoUuTien} onValueChange={(value) => setTaskForm(prev => ({ ...prev, mucDoUuTien: value }))}>
-                                <SelectTrigger>
-                                    <SelectValue />
+                            <label className="block text-sm font-semibold text-foreground mb-2">Dự án *</label>
+                            <Select value={taskForm.duanId} onValueChange={(value) => setTaskForm(prev => ({ ...prev, duanId: value }))}>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Chọn dự án" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="cao">Cao</SelectItem>
-                                    <SelectItem value="trung_binh">Trung bình</SelectItem>
-                                    <SelectItem value="thap">Thấp</SelectItem>
+                                    {projects.map(project => (
+                                        <SelectItem key={project.id} value={project.id.toString()}>
+                                            {project.tenduan}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
+
+                            <label className="block text-sm font-semibold text-foreground mb-2">Ngày bắt đầu</label>
+                            <input
+                                type="date"
+                                value={taskForm.ngayBatDau}
+                                onChange={(e) => setTaskForm(prev => ({ ...prev, ngayBatDau: e.target.value }))}
+                                min={projectDateBounds.start ? projectDateBounds.start.slice(0, 10) : undefined}
+                                max={projectDateBounds.end ? projectDateBounds.end.slice(0, 10) : undefined}
+                                className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                            />
+                        </div>
+
+                        <div className="space-y-3">
+                            <label className="block text-sm font-semibold text-foreground mb-2">Mô tả</label>
+                            <textarea
+                                value={taskForm.mota}
+                                onChange={(e) => setTaskForm(prev => ({ ...prev, mota: e.target.value }))}
+                                className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all resize-none"
+                                placeholder="Mô tả công việc"
+                                rows={4}
+                            />
+
+                            <label className="block text-sm font-semibold text-foreground mb-2">Người phụ trách *</label>
+                            <Select value={taskForm.nguoiDuocGiaoId} onValueChange={(value) => setTaskForm(prev => ({ ...prev, nguoiDuocGiaoId: value }))}>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Chọn người hoặc để trống" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">-- Không giao ai (để member tự nhận) --</SelectItem>
+                                    {users.map(user => (
+                                        <SelectItem key={user.id} value={user.id.toString()}>
+                                            {user.hoten} ({user.manv})
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-sm font-semibold text-foreground mb-2">Hạn chót</label>
+                                    <input
+                                        type="date"
+                                        value={taskForm.ngayKetThuc}
+                                        onChange={(e) => setTaskForm(prev => ({ ...prev, ngayKetThuc: e.target.value }))}
+                                        min={projectDateBounds.start ? projectDateBounds.start.slice(0, 10) : undefined}
+                                        max={projectDateBounds.end ? projectDateBounds.end.slice(0, 10) : undefined}
+                                        className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-semibold text-foreground mb-2">Mức độ ưu tiên</label>
+                                    <Select value={taskForm.mucDoUuTien} onValueChange={(value) => setTaskForm(prev => ({ ...prev, mucDoUuTien: value }))}>
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="cao">Cao</SelectItem>
+                                            <SelectItem value="trung_binh">Trung bình</SelectItem>
+                                            <SelectItem value="thap">Thấp</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsTaskModalOpen(false)}>
+
+                    <div className="flex gap-3 pt-4 justify-end">
+                        <button
+                            type="button"
+                            onClick={() => setIsTaskModalOpen(false)}
+                            className="px-6 py-3 bg-secondary text-foreground rounded-xl font-semibold hover:bg-secondary/80 transition-all"
+                        >
                             Hủy
-                        </Button>
-                        <Button onClick={handleSaveTask} className="bg-[#003D82] hover:bg-[#0052A3]">
-                            {isEditMode ? 'Cập nhật' : 'Tạo nhiệm vụ'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                        </button>
+
+                        <button
+                            type="submit"
+                            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all"
+                        >
+                            Lưu thay đổi
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => selectedTask && handleDeleteTask(selectedTask.id)}
+                            className="px-6 py-3 bg-red-500 text-white rounded-xl font-semibold hover:bg-red-600 transition-all"
+                        >
+                            Xóa công việc
+                        </button>
+                    </div>
+                </form>
+            </Modal>
 
             {/* Task Detail Modal */}
             <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
@@ -897,6 +976,11 @@ export default function ManagerTasksPage() {
                     <DialogHeader>
                         <DialogTitle>Chi tiết nhiệm vụ</DialogTitle>
                     </DialogHeader>
+                    {apiErrorMessage && (
+                        <div className="mb-2 p-3 bg-red-50 border border-red-100 rounded text-sm text-red-700">
+                            Lỗi từ server: {apiErrorMessage}
+                        </div>
+                    )}
                     {detailTask && (
                         <div className="space-y-6 py-4">
                             <div>
@@ -945,6 +1029,35 @@ export default function ManagerTasksPage() {
                                 </div>
                             </div>
 
+                            {/* Subtasks list */}
+                            {detailSubtasks && detailSubtasks.length > 0 && (
+                                <div>
+                                    <h4 className="font-semibold text-slate-900 mb-3">Công việc con</h4>
+                                    <div className="space-y-2">
+                                        {detailSubtasks.map((st: any) => (
+                                            <div key={st.id} className="flex items-center justify-between p-3 border rounded">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                                                        <User className="w-4 h-4 text-blue-600" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-slate-900">{st.tenSubtask || st.name || `ST-${st.id}`}</p>
+                                                        {st.nguoiThucHien && (
+                                                            <p className="text-sm text-slate-500">{st.nguoiThucHien.hoten || st.nguoiThucHien.name}</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="ml-4">
+                                                    <Badge className={getStatusColor(st.trangThai || st.status || '')}>
+                                                        {getStatusText(st.trangThai || st.status || '')}
+                                                    </Badge>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <div>
                                 <h4 className="font-semibold text-slate-900 mb-3">Thời gian</h4>
                                 <div className="grid grid-cols-2 gap-4">
@@ -979,13 +1092,18 @@ export default function ManagerTasksPage() {
                             Đóng
                         </Button>
                         {detailTask && (
-                            <Button onClick={() => {
-                                setIsDetailModalOpen(false)
-                                openEditModal(detailTask)
-                            }} className="bg-blue-600 hover:bg-blue-700">
-                                <Edit3 className="w-4 h-4 mr-2" />
-                                Chỉnh sửa
-                            </Button>
+                            <>
+                                <Button variant="outline" onClick={() => router.push(`/manager/projects/${detailTask.duan?.id || detailTask.duanId}`)}>
+                                    Xem dự án
+                                </Button>
+                                <Button onClick={() => {
+                                    setIsDetailModalOpen(false)
+                                    openEditModal(detailTask)
+                                }} className="bg-blue-600 hover:bg-blue-700">
+                                    <Edit3 className="w-4 h-4 mr-2" />
+                                    Chỉnh sửa
+                                </Button>
+                            </>
                         )}
                     </DialogFooter>
                 </DialogContent>

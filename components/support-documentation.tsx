@@ -42,13 +42,13 @@ const contactMethods = [
   {
     icon: Mail,
     title: "Email",
-    value: "support@company.com",
+    value: "taskhadflow@suport.com",
     description: "Phản hồi trong 24 giờ",
   },
   {
     icon: Phone,
     title: "Hotline",
-    value: "1900-xxxx",
+    value: "0888854212",
     description: "Hỗ trợ trong giờ hành chính",
   },
   {

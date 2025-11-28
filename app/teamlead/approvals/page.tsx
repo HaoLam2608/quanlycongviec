@@ -291,7 +291,7 @@ export default function TeamLeadApprovalsPage() {
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                 <div className="flex items-center justify-between flex-wrap gap-4">
                     <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
                             <CheckCircle className="w-7 h-7 text-white" />
                         </div>
                         <div>
@@ -303,7 +303,7 @@ export default function TeamLeadApprovalsPage() {
                                 }
                             </p>
                             {infoMessage && (
-                                <p className="text-xs text-amber-600 mt-1">{infoMessage}</p>
+                                <p className="text-xs text-blue-600 mt-1">{infoMessage}</p>
                             )}
                         </div>
                     </div>
@@ -316,7 +316,7 @@ export default function TeamLeadApprovalsPage() {
                             }
                         }}
                         disabled={loading || loadingHistory}
-                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-white font-medium text-sm flex items-center gap-2 hover:from-amber-600 hover:to-amber-700 transition-all disabled:opacity-50"
+                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium text-sm flex items-center gap-2 hover:from-blue-600 hover:to-blue-700 transition-all disabled:opacity-50"
                     >
                         <RefreshCw size={16} className={(loading || loadingHistory) ? 'animate-spin' : ''} />
                         <span>Làm mới</span>
@@ -330,7 +330,7 @@ export default function TeamLeadApprovalsPage() {
                     <button
                         onClick={() => setActiveTab('completion')}
                         className={`flex-1 px-4 py-3 rounded-xl font-semibold text-sm transition-all ${activeTab === 'completion'
-                                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-md'
+                                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md'
                                 : 'text-gray-600 hover:bg-gray-50'
                             }`}
                     >
@@ -338,7 +338,7 @@ export default function TeamLeadApprovalsPage() {
                             <CheckSquare size={18} />
                             <span>Phê duyệt hoàn thành</span>
                             {pendingSubtasks.length > 0 && (
-                                <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === 'completion' ? 'bg-white/20' : 'bg-amber-100 text-amber-800'
+                                <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === 'completion' ? 'bg-white/20' : 'bg-blue-100 text-blue-800'
                                     }`}>
                                     {pendingSubtasks.length}
                                 </span>
@@ -393,7 +393,7 @@ export default function TeamLeadApprovalsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                     <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-yellow-500 to-yellow-600 flex items-center justify-center">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
                             <Clock className="w-6 h-6 text-white" />
                         </div>
                         <div>
@@ -465,14 +465,14 @@ export default function TeamLeadApprovalsPage() {
                                         key={subtask.id}
                                         className={`bg-white rounded-2xl shadow-lg border-2 p-6 transition-all ${isOverdue ? 'border-red-300 bg-red-50/50' :
                                             isUrgent ? 'border-yellow-300 bg-yellow-50/50' :
-                                                'border-gray-100 hover:border-amber-200'
+                                                'border-gray-100 hover:border-blue-200'
                                             }`}
                                     >
                                         <div className="flex items-start justify-between gap-4">
                                             <div className="flex-1 space-y-4">
                                                 {/* Header */}
                                                 <div className="flex items-start gap-3">
-                                                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center flex-shrink-0">
+                                                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
                                                         <CheckSquare className="w-5 h-5 text-white" />
                                                     </div>
                                                     <div className="flex-1">

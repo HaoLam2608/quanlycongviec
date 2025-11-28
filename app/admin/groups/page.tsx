@@ -105,7 +105,7 @@ export default function GroupsPage() {
                             </button>
                             <button
                                 onClick={() => { setEditGroup(null); setOpenModal(true); }}
-                                className="px-6 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-semibold shadow-lg shadow-green-500/25 hover:shadow-xl hover:from-green-600 hover:to-emerald-700 transition-all flex items-center gap-2 text-sm"
+                                className="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:from-blue-600 hover:to-indigo-700 transition-all flex items-center gap-2 text-sm"
                             >
                                 <Plus size={16} />
                                 <span>Thêm nhóm</span>

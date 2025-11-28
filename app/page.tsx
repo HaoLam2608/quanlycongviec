@@ -20,9 +20,7 @@ export default function LandingPage() {
         <SupportDocumentation />
         <FinalCTA />
       </main>
-      <div className="create-plan-wrapper" style={{ marginTop: '1rem', textAlign: 'center', display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-        <Link href="/pages" style={{ background: '#4f46e5', color: '#fff', padding: '0.6rem 1.2rem', borderRadius: '6px', textDecoration: 'none', fontWeight: '600' }}>Pages Editor</Link>
-      </div>
+      
       <Footer />
     </div>
   )

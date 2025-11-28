@@ -333,7 +333,7 @@ export default function TeamLeadReportsPage() {
                         <select
                             value={selectedMember === 'all' ? 'all' : String(selectedMember)}
                             onChange={e => setSelectedMember(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                            className="px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-green-200 text-sm"
+                            className="px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-200 text-sm"
                         >
                             <option value="all">Tất cả thành viên</option>
                             {reportData.memberStats.map(member => (
@@ -343,7 +343,7 @@ export default function TeamLeadReportsPage() {
                         <button
                             onClick={loadReportData}
                             disabled={loading}
-                            className="px-4 py-2.5 rounded-xl bg-white border border-green-200 text-green-600 font-medium text-sm flex items-center gap-2 hover:bg-green-50 transition-all disabled:opacity-50"
+                            className="px-4 py-2.5 rounded-xl bg-white border border-blue-200 text-blue-600 font-medium text-sm flex items-center gap-2 hover:bg-green-50 transition-all disabled:opacity-50"
                         >
                             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                             <span>Làm mới</span>

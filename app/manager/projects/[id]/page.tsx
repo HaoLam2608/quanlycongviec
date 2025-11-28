@@ -353,11 +353,6 @@ export default function ProjectDetailPage() {
     };
 
 
-
-
-
-
-
     useEffect(() => {
         const fetchProject = async () => {
             try {
