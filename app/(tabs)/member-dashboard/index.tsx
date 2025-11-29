@@ -13,7 +13,7 @@ import TaskCard from '../../../components/member/TaskCard';
 import NotificationBell from '../../../components/NotificationBell';
 import { getMemberStats, getMySubtasks, getOverdueTasks, getRecentActivities, getUpcomingTasks } from '../../../src/axios/api';
 import { Activity, MemberStats, MemberSubtask, OverdueTask, UpcomingTask } from '../../../types/member';
-import { styles } from './index.styles';
+import { styles } from './styles';
 
 export default function MemberDashboardScreen() {
     const [stats, setStats] = useState<MemberStats>({

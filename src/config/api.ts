@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 
 // 🔧 QUAN TRỌNG: IP máy tính chạy backend
 // Lấy IP: chạy "ipconfig" (Windows) -> tìm IPv4 Address
-const COMPUTER_IP = '192.168.102.15'; // IP thực tế của máy bạn
+const COMPUTER_IP = '10.0.2.2'; // IP thực tế của máy bạn
 
 // Tự động phát hiện môi trường
 const getBaseURL = () => {

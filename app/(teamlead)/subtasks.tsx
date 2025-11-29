@@ -14,7 +14,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { getGroupSubtasks, updateSubtaskStatus, updateTaskStatus, getMyTasks, getSubtasksByTask } from '@/src/axios/api';
+import { getGroupSubtasks, updateSubtaskStatus, updateTaskStatus, getMyTasks, getSubtasksByTask, getMyGroup, requestAssignment } from '@/src/axios/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface TaskItem {
     id: number;
@@ -93,7 +94,7 @@ export default function TeamLeadSubtasksScreen() {
     const loadData = async () => {
         setLoading(true);
         try {
-            const [myTasksResponse, groupSubtasksResponse] = await Promise.all([
+            const [myTasksResponse, groupSubtasksResponse, myGroupResponse] = await Promise.all([
                 getMyTasks().catch((err) => {
                     console.warn('getMyTasks failed:', err);
                     return { tasks: [] };
@@ -101,6 +102,10 @@ export default function TeamLeadSubtasksScreen() {
                 getGroupSubtasks().catch((err) => {
                     console.warn('getGroupSubtasks failed:', err);
                     return [];
+                }),
+                getMyGroup().catch((err) => {
+                    console.warn('getMyGroup failed:', err);
+                    return null;
                 })
             ]);
 
@@ -219,6 +224,13 @@ export default function TeamLeadSubtasksScreen() {
 
             setTasks(normalizedTasks);
             setSubtasks(filteredSubtasks);
+
+            // store group members (if available) for request-to-claim permission checks
+            if (myGroupResponse) {
+                const members = Array.isArray(myGroupResponse.members) ? myGroupResponse.members : (myGroupResponse.memberIds || []);
+                const memberIds = members.map((m: any) => m.id || m.userId || m);
+                setGroupMemberIds(memberIds);
+            }
         } catch (error) {
             console.error('Load data error:', error);
             setTasks([]);
@@ -359,6 +371,52 @@ export default function TeamLeadSubtasksScreen() {
         );
         return unique;
     }, [allWorkItems]);
+
+    const [groupMemberIds, setGroupMemberIds] = useState<number[]>([]);
+    const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+    const [requestingSubtaskId, setRequestingSubtaskId] = useState<number | null>(null);
+
+    useEffect(() => {
+        const loadUser = async () => {
+            try {
+                const userStr = await AsyncStorage.getItem('user');
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    setCurrentUserId(user?.id || user?.userId || user?.manv || null);
+                }
+            } catch (e) {
+                console.warn('Failed to load current user from AsyncStorage', e);
+            }
+        };
+        loadUser();
+    }, []);
+
+    const handleRequestAssignment = async (subtaskId: number) => {
+        if (!subtaskId) return;
+        Alert.alert(
+            'Xác nhận',
+            'Bạn muốn yêu cầu nhận công việc này?',
+            [
+                { text: 'Hủy', style: 'cancel' },
+                {
+                    text: 'Gửi yêu cầu',
+                    onPress: async () => {
+                        try {
+                            setRequestingSubtaskId(subtaskId);
+                            await requestAssignment({ subtaskId });
+                            Alert.alert('Thành công', 'Đã gửi yêu cầu nhận việc');
+                            await loadData();
+                        } catch (err: any) {
+                            console.error('Request assignment failed:', err);
+                            Alert.alert('Lỗi', err?.message || 'Không thể gửi yêu cầu');
+                        } finally {
+                            setRequestingSubtaskId(null);
+                        }
+                    }
+                }
+            ]
+        );
+    };
 
     const clearFilters = () => {
         setFilterTask(null);
@@ -614,6 +672,24 @@ export default function TeamLeadSubtasksScreen() {
                                                             : (item.nguoiThucHien?.hoten || 'Chưa gán')}
                                                     </Text>
                                                 </View>
+                                                {/* Request assignment button for unassigned subtasks */}
+                                                {item.type === 'subtask' && !item.nguoiThucHien && !item.isPendingAssignment && currentUserId && (
+                                                    groupMemberIds.includes(currentUserId) ? (
+                                                        <View style={{ marginTop: 8 }}>
+                                                            <TouchableOpacity
+                                                                style={styles.requestButton}
+                                                                onPress={() => handleRequestAssignment(item.id)}
+                                                                disabled={requestingSubtaskId === item.id}
+                                                            >
+                                                                {requestingSubtaskId === item.id ? (
+                                                                    <ActivityIndicator size="small" color="#fff" />
+                                                                ) : (
+                                                                    <Text style={styles.requestButtonText}>Yêu cầu nhận việc</Text>
+                                                                )}
+                                                            </TouchableOpacity>
+                                                        </View>
+                                                    ) : null
+                                                )}
                                                 
                                                 <Text style={styles.helperText}>Giữ lâu để đổi trạng thái</Text>
                                             </TouchableOpacity>
@@ -1204,6 +1280,19 @@ const styles = StyleSheet.create({
     applyButtonText: {
         color: '#fff',
         fontWeight: '600'
+    },
+    requestButton: {
+        backgroundColor: '#7c3aed',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center'
+    },
+    requestButtonText: {
+        color: '#fff',
+        fontWeight: '700',
+        fontSize: 13
     },
     input: {
         backgroundColor: '#f9fafb',

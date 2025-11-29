@@ -183,12 +183,12 @@ export default function LoginScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#2563eb" />
+            <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
             <LinearGradient
-                colors={["#2563eb", "#3b82f6"]}
+                colors={["#f8fafc", "#e0f2fe", "#bae6fd"]}
                 style={styles.gradient}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+                end={{ x: 0, y: 1 }}
             >
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -232,7 +232,7 @@ export default function LoginScreen() {
                                         <TextInput
                                             style={styles.input}
                                             placeholder="Nhập mã nhân viên"
-                                            placeholderTextColor="rgba(102, 126, 234, 0.5)"
+                                            placeholderTextColor="#7dd3fc"
                                             value={manv}
                                             onChangeText={setManv}
                                             autoCapitalize="none"
@@ -248,7 +248,7 @@ export default function LoginScreen() {
                                         <TextInput
                                             style={styles.input}
                                             placeholder="Nhập mật khẩu"
-                                            placeholderTextColor="rgba(102, 126, 234, 0.5)"
+                                            placeholderTextColor="#7dd3fc"
                                             value={password}
                                             onChangeText={setPassword}
                                             secureTextEntry={!showPassword}
@@ -274,16 +274,6 @@ export default function LoginScreen() {
                                 >
                                     <Text style={styles.loginButtonText}>
                                         {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
-                                    </Text>
-                                </TouchableOpacity>
-
-                                <TouchableOpacity
-                                    style={styles.registerLink}
-                                    onPress={navigateToRegister}
-                                    disabled={isLoading}
-                                >
-                                    <Text style={styles.registerText}>
-                                        Chưa có tài khoản? <Text style={styles.registerTextBold}>Đăng ký ngay</Text>
                                     </Text>
                                 </TouchableOpacity>
                             </View>
@@ -318,14 +308,19 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: 'rgba(37, 99, 235, 0.15)',
+        backgroundColor: '#ffffff',
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 20,
+        shadowColor: '#0ea5e9',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
     },
     backButtonText: {
         fontSize: 24,
-        color: '#ffffff',
+        color: '#0ea5e9',
         fontWeight: 'bold',
     },
     content: {
@@ -343,14 +338,16 @@ const styles = StyleSheet.create({
         width: 100,
         height: 100,
         borderRadius: 50,
-        backgroundColor: 'rgba(37, 99, 235, 0.18)',
+        backgroundColor: '#ffffff',
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: '#2563eb',
+        shadowColor: '#0ea5e9',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
         elevation: 6,
+        borderWidth: 3,
+        borderColor: '#e0f2fe',
     },
     logoIcon: {
         fontSize: 48,
@@ -358,23 +355,25 @@ const styles = StyleSheet.create({
     welcomeText: {
         fontSize: 32,
         fontWeight: 'bold',
-        color: '#2563eb',
+        color: '#0c4a6e',
         marginBottom: 8,
     },
     subText: {
         fontSize: 16,
-        color: '#2563eb',
-        opacity: 0.8,
+        color: '#0369a1',
+        opacity: 0.85,
     },
     formContainer: {
-        backgroundColor: 'rgba(255,255,255,0.97)',
-        borderRadius: 22,
-        padding: 22,
-        shadowColor: '#2563eb',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.13,
-        shadowRadius: 12,
-        elevation: 6,
+        backgroundColor: '#ffffff',
+        borderRadius: 24,
+        padding: 28,
+        shadowColor: '#0ea5e9',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.12,
+        shadowRadius: 16,
+        elevation: 8,
+        borderWidth: 1,
+        borderColor: '#e0f2fe',
     },
     inputWrapper: {
         marginBottom: 20,
@@ -382,18 +381,18 @@ const styles = StyleSheet.create({
     inputLabel: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#2563eb',
-        marginBottom: 8,
+        color: '#0c4a6e',
+        marginBottom: 10,
         marginLeft: 4,
     },
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#f3f6fd',
-        borderRadius: 14,
-        paddingHorizontal: 14,
-        borderWidth: 1.5,
-        borderColor: '#dbeafe',
+        backgroundColor: '#f0f9ff',
+        borderRadius: 16,
+        paddingHorizontal: 16,
+        borderWidth: 2,
+        borderColor: '#bae6fd',
     },
     inputIcon: {
         fontSize: 20,
@@ -403,7 +402,7 @@ const styles = StyleSheet.create({
         flex: 1,
         height: 52,
         fontSize: 16,
-        color: '#2563eb',
+        color: '#0c4a6e',
         fontWeight: '500',
     },
     eyeButton: {
@@ -413,15 +412,15 @@ const styles = StyleSheet.create({
         fontSize: 20,
     },
     loginButton: {
-        backgroundColor: '#2563eb',
+        backgroundColor: '#0ea5e9',
         borderRadius: 16,
-        paddingVertical: 15,
+        paddingVertical: 16,
         alignItems: 'center',
-        marginTop: 8,
-        shadowColor: '#000',
+        marginTop: 12,
+        shadowColor: '#0ea5e9',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.18,
-        shadowRadius: 8,
+        shadowOpacity: 0.25,
+        shadowRadius: 12,
         elevation: 6,
     },
     loginButtonText: {
@@ -436,29 +435,29 @@ const styles = StyleSheet.create({
     },
     registerText: {
         fontSize: 14,
-        color: '#2563eb',
-        opacity: 0.8,
+        color: '#64748b',
+        opacity: 0.9,
     },
     registerTextBold: {
         fontWeight: 'bold',
-        color: '#2563eb',
+        color: '#0ea5e9',
     },
     circle1: {
         position: 'absolute',
-        width: 200,
-        height: 200,
-        borderRadius: 100,
-        backgroundColor: 'rgba(37, 99, 235, 0.12)',
-        top: -50,
-        right: -50,
+        width: 220,
+        height: 220,
+        borderRadius: 110,
+        backgroundColor: 'rgba(14, 165, 233, 0.08)',
+        top: -60,
+        right: -60,
     },
     circle2: {
         position: 'absolute',
-        width: 150,
-        height: 150,
-        borderRadius: 75,
-        backgroundColor: 'rgba(37, 99, 235, 0.10)',
-        bottom: -30,
-        left: -40,
+        width: 180,
+        height: 180,
+        borderRadius: 90,
+        backgroundColor: 'rgba(14, 165, 233, 0.06)',
+        bottom: -40,
+        left: -50,
     },
 });

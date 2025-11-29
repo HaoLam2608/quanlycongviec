@@ -9,8 +9,10 @@ import {
     View,
     Animated,
     StatusBar,
+    Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { clearAuthStorage, debugAuthStorage } from '../utils/debugStorage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -38,20 +40,48 @@ export default function WelcomeScreen() {
                 useNativeDriver: true,
             }),
         ]).start();
+
+        // Debug: log storage on mount (chỉ khi dev)
+        if (__DEV__) {
+            debugAuthStorage();
+        }
     }, []);
 
     const handleGetStarted = () => {
         router.push('/login');
     };
 
+    // Debug handler - chỉ hiển thị khi dev
+    const handleClearStorage = async () => {
+        if (!__DEV__) return;
+        
+        Alert.alert(
+            'Clear Storage',
+            'Xóa toàn bộ auth data? App sẽ reset về trạng thái ban đầu.',
+            [
+                { text: 'Hủy', style: 'cancel' },
+                {
+                    text: 'Xóa',
+                    style: 'destructive',
+                    onPress: async () => {
+                        const success = await clearAuthStorage();
+                        if (success) {
+                            Alert.alert('Thành công', 'Đã xóa auth data');
+                        }
+                    },
+                },
+            ]
+        );
+    };
+
     return (
         <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#2563eb" />
+            <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
             <LinearGradient
-                colors={["#2563eb", "#3b82f6", "#60a5fa"]}
+                colors={["#f8fafc", "#e0f2fe", "#bae6fd", "#7dd3fc"]}
                 style={styles.gradient}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+                end={{ x: 0, y: 1 }}
             >
                 <Animated.View 
                     style={[
@@ -67,11 +97,11 @@ export default function WelcomeScreen() {
                 >
                     {/* Logo và tên ứng dụng */}
                     <View style={styles.logoContainer}>
-                        <View style={[styles.logoCircle, { backgroundColor: 'rgba(255,255,255,0.18)', borderWidth: 2, borderColor: '#fff' }] }>
-                            <Text style={[styles.logoIcon, { color: '#fff' }]}>📋</Text>
+                        <View style={styles.logoCircle}>
+                            <Text style={styles.logoIcon}>📋</Text>
                         </View>
-                        <Text style={[styles.appName, { color: '#fff', textShadowColor: '#2563eb', textShadowOffset: {width: 0, height: 2}, textShadowRadius: 8 }]}>TaskFlow</Text>
-                        <Text style={[styles.tagline, { color: 'rgba(255,255,255,0.92)' }]}>Quản lý công việc thông minh</Text>
+                        <Text style={styles.appName}>TaskFlow</Text>
+                        <Text style={styles.tagline}>Quản lý công việc thông minh</Text>
                     </View>
 
                     {/* Thông tin tính năng */}
@@ -121,6 +151,7 @@ export default function WelcomeScreen() {
                         <Text style={styles.footerText}>
                             Nâng cao hiệu suất làm việc của bạn
                         </Text>
+
                     </View>
                 </Animated.View>
 
@@ -157,29 +188,35 @@ const styles = StyleSheet.create({
         width: 120,
         height: 120,
         borderRadius: 60,
-        backgroundColor: 'rgba(255, 255, 255, 0.25)',
+        backgroundColor: '#ffffff',
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 24,
-        shadowColor: '#000',
+        shadowColor: '#0ea5e9',
         shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3,
+        shadowOpacity: 0.15,
         shadowRadius: 16,
         elevation: 8,
+        borderWidth: 3,
+        borderColor: '#bae6fd',
     },
     logoIcon: {
         fontSize: 56,
+        color: '#0ea5e9',
     },
     appName: {
         fontSize: 38,
         fontWeight: 'bold',
-        color: '#ffffff',
+        color: '#0c4a6e',
         marginBottom: 8,
         letterSpacing: 1,
+        textShadowColor: '#7dd3fc',
+        textShadowOffset: { width: 0, height: 2 },
+        textShadowRadius: 4,
     },
     tagline: {
         fontSize: 16,
-        color: 'rgba(255, 255, 255, 0.9)',
+        color: '#0369a1',
         textAlign: 'center',
     },
     featuresContainer: {
@@ -189,32 +226,31 @@ const styles = StyleSheet.create({
     featureItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255,255,255,0.18)',
-        borderRadius: 18,
-        padding: 18,
+        backgroundColor: '#ffffff',
+        borderRadius: 20,
+        padding: 20,
         marginBottom: 16,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.22)',
-        shadowColor: '#2563eb',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        elevation: 2,
+        borderWidth: 2,
+        borderColor: '#e0f2fe',
+        shadowColor: '#0ea5e9',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 4,
     },
     featureIconContainer: {
-        width: 54,
-        height: 54,
-        borderRadius: 27,
-        backgroundColor: 'rgba(255,255,255,0.25)',
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: '#f0f9ff',
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 14,
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.18)',
+        marginRight: 16,
+        borderWidth: 2,
+        borderColor: '#bae6fd',
     },
     featureIcon: {
         fontSize: 28,
-        color: '#2563eb',
     },
     featureTextContainer: {
         flex: 1,
@@ -222,12 +258,12 @@ const styles = StyleSheet.create({
     featureTitle: {
         fontSize: 17,
         fontWeight: '700',
-        color: '#fff',
-        marginBottom: 2,
+        color: '#0c4a6e',
+        marginBottom: 4,
     },
     featureDesc: {
         fontSize: 13,
-        color: 'rgba(255,255,255,0.85)',
+        color: '#64748b',
     },
     buttonContainer: {
         width: '100%',
@@ -238,16 +274,16 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#2563eb',
-        paddingVertical: 16,
-        paddingHorizontal: 44,
+        backgroundColor: '#0ea5e9',
+        paddingVertical: 18,
+        paddingHorizontal: 48,
         borderRadius: 28,
         width: '100%',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.18,
-        shadowRadius: 8,
-        elevation: 6,
+        shadowColor: '#0ea5e9',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+        elevation: 8,
     },
     startButtonText: {
         fontSize: 17,
@@ -264,36 +300,50 @@ const styles = StyleSheet.create({
     footerText: {
         marginTop: 18,
         fontSize: 13,
-        color: 'rgba(255,255,255,0.92)',
+        color: '#64748b',
         textAlign: 'center',
         paddingHorizontal: 20,
+    },
+    debugButton: {
+        marginTop: 12,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 16,
+        backgroundColor: '#ffffff',
+        borderWidth: 2,
+        borderColor: '#e0f2fe',
+    },
+    debugButtonText: {
+        fontSize: 12,
+        color: '#64748b',
+        fontWeight: '600',
     },
     // Decorative circles
     circle1: {
         position: 'absolute',
-        width: 200,
-        height: 200,
-        borderRadius: 100,
-        backgroundColor: 'rgba(37, 99, 235, 0.12)',
-        top: -50,
-        right: -50,
+        width: 240,
+        height: 240,
+        borderRadius: 120,
+        backgroundColor: 'rgba(14, 165, 233, 0.06)',
+        top: -70,
+        right: -70,
     },
     circle2: {
         position: 'absolute',
-        width: 150,
-        height: 150,
-        borderRadius: 75,
-        backgroundColor: 'rgba(37, 99, 235, 0.10)',
-        bottom: 100,
-        left: -40,
+        width: 180,
+        height: 180,
+        borderRadius: 90,
+        backgroundColor: 'rgba(14, 165, 233, 0.05)',
+        bottom: 80,
+        left: -50,
     },
     circle3: {
         position: 'absolute',
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        backgroundColor: 'rgba(37, 99, 235, 0.08)',
-        top: height * 0.4,
-        right: 30,
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        backgroundColor: 'rgba(14, 165, 233, 0.04)',
+        top: height * 0.35,
+        right: 20,
     },
 });

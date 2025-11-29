@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { deleteDocument, fetchDocuments, getMemberProjects } from '../../../src/axios/api';
 import { MemberProject } from '../../../types/member';
-import { styles } from './index.styles';
+import { styles } from './styles';
 
 export default function MemberProjectsScreen() {
     const router = useRouter();

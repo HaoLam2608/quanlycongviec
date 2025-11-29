@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView, StyleSheet, Text, View, ScrollView, ActivityIndicator, RefreshControl, TextInput, TouchableOpacity, Modal, Platform, Alert } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
 import { getTaskById, getWorklogs, updateSubtask } from '@/src/axios/api';
 import api from '@/src/axios/config';
@@ -308,22 +309,22 @@ export default function SubtaskDetail() {
 
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>👥 Người liên quan</Text>
-                    <View style={styles.personRow}>
-                        {subtask.nguoiGiao && (
-                            <View style={styles.personCardSmall}>
-                                <Text style={styles.personLabel}>Người giao</Text>
-                                <Text style={styles.personName}>{subtask.nguoiGiao.hoten}</Text>
-                                {subtask.nguoiGiao.manv ? <Text style={styles.personCode}>{subtask.nguoiGiao.manv}</Text> : null}
-                            </View>
-                        )}
 
-                        {((subtask as any).nguoiThucHien?.hoten || subtask.nguoiDuocGiao?.hoten) && (
-                            <View style={styles.personCardSmall}>
-                                <Text style={styles.personLabel}>Người thực hiện</Text>
-                                <Text style={styles.personName}>{(subtask as any).nguoiThucHien?.hoten || subtask.nguoiDuocGiao?.hoten}</Text>
-                                {((subtask as any).nguoiThucHien?.manv || subtask.nguoiDuocGiao?.manv) ? <Text style={styles.personCode}>{(subtask as any).nguoiThucHien?.manv || subtask.nguoiDuocGiao?.manv}</Text> : null}
-                            </View>
-                        )}
+                    {/* Combobox-style assignee selector: opens the existing assignee modal */}
+                    <View style={{ marginTop: 6 }}>
+                        <Text style={styles.infoLabel}>Người thực hiện</Text>
+                        <TouchableOpacity
+                            style={styles.assigneeSelect}
+                            onPress={() => {
+                                if (projectId) loadProjectMembers(projectId);
+                                setShowAssigneeModal(true);
+                            }}
+                        >
+                            <Text style={styles.assigneeSelectText}>
+                                {(subtask as any).nguoiThucHien?.hoten || subtask.nguoiDuocGiao?.hoten || 'Chọn người thực hiện'}
+                            </Text>
+                            <Ionicons name="chevron-down" size={18} color="#6b7280" />
+                        </TouchableOpacity>
                     </View>
                 </View>
 
@@ -699,6 +700,9 @@ const styles = StyleSheet.create({
     infoLabel: { fontSize: 12, color: '#6b7280', marginBottom: 6 },
     infoValue: { fontSize: 14, color: '#0f172a', fontWeight: '700' },
     statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+
+    assigneeSelect: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 12, backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#e5e7eb' },
+    assigneeSelectText: { color: '#0f172a', fontWeight: '600' },
 
     /* Comments */
     commentsContainer: { marginBottom: 16 },

@@ -4,6 +4,7 @@ import {
     FlatList,
     RefreshControl,
     SafeAreaView,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
@@ -169,18 +170,19 @@ export default function TeamLeadTasksScreen() {
                 ) : null}
             </View>
 
-            <View style={styles.tabRow}>
-                {STATUS_TABS.map(tab => (
-                    <TouchableOpacity
-                        key={tab.value}
-                        style={[styles.tabButton, statusFilter === tab.value && styles.tabButtonActive]}
-                        onPress={() => setStatusFilter(tab.value)}
-                    >
-                        <Text style={[styles.tabText, statusFilter === tab.value && styles.tabTextActive]}>
-                            {tab.label}
-                        </Text>
-                    </TouchableOpacity>
-                ))}
+            <View style={styles.filterWrap}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+                    {STATUS_TABS.map(tab => (
+                        <TouchableOpacity
+                            key={tab.value}
+                            style={[styles.chip, statusFilter === tab.value && styles.chipActive]}
+                            onPress={() => setStatusFilter(tab.value)}
+                            activeOpacity={0.85}
+                        >
+                            <Text style={[styles.chipText, statusFilter === tab.value && styles.chipTextActive]}>{tab.label}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
             </View>
 
             {loading ? (
@@ -288,20 +290,39 @@ const styles = StyleSheet.create({
         gap: 8,
         marginBottom: 8
     },
-    tabButton: {
+    filterWrap: {
+        paddingHorizontal: 12,
         paddingVertical: 8,
-        paddingHorizontal: 16,
+        backgroundColor: 'transparent'
+    },
+    filterScroll: {
+        paddingLeft: 4,
+        paddingRight: 12,
+        alignItems: 'center'
+    },
+    chip: {
+        paddingVertical: 8,
+        paddingHorizontal: 14,
         borderRadius: 999,
-        backgroundColor: '#ede9fe'
+        backgroundColor: '#f3f4f6',
+        marginRight: 10,
+        borderWidth: 1,
+        borderColor: 'transparent',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+        elevation: 1
     },
-    tabButtonActive: {
-        backgroundColor: '#7c3aed'
+    chipActive: {
+        backgroundColor: '#7c3aed',
+        borderColor: '#6d28d9'
     },
-    tabText: {
-        color: '#5b21b6',
+    chipText: {
+        color: '#4b5563',
         fontWeight: '600'
     },
-    tabTextActive: {
+    chipTextActive: {
         color: '#fff'
     },
     loadingContainer: {

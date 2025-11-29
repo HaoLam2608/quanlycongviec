@@ -86,8 +86,27 @@ export const usersAPI = {
 export const fetchProjects = async () => {
   try {
     const res = await api.get("/duan/getAll"); // backend GET /duan
-    return res.data;
+  const data = res.data;
+  console.log('📡 fetchProjects response keys:', data && typeof data === 'object' ? Object.keys(data) : typeof data);
+    // normalize various backend shapes to an array of projects
+    if (Array.isArray(data)) return data;
+    if (Array.isArray((data as any)?.projects)) return (data as any).projects;
+    if (Array.isArray((data as any)?.data)) return (data as any).data;
+    if (Array.isArray((data as any)?.rows)) return (data as any).rows;
+    if (data && typeof data === 'object') {
+      // try first array-valued property
+      const key = Object.keys(data).find(k => Array.isArray((data as any)[k]));
+      if (key) return (data as any)[key];
+    }
+    return [];
   } catch (err: any) {
+    console.error('📡 fetchProjects error:', {
+      message: err.message,
+      code: err.code,
+      status: err.response?.status,
+      data: err.response?.data,
+      config: err.config && { url: err.config.url, method: err.config.method }
+    });
     throw err.response?.data || { message: "Không thể lấy danh sách dự án" };
   }
 };
@@ -295,9 +314,19 @@ export const updateMyProfile = async (data: { hoten?: string; sdt?: string; chuc
 
 export const deleteDocument = async (id: number) => {
   try {
-    const res = await api.delete(`/documents/delete/${id}`);
+    // Try the RESTful endpoint first (/documents/:id)
+    const res = await api.delete(`/documents/${id}`);
     return res.data;
   } catch (err: any) {
+    // If the server expects /documents/delete/:id (older style), try fallback
+    if (err?.response?.status === 404) {
+      try {
+        const res2 = await api.delete(`/documents/delete/${id}`);
+        return res2.data;
+      } catch (err2: any) {
+        throw err2.response?.data || { message: 'Không thể xoá tài liệu' };
+      }
+    }
     throw err.response?.data || { message: 'Không thể xoá tài liệu' };
   }
 };
@@ -317,14 +346,7 @@ export const downloadDocument = async (id: number, asDownload = false) => {
 
 // ============ TASK APIs ============
 
-export const getTasksByProject = async (projectId: string | number) => {
-  try {
-    const res = await api.get(`/tasks/project/${projectId}`);
-    return res.data.tasks || res.data;
-  } catch (err: any) {
-    throw err.response?.data || { message: "Không thể lấy danh sách công việc" };
-  }
-};
+// Lấy tasks theo dự án (phiên bản đơn giản - giữ lại cho tương thích cũ)
 
 export const getTaskById = async (id: string | number) => {
   try {
@@ -432,6 +454,42 @@ export const updateTaskStatus = async (taskId: number, trangThai: string) => {
   }
 };
 
+// Lấy tất cả tasks thuộc dự án (dùng cho Calendar/Timeline và Project Detail)
+export const getTasksByProject = async (projectId: string | number) => {
+  try {
+    // Prefer explicit endpoint; fallback to common alternatives
+    const candidates = [
+      `/tasks/project/${projectId}`,
+      `/duan/${projectId}/tasks`,
+      `/projects/${projectId}/tasks`
+    ];
+
+    for (const url of candidates) {
+      try {
+        const res = await api.get(url);
+        const data = res.data;
+        // Normalize to an array of tasks
+        if (Array.isArray(data)) return data;
+        if (Array.isArray((data as any)?.tasks)) return (data as any).tasks;
+        if (Array.isArray((data as any)?.data)) return (data as any).data;
+        // If object with known keys, return first array-like property
+        if (data && typeof data === 'object') {
+          const key = Object.keys(data).find(k => Array.isArray((data as any)[k]));
+          if (key) return (data as any)[key];
+        }
+        // If response is OK but no tasks array, continue to next candidate
+      } catch (innerErr: any) {
+        // Try next candidate if 404
+        if (innerErr?.response?.status !== 404) throw innerErr;
+      }
+    }
+    // As a last resort, return empty list (defensive, prevents UI crash)
+    return [];
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Không thể lấy danh sách công việc của dự án' };
+  }
+};
+
 // ============ SUBTASK APIs ============
 
 export const getSubtasksByTask = async (taskId: string | number) => {
@@ -455,7 +513,7 @@ export const getMySubtasks = async () => {
 export const createSubtask = async (taskId: string | number, data: {
   tenSubtask: string;
   mota?: string;
-  nguoiThucHienId: number;
+  nguoiThucHienId?: number;
   ngayBatDau?: string;
   ngayKetThuc?: string;
   ghiChu?: string;
@@ -664,6 +722,36 @@ export const getMemberProjects = async () => {
   }
 };
 
+// Get unassigned subtasks that members can request (member-facing)
+export const getUnassignedSubtasks = async () => {
+  try {
+    const res = await api.get('/members/tasks/unassigned');
+    return res.data.subtasks || res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Không thể lấy danh sách công việc trống' };
+  }
+};
+
+// Member claims an unassigned subtask (creates request/notification to approvers)
+export const claimSubtask = async (subtaskId: number) => {
+  try {
+    const res = await api.post(`/members/tasks/subtasks/${subtaskId}/claim`);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Không thể gửi yêu cầu nhận công việc' };
+  }
+};
+
+// Request to join task/subtask (new 3-tier permission workflow)
+export const requestToJoin = async (data: { taskId?: number; subtaskId?: number; message?: string }) => {
+  try {
+    const res = await api.post('/assignments/request', data);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: 'Không thể gửi yêu cầu tham gia' };
+  }
+};
+
 // Public stats for homepage (no auth required)
 export const getPublicStats = async () => {
   try {
@@ -785,5 +873,42 @@ export const declineAssignment = async (assignmentId: string, data: { reason: st
     return res.data;
   } catch (err: any) {
     throw err.response?.data || { message: "Không thể từ chối giao việc" };
+  }
+};
+
+// Legacy: redirect to new requestToJoin API
+export const requestAssignment = async (data: { taskId?: number; subtaskId?: number; message?: string }) => {
+  return requestToJoin(data);
+};
+
+// ==================== TEAMLEAD TASK CLAIMING APIs ====================
+
+// Get unassigned tasks that teamlead can claim
+export const getUnassignedTasks = async () => {
+  try {
+    const res = await api.get('/assignments/unassigned/available');
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy danh sách công việc chưa ai nhận" };
+  }
+};
+
+// Get pending task assignments (tasks assigned to teamlead waiting for acceptance)
+export const getPendingTaskAssignments = async () => {
+  try {
+    const res = await api.get('/assignments/my-pending-tasks');
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể lấy danh sách công việc được giao" };
+  }
+};
+
+// Request to claim an unassigned task
+export const requestToClaimTask = async (data: { taskId: number }) => {
+  try {
+    const res = await api.post('/assignments/claim-request', data);
+    return res.data;
+  } catch (err: any) {
+    throw err.response?.data || { message: "Không thể gửi yêu cầu nhận công việc" };
   }
 };

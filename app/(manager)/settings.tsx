@@ -1,26 +1,26 @@
+import { getMyProfile, uploadAvatar } from '@/src/axios/api';
+import api from '@/src/axios/config';
+import { API_CONFIG } from '@/src/config/api';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
+    ActivityIndicator,
+    Alert,
+    Image,
+    Modal,
+    Platform,
     SafeAreaView,
     ScrollView,
     StyleSheet,
-    View,
-    Text,
-    ActivityIndicator,
-    Image,
-    TouchableOpacity,
-    Alert,
     Switch,
-    Modal,
+    Text,
     TextInput,
-    Platform,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
-import * as ImagePicker from 'expo-image-picker';
-import { getMyProfile } from '@/src/axios/api';
-import api from '@/src/axios/config';
-import { API_CONFIG } from '@/src/config/api';
 
 interface Profile {
     id?: number;
@@ -34,6 +34,7 @@ interface Profile {
 
 export default function SettingsPage() {
     const router = useRouter();
+    const { logout } = useLogout();
     const [loading, setLoading] = useState(true);
     const [profile, setProfile] = useState<Profile | null>(null);
     const [notificationsEnabled, setNotificationsEnabled] = useState(true);
@@ -123,7 +124,7 @@ export default function SettingsPage() {
     const pickAvatar = async () => {
         try {
             const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            
+
             if (permissionResult.granted === false) {
                 Alert.alert('Thông báo', 'Bạn cần cấp quyền truy cập thư viện ảnh');
                 return;
@@ -165,27 +166,24 @@ export default function SettingsPage() {
 
             setUpdating(true);
 
-            // Upload avatar if selected
+            // Upload avatar if selected (use helper uploadAvatar for reliability)
             if (selectedAvatar) {
                 setUploadingAvatar(true);
-                const formData = new FormData();
-                
-                const filename = selectedAvatar.split('/').pop() || 'avatar.jpg';
-                const match = /\.([\w]+)$/.exec(filename);
-                const type = match ? `image/${match[1]}` : 'image/jpeg';
-
-                formData.append('avatar', {
-                    uri: selectedAvatar,
-                    name: filename,
-                    type: type,
-                } as any);
-
                 try {
-                    await api.post('/users/me/avatar', formData, {
-                        headers: {
-                            'Content-Type': 'multipart/form-data',
-                        },
-                    });
+                    const filename = selectedAvatar.split('/').pop() || 'avatar.jpg';
+                    const match = /\.([\w]+)$/.exec(filename);
+                    const mime = match ? `image/${match[1]}` : 'image/jpeg';
+
+                    const uploadRes: any = await uploadAvatar({ uri: selectedAvatar, name: filename, type: mime });
+
+                    // If API returns path, try to normalize and set on profile for immediate feedback
+                    const returnedPath = uploadRes?.path || uploadRes?.avatar || uploadRes?.avatarUrl || uploadRes?.data?.avatar;
+                    if (returnedPath) {
+                        const slash = returnedPath.startsWith('/') ? '' : '/';
+                        const full = returnedPath.startsWith('http') ? returnedPath : `${API_CONFIG.BASE_URL}${slash}${returnedPath}`;
+                        // update local state so user sees new avatar immediately
+                        setProfile(prev => prev ? { ...prev, avatarUrl: full } : prev);
+                    }
                 } catch (avatarError) {
                     console.error('Error uploading avatar:', avatarError);
                     Alert.alert('Cảnh báo', 'Ảnh đại diện không được tải lên, nhưng thông tin khác sẽ được cập nhật');
@@ -203,7 +201,7 @@ export default function SettingsPage() {
             if (editEmail.trim()) payload.email = editEmail.trim();
 
             await api.put('/users/me', payload);
-            
+
             Alert.alert('Thành công', 'Cập nhật thông tin thành công');
             setShowEditModal(false);
             await loadProfile();
@@ -225,10 +223,7 @@ export default function SettingsPage() {
                 {
                     text: 'Đăng xuất',
                     style: 'destructive',
-                    onPress: async () => {
-                        await AsyncStorage.multiRemove(['token', 'refreshToken', 'userId', 'hoten', 'manv', 'role', 'user']);
-                        router.replace('/login');
-                    },
+                    onPress: logout,
                 },
             ]
         );
@@ -253,9 +248,9 @@ export default function SettingsPage() {
                     <Text style={styles.sectionTitle}>Hồ sơ cá nhân</Text>
                     {profile ? (
                         <View style={styles.profileCard}>
-                            <View style={styles.profileHeader}>
+                            <TouchableOpacity style={styles.profileHeader} onPress={handleEditProfile} activeOpacity={0.8}>
                                 {profile.avatarUrl ? (
-                                    <Image source={{ uri: profile.avatarUrl }} style={styles.avatar} />
+                                    <Image source={{ uri: profile.avatarUrl }} style={styles.avatar} onError={() => setProfile(prev => prev ? { ...prev, avatarUrl: undefined } : prev)} />
                                 ) : (
                                     <View style={styles.avatarPlaceholder}>
                                         <Text style={styles.avatarInitial}>
@@ -268,13 +263,11 @@ export default function SettingsPage() {
                                     {profile.manv && <Text style={styles.profileCode}>{profile.manv}</Text>}
                                     {profile.chucvu && <Text style={styles.profileRole}>{profile.chucvu}</Text>}
                                 </View>
-                                <TouchableOpacity 
-                                    style={styles.editButton}
-                                    onPress={handleEditProfile}
+                                <View style={styles.editButton}
                                 >
                                     <Ionicons name="create-outline" size={20} color="#f59e0b" />
-                                </TouchableOpacity>
-                            </View>
+                                </View>
+                            </TouchableOpacity>
 
                             <View style={styles.profileDetails}>
                                 <View style={styles.detailRow}>
@@ -304,7 +297,7 @@ export default function SettingsPage() {
                 {/* Settings Section */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Cài đặt</Text>
-                    
+
                     <View style={styles.settingsCard}>
                         <TouchableOpacity style={styles.settingItem}>
                             <View style={styles.settingLeft}>
@@ -348,7 +341,7 @@ export default function SettingsPage() {
                 {/* About Section */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Về ứng dụng</Text>
-                    
+
                     <View style={styles.settingsCard}>
                         <TouchableOpacity style={styles.settingItem}>
                             <View style={styles.settingLeft}>
@@ -381,18 +374,18 @@ export default function SettingsPage() {
                     <View style={modalStyles.modalOverlay}>
                         <View style={modalStyles.modalContent}>
                             <Text style={modalStyles.modalTitle}>Chỉnh sửa thông tin</Text>
-                            
+
                             <ScrollView showsVerticalScrollIndicator={false}>
                                 {/* Avatar Picker */}
                                 <View style={modalStyles.avatarSection}>
-                                    <TouchableOpacity 
+                                    <TouchableOpacity
                                         style={modalStyles.avatarPickerContainer}
                                         onPress={pickAvatar}
                                     >
                                         {selectedAvatar ? (
-                                            <Image source={{ uri: selectedAvatar }} style={modalStyles.avatarPreview} />
+                                            <Image source={{ uri: selectedAvatar }} style={modalStyles.avatarPreview} onError={() => setSelectedAvatar(null)} />
                                         ) : profile?.avatarUrl ? (
-                                            <Image source={{ uri: profile.avatarUrl }} style={modalStyles.avatarPreview} />
+                                            <Image source={{ uri: profile.avatarUrl }} style={modalStyles.avatarPreview} onError={() => setProfile(prev => prev ? { ...prev, avatarUrl: undefined } : prev)} />
                                         ) : (
                                             <View style={modalStyles.avatarPlaceholderModal}>
                                                 <Text style={modalStyles.avatarInitialModal}>
@@ -455,15 +448,15 @@ export default function SettingsPage() {
                             </ScrollView>
 
                             <View style={modalStyles.modalActions}>
-                                <TouchableOpacity 
-                                    style={[modalStyles.modalBtn, { backgroundColor: '#9ca3af' }]} 
+                                <TouchableOpacity
+                                    style={[modalStyles.modalBtn, { backgroundColor: '#9ca3af' }]}
                                     onPress={() => setShowEditModal(false)}
                                     disabled={updating}
                                 >
                                     <Text style={modalStyles.modalBtnText}>Hủy</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity 
-                                    style={[modalStyles.modalBtn, { backgroundColor: '#f59e0b' }]} 
+                                <TouchableOpacity
+                                    style={[modalStyles.modalBtn, { backgroundColor: '#f59e0b' }]}
                                     onPress={handleUpdateProfile}
                                     disabled={updating}
                                 >

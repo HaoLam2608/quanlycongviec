@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import {
     ActivityIndicator,
     Alert,
@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import { getTaskById, getSubtasksByTask, updateTaskStatus, updateSubtaskStatus } from '@/src/axios/api';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getTaskById, getSubtasksByTask, updateTaskStatus, updateSubtaskStatus, deleteSubtask } from '@/src/axios/api';
 
 const TASK_STATUSES = ['Chưa bắt đầu', 'Đang chạy', 'Chờ xác nhận hoàn thành', 'Hoàn thành'];
 
@@ -75,6 +76,9 @@ export default function TeamLeadTaskDetailScreen() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [updatingStatus, setUpdatingStatus] = useState(false);
+    const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+    const [currentUserManv, setCurrentUserManv] = useState<string | null>(null);
+    const [deletingSubtaskId, setDeletingSubtaskId] = useState<number | null>(null);
 
     const loadData = async () => {
         if (!taskId || Number.isNaN(taskId)) {
@@ -131,6 +135,33 @@ export default function TeamLeadTaskDetailScreen() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        const loadUser = async () => {
+            try {
+                const userStr = await AsyncStorage.getItem('user');
+                if (userStr) {
+                    try {
+                        const user = JSON.parse(userStr);
+                        setCurrentUserId(user?.id || null);
+                        setCurrentUserManv(user?.manv || null);
+                    } catch (e) {
+                        // fallback: userStr might be id
+                        const maybeId = Number(userStr);
+                        if (!Number.isNaN(maybeId)) setCurrentUserId(maybeId);
+                    }
+                } else {
+                    const idStr = await AsyncStorage.getItem('userId');
+                    const manv = await AsyncStorage.getItem('manv');
+                    if (idStr) setCurrentUserId(Number(idStr));
+                    if (manv) setCurrentUserManv(manv);
+                }
+            } catch (e) {
+                console.warn('Unable to load current user from storage', e);
+            }
+        };
+        loadUser();
+    }, []);
 
     useFocusEffect(
         useCallback(() => {
@@ -191,6 +222,44 @@ export default function TeamLeadTaskDetailScreen() {
             paramsToSend.subtaskName = subtask.tenSubtask;
         }
         router.push({ pathname: '/(teamlead)/subtask-detail', params: paramsToSend });
+    };
+
+    const canDeleteSubtask = (subtask: SubtaskItem) => {
+        if (!task) return false;
+        // Check by numeric id if available, fall back to employee code (manv)
+        const ownerId = (task as any)?.nguoiDuocGiao?.id || (task as any)?.nguoiDuocGiao?.userId;
+        const ownerManv = (task as any)?.nguoiDuocGiao?.manv || (task as any)?.nguoiDuocGiao?.maNhanVien;
+        if (ownerId && currentUserId && Number(ownerId) === Number(currentUserId)) return true;
+        if (ownerManv && currentUserManv && String(ownerManv) === String(currentUserManv)) return true;
+        return false;
+    };
+
+    const handleDeleteSubtask = async (subtask: SubtaskItem) => {
+        if (!task) return;
+        Alert.alert(
+            'Xác nhận',
+            `Bạn có chắc muốn xóa công việc con "${subtask.tenSubtask}" không?`,
+            [
+                { text: 'Hủy', style: 'cancel' },
+                {
+                    text: 'Xóa',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            setDeletingSubtaskId(subtask.id);
+                            await deleteSubtask(task.id, subtask.id);
+                            Alert.alert('Thành công', 'Đã xóa công việc con');
+                            await loadData();
+                        } catch (error: any) {
+                            console.error('Delete subtask error:', error);
+                            Alert.alert('Lỗi', error?.response?.data?.message || 'Không thể xóa công việc con');
+                        } finally {
+                            setDeletingSubtaskId(null);
+                        }
+                    }
+                }
+            ]
+        );
     };
 
     const handleCreateSubtask = () => {
@@ -316,6 +385,21 @@ export default function TeamLeadTaskDetailScreen() {
                                     >
                                         <Text style={[styles.statusText, { color: '#7c3aed' }]}>{subtask.trangThai}</Text>
                                     </TouchableOpacity>
+                                    {canDeleteSubtask(subtask) && (
+                                        <TouchableOpacity
+                                            onPress={(event: GestureResponderEvent) => {
+                                                event.stopPropagation();
+                                                handleDeleteSubtask(subtask);
+                                            }}
+                                            style={styles.deleteButton}
+                                        >
+                                            {deletingSubtaskId === subtask.id ? (
+                                                <ActivityIndicator size="small" color="#ef4444" />
+                                            ) : (
+                                                <Ionicons name="trash" size={18} color="#ef4444" />
+                                            )}
+                                        </TouchableOpacity>
+                                    )}
                                 </View>
                                 {subtask.mota && <Text style={styles.subtaskDescription}>{subtask.mota}</Text>}
                                 <View style={styles.metaRow}>
@@ -515,5 +599,13 @@ const styles = StyleSheet.create({
         marginTop: 10,
         fontSize: 12,
         color: '#9ca3af'
+    }
+    ,
+    deleteButton: {
+        marginLeft: 8,
+        padding: 6,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center'
     }
 });

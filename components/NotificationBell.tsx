@@ -149,7 +149,10 @@ export default function NotificationBell({ userRole = 'member' }: NotificationBe
 
     // Separate notifications into general and assignments
     const assignmentNotifications = notifications.filter(n => n.userMeta?.assignmentId);
-    const generalNotifications = notifications.filter(n => !n.userMeta?.assignmentId);
+    // General notifications: only show announcement and system types
+    const generalNotifications = notifications.filter(n =>
+        !n.userMeta?.assignmentId && (n.type === 'announcement' || n.type === 'system')
+    );
 
     const activeNotifications = activeTab === 'assignments' ? assignmentNotifications : generalNotifications;
     const generalUnreadCount = generalNotifications.filter(n => !n.isRead).length;

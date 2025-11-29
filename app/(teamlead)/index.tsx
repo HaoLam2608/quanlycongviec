@@ -1,19 +1,18 @@
+import { useLogout } from '@/hooks/useLogout';
+import { getGroupSubtasks, getMyGroup } from '@/src/axios/api';
+import { approvalAPI } from '@/src/axios/approvalApi';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
+    RefreshControl,
     SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
-    View,
-    RefreshControl,
     TouchableOpacity,
-    Alert
+    View
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getMyGroup, getGroupSubtasks } from '@/src/axios/api';
-import { approvalAPI } from '@/src/axios/approvalApi';
 
 interface DashboardStats {
     totalMembers: number;
@@ -41,6 +40,7 @@ const DEFAULT_STATS: DashboardStats = {
 
 export default function TeamLeadDashboardScreen() {
     const router = useRouter();
+    const { logout } = useLogout();
     const [stats, setStats] = useState<DashboardStats>(DEFAULT_STATS);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -116,38 +116,13 @@ export default function TeamLeadDashboardScreen() {
         setRefreshing(false);
     };
 
-    const handleLogout = () => {
-        Alert.alert(
-            'Đăng xuất',
-            'Bạn có chắc chắn muốn đăng xuất?',
-            [
-                { text: 'Hủy', style: 'cancel' },
-                {
-                    text: 'Đăng xuất',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await AsyncStorage.multiRemove([
-                                'accessToken',
-                                'refreshToken',
-                                'userId',
-                                'user',
-                                'hoten',
-                                'manv',
-                                'role'
-                            ]);
-                            router.replace('/login' as any);
-                        } catch (error) {
-                            console.error('Logout error:', error);
-                            Alert.alert('Lỗi', 'Không thể đăng xuất');
-                        }
-                    }
-                }
-            ]
-        );
-    };
-
     const menuItems = [
+        {
+            title: 'Dự án',
+            icon: 'layers',
+            color: '#facc15',
+            route: '/(teamlead)/projects'
+        },
         {
             title: 'Nhóm của tôi',
             icon: 'people',
@@ -156,8 +131,8 @@ export default function TeamLeadDashboardScreen() {
             count: stats.totalMembers
         },
         {
-            title: 'Công việc con',
-            icon: 'git-network',
+            title: 'Kanban',
+            icon: 'grid',
             color: '#8b5cf6',
             route: '/(teamlead)/subtasks',
             count: stats.totalSubtasks
@@ -167,6 +142,12 @@ export default function TeamLeadDashboardScreen() {
             icon: 'clipboard',
             color: '#f97316',
             route: '/(teamlead)/tasks'
+        },
+        {
+            title: 'Yêu cầu nhận task',
+            icon: 'hand-right',
+            color: '#06b6d4',
+            route: '/(teamlead)/available-tasks'
         },
         {
             title: 'Phê duyệt',
@@ -180,18 +161,6 @@ export default function TeamLeadDashboardScreen() {
             icon: 'bar-chart',
             color: '#22c55e',
             route: '/(teamlead)/reports'
-        },
-        {
-            title: 'Tài liệu',
-            icon: 'folder-open',
-            color: '#0ea5e9',
-            route: '/(teamlead)/documents'
-        },
-        {
-            title: 'Dự án',
-            icon: 'layers',
-            color: '#facc15',
-            route: '/(teamlead)/projects'
         },
         {
             title: 'Cài đặt',
@@ -217,7 +186,7 @@ export default function TeamLeadDashboardScreen() {
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={styles.headerActionButton}
-                        onPress={handleLogout}
+                        onPress={logout}
                     >
                         <Ionicons name="log-out-outline" size={26} color="#f59e0b" />
                     </TouchableOpacity>
@@ -290,7 +259,7 @@ export default function TeamLeadDashboardScreen() {
                                 style={styles.menuItem}
                                 onPress={() => router.push(item.route as any)}
                             >
-                                <View style={[styles.menuIcon, { backgroundColor: `${item.color}20` }] }>
+                                <View style={[styles.menuIcon, { backgroundColor: `${item.color}20` }]}>
                                     <Ionicons name={item.icon as any} size={26} color={item.color} />
                                     {item.count !== undefined && item.count !== null && item.count > 0 && (
                                         <View style={styles.badge}>
@@ -316,7 +285,7 @@ function StatCard({ title, value, icon, color }: { title: string; value: number 
                     <Text style={styles.statValue}>{value}</Text>
                     <Text style={styles.statLabel}>{title}</Text>
                 </View>
-                <View style={[styles.statIcon, { backgroundColor: `${color}20` }] }>
+                <View style={[styles.statIcon, { backgroundColor: `${color}20` }]}>
                     <Ionicons name={icon as any} size={24} color={color} />
                 </View>
             </View>

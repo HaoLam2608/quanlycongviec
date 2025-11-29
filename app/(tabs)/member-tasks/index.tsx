@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -13,15 +14,17 @@ import {
     View,
 } from 'react-native';
 import TaskCard from '../../../components/member/TaskCard';
+import CommentSection from '../../../components/CommentSection';
 import {
     getMySubtasks,
     getWorklogs,
     updateMemberSubtaskStatus
 } from '../../../src/axios/api';
 import { MemberSubtask } from '../../../types/member';
-import { styles } from './index.styles';
+import { styles } from './styles';
 
 export default function MemberTasksScreen() {
+    const router = useRouter();
     const [subtasks, setSubtasks] = useState<MemberSubtask[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -38,6 +41,14 @@ export default function MemberTasksScreen() {
     useEffect(() => {
         loadTasks();
     }, []);
+
+    // Allowed one-way transitions for members: Chưa bắt đầu -> Đang chạy -> Hoàn thành
+    const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+        'Chưa bắt đầu': ['Chưa bắt đầu', 'Đang chạy'],
+        'Đang chạy': ['Đang chạy', 'Hoàn thành'],
+        'Chờ xác nhận hoàn thành': ['Chờ xác nhận hoàn thành'],
+        'Hoàn thành': ['Hoàn thành']
+    };
 
     // Convert decimal hours to hours:minutes:seconds format
     const formatHoursToHMS = (decimalHours: number): string => {
@@ -142,6 +153,22 @@ export default function MemberTasksScreen() {
                     successMessage = 'Đã gửi yêu cầu hoàn thành, chờ quản lý xác nhận';
                 }
 
+                // Enforce one-way transitions for members: Chưa bắt đầu -> Đang chạy -> Hoàn thành
+                const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+                    'Chưa bắt đầu': ['Chưa bắt đầu', 'Đang chạy'],
+                    'Đang chạy': ['Đang chạy', 'Hoàn thành'],
+                    'Chờ xác nhận hoàn thành': ['Chờ xác nhận hoàn thành'],
+                    'Hoàn thành': ['Hoàn thành']
+                };
+
+                const current = subtask.trangThai || 'Chưa bắt đầu';
+                // If attempted newStatus is not in allowed transitions from current, block it
+                // Note: when mapping 'Hoàn thành' -> 'Chờ xác nhận hoàn thành' we check the target label the user tapped
+                if (!ALLOWED_TRANSITIONS[current]?.includes(newStatus)) {
+                    Alert.alert('Hạn chế', 'Không thể chuyển trạng thái ngược lại. Trạng thái chỉ đi theo hướng Chưa bắt đầu → Đang chạy → Hoàn thành.');
+                    return;
+                }
+
                 await updateMemberSubtaskStatus(subtask.taskId, subtaskId, actualStatus);
                 setSubtasks(
                     subtasks.map((st: any) =>
@@ -180,10 +207,14 @@ export default function MemberTasksScreen() {
                     <Text style={styles.headerStatsNumber}>{allItems.length}</Text>
                 </View>
             </View>
+            {/* Subtitle under header for context */}
+            <View style={{ paddingHorizontal: 16, marginBottom: 6 }}>
+                <Text style={styles.headerSubtitle}>Các công việc con đang được giao cho bạn</Text>
+            </View>
 
             {/* Search and Filter */}
             <View style={styles.searchContainer}>
-                <View style={styles.searchBox}>
+                <View style={[styles.searchBox, styles.searchBoxElevated]}>
                     <Ionicons name="search" size={20} color="#9CA3AF" />
                     <TextInput
                         style={styles.searchInput}
@@ -193,12 +224,20 @@ export default function MemberTasksScreen() {
                         placeholderTextColor="#9CA3AF"
                     />
                 </View>
-                <TouchableOpacity
-                    style={styles.filterButton}
-                    onPress={() => setIsFilterVisible(!isFilterVisible)}
-                >
-                    <Ionicons name="filter" size={20} color="#fff" />
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity
+                        style={[styles.filterButton, { backgroundColor: '#10b981' }]}
+                        onPress={() => router.push('/(tabs)/member-available-subtasks')}
+                    >
+                        <Ionicons name="layers" size={20} color="#fff" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={styles.filterButton}
+                        onPress={() => setIsFilterVisible(!isFilterVisible)}
+                    >
+                        <Ionicons name="filter" size={20} color="#fff" />
+                    </TouchableOpacity>
+                </View>
             </View>
 
             {/* Filter Panel */}
@@ -274,7 +313,7 @@ export default function MemberTasksScreen() {
                 }
             >
                 {filteredTasks.length === 0 ? (
-                    <View style={styles.emptyContainer}>
+                    <View style={[styles.emptyContainer, { width: '100%' }]}> 
                         <Ionicons name="file-tray-outline" size={64} color="#D1D5DB" />
                         <Text style={styles.emptyTitle}>Không có công việc con</Text>
                         <Text style={styles.emptyText}>
@@ -320,7 +359,7 @@ export default function MemberTasksScreen() {
                         </View>
 
                         {selectedTask && (
-                            <ScrollView style={styles.modalBody}>
+                            <ScrollView style={styles.modalBody} contentContainerStyle={{ paddingBottom: 4 }}>
                                 <Text style={styles.modalTaskTitle}>
                                     {selectedTask.type === 'subtask' ? '• ' : ''}
                                     {selectedTask.title}
@@ -353,14 +392,19 @@ export default function MemberTasksScreen() {
                                             const isActive = selectedTask.status === status ||
                                                 (status === 'Hoàn thành' && selectedTask.status === 'Chờ xác nhận hoàn thành');
 
+                                            const current = selectedTask.status || 'Chưa bắt đầu';
+                                            const isDisabled = !ALLOWED_TRANSITIONS[current]?.includes(status);
+
                                             return (
                                                 <TouchableOpacity
                                                     key={status}
                                                     style={[
                                                         styles.statusButton,
                                                         isActive && styles.statusButtonActive,
+                                                        isDisabled && { opacity: 0.5 }
                                                     ]}
                                                     onPress={() => updateTaskStatus(selectedTask.id, status, selectedTask.type)}
+                                                    disabled={isDisabled}
                                                 >
                                                     <Text
                                                         style={[
@@ -474,6 +518,11 @@ export default function MemberTasksScreen() {
                                             )}
                                         </View>
                                     )}
+                                </View>
+
+                                {/* Comments Section for members */}
+                                <View style={{ marginTop: 12 }}>
+                                    <CommentSection subtaskId={selectedTask.id} onCommentAdded={loadTasks} />
                                 </View>
                             </ScrollView>
                         )}

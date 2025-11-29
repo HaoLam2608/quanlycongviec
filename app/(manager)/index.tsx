@@ -1,17 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import { useLogout } from '@/hooks/useLogout';
+import { fetchProjectsByManager, getTasksByProject } from '@/src/axios/api';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
 import {
+    RefreshControl,
     SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
-    View,
-    RefreshControl,
     TouchableOpacity,
+    View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { fetchProjectsByManager, getTasksByProject } from '@/src/axios/api';
 
 interface DashboardStats {
     totalProjects: number;
@@ -26,6 +27,7 @@ interface DashboardStats {
 
 export default function ManagerDashboard() {
     const router = useRouter();
+    const { logout } = useLogout();
     const [refreshing, setRefreshing] = useState(false);
     const [userName, setUserName] = useState('');
     const [stats, setStats] = useState<DashboardStats>({
@@ -53,9 +55,9 @@ export default function ManagerDashboard() {
         try {
             const userData = await AsyncStorage.getItem('user');
             console.log('📱 User data from storage:', userData);
-            
+
             let userId = null;
-            
+
             if (userData) {
                 // Try to parse user object
                 const user = JSON.parse(userData);
@@ -67,7 +69,7 @@ export default function ManagerDashboard() {
                 console.log('🔑 UserId from storage:', userIdStr);
                 userId = userIdStr ? parseInt(userIdStr) : null;
             }
-            
+
             if (!userId) {
                 console.log('❌ No user ID found in AsyncStorage');
                 return;
@@ -77,7 +79,7 @@ export default function ManagerDashboard() {
             console.log('🔄 Fetching projects for manager:', userId);
             const projects = await fetchProjectsByManager(userId);
             console.log('📋 Projects loaded:', projects.length);
-            
+
             const totalProjects = projects.length;
             const activeProjects = projects.filter((p: any) => p.status === 'dang_chay').length;
             const completedProjects = projects.filter((p: any) => p.status === 'da_hoan_thanh').length;
@@ -109,7 +111,7 @@ export default function ManagerDashboard() {
                 completedTasks,
                 pendingTasks,
             };
-            
+
             console.log('📈 Final stats:', finalStats);
             setStats(finalStats);
         } catch (error) {
@@ -123,78 +125,66 @@ export default function ManagerDashboard() {
         setRefreshing(false);
     };
 
-    const handleLogout = async () => {
-        await AsyncStorage.multiRemove(['token', 'refreshToken', 'userId', 'hoten', 'manv', 'role']);
-        router.replace('/login');
-    };
-
     const menuItems = [
-        { 
-            title: 'Dự án của tôi', 
-            icon: 'folder', 
+        {
+            title: 'Dự án của tôi',
+            icon: 'folder',
             route: '/(manager)/my-projects',
             color: '#3b82f6',
             count: stats.totalProjects
         },
-        { 
-            title: 'Công việc', 
-            icon: 'checkmark-done', 
+        {
+            title: 'Công việc',
+            icon: 'checkmark-done',
             route: '/(manager)/tasks',
             color: '#8b5cf6',
             count: stats.totalTasks
         },
-        { 
-            title: 'Nhóm', 
-            icon: 'people', 
+        {
+            title: 'Nhóm',
+            icon: 'people',
             route: '/(manager)/team',
             color: '#10b981',
             count: null
         },
-        { 
-            title: 'Kanban', 
-            icon: 'grid', 
+        {
+            title: 'Kanban',
+            icon: 'grid',
             route: '/(manager)/kanban',
             color: '#f59e0b',
             count: null
         },
-        { 
-            title: 'Lịch', 
-            icon: 'calendar', 
+        {
+            title: 'Lịch',
+            icon: 'calendar',
             route: '/(manager)/timeline',
             color: '#ec4899',
             count: null
         },
-        { 
-            title: 'Báo cáo', 
-            icon: 'bar-chart', 
+        {
+            title: 'Báo cáo',
+            icon: 'bar-chart',
             route: '/(manager)/reports',
             color: '#06b6d4',
             count: null
         },
-        { 
-            title: 'Tài liệu', 
-            icon: 'document-text', 
-            route: '/(manager)/documents',
-            color: '#f97316',
-            count: null
-        },
-        { 
-            title: 'Phê duyệt', 
-            icon: 'checkmark-done', 
+        {
+            title: 'Phê duyệt',
+            icon: 'checkmark-done',
             route: '/(manager)/approvals',
             color: '#ec4899',
             count: null
         },
-        { 
-            title: 'Thông báo', 
-            icon: 'notifications', 
+        {
+            title: 'Thông báo',
+            icon: 'notifications',
             route: '/(manager)/notifications',
             color: '#8b5cf6',
             count: null
         },
-        { 
-            title: 'Cài đặt', 
-            icon: 'settings', 
+        {
+            title: 'Cài đặt',
+            icon: 'settings',
             route: '/(manager)/settings',
             color: '#6b7280',
             count: null
@@ -223,12 +213,12 @@ export default function ManagerDashboard() {
                     <Text style={styles.welcomeText}>Xin chào, {userName}!</Text>
                     <Text style={styles.headerTitle}>Bảng điều khiển Manager</Text>
                 </View>
-                <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+                <TouchableOpacity onPress={logout} style={styles.logoutButton}>
                     <Ionicons name="log-out-outline" size={24} color="#f59e0b" />
                 </TouchableOpacity>
             </View>
 
-            <ScrollView 
+            <ScrollView
                 style={styles.content}
                 refreshControl={
                     <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -238,28 +228,28 @@ export default function ManagerDashboard() {
                 <View style={styles.statsSection}>
                     <Text style={styles.sectionTitle}>📊 Thống kê tổng quan</Text>
                     <View style={styles.statsGrid}>
-                        <StatCard 
-                            title="Tổng dự án" 
-                            value={stats.totalProjects} 
-                            icon="folder" 
+                        <StatCard
+                            title="Tổng dự án"
+                            value={stats.totalProjects}
+                            icon="folder"
                             color="#3b82f6"
                         />
-                        <StatCard 
-                            title="Đang thực hiện" 
-                            value={stats.activeProjects} 
-                            icon="play-circle" 
+                        <StatCard
+                            title="Đang thực hiện"
+                            value={stats.activeProjects}
+                            icon="play-circle"
                             color="#f59e0b"
                         />
-                        <StatCard 
-                            title="Hoàn thành" 
-                            value={stats.completedProjects} 
-                            icon="checkmark-circle" 
+                        <StatCard
+                            title="Hoàn thành"
+                            value={stats.completedProjects}
+                            icon="checkmark-circle"
                             color="#10b981"
                         />
-                        <StatCard 
-                            title="Chưa bắt đầu" 
-                            value={stats.pendingProjects} 
-                            icon="time" 
+                        <StatCard
+                            title="Chưa bắt đầu"
+                            value={stats.pendingProjects}
+                            icon="time"
                             color="#6b7280"
                         />
                     </View>
@@ -285,7 +275,7 @@ export default function ManagerDashboard() {
                     <Text style={styles.sectionTitle}>⚡ Quản lý nhanh</Text>
                     <View style={styles.menuGrid}>
                         {menuItems.map((item, index) => (
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 key={index}
                                 style={styles.menuItem}
                                 onPress={() => router.push(item.route as any)}

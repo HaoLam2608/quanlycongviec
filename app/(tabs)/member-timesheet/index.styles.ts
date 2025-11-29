@@ -510,3 +510,4 @@ export const styles = StyleSheet.create({
     marginLeft: 6,
   },
 });
+export default styles;

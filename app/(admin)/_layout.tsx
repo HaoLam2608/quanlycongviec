@@ -43,6 +43,22 @@ export default function AdminLayout() {
                 }}
             />
             <Stack.Screen
+                name="kanban"
+                options={{
+                    title: 'Bảng Kanban',
+                    headerStyle: { backgroundColor: '#ef4444' },
+                    headerTintColor: '#fff'
+                }}
+            />
+            <Stack.Screen
+                name="timeline"
+                options={{
+                    title: 'Lịch công việc',
+                    headerStyle: { backgroundColor: '#ef4444' },
+                    headerTintColor: '#fff'
+                }}
+            />
+            <Stack.Screen
                 name="project-detail"
                 options={{
                     title: 'Chi tiết dự án',

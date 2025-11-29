@@ -11,6 +11,7 @@ import {
     View
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import CommentSection from '@/components/CommentSection';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { getGroupSubtasks, getSubtasksByTask, updateSubtaskStatus } from '@/src/axios/api';
 
@@ -248,6 +249,8 @@ export default function TeamLeadSubtaskDetailScreen() {
                         </View>
                 </View>
                 <Text style={styles.helper}>Chạm vào trạng thái để chuyển sang bước kế tiếp</Text>
+                {/* Comments */}
+                <CommentSection subtaskId={subtaskId} onCommentAdded={loadSubtask} />
             </ScrollView>
         </SafeAreaView>
     );
