@@ -39,9 +39,9 @@ export const approvalAPI = {
     },
 
     // Get approved history
-    getApprovedHistory: async (limit = 100) => {
+    getApprovedHistory: async (limit = 10, page = 1) => {
         try {
-            const res = await api.get(`/approvals/history?limit=${limit}`)
+            const res = await api.get(`/approvals/history?limit=${limit}&page=${page}`)
             return res.data
         } catch (err: any) {
             throw err.response?.data || { message: "Không thể lấy lịch sử phê duyệt" }

@@ -136,6 +136,10 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                 // Exclude notifications for manager approvals
                 if (!title.includes('yêu cầu') && !content.includes('yêu cầu')) return true;
             }
+            // Also detect rejected claim requests - teamlead should see these
+            if (title.includes('yêu cầu nhận công việc bị từ chối') || content.includes('yêu cầu nhận công việc') && content.includes('từ chối')) {
+                return true;
+            }
         } catch (err) {
             // ignore
         }
@@ -143,15 +147,25 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
     }
 
     // Separate notifications into general and assignments using the robust detector
-    // Filter out request-to-join notifications from assignments tab (those are for manager approvals)
+    // Filter out regular request-to-join notifications from assignments tab (those are for manager approvals page)
+    // BUT keep claim requests (requestToJoin with action: 'claim_request') - these are actionable in the bell
     const assignmentNotifications = notifications.filter(n => {
         const isAssignment = isAssignmentNotification(n) || looksLikeAssignmentByText(n);
         if (!isAssignment) return false;
 
-        // Exclude request-to-join notifications (requestToJoin metadata)
+        // Check for request-to-join metadata
         const meta = n.userMeta || n.meta || {};
-        if (meta.requestToJoin) return false;
+        if (meta.requestToJoin) {
+            // Keep claim requests (have action: 'claim_request') - these should appear in bell
+            if (meta.action === 'claim_request') return true;
+            // Exclude regular join requests (no action field) - these go to approvals page only
+            return false;
+        }
 
+        // Keep all other assignment notifications including:
+        // - Direct assignments (meta.assignmentId without requestToJoin)
+        // - Rejected claim requests (meta.action === 'rejected')
+        // - Accepted assignments, etc.
         return true;
     })
     // General notifications: only show announcement and system types

@@ -460,7 +460,7 @@ export default function ManagerApprovalsPage() {
                             <div className="text-right">
                                 <p className="text-sm text-gray-500">Tổng số chờ phê duyệt</p>
                                 <p className="text-2xl font-bold text-orange-600">
-                                    {activeTab === 'completion' ? totalCount : activeTab === 'requests' ? (claimRequests.length + joinRequests.length) : approvedHistory.length}
+                                    {activeTab === 'completion' ? totalCount : activeTab === 'requests' ? (claimRequests.filter(r => r.status === 'pending').length + joinRequests.filter(r => !r.meta.assignmentId).length) : approvedHistory.length}
                                 </p>
                             </div>
                             <button
@@ -512,10 +512,10 @@ export default function ManagerApprovalsPage() {
                                 <div className="flex items-center justify-center gap-2">
                                     <UserPlus size={18} />
                                     <span>Yêu cầu nhận việc</span>
-                                    {(claimRequests.length + joinRequests.length) > 0 && (
+                                    {(claimRequests.filter(r => r.status === 'pending').length + joinRequests.filter(r => !r.meta.assignmentId).length) > 0 && (
                                         <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === 'requests' ? 'bg-white/20' : 'bg-green-100 text-green-800'
                                             }`}>
-                                            {claimRequests.length + joinRequests.length}
+                                            {claimRequests.filter(r => r.status === 'pending').length + joinRequests.filter(r => !r.meta.assignmentId).length}
                                         </span>
                                     )}
                                 </div>
@@ -744,7 +744,7 @@ export default function ManagerApprovalsPage() {
                         <div className="p-6 border-b border-gray-200">
                             <div className="flex items-center justify-between">
                                 <h2 className="text-lg font-semibold text-gray-900">
-                                    Yêu cầu nhận công việc ({claimRequests.length + joinRequests.length})
+                                    Yêu cầu nhận công việc ({claimRequests.filter(r => r.status === 'pending').length + joinRequests.filter(r => !r.meta.assignmentId).length})
                                 </h2>
                                 <div className="flex items-center gap-4">
                                     <select
@@ -753,15 +753,15 @@ export default function ManagerApprovalsPage() {
                                         className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                                     >
                                         <option value="all">Tất cả yêu cầu</option>
-                                        <option value="claim">Yêu cầu nhận việc</option>
-                                        <option value="join">Yêu cầu chung</option>
+                                        <option value="claim">Yêu cầu nhận việc lớn</option>
+                                        <option value="join">Yêu cầu nhận việc nhỏ</option>
                                     </select>
                                 </div>
                             </div>
                         </div>
 
                         <div className="divide-y divide-gray-200">
-                            {(claimRequests.length + joinRequests.length) === 0 ? (
+                            {(claimRequests.filter(r => r.status === 'pending').length + joinRequests.filter(r => !r.meta.assignmentId).length) === 0 ? (
                                 <div className="p-12 text-center">
                                     <UserPlus className="w-16 h-16 text-green-400 mx-auto mb-4" />
                                     <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -831,7 +831,7 @@ export default function ManagerApprovalsPage() {
                                     ))}
 
                                     {/* Join Requests */}
-                                    {(requestFilter === 'all' || requestFilter === 'join') && joinRequests.map(request => {
+                                    {(requestFilter === 'all' || requestFilter === 'join') && joinRequests.filter(r => !r.meta.assignmentId).map(request => {
                                         const isProcessed = request.meta?.processed === true
                                         const action = request.meta?.action
 
@@ -843,7 +843,7 @@ export default function ManagerApprovalsPage() {
                                                         <div className="flex items-center gap-3 mb-2">
                                                             <UserPlus className="w-5 h-5 text-green-500" />
                                                             <span className="text-sm font-medium text-green-600 bg-green-100 px-2 py-1 rounded-full">
-                                                                Yêu cầu chung
+                                                                Yêu cầu nhận việc nhỏ
                                                             </span>
                                                             <span className="text-sm text-gray-500">
                                                                 {formatDate(request.createdAt)}

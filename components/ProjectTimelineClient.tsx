@@ -151,39 +151,39 @@ export default function ProjectTimelineClient({ projectId }: { projectId: string
     return (
         <div className="flex flex-col h-[calc(100vh-100px)] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             {/* Header Toolbar */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white z-20">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                        <Calendar className="w-6 h-6 text-blue-600" />
-                        Timeline: {project.tenduan}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-3 md:px-6 py-3 md:py-4 border-b border-gray-200 bg-white z-20 gap-3 md:gap-4">
+                <div className="min-w-0">
+                    <h1 className="text-base md:text-2xl font-bold text-gray-900 flex items-center gap-2 truncate">
+                        <Calendar className="w-5 h-5 md:w-6 md:h-6 text-blue-600 flex-shrink-0" />
+                        <span className="truncate">Timeline: {project.tenduan}</span>
                     </h1>
-                    <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">
-                        <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">
+                    <p className="text-xs md:text-sm text-gray-500 mt-1 flex items-center gap-1 md:gap-2 flex-wrap">
+                        <span className="bg-blue-50 text-blue-700 px-1.5 md:px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap">
                             {timeline.minDate.toLocaleDateString('vi-VN')}
                         </span>
-                        <ChevronRight className="w-3 h-3" />
-                        <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">
+                        <ChevronRight className="w-3 h-3 hidden md:block flex-shrink-0" />
+                        <span className="bg-blue-50 text-blue-700 px-1.5 md:px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap">
                             {timeline.maxDate.toLocaleDateString('vi-VN')}
                         </span>
-                        <span className="text-gray-400">|</span>
-                        <span>{timeline.totalDays} ngày</span>
+                        <span className="text-gray-400 hidden md:inline">|</span>
+                        <span className="text-gray-500 text-xs md:text-sm">{timeline.totalDays} ngày</span>
                     </p>
                 </div>
-                <div className="flex items-center gap-3 bg-gray-100 p-1 rounded-lg">
+                <div className="flex items-center gap-2 md:gap-3 bg-gray-100 p-1 rounded-lg flex-shrink-0">
                     <button
                         onClick={() => setZoom(z => Math.max(0.1, z - 0.1))}
-                        className="p-2 hover:bg-white hover:shadow-sm rounded-md transition-all text-gray-600 hover:text-blue-600"
+                        className="p-1 md:p-2 hover:bg-white hover:shadow-sm rounded-md transition-all text-gray-600 hover:text-blue-600"
                         title="Thu nhỏ"
                     >
-                        <ZoomOut size={18} />
+                        <ZoomOut size={16} className="md:w-[18px] md:h-[18px]" />
                     </button>
-                    <span className="text-xs font-medium text-gray-500 w-12 text-center">{Math.round(zoom * 100)}%</span>
+                    <span className="text-xs font-medium text-gray-500 w-10 md:w-12 text-center">{Math.round(zoom * 100)}%</span>
                     <button
                         onClick={() => setZoom(z => Math.min(10, z + 0.1))}
-                        className="p-2 hover:bg-white hover:shadow-sm rounded-md transition-all text-gray-600 hover:text-blue-600"
+                        className="p-1 md:p-2 hover:bg-white hover:shadow-sm rounded-md transition-all text-gray-600 hover:text-blue-600"
                         title="Phóng to"
                     >
-                        <ZoomIn size={18} />
+                        <ZoomIn size={16} className="md:w-[18px] md:h-[18px]" />
                     </button>
                 </div>
             </div>
@@ -224,14 +224,15 @@ export default function ProjectTimelineClient({ projectId }: { projectId: string
                     </div>
 
                     {/* Sticky Header */}
-                    <div className="sticky top-0 z-10 bg-white border-b border-gray-200 shadow-sm">
-                        <div className="flex">
-                            <div className="w-[250px] flex-shrink-0 bg-gray-50 border-r border-gray-200 p-3 font-semibold text-gray-700 flex items-end pb-2 z-20 sticky left-0">
-                                Công việc
+                    <div className="sticky top-0 z-10 bg-white border-b border-gray-200 shadow-sm overflow-x-auto">
+                        <div className="flex min-w-full">
+                            <div className="w-24 sm:w-32 md:w-[250px] flex-shrink-0 bg-gray-50 border-r border-gray-200 p-2 md:p-3 font-semibold text-gray-700 flex items-end pb-2 z-20 sticky left-0 text-xs md:text-base">
+                                <span className="hidden sm:inline">Công việc</span>
+                                <span className="sm:hidden">CV</span>
                             </div>
-                            <div className="flex-1 relative h-14">
+                            <div className="flex-1 relative min-h-14 h-14">
                                 {/* Months */}
-                                <div className="absolute top-0 left-0 right-0 h-7 border-b border-gray-100">
+                                <div className="absolute top-0 left-0 right-0 h-7 border-b border-gray-100 hidden md:block">
                                     {(() => {
                                         const days = buildHeaderDays(timeline.minDate, timeline.totalDays)
                                         const monthGroups: Array<{ startIndex: number; length: number; label: string }> = []
@@ -256,7 +257,7 @@ export default function ProjectTimelineClient({ projectId }: { projectId: string
                                                     left: mg.startIndex * pxPerDay,
                                                     width: mg.length * pxPerDay,
                                                 }}
-                                                className="h-full flex items-center px-2 text-xs font-bold text-gray-600 bg-gray-50/50 border-r border-gray-200 truncate"
+                                                className="h-full flex items-center px-1 md:px-2 text-[8px] md:text-xs font-bold text-gray-600 bg-gray-50/50 border-r border-gray-200 truncate"
                                             >
                                                 {mg.label}
                                             </div>
@@ -264,7 +265,7 @@ export default function ProjectTimelineClient({ projectId }: { projectId: string
                                     })()}
                                 </div>
                                 {/* Days */}
-                                <div className="absolute bottom-0 left-0 right-0 h-7">
+                                <div className="absolute bottom-0 left-0 right-0 h-7 hidden sm:block md:top-7">
                                     {buildHeaderDays(timeline.minDate, timeline.totalDays).map((d, i) => {
                                         const isWeekend = d.getDay() === 0 || d.getDay() === 6
                                         return (
@@ -275,10 +276,10 @@ export default function ProjectTimelineClient({ projectId }: { projectId: string
                                                     left: i * pxPerDay,
                                                     width: pxPerDay,
                                                 }}
-                                                className={`h-full flex flex-col items-center justify-center text-[10px] border-r border-gray-100 ${isWeekend ? 'bg-gray-50 text-gray-500' : 'text-gray-700'}`}
+                                                className={`h-full flex flex-col items-center justify-center text-[8px] md:text-[10px] border-r border-gray-100 ${isWeekend ? 'bg-gray-50 text-gray-500' : 'text-gray-700'}`}
                                             >
                                                 <span className="font-bold">{d.getDate()}</span>
-                                                <span className="text-[9px] uppercase">{d.toLocaleDateString('vi-VN', { weekday: 'short' })}</span>
+                                                <span className="text-[7px] md:text-[9px] uppercase">{d.toLocaleDateString('vi-VN', { weekday: 'short' })}</span>
                                             </div>
                                         )
                                     })}
@@ -302,13 +303,13 @@ export default function ProjectTimelineClient({ projectId }: { projectId: string
                             return (
                                 <div key={task.id} className={`group ${rowBgClass}`}>
                                     {/* Main Task Row */}
-                                    <div className="flex items-center h-10 hover:bg-blue-50 transition-colors">
-                                        <div className={`w-[250px] flex-shrink-0 border-r border-gray-200 px-4 py-2 flex items-center gap-2 sticky left-0 z-10 ${rowBgClass} group-hover:bg-blue-50 transition-colors`}>
-                                            <div className={`w-2 h-2 rounded-full ${hasTaskDates ? 'bg-blue-500' : 'bg-gray-300'}`}></div>
-                                            <span className="text-sm font-medium text-gray-700 truncate flex-1" title={task.tentask}>
+                                    <div className="flex items-center h-8 md:h-10 hover:bg-blue-50 transition-colors">
+                                        <div className={`w-24 sm:w-32 md:w-[250px] flex-shrink-0 border-r border-gray-200 px-2 md:px-4 py-1.5 md:py-2 flex items-center gap-1 md:gap-2 sticky left-0 z-10 ${rowBgClass} group-hover:bg-blue-50 transition-colors`}>
+                                            <div className={`w-1.5 md:w-2 h-1.5 md:h-2 rounded-full flex-shrink-0 ${hasTaskDates ? 'bg-blue-500' : 'bg-gray-300'}`}></div>
+                                            <span className="text-xs md:text-sm font-medium text-gray-700 truncate flex-1" title={task.tentask}>
                                                 {task.tentask}
                                             </span>
-                                            <span className="text-xs text-gray-400 font-mono">#{task.id}</span>
+                                            <span className="hidden md:inline text-xs text-gray-400 font-mono flex-shrink-0">#{task.id}</span>
                                         </div>
                                         <div className="flex-1 relative h-full">
                                             {hasTaskDates && (
@@ -322,18 +323,18 @@ export default function ProjectTimelineClient({ projectId }: { projectId: string
                                                     }}
                                                     className="group/bar relative"
                                                 >
-                                                    <div className="w-full h-full rounded-md bg-gradient-to-r from-blue-500 to-blue-400 shadow-sm border border-blue-600/20 cursor-pointer hover:brightness-110 transition-all flex items-center px-2 overflow-hidden">
-                                                        <span className="text-xs font-medium text-white whitespace-nowrap drop-shadow-md">{task.tentask}</span>
+                                                    <div className="w-full h-full rounded-md bg-gradient-to-r from-blue-500 to-blue-400 shadow-sm border border-blue-600/20 cursor-pointer hover:brightness-110 transition-all flex items-center px-1 md:px-2 overflow-hidden">
+                                                        <span className="text-[10px] md:text-xs font-medium text-white whitespace-nowrap drop-shadow-md hidden sm:inline">{task.tentask}</span>
                                                     </div>
 
                                                     {/* Tooltip */}
                                                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/bar:block z-50 w-max max-w-xs">
-                                                        <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl">
-                                                            <p className="font-bold mb-1">{task.tentask}</p>
-                                                            <p className="text-gray-300">
+                                                        <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl whitespace-nowrap">
+                                                            <p className="font-bold mb-1 text-xs md:text-sm">{task.tentask}</p>
+                                                            <p className="text-gray-300 text-xs">
                                                                 {tStart.toLocaleDateString('vi-VN')} - {tEnd.toLocaleDateString('vi-VN')}
                                                             </p>
-                                                            <p className="text-gray-400 mt-1">
+                                                            <p className="text-gray-400 mt-1 text-xs">
                                                                 {Math.ceil((tEnd.getTime() - tStart.getTime()) / (1000 * 60 * 60 * 24)) + 1} ngày
                                                             </p>
                                                         </div>
@@ -353,10 +354,10 @@ export default function ProjectTimelineClient({ projectId }: { projectId: string
                                         const sw = hasStDates ? Math.max(20, dateToX(sEnd) - sx) : 0
 
                                         return (
-                                            <div key={st.id} className="flex items-center h-8 hover:bg-orange-50 transition-colors">
-                                                <div className={`w-[250px] flex-shrink-0 border-r border-gray-200 pl-8 pr-4 py-1 flex items-center gap-2 sticky left-0 z-10 ${rowBgClass} group-hover:bg-orange-50 transition-colors`}>
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-gray-300"></div>
-                                                    <span className="text-xs text-gray-600 truncate flex-1" title={st.tenSubtask || st.name}>
+                                            <div key={st.id} className="flex items-center h-7 md:h-8 hover:bg-orange-50 transition-colors">
+                                                <div className={`w-24 sm:w-32 md:w-[250px] flex-shrink-0 border-r border-gray-200 pl-4 md:pl-8 pr-2 md:pr-4 py-1 flex items-center gap-1.5 md:gap-2 sticky left-0 z-10 ${rowBgClass} group-hover:bg-orange-50 transition-colors`}>
+                                                    <div className="w-1 md:w-1.5 h-1 md:h-1.5 rounded-full bg-gray-300 flex-shrink-0"></div>
+                                                    <span className="text-[10px] md:text-xs text-gray-600 truncate flex-1" title={st.tenSubtask || st.name}>
                                                         {st.tenSubtask || st.name}
                                                     </span>
                                                 </div>
@@ -376,9 +377,9 @@ export default function ProjectTimelineClient({ projectId }: { projectId: string
 
                                                             {/* Subtask Tooltip */}
                                                             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/subbar:block z-50 w-max max-w-xs">
-                                                                <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl">
-                                                                    <p className="font-bold mb-1">{st.tenSubtask || st.name}</p>
-                                                                    <p className="text-gray-300">
+                                                                <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl whitespace-nowrap">
+                                                                    <p className="font-bold mb-1 text-xs md:text-sm">{st.tenSubtask || st.name}</p>
+                                                                    <p className="text-gray-300 text-xs">
                                                                         {sStart.toLocaleDateString('vi-VN')} - {sEnd.toLocaleDateString('vi-VN')}
                                                                     </p>
                                                                 </div>

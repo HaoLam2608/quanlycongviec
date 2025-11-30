@@ -50,6 +50,7 @@ interface Settings {
     language: string
     timezone: string
 }
+const API_URL = "https://taskhadflow-api.nibies.space"
 
 export default function ProfilePage() {
     const [profile, setProfile] = useState<UserProfile | null>(null)
@@ -258,7 +259,7 @@ export default function ProfilePage() {
                 // Diagnostic: try uploading via fetch directly so we can see the raw network request
                 try {
                     console.debug('[Profile] Attempting diagnostic fetch upload...')
-                    const apiUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000') + '/users/avatar'
+                    const apiUrl = API_URL + '/users/avatar'
                     const form = new FormData()
                     form.append('avatar', file)
                     const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null
@@ -353,7 +354,7 @@ export default function ProfilePage() {
                         <div className="flex items-center gap-6">
                             <div className="relative group">
                                 <img
-                                    src={(profile.avatar && (profile.avatar.startsWith('http') || profile.avatar.startsWith('blob:') || profile.avatar.startsWith('data:'))) ? profile.avatar : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}${profile.avatar}`}
+                                    src={(profile.avatar && (profile.avatar.startsWith('http') || profile.avatar.startsWith('blob:') || profile.avatar.startsWith('data:'))) ? profile.avatar : `${API_URL}${profile.avatar}`}
                                     alt={profile.fullName}
                                     className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg ring-2 ring-blue-500/20 transition-transform duration-200 group-hover:scale-105"
                                     onError={(e) => {

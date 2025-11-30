@@ -34,6 +34,7 @@ const navigation = [
     { name: "Thời gian làm việc", href: "/member/timesheet", icon: Clock },
     { name: "Hồ sơ", href: "/member/profile", icon: User },
 ]
+const API_URL = "https://taskhadflow-api.nibies.space"
 
 export default function MemberLayout({ children }: MemberLayoutProps) {
     const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -70,7 +71,7 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                             avatar = objectUrl
                             lastAvatarUrl.current = objectUrl
                         } catch (err) {
-                            const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
+                            const base = API_URL
                             avatar = `${base.replace(/\/$/, '')}${avatar.startsWith('/') ? '' : '/'}${avatar}`
                         }
                     }
@@ -250,47 +251,6 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                             ))}
                         </nav>
                     </div>
-
-                    {/* User section */}
-                    <div className="flex-shrink-0 p-3">
-                        <div className="bg-white rounded-2xl shadow-lg border border-blue-100 p-4 hover:shadow-xl transition-shadow duration-300">
-                            <div className="flex items-center gap-2">
-                                <Link href="/member/profile" className="flex items-center gap-2 group cursor-pointer flex-1">
-                                    <div className="relative">
-                                        {currentUser?.avatar ? (
-                                            <Avatar className="w-9 h-9 ring-2 ring-blue-500/20 group-hover:ring-blue-500">
-                                                <AvatarImage src={currentUser.avatar} alt={currentUser?.hoten || 'Member'} />
-                                                <AvatarFallback className="text-xs bg-gradient-to-br from-blue-500 to-blue-600 text-white">
-                                                    {(currentUser?.hoten || 'M').substring(0, 2).toUpperCase()}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                        ) : (
-                                            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center ring-2 ring-blue-500/20 group-hover:ring-blue-500">
-                                                <User className="w-5 h-5 text-white" />
-                                            </div>
-                                        )}
-                                        <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-semibold text-slate-900 truncate group-hover:text-blue-600">
-                                            {currentUser?.hoten || 'Member User'}
-                                        </p>
-                                        <p className="text-[10px] text-slate-500 truncate">
-                                            {currentUser?.manv || 'Nhân viên'}
-                                        </p>
-                                    </div>
-                                </Link>
-                                <button
-                                    onClick={handleLogout}
-                                    disabled={isLoggingOut}
-                                    className="p-1 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200 disabled:opacity-50 hover:scale-110 ml-1"
-                                    title="Đăng xuất"
-                                >
-                                    <LogOut className={`w-3 h-3 ${isLoggingOut ? 'animate-spin' : ''}`} />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -310,7 +270,7 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                 <div className="hidden md:flex sticky top-0 z-10 flex-shrink-0 h-16 bg-white/80 backdrop-blur-xl border-b border-blue-100 items-center justify-between px-6 shadow-sm">
                     <div className="flex-1">
                         <div className="flex items-center gap-2">
-                            
+
                             <span className="text-sm font-medium text-slate-600">Hệ thống quản lý công việc</span>
                         </div>
                     </div>

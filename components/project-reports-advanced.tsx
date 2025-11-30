@@ -66,6 +66,7 @@ const STATUS_ICONS = {
   'reviewed': Eye,
   'approved': CheckCircle
 }
+const API_URL = "https://taskhadflow-api.nibies.space"
 
 export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'member' }: ProjectReportsAdvancedProps) {
   const [reports, setReports] = useState<Report[]>([])
@@ -859,7 +860,7 @@ export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'm
                           <span className="text-xs text-gray-500">({((file.size || 0) / 1024).toFixed(1)} KB)</span>
                         </div>
                         <a
-                          href={`http://localhost:5000${file.url || `/uploads/reports/${file.filename}`}`}
+                          href={`${API_URL}${file.url || `/uploads/reports/${file.filename}`}`}
                           download
                           target="_blank"
                           rel="noopener noreferrer"

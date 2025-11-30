@@ -28,10 +28,7 @@ import { GlobalChatProvider } from "@/components/chat/GlobalChatProvider"
 
 import { showConfirm } from '@/lib/notifications'
 import Image from "next/image"
-// Use NEXT_PUBLIC_API_URL when available so frontend follows the environment config
-const base_url = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL)
-    ? process.env.NEXT_PUBLIC_API_URL
-    : "https://taskhadflow-api.nibies.space"
+const base_url = "https://taskhadflow-api.nibies.space"
 const menuCategories = [
     {
         title: "Chính",
@@ -245,29 +242,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                 </nav>
                             </div>
 
-                            {/* User section */}
-                            <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
-                                <div className="flex items-center">
-                                    <Link href="/admin/settings" className="flex items-center group">
-                                        <div className="w-8 h-8 rounded-full overflow-hidden bg-blue-500 flex items-center justify-center group-hover:ring-2 group-hover:ring-blue-400 transition">
-                                            {userInfo.avatar && userInfo.avatar.startsWith('/users/') ? (
-                                                <img src={`${base_url}${userInfo.avatar}`} alt="avatar" className="w-full h-full object-cover" />
-                                            ) : userInfo.avatar ? (
-                                                <img src={userInfo.avatar} alt="avatar" className="w-full h-full object-cover" />
-                                            ) : (
-                                                <span className="w-full h-full flex items-center justify-center text-2xl text-white">?</span>
-                                            )}
-                                        </div>
-                                        <div className="ml-3">
-                                            <p className="text-sm font-medium text-gray-700 group-hover:underline cursor-pointer">{userInfo.hoten}</p>
-                                            <p className="text-xs text-gray-500">Quản trị viên</p>
-                                        </div>
-                                    </Link>
-                                    <button onClick={handleLogout} disabled={isLoggingOut} className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors disabled:opacity-50" title="Đăng xuất">
-                                        <LogOut className={`w-4 h-4 ${isLoggingOut ? 'animate-spin' : ''}`} />
-                                    </button>
-                                </div>
-                            </div>
                         </div>
                     </div>
 
@@ -297,7 +271,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                     <button className="p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full transition-colors">
                                         <Settings className="h-5 w-5" />
                                     </button>
-                                </Link>                    
+                                </Link>
                                 {/* User section */}
                                 <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
                                     <div className="flex items-center">

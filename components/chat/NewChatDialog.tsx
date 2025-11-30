@@ -60,7 +60,7 @@ export const NewChatDialog: React.FC = () => {
 
       console.log('Loading users...');
       console.log('API URL:', `${SOCKET_URL}/users?limit=100`);
-      
+
       const response = await fetch(`${SOCKET_URL}/users?limit=100`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -69,19 +69,19 @@ export const NewChatDialog: React.FC = () => {
 
       console.log('Response status:', response.status);
       console.log('Response OK:', response.ok);
-      
+
       if (response.ok) {
         const data = await response.json();
         console.log('Users data received:', data);
         // Extract users array from paginated response
         const usersList = data.users || data;
         console.log('Users list:', usersList.length, 'users');
-        
+
         // Filter out current user
         const currentUserId = localStorage.getItem('userId');
         const filteredList = usersList.filter((u: any) => u.id.toString() !== currentUserId);
         console.log('Filtered list (excluding current user):', filteredList.length, 'users');
-        
+
         setUsers(filteredList);
       } else {
         const errorText = await response.text();
@@ -99,10 +99,10 @@ export const NewChatDialog: React.FC = () => {
     const hoten = user.hoten || '';
     const email = user.email || '';
     const manv = user.manv || '';
-    
+
     return hoten.toLowerCase().includes(searchLower) ||
-           manv.toLowerCase().includes(searchLower) ||
-           email.toLowerCase().includes(searchLower);
+      manv.toLowerCase().includes(searchLower) ||
+      email.toLowerCase().includes(searchLower);
   });
 
   const handleCreateDirect = async (userId: number) => {
@@ -149,7 +149,7 @@ export const NewChatDialog: React.FC = () => {
   };
 
   const toggleUserSelection = (userId: number) => {
-    setSelectedUsers(prev => 
+    setSelectedUsers(prev =>
       prev.includes(userId)
         ? prev.filter(id => id !== userId)
         : [...prev, userId]
@@ -220,9 +220,8 @@ export const NewChatDialog: React.FC = () => {
                             </AvatarFallback>
                           </Avatar>
                           <div
-                            className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${
-                              isOnline ? 'bg-green-500' : 'bg-gray-400'
-                            }`}
+                            className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${isOnline ? 'bg-green-500' : 'bg-gray-400'
+                              }`}
                           />
                         </div>
                         <div className="flex-1 text-left">
@@ -288,9 +287,8 @@ export const NewChatDialog: React.FC = () => {
                           </AvatarFallback>
                         </Avatar>
                         <div
-                          className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${
-                            isOnline ? 'bg-green-500' : 'bg-gray-400'
-                          }`}
+                          className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${isOnline ? 'bg-green-500' : 'bg-gray-400'
+                            }`}
                         />
                       </div>
                       <label htmlFor={`user-${user.id}`} className="flex-1 cursor-pointer">

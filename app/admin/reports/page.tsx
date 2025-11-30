@@ -1,18 +1,18 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { 
-  TrendingUp, Users, FolderKanban, CheckSquare, Filter, Download, 
-  Calendar, BarChart3, PieChart, LineChart, RefreshCw,
-  AlertTriangle, Clock, Trophy, Search, ArrowUpDown, ChevronLeft, ChevronRight,
-  FileText, UserCheck, Briefcase
+import {
+    TrendingUp, Users, FolderKanban, CheckSquare, Filter, Download,
+    Calendar, BarChart3, PieChart, LineChart, RefreshCw,
+    AlertTriangle, Clock, Trophy, Search, ArrowUpDown, ChevronLeft, ChevronRight,
+    FileText, UserCheck, Briefcase
 } from "lucide-react"
 import { fetchProjects, getMyTasks, getTasksByProject, getWorklogs, fetchDocuments } from "@/axios/api"
 import { getUsers, groupAPI } from "@/axios/adminApi"
 import {
-  PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip,
-  BarChart as RechartsBar, Bar, XAxis, YAxis, CartesianGrid, Legend,
-  LineChart as RechartsLine, Line, Area, AreaChart
+    PieChart as RechartsPie, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip,
+    BarChart as RechartsBar, Bar, XAxis, YAxis, CartesianGrid, Legend,
+    LineChart as RechartsLine, Line, Area, AreaChart
 } from "recharts"
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
@@ -44,7 +44,7 @@ const TableSkeleton = () => (
     <div className="bg-card border border-border rounded-2xl p-6 shadow-sm animate-pulse">
         <div className="h-6 w-40 bg-secondary rounded mb-6"></div>
         <div className="space-y-3">
-            {[1,2,3,4,5].map(i => (
+            {[1, 2, 3, 4, 5].map(i => (
                 <div key={i} className="h-12 bg-secondary rounded"></div>
             ))}
         </div>
@@ -75,7 +75,7 @@ export default function ReportsPage() {
     const [currentPage, setCurrentPage] = useState(1)
     const [itemsPerPage] = useState(5)
     const [filterApplied, setFilterApplied] = useState(false)
-    
+
     const [filters, setFilters] = useState({
         startDate: "",
         endDate: "",
@@ -84,7 +84,7 @@ export default function ReportsPage() {
         userId: "",
         preset: "",
     })
-    
+
     const [stats, setStats] = useState({
         totalProjects: 0,
         completedTasks: 0,
@@ -201,11 +201,11 @@ export default function ReportsPage() {
         try {
             // Filter projects based on filters
             let filteredProjects = projectsList
-            
+
             if (filtersToUse.projectId) {
                 filteredProjects = filteredProjects.filter((p: any) => p.id === parseInt(filtersToUse.projectId))
             }
-            
+
             if (filtersToUse.status) {
                 const statusMap: Record<string, string[]> = {
                     // Map UI filter values to DB ENUM values
@@ -218,32 +218,32 @@ export default function ReportsPage() {
                     return statusMap[filtersToUse.status]?.includes(projStatus)
                 })
             }
-            
+
             if (filtersToUse.startDate) {
                 filteredProjects = filteredProjects.filter((p: any) => {
                     if (!p.ngaybatdau) return true
                     return new Date(p.ngaybatdau) >= new Date(filtersToUse.startDate)
                 })
             }
-            
+
             if (filtersToUse.endDate) {
                 filteredProjects = filteredProjects.filter((p: any) => {
                     if (!p.ngayketthuc) return true
                     return new Date(p.ngayketthuc) <= new Date(filtersToUse.endDate)
                 })
             }
-            
+
             if (filtersToUse.userId) {
                 filteredProjects = filteredProjects.filter((p: any) => String(p.userId) === String(filtersToUse.userId))
             }
-            
+
             // Filter tasks based on filtered projects
             const filteredTasks = tasksList.filter((t: any) => {
                 const taskProjectId = getTaskProjectId(t)
                 if (filtersToUse.projectId && String(taskProjectId) !== String(filtersToUse.projectId)) return false
                 return filteredProjects.some((p: any) => String(p.id) === String(taskProjectId))
             })
-            
+
             // Calculate stats from real data
             const totalProjects = filteredProjects.length
             const completedProjects = filteredProjects.filter((p: any) => {
@@ -260,9 +260,9 @@ export default function ReportsPage() {
                 const s = (p.status || '').toString().toLowerCase()
                 return s === 'chua_bat_dau' || s === 'pending'
             }).length
-            
+
             const activeUsersCount = usersList.length
-            
+
             const totalTasks = filteredTasks.length
             const completedTasks = filteredTasks.filter((t: any) => {
                 const s = getTaskStatus(t)
@@ -279,9 +279,9 @@ export default function ReportsPage() {
 
             // set taskCounts
             setTaskCounts({ total: totalTasks, completed: completedTasks, ongoing: ongoingTasks, pending: pendingTasks })
-            
+
             const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
-            
+
             // Calculate overdue tasks
             const now = new Date()
             const overdueTasks = filteredTasks.filter((t: any) => {
@@ -291,7 +291,7 @@ export default function ReportsPage() {
                 const s = getTaskStatus(t)
                 return deadline < now && s !== 'Hoàn thành'
             }).length
-            
+
             // Calculate risk projects (< 50% progress and deadline within 7 days)
             const riskProjects = filteredProjects.filter((p: any) => {
                 const projectTasks = tasksList.filter((t: any) => String(getTaskProjectId(t)) === String(p.id))
@@ -305,7 +305,7 @@ export default function ReportsPage() {
                 const daysUntilDeadline = Math.ceil((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
                 return progress < 50 && daysUntilDeadline <= 7 && daysUntilDeadline > 0
             }).length
-            
+
             // Calculate average completion time (mock for now, can be improved with real data)
             const avgCompletionTime = 15
 
@@ -326,7 +326,7 @@ export default function ReportsPage() {
             }
             const totalGroups = groupsArray.length;
             const activeGroups = groupsArray.filter((g: any) => g.status === 'active').length;
-            
+
             console.log('🟢 groupsList:', groupsList);
             console.log('🟢 totalGroups:', totalGroups);
 
@@ -443,7 +443,7 @@ export default function ReportsPage() {
             })
 
             setChartData((prev: any) => ({ ...prev, overdueTrend, taskProgress }))
-            
+
             // Calculate top performers based on real task data
             const userTaskCounts = usersList.map((user: any) => {
                 const userCompletedTasks = filteredTasks.filter((t: any) => {
@@ -457,7 +457,7 @@ export default function ReportsPage() {
                     avatar: user.avatar,
                 }
             }).sort((a: any, b: any) => b.tasks - a.tasks).slice(0, 5)
-            
+
             setTopPerformers(userTaskCounts)
 
             // Calculate worklog hours by user for chart
@@ -469,9 +469,9 @@ export default function ReportsPage() {
                     hours: Math.round(totalHours * 10) / 10,
                 }
             }).filter((u: any) => u.hours > 0)
-              .sort((a: any, b: any) => b.hours - a.hours)
-              .slice(0, 10)
-            
+                .sort((a: any, b: any) => b.hours - a.hours)
+                .slice(0, 10)
+
             // Update user performance chart
             setChartData((prev: any) => ({
                 ...prev,
@@ -543,56 +543,56 @@ export default function ReportsPage() {
 
     const loadInitialData = async () => {
         try {
-                // First fetch projects and users
-                const [projectsRes, usersRes, groupsRes, documentsRes] = await Promise.all([
-                    fetchProjects(),
-                    // Request a large limit to ensure we have all users for lookups (used to display manager names)
-                    getUsers({ page: 1, limit: 1000 }),
-                    groupAPI.getGroups({}).catch((err) => {
-                        console.error('❌ Error fetching groups:', err)
-                        return { groups: [] }
-                    }),
-                    fetchDocuments().catch((err) => {
-                        console.error('❌ Error fetching documents:', err)
-                        return { documents: [] }
-                    }),
-                ])
+            // First fetch projects and users
+            const [projectsRes, usersRes, groupsRes, documentsRes] = await Promise.all([
+                fetchProjects(),
+                // Request a large limit to ensure we have all users for lookups (used to display manager names)
+                getUsers({ page: 1, limit: 1000 }),
+                groupAPI.getGroups({}).catch((err) => {
+                    console.error('❌ Error fetching groups:', err)
+                    return { groups: [] }
+                }),
+                fetchDocuments().catch((err) => {
+                    console.error('❌ Error fetching documents:', err)
+                    return { documents: [] }
+                }),
+            ])
 
-                const projectsList = projectsRes.duans || projectsRes || []
-                const usersList = usersRes.users || usersRes || []
-                const groupsList = (groupsRes as any).groups || groupsRes || []
-                const documentsList = (documentsRes as any).documents || documentsRes || []
+            const projectsList = projectsRes.duans || projectsRes || []
+            const usersList = usersRes.users || usersRes || []
+            const groupsList = (groupsRes as any).groups || groupsRes || []
+            const documentsList = (documentsRes as any).documents || documentsRes || []
 
-                setProjects(projectsList)
-                setUsers(usersList)
-                setGroups(groupsList)
-                setDocuments(documentsList)
+            setProjects(projectsList)
+            setUsers(usersList)
+            setGroups(groupsList)
+            setDocuments(documentsList)
 
-                // Fetch tasks for each project (admin report needs all tasks)
-                let tasksList: any[] = []
-                try {
-                    const tasksPerProject = await Promise.all(
-                        projectsList.map((p: any) => getTasksByProject(p.id).catch((e: any) => {
-                            console.warn('Failed to load tasks for project', p.id, e)
-                            return []
-                        }))
-                    )
-                    // Each response may be { tasks: [...] } or an array
-                    tasksList = tasksPerProject.flatMap((r: any) => r.tasks || r || [])
-                } catch (err) {
-                    console.error('Error fetching tasks per project:', err)
-                }
+            // Fetch tasks for each project (admin report needs all tasks)
+            let tasksList: any[] = []
+            try {
+                const tasksPerProject = await Promise.all(
+                    projectsList.map((p: any) => getTasksByProject(p.id).catch((e: any) => {
+                        console.warn('Failed to load tasks for project', p.id, e)
+                        return []
+                    }))
+                )
+                // Each response may be { tasks: [...] } or an array
+                tasksList = tasksPerProject.flatMap((r: any) => r.tasks || r || [])
+            } catch (err) {
+                console.error('Error fetching tasks per project:', err)
+            }
 
-                setTasks(tasksList)
+            setTasks(tasksList)
 
-                // Fetch all worklogs - skip for now since API requires taskId/subtaskId
-                let worklogsList: any[] = []
-                // Backend API requires taskId or subtaskId, so we can't fetch all worklogs at once
-                // We would need to fetch worklogs per task or create a new backend endpoint
-                setWorklogs(worklogsList)
+            // Fetch all worklogs - skip for now since API requires taskId/subtaskId
+            let worklogsList: any[] = []
+            // Backend API requires taskId or subtaskId, so we can't fetch all worklogs at once
+            // We would need to fetch worklogs per task or create a new backend endpoint
+            setWorklogs(worklogsList)
 
-                // Initialize table data (basic)
-                const tableRowsInit = projectsList.map((p: any) => {
+            // Initialize table data (basic)
+            const tableRowsInit = projectsList.map((p: any) => {
                 const projectTasks = tasksList.filter((t: any) => String(getTaskProjectId(t)) === String(p.id))
                 const completed = projectTasks.filter((t: any) => {
                     const s = getTaskStatus(t)
@@ -647,7 +647,7 @@ export default function ReportsPage() {
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
         let startDate = ""
         let endDate = ""
-        
+
         switch (preset) {
             case 'thisMonth':
                 const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -671,7 +671,7 @@ export default function ReportsPage() {
                 endDate = endOfYear.toISOString().split('T')[0]
                 break
         }
-        
+
         setFilters(prev => ({
             ...prev,
             startDate,
@@ -867,18 +867,18 @@ export default function ReportsPage() {
             // HEADER
             pdf.setFillColor(40, 86, 255)
             pdf.rect(margin, yPos, pageWidth - 2 * margin, 25, 'F')
-            
+
             pdf.setFontSize(20)
             pdf.setTextColor(255, 255, 255)
             pdf.text('BAO CAO TONG QUAN DU AN', margin + 5, yPos + 10)
-            
+
             pdf.setFontSize(9)
             const currentDate = new Date()
             const dateStr = `Ngay xuat: ${currentDate.toLocaleDateString('vi-VN')}`
             const timeStr = `${currentDate.toLocaleTimeString('vi-VN')}`
             pdf.text(dateStr, margin + 5, yPos + 18)
             pdf.text(timeStr, pageWidth - margin - pdf.getTextWidth(timeStr) - 5, yPos + 18)
-            
+
             yPos += 35
 
             // SUMMARY BOX
@@ -886,23 +886,23 @@ export default function ReportsPage() {
             pdf.setFillColor(248, 249, 250)
             pdf.setDrawColor(220, 220, 220)
             pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 35, 2, 2, 'FD')
-            
+
             pdf.setFontSize(12)
             pdf.setTextColor(30, 30, 30)
             pdf.text('TONG QUAN HE THONG', margin + 5, yPos + 8)
-            
+
             pdf.setFontSize(9)
             pdf.setTextColor(70, 70, 70)
             const col1 = margin + 5
             const col2 = margin + (pageWidth - 2 * margin) / 2
-            
+
             pdf.text(`Du an: ${stats.totalProjects} (${stats.completedProjects} hoan thanh)`, col1, yPos + 16)
             pdf.text(`Nhan vien: ${stats.activeUsers} (${stats.totalHoursLogged}h)`, col2, yPos + 16)
             pdf.text(`Tasks: ${taskCounts.total} (${taskCounts.completed} hoan thanh)`, col1, yPos + 22)
             pdf.text(`Ty le: ${stats.completionRate}%`, col2, yPos + 22)
             pdf.text(`Qua han: ${stats.overdueTasks}`, col1, yPos + 28)
             pdf.text(`Tai lieu: ${stats.totalDocuments} | Nhom: ${stats.totalGroups}`, col2, yPos + 28)
-            
+
             yPos += 45
 
             // PROJECT TABLE
@@ -917,12 +917,12 @@ export default function ReportsPage() {
             const colWidths = [12, 55, 35, 20, 20, 28]
             const colX = [margin]
             for (let i = 1; i < colWidths.length; i++) {
-                colX[i] = colX[i-1] + colWidths[i-1]
+                colX[i] = colX[i - 1] + colWidths[i - 1]
             }
 
             pdf.setFillColor(40, 86, 255)
             pdf.rect(margin, yPos, pageWidth - 2 * margin, rowHeight, 'F')
-            
+
             pdf.setFontSize(9)
             pdf.setTextColor(255, 255, 255)
             pdf.text('STT', colX[0] + 2, yPos + 5)
@@ -946,7 +946,7 @@ export default function ReportsPage() {
 
             tableData.slice(0, 30).forEach((row, index) => {
                 checkPageBreak(rowHeight + 5)
-                
+
                 // Alternating background
                 if (index % 2 === 0) {
                     pdf.setFillColor(250, 250, 250)
@@ -961,18 +961,18 @@ export default function ReportsPage() {
                 pdf.text((index + 1).toString(), colX[0] + 2, yPos + 5)
                 pdf.text(projectName, colX[1] + 2, yPos + 5)
                 pdf.text(managerName, colX[2] + 2, yPos + 5)
-                
+
                 // Color-coded progress
-                const progressColor = row.progress >= 80 ? [34, 197, 94] : 
-                                    row.progress >= 50 ? [59, 130, 246] : 
-                                    row.progress >= 30 ? [251, 191, 36] : [239, 68, 68]
+                const progressColor = row.progress >= 80 ? [34, 197, 94] :
+                    row.progress >= 50 ? [59, 130, 246] :
+                        row.progress >= 30 ? [251, 191, 36] : [239, 68, 68]
                 pdf.setTextColor(progressColor[0], progressColor[1], progressColor[2])
                 pdf.text(`${row.progress}%`, colX[3] + 2, yPos + 5)
-                
+
                 pdf.setTextColor(50, 50, 50)
                 pdf.text(`${row.completed}/${row.tasks}`, colX[4] + 2, yPos + 5)
                 pdf.text(status, colX[5] + 2, yPos + 5)
-                
+
                 yPos += rowHeight
             })
 
@@ -980,7 +980,7 @@ export default function ReportsPage() {
             if (topPerformers.length > 0) {
                 yPos += 10
                 checkPageBreak(40)
-                
+
                 pdf.setFontSize(12)
                 pdf.setTextColor(30, 30, 30)
                 pdf.text('TOP NHAN VIEN XUAT SAC', margin, yPos + 2)
@@ -989,7 +989,7 @@ export default function ReportsPage() {
                 // Top performers header
                 pdf.setFillColor(255, 243, 205)
                 pdf.rect(margin, yPos, pageWidth - 2 * margin, rowHeight, 'F')
-                
+
                 pdf.setFontSize(9)
                 pdf.setTextColor(40, 40, 40)
                 pdf.text('HANG', margin + 5, yPos + 5)
@@ -1000,12 +1000,12 @@ export default function ReportsPage() {
 
                 pdf.setFontSize(8)
                 pdf.setTextColor(60, 60, 60)
-                
+
                 topPerformers.slice(0, 10).forEach((performer, index) => {
                     checkPageBreak(6)
                     const cleanName = toSafeText(performer.name).substring(0, 28)
                     const rating = index === 0 ? 'Xuat sac nhat' : index < 3 ? 'Xuat sac' : 'Tot'
-                    
+
                     pdf.setTextColor(60, 60, 60)
                     pdf.text(`${index + 1}`, margin + 5, yPos + 4)
                     pdf.text(cleanName, margin + 25, yPos + 4)
@@ -1021,11 +1021,11 @@ export default function ReportsPage() {
                 pdf.setPage(i)
                 pdf.setFillColor(248, 249, 250)
                 pdf.rect(0, pageHeight - 12, pageWidth, 12, 'F')
-                
+
                 pdf.setFontSize(8)
                 pdf.setTextColor(120, 120, 120)
                 pdf.text('He thong quan ly cong viec', margin, pageHeight - 6)
-                
+
                 const pageText = `Trang ${i}/${pageCount}`
                 pdf.text(pageText, pageWidth - margin - pdf.getTextWidth(pageText), pageHeight - 6)
             }
@@ -1065,21 +1065,21 @@ export default function ReportsPage() {
 
     // Sorting and filtering for table
     const filteredAndSortedData = tableData
-        .filter(row => 
+        .filter(row =>
             row.project.toLowerCase().includes(searchTerm.toLowerCase()) ||
             row.manager.toLowerCase().includes(searchTerm.toLowerCase())
         )
         .sort((a, b) => {
             const aVal = a[sortField as keyof typeof a]
             const bVal = b[sortField as keyof typeof b]
-            
+
             if (typeof aVal === 'number' && typeof bVal === 'number') {
                 return sortDirection === "asc" ? aVal - bVal : bVal - aVal
             }
-            
+
             const aStr = String(aVal).toLowerCase()
             const bStr = String(bVal).toLowerCase()
-            return sortDirection === "asc" 
+            return sortDirection === "asc"
                 ? aStr.localeCompare(bStr)
                 : bStr.localeCompare(aStr)
         })
@@ -1235,10 +1235,10 @@ export default function ReportsPage() {
                     </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {[1,2,3,4,5,6,7,8].map(i => <StatCardSkeleton key={i} />)}
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map(i => <StatCardSkeleton key={i} />)}
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {[1,2,3].map(i => <ChartSkeleton key={i} />)}
+                    {[1, 2, 3].map(i => <ChartSkeleton key={i} />)}
                 </div>
                 <TableSkeleton />
             </div>
@@ -1268,49 +1268,51 @@ export default function ReportsPage() {
                     }
                 }
             `}</style>
-            
+
             {/* Debug panel removed */}
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 md:gap-4">
                 <div>
-                    <h1 className="text-4xl font-bold text-foreground mb-2 flex items-center gap-3 print:text-black">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20 print:bg-blue-600">
-                            <BarChart3 className="w-6 h-6 text-white" />
+                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground mb-2 flex items-center gap-2 md:gap-3 print:text-black">
+                        <div className="w-10 h-10 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20 print:bg-blue-600">
+                            <BarChart3 className="w-5 h-5 sm:w-5.5 sm:h-5.5 md:w-6 md:h-6 text-white" />
                         </div>
                         Báo cáo & Thống kê
                     </h1>
-                    <p className="text-muted-foreground print:text-gray-600">Tổng quan và phân tích dữ liệu hệ thống</p>
+                    <p className="text-sm md:text-base text-muted-foreground print:text-gray-600">Tổng quan và phân tích dữ liệu hệ thống</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-2 md:gap-3">
                     <button
                         onClick={handleRefresh}
                         disabled={loading}
-                        className="px-4 py-2 border border-border rounded-lg hover:bg-secondary transition-colors flex items-center gap-2 disabled:opacity-50"
+                        className="flex-1 sm:flex-none px-3 md:px-4 py-2.5 md:py-2 border border-border rounded-lg hover:bg-secondary transition-colors flex items-center justify-center gap-2 disabled:opacity-50 text-sm md:text-base"
                     >
                         <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-                        Làm mới
+                        <span className="hidden sm:inline">Làm mới</span>
                     </button>
                     <button
                         onClick={handleExportExcel}
-                        className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2 print:hidden"
+                        className="flex-1 sm:flex-none px-3 md:px-4 py-2.5 md:py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center justify-center gap-2 print:hidden text-sm md:text-base"
                     >
                         <Download className="w-4 h-4" />
-                        Xuất Excel
+                        <span className="hidden sm:inline">Xuất Excel</span>
+                        <span className="sm:hidden">Excel</span>
                     </button>
                     <button
                         onClick={handleExportPDF}
                         disabled={exportingPdf}
-                        className="px-4 py-2 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2 print:hidden disabled:opacity-50"
+                        className="flex-1 sm:flex-none px-3 md:px-4 py-2.5 md:py-2 bg-gradient-to-r from-red-500 to-pink-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center justify-center gap-2 print:hidden disabled:opacity-50 text-sm md:text-base"
                     >
                         {exportingPdf ? (
                             <>
                                 <RefreshCw className="w-4 h-4 animate-spin" />
-                                Đang xuất...
+                                <span className="hidden sm:inline">Đang xuất...</span>
                             </>
                         ) : (
                             <>
                                 <Download className="w-4 h-4" />
-                                Xuất PDF
+                                <span className="hidden sm:inline">Xuất PDF</span>
+                                <span className="sm:hidden">PDF</span>
                             </>
                         )}
                     </button>
@@ -1318,78 +1320,75 @@ export default function ReportsPage() {
             </div>
 
             {/* Filters */}
-            <div className="bg-card border border-border rounded-2xl p-6 shadow-sm print:hidden">
+            <div className="bg-card border border-border rounded-lg md:rounded-2xl p-4 md:p-6 shadow-sm print:hidden">
                 <form onSubmit={handleSubmitFilter}>
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 md:gap-3 mb-4">
                         <div className="flex items-center gap-2">
-                            <Filter className="w-5 h-5 text-muted-foreground" />
-                            <h2 className="text-lg font-semibold text-foreground">Bộ lọc</h2>
+                            <Filter className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
+                            <h2 className="text-base md:text-lg font-semibold text-foreground">Bộ lọc</h2>
                         </div>
                         {/* Preset Filters */}
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-1 md:gap-2">
                             <button
                                 type="button"
                                 onClick={() => applyPresetFilter('thisMonth')}
-                                className={`px-3 py-1 rounded-lg text-sm transition-colors ${
-                                    filters.preset === 'thisMonth' 
-                                        ? 'bg-blue-500 text-white' 
+                                className={`px-2 md:px-3 py-1 rounded-lg text-xs md:text-sm transition-colors ${filters.preset === 'thisMonth'
+                                        ? 'bg-blue-500 text-white'
                                         : 'bg-secondary hover:bg-secondary/80'
-                                }`}
+                                    }`}
                             >
                                 Tháng này
                             </button>
                             <button
                                 type="button"
                                 onClick={() => applyPresetFilter('thisQuarter')}
-                                className={`px-3 py-1 rounded-lg text-sm transition-colors ${
-                                    filters.preset === 'thisQuarter' 
-                                        ? 'bg-blue-500 text-white' 
+                                className={`px-2 md:px-3 py-1 rounded-lg text-xs md:text-sm transition-colors ${filters.preset === 'thisQuarter'
+                                        ? 'bg-blue-500 text-white'
                                         : 'bg-secondary hover:bg-secondary/80'
-                                }`}
+                                    }`}
                             >
                                 Quý này
                             </button>
                             <button
                                 type="button"
                                 onClick={() => applyPresetFilter('thisYear')}
-                                className={`px-3 py-1 rounded-lg text-sm transition-colors ${
-                                    filters.preset === 'thisYear' 
-                                        ? 'bg-blue-500 text-white' 
+                                className={`px-2 md:px-3 py-1 rounded-lg text-xs md:text-sm transition-colors ${filters.preset === 'thisYear'
+                                        ? 'bg-blue-500 text-white'
                                         : 'bg-secondary hover:bg-secondary/80'
-                                }`}
+                                    }`}
                             >
                                 Năm này
                             </button>
                         </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 md:gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-foreground mb-2">Từ ngày</label>
+                            <label className="block text-xs md:text-sm font-medium text-foreground mb-1.5 md:mb-2">Từ ngày</label>
                             <input
                                 type="date"
                                 name="startDate"
                                 value={filters.startDate}
                                 onChange={handleFilterChange}
-                                className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-3 py-2 border border-border rounded-lg text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-foreground mb-2">Đến ngày</label>
+                            <label className="block text-xs md:text-sm font-medium text-foreground mb-1.5 md:mb-2">Đến ngày</label>
                             <input
                                 type="date"
                                 name="endDate"
                                 value={filters.endDate}
                                 onChange={handleFilterChange}
-                                className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-3 py-2 border border-border rounded-lg text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-foreground mb-2">Dự án</label>
+                            <label className="block text-xs md:text-sm font-medium text-foreground mb-1.5 md:mb-2">Dự án</label>
                             <select
                                 name="projectId"
                                 value={filters.projectId}
                                 onChange={handleFilterChange}
-                                className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-3 py-2 border border-border rounded-lg text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                             >
                                 <option value="">Tất cả</option>
                                 {projects.map((project) => (
@@ -1400,12 +1399,12 @@ export default function ReportsPage() {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-foreground mb-2">Trạng thái</label>
+                            <label className="block text-xs md:text-sm font-medium text-foreground mb-1.5 md:mb-2">Trạng thái</label>
                             <select
                                 name="status"
                                 value={filters.status}
                                 onChange={handleFilterChange}
-                                className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-3 py-2 border border-border rounded-lg text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                             >
                                 <option value="">Tất cả</option>
                                 <option value="completed">Hoàn thành</option>
@@ -1414,12 +1413,12 @@ export default function ReportsPage() {
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-foreground mb-2">Nhân viên</label>
+                            <label className="block text-xs md:text-sm font-medium text-foreground mb-1.5 md:mb-2">Nhân viên</label>
                             <select
                                 name="userId"
                                 value={filters.userId}
                                 onChange={handleFilterChange}
-                                className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                className="w-full px-3 py-2 border border-border rounded-lg text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                             >
                                 <option value="">Tất cả</option>
                                 {users.map((user) => (
@@ -1430,17 +1429,17 @@ export default function ReportsPage() {
                             </select>
                         </div>
                     </div>
-                    <div className="flex gap-3 mt-6">
+                    <div className="flex flex-col sm:flex-row gap-2 md:gap-3 mt-4 md:mt-6">
                         <button
                             type="submit"
-                            className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold"
+                            className="flex-1 sm:flex-none px-4 py-2.5 md:py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold text-sm md:text-base"
                         >
                             Lọc
                         </button>
                         <button
                             type="button"
                             onClick={handleResetFilter}
-                            className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-semibold"
+                            className="flex-1 sm:flex-none px-4 py-2.5 md:py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-semibold text-sm md:text-base"
                         >
                             Hủy lọc
                         </button>
@@ -1449,7 +1448,7 @@ export default function ReportsPage() {
             </div>
 
             {/* Stats Cards - 8 cards in 4x2 grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 lg:gap-6">
                 {statCards.map((stat: any, index: number) => {
                     const Icon = stat.icon
                     // Large variant: render a wider, two-column style card
@@ -1457,24 +1456,24 @@ export default function ReportsPage() {
                         return (
                             <div
                                 key={index}
-                                className="relative group overflow-hidden bg-card border border-border rounded-2xl p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 shadow-sm lg:col-span-2"
+                                className="relative group overflow-hidden bg-card border border-border rounded-lg md:rounded-2xl p-4 md:p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 shadow-sm lg:col-span-2"
                             >
-                                <div className="flex items-start justify-between mb-4">
-                                    <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center shadow-md`}>
-                                        <Icon className="w-7 h-7 text-white" />
+                                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 md:gap-4 mb-3 md:mb-4">
+                                    <div className={`w-12 h-12 sm:w-13 sm:h-13 md:w-14 md:h-14 rounded-lg md:rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center shadow-md flex-shrink-0`}>
+                                        <Icon className="w-5 h-5 md:w-7 md:h-7 text-white" />
                                     </div>
-                                    <div className="flex items-center gap-1 text-[#0084CF] text-sm font-medium">
-                                        <TrendingUp size={16} />
+                                    <div className="flex items-center gap-1 text-[#0084CF] text-xs md:text-sm font-medium">
+                                        <TrendingUp size={14} className="md:w-4 md:h-4" />
                                         {stat.change}
                                     </div>
                                 </div>
 
-                                <div className="flex items-center justify-between gap-6">
+                                <div className="flex flex-col gap-2 md:gap-3">
                                     <div>
-                                        <p className="text-muted-foreground text-sm mb-1">{stat.title}</p>
-                                        <div className="text-4xl font-extrabold text-foreground">{stat.main ?? stat.value}</div>
+                                        <p className="text-muted-foreground text-xs md:text-sm mb-1">{stat.title}</p>
+                                        <div className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-foreground">{stat.main ?? stat.value}</div>
                                     </div>
-                                    <div className="ml-4">{stat.breakdown ?? stat.value}</div>
+                                    <div className="text-xs md:text-sm">{stat.breakdown ?? stat.value}</div>
                                 </div>
                             </div>
                         )
@@ -1484,22 +1483,22 @@ export default function ReportsPage() {
                     return (
                         <div
                             key={index}
-                            className="relative group overflow-hidden bg-card border border-border rounded-2xl p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 shadow-sm"
+                            className="relative group overflow-hidden bg-card border border-border rounded-lg md:rounded-2xl p-4 md:p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 shadow-sm"
                         >
-                            <div className="flex items-start justify-between mb-4">
+                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 md:gap-3 mb-3 md:mb-4">
                                 <div
-                                    className={`w-12 h-12 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center shadow-md shadow-[#003D82]/20`}
+                                    className={`w-11 h-11 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center shadow-md shadow-[#003D82]/20 flex-shrink-0`}
                                 >
-                                    <Icon className="w-6 h-6 text-white" />
+                                    <Icon className="w-5 h-5 md:w-6 md:h-6 text-white" />
                                 </div>
-                                <div className="flex items-center gap-1 text-[#0084CF] text-sm font-medium">
-                                    <TrendingUp size={16} />
+                                <div className="flex items-center gap-1 text-[#0084CF] text-xs md:text-sm font-medium">
+                                    <TrendingUp size={14} className="md:w-4 md:h-4" />
                                     {stat.change}
                                 </div>
                             </div>
                             <div>
-                                <p className="text-muted-foreground text-sm mb-1">{stat.title}</p>
-                                <div className="text-3xl font-bold text-foreground">{stat.value ?? stat.main}</div>
+                                <p className="text-muted-foreground text-xs md:text-sm mb-1">{stat.title}</p>
+                                <div className="text-2xl md:text-3xl font-bold text-foreground">{stat.value ?? stat.main}</div>
                             </div>
                         </div>
                     )
@@ -1507,80 +1506,81 @@ export default function ReportsPage() {
             </div>
 
             {/* Charts Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 lg:gap-6">
                 {/* Project Status - Pie Chart */}
-                <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-                    <div className="flex items-center gap-2 mb-6">
-                        <PieChart className="w-5 h-5 text-blue-500" />
-                        <h2 className="text-xl font-bold text-foreground">Trạng thái dự án</h2>
+                <div className="bg-card border border-border rounded-lg md:rounded-2xl p-4 md:p-6 shadow-sm">
+                    <div className="flex items-center gap-2 mb-4 md:mb-6">
+                        <PieChart className="w-4 h-4 md:w-5 md:h-5 text-blue-500" />
+                        <h2 className="text-base md:text-lg lg:text-xl font-bold text-foreground">Trạng thái dự án</h2>
                     </div>
-                        {(!chartData.projectStatus || chartData.projectStatus.reduce((s:any, i:any) => s + (i.value || 0), 0) === 0) ? (
-                            <EmptyState message="Không có dự án trong phạm vi lọc này" />
-                        ) : (
-                            <ResponsiveContainer width="100%" height={250}>
-                                <RechartsPie>
-                                    <Pie
-                                        data={chartData.projectStatus}
-                                        cx="50%"
-                                        cy="50%"
-                                        label={false}
-                                        labelLine={false}
-                                        outerRadius={80}
-                                        fill="#8884d8"
-                                        dataKey="value"
-                                    >
-                                        {chartData.projectStatus.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
-                                    </Pie>
-                                    <RechartsTooltip formatter={(value: any) => [value, 'Số dự án']} />
-                                </RechartsPie>
-                            </ResponsiveContainer>
-                        )}
-                    <div className="mt-4 space-y-2">
+                    {(!chartData.projectStatus || chartData.projectStatus.reduce((s: any, i: any) => s + (i.value || 0), 0) === 0) ? (
+                        <EmptyState message="Không có dự án trong phạm vi lọc này" />
+                    ) : (
+                        <ResponsiveContainer width="100%" height={220} className="text-xs md:text-sm">
+                            <RechartsPie>
+                                <Pie
+                                    data={chartData.projectStatus}
+                                    cx="50%"
+                                    cy="50%"
+                                    label={false}
+                                    labelLine={false}
+                                    outerRadius={70}
+                                    fill="#8884d8"
+                                    dataKey="value"
+                                >
+                                    {chartData.projectStatus.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                    ))}
+                                </Pie>
+                                <RechartsTooltip formatter={(value: any) => [value, 'Số dự án']} />
+                            </RechartsPie>
+                        </ResponsiveContainer>
+                    )}
+                    <div className="mt-3 md:mt-4 space-y-1.5 md:space-y-2">
                         {chartData.projectStatus.map((item: any, index: number) => (
                             <div key={index} className="flex items-center justify-between">
                                 <div className="flex items-center gap-2">
-                                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
-                                    <span className="text-sm text-muted-foreground">{item.name}</span>
+                                    <div className="w-2.5 h-2.5 md:w-3 md:h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
+                                    <span className="text-xs md:text-sm text-muted-foreground">{item.name}</span>
                                 </div>
-                                <span className="text-sm font-semibold text-foreground">{item.value}</span>
+                                <span className="text-xs md:text-sm font-semibold text-foreground">{item.value}</span>
                             </div>
                         ))}
                     </div>
                 </div>
 
                 {/* Task Progress - Area Chart */}
-                <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-                    <div className="flex items-center gap-2 mb-6">
-                        <LineChart className="w-5 h-5 text-green-500" />
-                        <h2 className="text-xl font-bold text-foreground">Xu hướng hoàn thành</h2>
+                <div className="bg-card border border-border rounded-lg md:rounded-2xl p-4 md:p-6 shadow-sm">
+                    <div className="flex items-center gap-2 mb-4 md:mb-6">
+                        <LineChart className="w-4 h-4 md:w-5 md:h-5 text-green-500" />
+                        <h2 className="text-base md:text-lg lg:text-xl font-bold text-foreground">Xu hướng hoàn thành</h2>
                     </div>
-                    <ResponsiveContainer width="100%" height={250}>
+                    <ResponsiveContainer width="100%" height={220} className="text-xs md:text-sm">
                         <AreaChart data={chartData.taskProgress}>
                             <defs>
                                 <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
-                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
                                 </linearGradient>
                                 <linearGradient id="colorOngoing" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                                 </linearGradient>
                                 <linearGradient id="colorOverdue" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.7}/>
-                                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.7} />
+                                    <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                                 </linearGradient>
                             </defs>
                             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                            <XAxis dataKey="month" stroke="#6b7280" fontSize={12} />
-                            <YAxis stroke="#6b7280" fontSize={12} />
-                            <RechartsTooltip 
-                                contentStyle={{ 
-                                    backgroundColor: '#fff', 
+                            <XAxis dataKey="month" stroke="#6b7280" fontSize={11} className="text-xs md:text-sm" />
+                            <YAxis stroke="#6b7280" fontSize={11} className="text-xs md:text-sm" />
+                            <RechartsTooltip
+                                contentStyle={{
+                                    backgroundColor: '#fff',
                                     border: '1px solid #e5e7eb',
-                                    borderRadius: '8px' 
-                                }} 
+                                    borderRadius: '8px',
+                                    fontSize: '12px'
+                                }}
                             />
                             <Area type="monotone" dataKey="completed" stroke="#10b981" fillOpacity={1} fill="url(#colorCompleted)" name="Hoàn thành" />
                             <Area type="monotone" dataKey="ongoing" stroke="#3b82f6" fillOpacity={1} fill="url(#colorOngoing)" name="Đang thực hiện" />
@@ -1591,22 +1591,23 @@ export default function ReportsPage() {
                 </div>
 
                 {/* User Performance - Bar Chart */}
-                <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-                    <div className="flex items-center gap-2 mb-6">
-                        <BarChart3 className="w-5 h-5 text-purple-500" />
-                        <h2 className="text-xl font-bold text-foreground">Top performers</h2>
+                <div className="bg-card border border-border rounded-lg md:rounded-2xl p-4 md:p-6 shadow-sm">
+                    <div className="flex items-center gap-2 mb-4 md:mb-6">
+                        <BarChart3 className="w-4 h-4 md:w-5 md:h-5 text-purple-500" />
+                        <h2 className="text-base md:text-lg lg:text-xl font-bold text-foreground">Top performers</h2>
                     </div>
-                    <ResponsiveContainer width="100%" height={250}>
+                    <ResponsiveContainer width="100%" height={220} className="text-xs md:text-sm">
                         <RechartsBar data={chartData.userPerformance}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                            <XAxis dataKey="name" stroke="#6b7280" fontSize={10} angle={-20} textAnchor="end" height={80} />
-                            <YAxis stroke="#6b7280" fontSize={12} />
-                            <RechartsTooltip 
-                                contentStyle={{ 
-                                    backgroundColor: '#fff', 
+                            <XAxis dataKey="name" stroke="#6b7280" fontSize={9} angle={-20} textAnchor="end" height={70} />
+                            <YAxis stroke="#6b7280" fontSize={11} />
+                            <RechartsTooltip
+                                contentStyle={{
+                                    backgroundColor: '#fff',
                                     border: '1px solid #e5e7eb',
-                                    borderRadius: '8px' 
-                                }} 
+                                    borderRadius: '8px',
+                                    fontSize: '12px'
+                                }}
                             />
                             <Legend />
                             <Bar dataKey="tasks" fill="#8b5cf6" radius={[8, 8, 0, 0]} name="Tasks hoàn thành" />
@@ -1615,23 +1616,23 @@ export default function ReportsPage() {
                 </div>
 
                 {/* Stacked chart: status breakdown per project */}
-                <div className="bg-card border border-border rounded-2xl p-6 shadow-sm lg:col-span-2">
-                    <div className="flex items-center gap-2 mb-6">
-                        <BarChart3 className="w-5 h-5 text-indigo-500" />
-                        <h2 className="text-xl font-bold text-foreground">Trạng thái theo dự án</h2>
+                <div className="bg-card border border-border rounded-lg md:rounded-2xl p-4 md:p-6 shadow-sm md:col-span-2 lg:col-span-2">
+                    <div className="flex items-center gap-2 mb-4 md:mb-6">
+                        <BarChart3 className="w-4 h-4 md:w-5 md:h-5 text-indigo-500" />
+                        <h2 className="text-base md:text-lg lg:text-xl font-bold text-foreground">Trạng thái theo dự án</h2>
                     </div>
                     {(!chartData.projectByStatus || chartData.projectByStatus.length === 0) ? (
                         <EmptyState message="Không có dự án hoặc không có tasks để hiển thị phân tích theo dự án." />
                     ) : (
-                        <ResponsiveContainer width="100%" height={420}>
-                            <RechartsBar data={chartData.projectByStatus} margin={{ top: 10, right: 20, left: 0, bottom: 120 }}>
+                        <ResponsiveContainer width="100%" height={320} className="text-xs md:text-sm">
+                            <RechartsBar data={chartData.projectByStatus} margin={{ top: 10, right: 20, left: 0, bottom: 100 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                <XAxis dataKey="project" stroke="#6b7280" fontSize={12} angle={-30} textAnchor="end" interval={0} height={110} />
-                                <YAxis stroke="#6b7280" fontSize={12} />
-                                <RechartsTooltip 
-                                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px' }}
+                                <XAxis dataKey="project" stroke="#6b7280" fontSize={10} angle={-30} textAnchor="end" interval={0} height={90} />
+                                <YAxis stroke="#6b7280" fontSize={11} />
+                                <RechartsTooltip
+                                    contentStyle={{ backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', fontSize: '12px' }}
                                 />
-                                <Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ width: 220 }} />
+                                <Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ width: 160 }} />
                                 <Bar dataKey="completed" stackId="a" fill="#10b981" name="Hoàn thành" />
                                 <Bar dataKey="ongoing" stackId="a" fill="#3b82f6" name="Đang thực hiện" />
                                 <Bar dataKey="pending" stackId="a" fill="#f59e0b" name="Chưa bắt đầu" />
@@ -1642,22 +1643,23 @@ export default function ReportsPage() {
 
                 {/* Worklog Hours - Bar Chart */}
                 {chartData.worklogHours && chartData.worklogHours.length > 0 && (
-                    <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-                        <div className="flex items-center gap-2 mb-6">
-                            <Clock className="w-5 h-5 text-teal-500" />
-                            <h2 className="text-xl font-bold text-foreground">Giờ làm việc theo nhân viên</h2>
+                    <div className="bg-card border border-border rounded-lg md:rounded-2xl p-4 md:p-6 shadow-sm md:col-span-2 lg:col-span-1">
+                        <div className="flex items-center gap-2 mb-4 md:mb-6">
+                            <Clock className="w-4 h-4 md:w-5 md:h-5 text-teal-500" />
+                            <h2 className="text-base md:text-lg lg:text-xl font-bold text-foreground">Giờ làm việc theo nhân viên</h2>
                         </div>
-                        <ResponsiveContainer width="100%" height={250}>
+                        <ResponsiveContainer width="100%" height={220} className="text-xs md:text-sm">
                             <RechartsBar data={chartData.worklogHours}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                <XAxis dataKey="name" stroke="#6b7280" fontSize={10} angle={-20} textAnchor="end" height={80} />
-                                <YAxis stroke="#6b7280" fontSize={12} />
-                                <RechartsTooltip 
-                                    contentStyle={{ 
-                                        backgroundColor: '#fff', 
+                                <XAxis dataKey="name" stroke="#6b7280" fontSize={9} angle={-20} textAnchor="end" height={70} />
+                                <YAxis stroke="#6b7280" fontSize={11} />
+                                <RechartsTooltip
+                                    contentStyle={{
+                                        backgroundColor: '#fff',
                                         border: '1px solid #e5e7eb',
-                                        borderRadius: '8px' 
-                                    }} 
+                                        borderRadius: '8px',
+                                        fontSize: '12px'
+                                    }}
                                 />
                                 <Legend />
                                 <Bar dataKey="hours" fill="#14b8a6" radius={[8, 8, 0, 0]} name="Giờ làm việc" />
@@ -1669,25 +1671,25 @@ export default function ReportsPage() {
 
             {/* Top Performers List */}
             {topPerformers.length > 0 && (
-                <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-                    <div className="flex items-center gap-2 mb-6">
-                        <Trophy className="w-5 h-5 text-yellow-500" />
-                        <h2 className="text-xl font-bold text-foreground">Top 5 nhân viên xuất sắc</h2>
+                <div className="bg-card border border-border rounded-lg md:rounded-2xl p-4 md:p-6 shadow-sm">
+                    <div className="flex items-center gap-2 mb-4 md:mb-6">
+                        <Trophy className="w-4 h-4 md:w-5 md:h-5 text-yellow-500" />
+                        <h2 className="text-base md:text-lg lg:text-xl font-bold text-foreground">Top 5 nhân viên xuất sắc</h2>
                     </div>
-                    <div className="space-y-4">
+                    <div className="space-y-2 md:space-y-3">
                         {topPerformers.map((user, index) => (
-                            <div key={index} className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg hover:bg-secondary transition-colors">
-                                <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-white font-bold text-lg">
+                            <div key={index} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 md:p-4 bg-secondary/50 rounded-lg hover:bg-secondary transition-colors gap-2 sm:gap-4">
+                                <div className="flex items-center gap-3 md:gap-4">
+                                    <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-white font-bold text-sm md:text-lg flex-shrink-0">
                                         #{index + 1}
                                     </div>
                                     <div>
-                                        <p className="font-semibold text-foreground">{user.name}</p>
-                                        <p className="text-sm text-muted-foreground">{user.tasks} tasks hoàn thành</p>
+                                        <p className="font-semibold text-foreground text-sm md:text-base">{user.name}</p>
+                                        <p className="text-xs md:text-sm text-muted-foreground">{user.tasks} tasks hoàn thành</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <Trophy className={`w-5 h-5 ${index === 0 ? 'text-yellow-500' : index === 1 ? 'text-gray-400' : 'text-orange-600'}`} />
+                                    <Trophy className={`w-4 h-4 md:w-5 md:h-5 ${index === 0 ? 'text-yellow-500' : index === 1 ? 'text-gray-400' : 'text-orange-600'}`} />
                                 </div>
                             </div>
                         ))}
@@ -1696,67 +1698,67 @@ export default function ReportsPage() {
             )}
 
             {/* Data Table */}
-            <div className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-bold text-foreground">Chi tiết dự án</h2>
-                    <div className="flex items-center gap-4">
-                        <div className="relative">
+            <div className="bg-card border border-border rounded-lg md:rounded-2xl p-4 md:p-6 shadow-sm overflow-x-auto">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 md:gap-4 mb-4 md:mb-6">
+                    <h2 className="text-base md:text-lg lg:text-xl font-bold text-foreground">Chi tiết dự án</h2>
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 md:gap-3">
+                        <div className="relative flex-1 sm:flex-none">
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                             <input
                                 type="text"
-                                placeholder="Tìm kiếm dự án..."
+                                placeholder="Tìm kiếm..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent w-64"
+                                className="w-full sm:w-64 pl-10 pr-3 md:pr-4 py-2 border border-border rounded-lg text-xs md:text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             />
                         </div>
                     </div>
                 </div>
 
                 {/* Table */}
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto -mx-4 md:-mx-6">
                     <table className="w-full">
                         <thead className="bg-secondary">
                             <tr>
-                                <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                                    <button 
+                                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-xs md:text-sm font-semibold text-foreground">
+                                    <button
                                         onClick={() => handleSort('project')}
                                         className="flex items-center gap-1 hover:text-blue-500"
                                     >
                                         Dự án
-                                        <ArrowUpDown className="w-4 h-4" />
+                                        <ArrowUpDown className="w-3 h-3 md:w-4 md:h-4" />
                                     </button>
                                 </th>
-                                <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                                    <button 
+                                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-xs md:text-sm font-semibold text-foreground">
+                                    <button
                                         onClick={() => handleSort('tasks')}
                                         className="flex items-center gap-1 hover:text-blue-500"
                                     >
                                         Tổng Tasks
-                                        <ArrowUpDown className="w-4 h-4" />
+                                        <ArrowUpDown className="w-3 h-3 md:w-4 md:h-4" />
                                     </button>
                                 </th>
-                                <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                                    <button 
+                                <th className="hidden sm:table-cell px-3 md:px-4 py-2 md:py-3 text-left text-xs md:text-sm font-semibold text-foreground">
+                                    <button
                                         onClick={() => handleSort('completed')}
                                         className="flex items-center gap-1 hover:text-blue-500"
                                     >
                                         Hoàn thành
-                                        <ArrowUpDown className="w-4 h-4" />
+                                        <ArrowUpDown className="w-3 h-3 md:w-4 md:h-4" />
                                     </button>
                                 </th>
-                                <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">
-                                    <button 
+                                <th className="hidden lg:table-cell px-3 md:px-4 py-2 md:py-3 text-left text-xs md:text-sm font-semibold text-foreground">
+                                    <button
                                         onClick={() => handleSort('progress')}
                                         className="flex items-center gap-1 hover:text-blue-500"
                                     >
                                         Tiến độ
-                                        <ArrowUpDown className="w-4 h-4" />
+                                        <ArrowUpDown className="w-3 h-3 md:w-4 md:h-4" />
                                     </button>
                                 </th>
-                                <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Deadline</th>
-                                <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Trạng thái</th>
-                                <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Quản lý</th>
+                                <th className="hidden md:table-cell px-3 md:px-4 py-2 md:py-3 text-left text-xs md:text-sm font-semibold text-foreground">Deadline</th>
+                                <th className="px-3 md:px-4 py-2 md:py-3 text-left text-xs md:text-sm font-semibold text-foreground">Trạng thái</th>
+                                <th className="hidden lg:table-cell px-3 md:px-4 py-2 md:py-3 text-left text-xs md:text-sm font-semibold text-foreground">Quản lý</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1769,27 +1771,27 @@ export default function ReportsPage() {
                             ) : (
                                 currentItems.map((row, index) => (
                                     <tr key={row.id} className={`border-b border-border hover:bg-secondary/50 transition-colors ${index % 2 === 0 ? 'bg-background' : 'bg-secondary/20'}`}>
-                                        <td className="px-4 py-3 text-sm font-medium text-foreground">{row.project}</td>
-                                        <td className="px-4 py-3 text-sm text-muted-foreground">{row.tasks}</td>
-                                        <td className="px-4 py-3 text-sm text-muted-foreground">{row.completed}</td>
-                                        <td className="px-4 py-3">
+                                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm font-medium text-foreground">{row.project}</td>
+                                        <td className="px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-muted-foreground">{row.tasks}</td>
+                                        <td className="hidden sm:table-cell px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-muted-foreground">{row.completed}</td>
+                                        <td className="hidden lg:table-cell px-3 md:px-4 py-2 md:py-3">
                                             <div className="flex items-center gap-2">
-                                                <div className="flex-1 bg-secondary rounded-full h-2 max-w-[100px]">
+                                                <div className="flex-1 bg-secondary rounded-full h-2 max-w-[80px]">
                                                     <div
                                                         className={`${getProgressColor(row.progress)} h-2 rounded-full transition-all`}
                                                         style={{ width: `${row.progress}%` }}
                                                     ></div>
                                                 </div>
-                                                <span className="text-sm font-semibold text-foreground min-w-[40px]">{row.progress}%</span>
+                                                <span className="text-xs md:text-sm font-semibold text-foreground min-w-[35px]">{row.progress}%</span>
                                             </div>
                                         </td>
-                                        <td className="px-4 py-3 text-sm text-muted-foreground">{row.deadline}</td>
-                                        <td className="px-4 py-3">
-                                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(row.status)}`}>
+                                        <td className="hidden md:table-cell px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-muted-foreground">{row.deadline}</td>
+                                        <td className="px-3 md:px-4 py-2 md:py-3">
+                                            <span className={`px-2 md:px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(row.status)}`}>
                                                 {getStatusLabel(row.status)}
                                             </span>
                                         </td>
-                                        <td className="px-4 py-3 text-sm text-muted-foreground">{row.manager}</td>
+                                        <td className="hidden lg:table-cell px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm text-muted-foreground">{row.manager}</td>
                                     </tr>
                                 ))
                             )}
@@ -1798,25 +1800,25 @@ export default function ReportsPage() {
                 </div>
 
                 {/* Pagination */}
-                <div className="flex items-center justify-between mt-6">
-                    <p className="text-sm text-muted-foreground">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 md:gap-4 mt-4 md:mt-6">
+                    <p className="text-xs md:text-sm text-muted-foreground">
                         Hiển thị {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredAndSortedData.length)} trong tổng {filteredAndSortedData.length} dự án
                     </p>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 justify-center sm:justify-end">
                         <button
                             onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                             disabled={currentPage === 1}
-                            className="px-3 py-2 border border-border rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="p-1 md:p-2 border border-border rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <ChevronLeft className="w-4 h-4" />
                         </button>
-                        <span className="text-sm text-muted-foreground">
+                        <span className="text-xs md:text-sm text-muted-foreground px-2">
                             Trang {currentPage} / {totalPages}
                         </span>
                         <button
                             onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                             disabled={currentPage === totalPages}
-                            className="px-3 py-2 border border-border rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="p-1 md:p-2 border border-border rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             <ChevronRight className="w-4 h-4" />
                         </button>
