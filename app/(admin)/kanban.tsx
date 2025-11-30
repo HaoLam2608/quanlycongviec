@@ -5,15 +5,15 @@ import {
     ActivityIndicator,
     Alert,
     FlatList,
+    Modal,
     RefreshControl,
     SafeAreaView,
     ScrollView,
     StyleSheet,
     Text,
-	TouchableOpacity,
-	View,
-	Modal,
-	TextInput
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { PageHeader } from '../../components/ui/PageHeader';
 

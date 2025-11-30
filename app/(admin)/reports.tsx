@@ -19,6 +19,7 @@ import {
     View,
 } from 'react-native';
 import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
+import { getWorklogs } from '../../src/axios/api';
 import api from '../../src/axios/config';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -36,15 +37,20 @@ interface ReportStats {
     overdueTasks: number;
     totalUsers: number;
     activeUsers: number;
+    usersWithNoTasks: number;
+    avgTasksPerUser: number;
+    avgTasksPerActiveUser: number;
     completionRate: number;
+    avgCompletionDays: number;
+    onTimeCompletionRate: number;
     totalGroups: number;
     activeGroups: number;
-    totalDocuments: number;
-    documentsPerProject: number;
     totalSubtasks: number;
     completedSubtasks: number;
     ongoingSubtasks: number;
     pendingSubtasks: number;
+    totalDocuments: number;
+    documentsPerProject: number;
     totalHoursLogged: number;
     avgHoursPerUser: number;
 }
@@ -83,16 +89,21 @@ export default function SystemReports() {
         pendingTasks: 0,
         overdueTasks: 0,
         totalUsers: 0,
-        activeUsers: 0,
+    activeUsers: 0,
+    usersWithNoTasks: 0,
+    avgTasksPerUser: 0,
+    avgTasksPerActiveUser: 0,
         completionRate: 0,
+    avgCompletionDays: 0,
+    onTimeCompletionRate: 0,
         totalGroups: 0,
         activeGroups: 0,
-        totalDocuments: 0,
-        documentsPerProject: 0,
         totalSubtasks: 0,
         completedSubtasks: 0,
         ongoingSubtasks: 0,
         pendingSubtasks: 0,
+        totalDocuments: 0,
+        documentsPerProject: 0,
         totalHoursLogged: 0,
         avgHoursPerUser: 0,
     });
@@ -103,6 +114,7 @@ export default function SystemReports() {
     const [documents, setDocuments] = useState<any[]>([]);
     const [detailedReports, setDetailedReports] = useState<DetailedReport[]>([]);
     const [topPerformers, setTopPerformers] = useState<TopPerformer[]>([]);
+    const [usersStats, setUsersStats] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
     
@@ -172,36 +184,31 @@ export default function SystemReports() {
             const groupsList = Array.isArray(groupsRes.data) ? groupsRes.data : (groupsRes.data?.groups || []);
             const documentsList = Array.isArray(documentsRes.data) ? documentsRes.data : (documentsRes.data?.documents || []);
 
-            // Filter projects by date range
+            // Filter projects by date range (include ongoing projects that started before endFilter)
             const filteredProjects = projectsList.filter((p: any) => {
-                // If no dates on project, include it
-                if (!p.ngayBatDau && !p.ngayKetThuc && !p.createdAt) return true;
-                
-                // Check ngayBatDau (start date)
-                if (p.ngayBatDau) {
-                    const projectStart = new Date(p.ngayBatDau);
-                    if (projectStart >= startFilter && projectStart <= endFilter) return true;
+                const start = p.ngayBatDau || p.createdAt || null;
+                const end = p.ngayKetThuc || null;
+
+                if (!start && !end) return true;
+
+                const startDateProj = start ? new Date(start) : null;
+                const endDateProj = end ? new Date(end) : null;
+
+                // If we have both start and end, include when it overlaps the filter range
+                if (startDateProj && endDateProj) {
+                    return startDateProj <= endFilter && endDateProj >= startFilter;
                 }
-                
-                // Check ngayKetThuc (end date)
-                if (p.ngayKetThuc) {
-                    const projectEnd = new Date(p.ngayKetThuc);
-                    if (projectEnd >= startFilter && projectEnd <= endFilter) return true;
+
+                // If only start date exists (ongoing), include if it started on or before the filter end
+                if (startDateProj && !endDateProj) {
+                    return startDateProj <= endFilter;
                 }
-                
-                // Check createdAt
-                if (p.createdAt) {
-                    const createdDate = new Date(p.createdAt);
-                    if (createdDate >= startFilter && createdDate <= endFilter) return true;
+
+                // If only end date exists, include if it ends on or after the filter start
+                if (!startDateProj && endDateProj) {
+                    return endDateProj >= startFilter;
                 }
-                
-                // Also include if project spans across the filter range
-                if (p.ngayBatDau && p.ngayKetThuc) {
-                    const projectStart = new Date(p.ngayBatDau);
-                    const projectEnd = new Date(p.ngayKetThuc);
-                    if (projectStart <= endFilter && projectEnd >= startFilter) return true;
-                }
-                
+
                 return false;
             });
 
@@ -217,39 +224,31 @@ export default function SystemReports() {
                     const tasksRes = await api.get(`/tasks/project/${project.id}`);
                     const projectTasks = tasksRes.data?.tasks || tasksRes.data || [];
                     
-                    // Filter tasks by date
+                    // Filter tasks by date range (include ongoing tasks that started before endFilter)
                     const filteredTasks = projectTasks.filter((t: any) => {
-                        // If no dates on task, include it
-                        if (!t.ngayBatDau && !t.ngayKetThuc && !t.createdAt) return true;
-                        
-                        // Check ngayBatDau (start date)
-                        if (t.ngayBatDau) {
-                            const taskStart = new Date(t.ngayBatDau);
-                            if (taskStart >= startFilter && taskStart <= endFilter) return true;
+                        const start = t.ngayBatDau || t.createdAt || null;
+                        const end = t.ngayKetThuc || null;
+
+                        if (!start && !end) return true;
+
+                        const startDateTask = start ? new Date(start) : null;
+                        const endDateTask = end ? new Date(end) : null;
+
+                        if (startDateTask && endDateTask) {
+                            return startDateTask <= endFilter && endDateTask >= startFilter;
                         }
-                        
-                        // Check ngayKetThuc (end date)
-                        if (t.ngayKetThuc) {
-                            const taskEnd = new Date(t.ngayKetThuc);
-                            if (taskEnd >= startFilter && taskEnd <= endFilter) return true;
+
+                        if (startDateTask && !endDateTask) {
+                            return startDateTask <= endFilter;
                         }
-                        
-                        // Check createdAt
-                        if (t.createdAt) {
-                            const createdDate = new Date(t.createdAt);
-                            if (createdDate >= startFilter && createdDate <= endFilter) return true;
+
+                        if (!startDateTask && endDateTask) {
+                            return endDateTask >= startFilter;
                         }
-                        
-                        // Also include if task spans across the filter range
-                        if (t.ngayBatDau && t.ngayKetThuc) {
-                            const taskStart = new Date(t.ngayBatDau);
-                            const taskEnd = new Date(t.ngayKetThuc);
-                            if (taskStart <= endFilter && taskEnd >= startFilter) return true;
-                        }
-                        
+
                         return false;
                     });
-                    
+
                     allTasks.push(...filteredTasks);
                 } catch (err) {
                     // Skip if project has no tasks
@@ -257,20 +256,93 @@ export default function SystemReports() {
             }
             setTasks(allTasks);
 
+            // Fetch worklogs for the filtered tasks to compute total hours
+            let worklogsList: any[] = [];
+            try {
+                const taskIds = Array.from(new Set(allTasks.map(t => t.id).filter(Boolean)));
+                // Fetch worklogs per taskId to satisfy API requirement (taskId or subtaskId required)
+                for (const tid of taskIds) {
+                    try {
+                        const res = await getWorklogs({ taskId: tid });
+                        const arr = Array.isArray(res) ? res : (res.worklogs || res.data || []);
+                        if (Array.isArray(arr)) worklogsList.push(...arr);
+                    } catch (e) {
+                        // ignore single-task errors
+                    }
+                }
+            } catch (err) {
+                // ignore if worklogs endpoint unavailable
+                worklogsList = [];
+            }
+            
+            // Calculate total hours logged for tasks in the filtered range
+            const taskIdsSet = new Set(allTasks.map(t => String(t.id)));
+            const totalHoursLogged = worklogsList.reduce((sum: number, w: any) => {
+                const tid = String(w.taskId || w.taskID || w.task || w.taskId);
+                if (!taskIdsSet.has(tid)) return sum;
+                return sum + (parseFloat(w.hours) || 0);
+            }, 0);
+
+
             // Calculate stats from filtered data
             const totalProjects = filteredProjects.length;
-            const completedProjects = filteredProjects.filter((p: any) => {
-                const s = (p.status || p.trangthai || '').toString().toLowerCase();
-                return s === 'da_hoan_thanh' || s === 'completed';
-            }).length;
-            const ongoingProjects = filteredProjects.filter((p: any) => {
-                const s = (p.status || p.trangthai || '').toString().toLowerCase();
-                return s === 'dang_chay' || s === 'dang_thuc_hien' || s === 'inprogress';
-            }).length;
-            const pendingProjects = filteredProjects.filter((p: any) => {
-                const s = (p.status || p.trangthai || '').toString().toLowerCase();
-                return s === 'chua_bat_dau' || s === 'pending';
-            }).length;
+
+            // Robust project status classification: match Vietnamese and English keywords,
+            // handle common variants and use dates as fallback when status text is ambiguous.
+            const normalizeStr = (v: any) => (v || '').toString().toLowerCase();
+            const hasAny = (s: string, keys: string[]) => keys.some(k => s.includes(k));
+
+            const completedKeys = ['hoàn', 'hoan', 'complete', 'completed', 'done', 'da_hoan', 'đã hoàn', 'hoan_thanh', 'da_hoan_thanh', "Hoàn Thành"];
+            const ongoingKeys = ['đang', 'dang', 'inprogress', 'in progress', 'running', 'doing', 'dang_chay', 'dang_thuc_hien', 'in_progress', "Đang chạy"];
+            const pendingKeys = ['chưa', 'chua', 'pending', 'not started', 'chua_bat_dau', 'not_started', 'chuabatdau', 'chua bat dau', "Chưa bắt đầu"];
+
+            let completedProjects = 0;
+            let ongoingProjects = 0;
+            let pendingProjects = 0;
+
+            for (const p of filteredProjects) {
+                const raw = p.status || p.trangthai || p.trangThai || p.tinhtrang || '';
+                const s = normalizeStr(raw);
+
+                if (hasAny(s, completedKeys)) {
+                    completedProjects += 1;
+                    continue;
+                }
+
+                if (hasAny(s, ongoingKeys)) {
+                    ongoingProjects += 1;
+                    continue;
+                }
+
+                if (hasAny(s, pendingKeys)) {
+                    pendingProjects += 1;
+                    continue;
+                }
+
+                // Fallback: infer from dates
+                const start = p.ngayBatDau || p.createdAt || null;
+                const end = p.ngayKetThuc || null;
+                if (start && !end) {
+                    // started but no end -> likely ongoing
+                    ongoingProjects += 1;
+                } else if (!start && end) {
+                    // only end set -> if end in future, consider pending, else completed
+                    try {
+                        const endDate = new Date(end);
+                        if (!isNaN(endDate.getTime())) {
+                            if (endDate.getTime() >= Date.now()) pendingProjects += 1;
+                            else completedProjects += 1;
+                        } else {
+                            pendingProjects += 1;
+                        }
+                    } catch (e) {
+                        pendingProjects += 1;
+                    }
+                } else {
+                    // default to pending when unclear
+                    pendingProjects += 1;
+                }
+            }
 
             const totalTasks = allTasks.length;
             const completedTasks = allTasks.filter((t: any) => {
@@ -281,6 +353,31 @@ export default function SystemReports() {
                 const s = (t.trangthai || t.trangThai || t.status || '').toString();
                 return s === 'Đang chạy' || s === 'dang_chay' || s === 'inprogress';
             }).length;
+
+            // Collect subtasks from tasks and compute their stats
+            let allSubtasks: any[] = [];
+            allTasks.forEach(task => {
+                if (Array.isArray(task.subtasks)) {
+                    // ensure subtask has dates normalized like tasks
+                    allSubtasks.push(...task.subtasks);
+                }
+            });
+
+            const totalSubtasks = allSubtasks.length;
+            const completedSubtasks = allSubtasks.filter((st: any) => {
+                const s = (st.trangthai || st.trangThai || st.status || '').toString();
+                return s === 'Hoàn thành' || s === 'hoan_thanh' || s === 'completed';
+            }).length;
+            const ongoingSubtasks = allSubtasks.filter((st: any) => {
+                const s = (st.trangthai || st.trangThai || st.status || '').toString();
+                return s === 'Đang chạy' || s === 'dang_chay' || s === 'inprogress';
+            }).length;
+            const pendingSubtasks = totalSubtasks - completedSubtasks - ongoingSubtasks;
+
+            // Combine tasks + subtasks for inclusive statistics
+            const totalItems = totalTasks + totalSubtasks;
+            const completedItems = completedTasks + completedSubtasks;
+            const ongoingItems = ongoingTasks + ongoingSubtasks;
 
             const now = new Date();
             const overdueTasks = allTasks.filter((t: any) => {
@@ -294,49 +391,64 @@ export default function SystemReports() {
             const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
             const activeGroups = groupsList.filter((g: any) => g.status === 'active').length;
 
-            // Calculate subtasks statistics
-            let allSubtasks: any[] = [];
-            allTasks.forEach(task => {
-                if (Array.isArray(task.subtasks)) {
-                    allSubtasks.push(...task.subtasks);
-                }
-            });
-            
-            const totalSubtasks = allSubtasks.length;
-            const completedSubtasks = allSubtasks.filter((st: any) => {
-                const s = (st.trangthai || st.trangThai || st.status || '').toString();
-                return s === 'Hoàn thành' || s === 'hoan_thanh' || s === 'completed';
-            }).length;
-            const ongoingSubtasks = allSubtasks.filter((st: any) => {
-                const s = (st.trangthai || st.trangThai || st.status || '').toString();
-                return s === 'Đang chạy' || s === 'dang_chay' || s === 'inprogress';
-            }).length;
-            const pendingSubtasks = allSubtasks.filter((st: any) => {
-                const s = (st.trangthai || st.trangThai || st.status || '').toString();
-                return s === 'Chưa bắt đầu' || s === 'chua_bat_dau' || s === 'pending';
-            }).length;
-
             const pendingTasks = totalTasks - completedTasks - ongoingTasks;
             const documentsPerProject = totalProjects > 0 ? Math.round(documentsList.length / totalProjects) : 0;
 
-            // Calculate top performers
-            const userTaskCounts = usersList.map((user: any) => {
-                const userCompletedTasks = allTasks.filter((t: any) => {
-                    const userId = t.nguoiDuocGiaoId || t.nguoiThucHienId || t.userId;
-                    const s = (t.trangthai || t.trangThai || t.status || '').toString();
-                    const isCompleted = s === 'Hoàn thành' || s === 'hoan_thanh' || s === 'completed';
-                    return String(userId) === String(user.id) && isCompleted;
-                }).length;
+            // Calculate user-task mappings and top performers
+            const userTaskMap = new Map<string, { total: number; completed: number }>();
+            allTasks.forEach((t: any) => {
+                const uid = String(t.nguoiDuocGiaoId || t.nguoiThucHienId || t.userId || '');
+                if (!uid) return;
+                const entry = userTaskMap.get(uid) || { total: 0, completed: 0 };
+                entry.total += 1;
+                const s = (t.trangthai || t.trangThai || t.status || '').toString();
+                const isCompleted = s === 'Hoàn thành' || s === 'hoan_thanh' || s === 'completed';
+                if (isCompleted) entry.completed += 1;
+                userTaskMap.set(uid, entry);
+            });
+
+            const fullUserStats = usersList.map((user: any) => {
+                const uid = String(user.id);
+                const entry = userTaskMap.get(uid) || { total: 0, completed: 0 };
                 return {
+                    id: uid,
                     name: user.hoten || user.name || user.manv || `User ${user.id}`,
-                    tasks: userCompletedTasks,
+                    completed: entry.completed,
+                    totalTasks: entry.total,
                     avatar: user.avatar,
+                    completionRate: entry.total > 0 ? Math.round((entry.completed / entry.total) * 100) : 0,
                 };
-            }).sort((a: TopPerformer, b: TopPerformer) => b.tasks - a.tasks).slice(0, 5);
-            
-            setTopPerformers(userTaskCounts);
+            }).sort((a: any, b: any) => b.completed - a.completed);
+
+            setUsersStats(fullUserStats);
+            setTopPerformers(fullUserStats.slice(0, 5));
+
+            const activeUsersCount = Array.from(userTaskMap.keys()).filter(k => usersList.find((u: any) => String(u.id) === k)).length;
+            const usersWithNoTasks = usersList.length - activeUsersCount;
+            // Use totalItems (tasks + subtasks) for averages and show one decimal place
+            const avgTasksPerUser = usersList.length > 0 ? parseFloat((totalItems / usersList.length).toFixed(1)) : 0;
+            const avgTasksPerActiveUser = activeUsersCount > 0 ? parseFloat((totalItems / activeUsersCount).toFixed(1)) : 0;
 
             // Update chart data
+            // Build monthly trend for last 6 months based on completed tasks' completion date (ngayHoanThanh)
+            const months: { label: string; year: number; month: number }[] = [];
+            const monthFormatter = new Intl.DateTimeFormat('vi-VN', { month: 'short' });
+            for (let i = 5; i >= 0; i--) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                months.push({ label: monthFormatter.format(d), year: d.getFullYear(), month: d.getMonth() + 1 });
+            }
+
+            const monthlyCounts = months.map(m => {
+                const count = allTasks.filter((t: any) => {
+                    // Use ngayHoanThanh as completion date, fallback to updatedAt/createdAt
+                    const comp = t.ngayHoanThanh || t.ngayhoanthanh || t.completedAt || t.updatedAt || t.createdAt || null;
+                    if (!comp) return false;
+                    const cd = new Date(comp);
+                    return cd.getFullYear() === m.year && (cd.getMonth() + 1) === m.month && ((t.trangthai || t.trangThai || t.status || '').toString().toLowerCase().includes('hoàn') || (t.trangthai || t.trangThai || t.status || '').toString().toLowerCase().includes('complete') );
+                }).length;
+                return count;
+            });
+
             setChartData(prev => ({
                 ...prev,
                 projectStatus: [
@@ -345,45 +457,103 @@ export default function SystemReports() {
                     { name: 'Chưa bắt đầu', population: pendingProjects, color: '#f59e0b', legendFontColor: '#374151', legendFontSize: 12 },
                 ],
                 monthlyTrend: {
-                    labels: ['T1', 'T2', 'T3', 'T4', 'T5', 'T6'],
+                    labels: months.map(m => m.label),
                     datasets: [{
-                        data: [20, 25, 30, 28, 35, completedTasks > 0 ? completedTasks : 1],
+                        data: monthlyCounts,
                         color: (opacity = 1) => `rgba(16, 185, 129, ${opacity})`,
                         strokeWidth: 2,
                     }],
                     legend: ['Công việc hoàn thành'],
                 },
                 userPerformance: {
-                    labels: userTaskCounts.map((u: TopPerformer) => u.name.substring(0, 10)),
+                    labels: fullUserStats.slice(0, 5).map((u: any) => (u.name || '').substring(0, 10)),
                     datasets: [{
-                        data: userTaskCounts.map((u: TopPerformer) => u.tasks > 0 ? u.tasks : 1),
+                        data: fullUserStats.slice(0, 5).map((u: any) => u.completed > 0 ? u.completed : 0),
                     }],
                 },
             }));
+
+            const avgHoursPerUser = usersList.length > 0 ? Math.round(totalHoursLogged / usersList.length) : 0;
+
+            // Compute average completion time (days) and on-time completion rate across completed tasks+subtasks
+            const completedItemsList: any[] = [];
+            // tasks
+            allTasks.forEach((t: any) => {
+                const s = (t.trangthai || t.trangThai || t.status || '').toString();
+                const isCompleted = s === 'Hoàn thành' || s === 'hoan_thanh' || s === 'completed';
+                if (isCompleted) {
+                    completedItemsList.push({
+                        start: t.ngayBatDau || t.createdAt || null,
+                        completedAt: t.ngayHoanThanh || t.ngayhoanthanh || t.completedAt || t.updatedAt || t.createdAt || null,
+                        deadline: t.ngayKetThuc || t.ngayketthuc || t.deadline || null,
+                    });
+                }
+            });
+            // subtasks
+            allSubtasks.forEach((st: any) => {
+                const s = (st.trangthai || st.trangThai || st.status || '').toString();
+                const isCompleted = s === 'Hoàn thành' || s === 'hoan_thanh' || s === 'completed';
+                if (isCompleted) {
+                    completedItemsList.push({
+                        start: st.ngayBatDau || st.createdAt || null,
+                        completedAt: st.ngayHoanThanh || st.ngayhoanthanh || st.completedAt || st.updatedAt || st.createdAt || null,
+                        deadline: st.ngayKetThuc || st.ngayketthuc || st.deadline || null,
+                    });
+                }
+            });
+
+            let totalCompletionDays = 0;
+            let completionCount = 0;
+            let onTimeCount = 0;
+            completedItemsList.forEach(it => {
+                if (it.completedAt) {
+                    const start = it.start ? new Date(it.start) : null;
+                    const end = new Date(it.completedAt);
+                    if (start) {
+                        const days = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+                        totalCompletionDays += days;
+                        completionCount += 1;
+                    }
+                    if (it.deadline) {
+                        const dl = new Date(it.deadline);
+                        if (end.getTime() <= dl.getTime()) onTimeCount += 1;
+                    } else {
+                        // if no deadline, don't count in onTime metric
+                    }
+                }
+            });
+
+            const avgCompletionDays = completionCount > 0 ? Math.round((totalCompletionDays / completionCount) * 10) / 10 : 0;
+            const onTimeCompletionRate = completionCount > 0 ? Math.round((onTimeCount / completionCount) * 100) : 0;
 
             setStats({
                 totalProjects,
                 completedProjects,
                 ongoingProjects,
                 pendingProjects,
-                totalTasks,
-                completedTasks,
-                ongoingTasks,
+                totalTasks: totalItems,
+                completedTasks: completedItems,
+                ongoingTasks: ongoingItems,
                 pendingTasks,
                 overdueTasks,
                 totalUsers: usersList.length,
-                activeUsers: usersList.length,
+                activeUsers: activeUsersCount,
+                usersWithNoTasks,
+                avgTasksPerUser,
+                avgTasksPerActiveUser,
                 completionRate,
                 totalGroups: groupsList.length,
                 activeGroups,
-                totalDocuments: documentsList.length,
-                documentsPerProject,
                 totalSubtasks,
                 completedSubtasks,
                 ongoingSubtasks,
                 pendingSubtasks,
-                totalHoursLogged: 0, // Can be calculated from worklogs if API available
-                avgHoursPerUser: 0,
+                totalDocuments: documentsList.length,
+                documentsPerProject,
+                totalHoursLogged: Math.round(totalHoursLogged),
+                avgHoursPerUser,
+                avgCompletionDays,
+                onTimeCompletionRate,
             });
         } catch (error) {
             console.error('Error loading report stats:', error);
@@ -468,8 +638,8 @@ export default function SystemReports() {
                 `\n\nTHỐNG KÊ TỔNG QUAN\n` +
                 `Tổng dự án,${stats.totalProjects}\n` +
                 `Dự án hoàn thành,${stats.completedProjects}\n` +
-                `Tổng tasks,${stats.totalTasks}\n` +
-                `Tasks hoàn thành,${stats.completedTasks}\n` +
+                `Tổng tasks (bao gồm subtasks),${stats.totalTasks}\n` +
+                `Tasks hoàn thành (bao gồm subtasks),${stats.completedTasks}\n` +
                 `Tỷ lệ hoàn thành,${stats.completionRate}%\n` +
                 `Tasks quá hạn,${stats.overdueTasks}\n` +
                 `Tổng subtasks,${stats.totalSubtasks}\n` +
@@ -727,8 +897,8 @@ export default function SystemReports() {
     );
 
     const ProgressBar = ({ label, value, max, color }: any) => {
-        const percentage = (value / max) * 100;
-        
+        const percentage = max > 0 ? (value / max) * 100 : 0;
+
         return (
             <View style={styles.progressContainer}>
                 <View style={styles.progressHeader}>
@@ -748,51 +918,50 @@ export default function SystemReports() {
         );
     };
 
-    return (
-        <SafeAreaView style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-                <View style={styles.headerLeft}>
-                    <Text style={styles.title}>Báo cáo hệ thống</Text>
-                    <Text style={styles.subtitle}>
-                        {formatDate(startDate)} - {formatDate(endDate)}
-                    </Text>
+    
+            return (
+            <SafeAreaView style={styles.container}>
+                {/* Header */}
+                <View style={styles.header}>
+                    <View style={styles.headerLeft}>
+                        <Text style={styles.title}>Báo cáo hệ thống</Text>
+                        <Text style={styles.subtitle}>{formatDate(startDate)} - {formatDate(endDate)}</Text>
 
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.tabsContent}
-                        style={styles.tabsContainer}
-                    >
-                        <ReportTypeTab type="overview" label="Tổng quan" icon="stats-chart" />
-                        <ReportTypeTab type="projects" label="Dự án" icon="folder-open" />
-                        <ReportTypeTab type="users" label="Người dùng" icon="people" />
-                        <ReportTypeTab type="tasks" label="Công việc" icon="checkmark-circle" />
-                    </ScrollView>
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.tabsContent}
+                            style={styles.tabsContainer}
+                        >
+                            <ReportTypeTab type="overview" label="Tổng quan" icon="stats-chart" />
+                            <ReportTypeTab type="projects" label="Dự án" icon="folder-open" />
+                            <ReportTypeTab type="users" label="Người dùng" icon="people" />
+                            <ReportTypeTab type="tasks" label="Công việc" icon="checkmark-circle" />
+                        </ScrollView>
+                    </View>
+
+                    <View style={styles.headerActions}>
+                        <TouchableOpacity 
+                            style={styles.iconButton}
+                            onPress={() => setShowFilterModal(true)}
+                        >
+                            <Ionicons name="options" size={20} color="#fff" />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            style={styles.iconButton}
+                            onPress={() => setShowExportModal(true)}
+                        >
+                            <Ionicons name="download" size={20} color="#fff" />
+                        </TouchableOpacity>
+                    </View>
                 </View>
 
-                <View style={styles.headerActions}>
-                    <TouchableOpacity 
-                        style={styles.iconButton}
-                        onPress={() => setShowFilterModal(true)}
-                    >
-                        <Ionicons name="options" size={20} color="#fff" />
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                        style={styles.iconButton}
-                        onPress={() => setShowExportModal(true)}
-                    >
-                        <Ionicons name="download" size={20} color="#fff" />
-                    </TouchableOpacity>
-                </View>
-            </View>
-
-            <ScrollView
-                style={styles.content}
-                refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-                }
-            >
+                <ScrollView
+                    style={styles.content}
+                    refreshControl={
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                    }
+                >
                 {/* Preset Filters */}
                 <ScrollView 
                     horizontal 
@@ -833,74 +1002,9 @@ export default function SystemReports() {
                         {/* Overview Report */}
                         {reportType === 'overview' && (
                             <>
-                                {/* Overview Stats */}
+                                {/* Overview simplified: major stat cards removed to prioritize charts below */}
                                 <View style={styles.section}>
-                                    <Text style={styles.sectionTitle}>📊 Tổng quan hệ thống</Text>
-                                    <View style={styles.statsGrid}>
-                                        <StatCard
-                                            icon="folder"
-                                            title="Tổng dự án"
-                                            value={stats.totalProjects}
-                                            color="#10b981"
-                                            subtitle={`${stats.completedProjects} hoàn thành`}
-                                        />
-                                        <StatCard
-                                            icon="checkmark-circle"
-                                            title="Công việc"
-                                            value={stats.totalTasks}
-                                            color="#3b82f6"
-                                            subtitle={`${stats.completedTasks} hoàn thành`}
-                                        />
-                                        <StatCard
-                                            icon="people"
-                                            title="Người dùng"
-                                            value={stats.totalUsers}
-                                            color="#8b5cf6"
-                                            subtitle="hoạt động"
-                                        />
-                                        <StatCard
-                                            icon="trending-up"
-                                            title="Tỷ lệ hoàn thành"
-                                            value={`${stats.completionRate}%`}
-                                            color="#ec4899"
-                                            subtitle="công việc"
-                                        />
-                                    </View>
-                                </View>
-
-                                {/* Project Status Stats */}
-                                <View style={styles.section}>
-                                    <Text style={styles.sectionTitle}>📁 Trạng thái dự án</Text>
-                                    <View style={styles.statsGrid}>
-                                        <StatCard
-                                            icon="checkmark-done"
-                                            title="Hoàn thành"
-                                            value={stats.completedProjects}
-                                            color="#10b981"
-                                            subtitle="dự án"
-                                        />
-                                        <StatCard
-                                            icon="play-circle"
-                                            title="Đang chạy"
-                                            value={stats.ongoingProjects}
-                                            color="#3b82f6"
-                                            subtitle="dự án"
-                                        />
-                                        <StatCard
-                                            icon="time"
-                                            title="Chưa bắt đầu"
-                                            value={stats.pendingProjects}
-                                            color="#f59e0b"
-                                            subtitle="dự án"
-                                        />
-                                        <StatCard
-                                            icon="alert-circle"
-                                            title="Trễ hạn"
-                                            value={stats.overdueTasks}
-                                            color="#ef4444"
-                                            subtitle="công việc"
-                                        />
-                                    </View>
+                                    <Text style={styles.sectionTitle}>Tổng quan hệ thống</Text>
                                 </View>
 
                                 {/* Additional Stats */}
@@ -921,6 +1025,7 @@ export default function SystemReports() {
                                             color="#06b6d4"
                                             subtitle="file"
                                         />
+                                            {/* Subtasks moved to 'tasks' report view */}
                                     </View>
                                 </View>
 
@@ -958,16 +1063,15 @@ export default function SystemReports() {
                                             <Ionicons name="time" size={24} color="#3b82f6" />
                                             <Text style={styles.performanceTitle}>Thời gian trung bình</Text>
                                         </View>
-                                        <Text style={styles.performanceValue}>5.2 ngày</Text>
-                                        <Text style={styles.performanceLabel}>Hoàn thành mỗi công việc</Text>
+                                        <Text style={styles.performanceValue}>{stats.avgCompletionDays} ngày</Text>
+                                        <Text style={styles.performanceLabel}>Trung bình hoàn thành (task + subtask)</Text>
                                     </View>
-
                                     <View style={styles.performanceCard}>
                                         <View style={styles.performanceHeader}>
                                             <Ionicons name="speedometer" size={24} color="#10b981" />
-                                            <Text style={styles.performanceTitle}>Năng suất</Text>
+                                            <Text style={styles.performanceTitle}>Tỷ lệ đúng hạn</Text>
                                         </View>
-                                        <Text style={styles.performanceValue}>87%</Text>
+                                        <Text style={styles.performanceValue}>{stats.onTimeCompletionRate}%</Text>
                                         <Text style={styles.performanceLabel}>Tỷ lệ hoàn thành đúng hạn</Text>
                                     </View>
 
@@ -977,7 +1081,7 @@ export default function SystemReports() {
                                             <Text style={styles.performanceTitle}>Thành tích</Text>
                                         </View>
                                         <Text style={styles.performanceValue}>{stats.completedTasks}</Text>
-                                        <Text style={styles.performanceLabel}>Công việc đã hoàn thành tháng này</Text>
+                                        <Text style={styles.performanceLabel}>Công việc đã hoàn thành trong khoảng</Text>
                                     </View>
                                 </View>
 
@@ -1062,65 +1166,7 @@ export default function SystemReports() {
                                     )}
                                 </View>
 
-                                {/* Top Performers Section */}
-                                {topPerformers.length > 0 && (
-                                    <View style={styles.section}>
-                                        <Text style={styles.sectionTitle}>🏆 Top 5 nhân viên xuất sắc</Text>
-                                        {topPerformers.map((performer, index) => (
-                                            <View key={index} style={styles.performerCard}>
-                                                <View style={styles.performerRank}>
-                                                    <Text style={styles.performerRankText}>#{index + 1}</Text>
-                                                </View>
-                                                <View style={styles.performerInfo}>
-                                                    <Text style={styles.performerName}>{performer.name}</Text>
-                                                    <Text style={styles.performerTasks}>{performer.tasks} tasks hoàn thành</Text>
-                                                </View>
-                                                <Ionicons
-                                                    name="trophy"
-                                                    size={24}
-                                                    color={index === 0 ? '#fbbf24' : index === 1 ? '#9ca3af' : '#f97316'}
-                                                />
-                                            </View>
-                                        ))}
-                                    </View>
-                                )}
-
-                                {/* Subtasks Statistics */}
-                                {stats.totalSubtasks > 0 && (
-                                    <View style={styles.section}>
-                                        <Text style={styles.sectionTitle}>📋 Thống kê Subtasks</Text>
-                                        <View style={styles.statsGrid}>
-                                            <StatCard
-                                                icon="list"
-                                                title="Tổng subtasks"
-                                                value={stats.totalSubtasks}
-                                                color="#06b6d4"
-                                                subtitle={`${stats.completedSubtasks} hoàn thành`}
-                                            />
-                                            <StatCard
-                                                icon="checkmark-done"
-                                                title="Hoàn thành"
-                                                value={stats.completedSubtasks}
-                                                color="#10b981"
-                                                subtitle={`${Math.round((stats.completedSubtasks / stats.totalSubtasks) * 100)}%`}
-                                            />
-                                            <StatCard
-                                                icon="play-circle"
-                                                title="Đang thực hiện"
-                                                value={stats.ongoingSubtasks}
-                                                color="#3b82f6"
-                                                subtitle="subtasks"
-                                            />
-                                            <StatCard
-                                                icon="time"
-                                                title="Chưa bắt đầu"
-                                                value={stats.pendingSubtasks}
-                                                color="#f59e0b"
-                                                subtitle="subtasks"
-                                            />
-                                        </View>
-                                    </View>
-                                )}
+                                {/* Top performers and user details moved to 'users' report view */}
                             </>
                         )}
 
@@ -1190,6 +1236,46 @@ export default function SystemReports() {
                                         subtitle="đang online"
                                     />
                                 </View>
+                                {/* Users tab kept minimal: per-user task summary removed (moved to Tasks tab) */}
+                                {topPerformers.length > 0 && (
+                                    <View style={[styles.section, { marginTop: 8 }] }>
+                                        <Text style={styles.sectionTitle}>🏆 Top 5 nhân viên xuất sắc</Text>
+                                        {topPerformers.map((performer, index) => (
+                                            <View key={index} style={styles.performerCard}>
+                                                <View style={styles.performerRank}>
+                                                    <Text style={styles.performerRankText}>#{index + 1}</Text>
+                                                </View>
+                                                <View style={styles.performerInfo}>
+                                                    <Text style={styles.performerName}>{performer.name}</Text>
+                                                    <Text style={styles.performerTasks}>{performer.tasks} tasks hoàn thành</Text>
+                                                </View>
+                                                <Ionicons
+                                                    name="trophy"
+                                                    size={24}
+                                                    color={index === 0 ? '#fbbf24' : index === 1 ? '#9ca3af' : '#f97316'}
+                                                />
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
+
+                                {/* Detailed Users list */}
+                                {usersStats.length > 0 && (
+                                    <View style={[styles.section, { marginTop: 8 }] }>
+                                        <Text style={styles.sectionTitle}>👥 Chi tiết người dùng</Text>
+                                        {usersStats.slice(0, 50).map((u, idx) => (
+                                            <View key={u.id || idx} style={styles.userDetailRow}>
+                                                <View style={styles.userDetailLeft}>
+                                                    <Text style={styles.userName}>{u.name}</Text>
+                                                    <Text style={styles.userMeta}>{u.totalTasks} tasks • {u.completed} hoàn thành • {u.completionRate}%</Text>
+                                                </View>
+                                                <View style={styles.userDetailRight}>
+                                                    <Text style={styles.userSmall}>{u.totalTasks > 0 ? `${Math.round((u.completed / u.totalTasks) * 100)}%` : '0%'}</Text>
+                                                </View>
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
                             </View>
                         )}
 
@@ -1197,28 +1283,68 @@ export default function SystemReports() {
                         {reportType === 'tasks' && (
                             <View style={styles.section}>
                                 <Text style={styles.sectionTitle}>✅ Thống kê công việc</Text>
+                                <Text style={[styles.sectionTitle, { fontSize: 16, marginTop: 6 }]}>Công việc lớn</Text>
                                 <View style={styles.statsGrid}>
                                     <StatCard
                                         icon="list"
-                                        title="Tổng số"
-                                        value={stats.totalTasks}
+                                        title="Tổng lớn"
+                                        value={Math.max(0, (stats.totalTasks || 0) - (stats.totalSubtasks || 0))}
                                         color="#3b82f6"
-                                        subtitle="công việc"
+                                        subtitle="công việc chính"
                                     />
                                     <StatCard
                                         icon="checkmark-done"
-                                        title="Hoàn thành"
-                                        value={stats.completedTasks}
+                                        title="Hoàn thành lớn"
+                                        value={Math.max(0, (stats.completedTasks || 0) - (stats.completedSubtasks || 0))}
                                         color="#10b981"
-                                        subtitle="công việc"
+                                        subtitle="công việc chính"
                                     />
                                 </View>
+
+                                <Text style={[styles.sectionTitle, { fontSize: 16, marginTop: 8 }]}>Công việc nhỏ (Subtasks)</Text>
+                                <View style={styles.statsGrid}>
+                                    <StatCard
+                                        icon="list"
+                                        title="Tổng nhỏ"
+                                        value={stats.totalSubtasks || 0}
+                                        color="#06b6d4"
+                                        subtitle="subtasks"
+                                    />
+                                    <StatCard
+                                        icon="checkmark-done"
+                                        title="Hoàn thành nhỏ"
+                                        value={stats.completedSubtasks || 0}
+                                        color="#10b981"
+                                        subtitle="subtasks"
+                                    />
+                                </View>
+
+                                {/* Combined total shown separately */}
+                                <View style={[styles.section, { marginTop: 8 }]}> 
+                                    <Text style={[styles.sectionTitle, { fontSize: 16 }]}>Tổng (lớn + nhỏ)</Text>
+                                    <View style={styles.statsGrid}>
+                                        <StatCard
+                                            icon="layers"
+                                            title="Tổng"
+                                            value={stats.totalTasks || 0}
+                                            color="#10b981"
+                                            subtitle="Tổng (lớn + nhỏ)"
+                                        />
+                                    </View>
+                                </View>
+
                                 <View style={styles.progressSection}>
                                     <ProgressBar
-                                        label="Tỷ lệ hoàn thành"
+                                        label="Tỷ lệ hoàn thành (tổng)"
                                         value={stats.completedTasks}
-                                        max={stats.totalTasks}
+                                        max={stats.totalTasks > 0 ? stats.totalTasks : 1}
                                         color="#10b981"
+                                    />
+                                    <ProgressBar
+                                        label="Tỷ lệ hoàn thành (subtasks)"
+                                        value={stats.completedSubtasks}
+                                        max={stats.totalSubtasks > 0 ? stats.totalSubtasks : 1}
+                                        color="#06b6d4"
                                     />
                                 </View>
                             </View>
@@ -1887,6 +2013,38 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: '#6b7280',
         marginTop: 2,
+    },
+    userDetailRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        marginBottom: 8,
+    },
+    userDetailLeft: {
+        flex: 1,
+    },
+    userName: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#111827',
+    },
+    userMeta: {
+        fontSize: 12,
+        color: '#6b7280',
+        marginTop: 4,
+    },
+    userDetailRight: {
+        width: 64,
+        alignItems: 'flex-end',
+    },
+    userSmall: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#10b981',
     },
     presetFiltersContainer: {
         paddingHorizontal: 16,
