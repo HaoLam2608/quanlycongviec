@@ -27,13 +27,22 @@ const checkPermission = (resource, action) => {
                 return res.status(404).json({ message: 'Không tìm thấy người dùng' });
             }
 
+            // Admin có tất cả quyền - bypass permission check
+            if (user.role?.name === 'admin') {
+                console.log('✅ Admin detected - bypassing permission check for:', resource, action);
+                req.user = user;
+                return next();
+            }
+
             // Kiểm tra permission
             const permissionName = `${resource}:${action}`;
+            console.log('🔍 Checking permission:', permissionName, 'for user role:', user.role?.name);
             const hasPermission = user.role?.permissions?.some(permission =>
                 permission.name === permissionName
             );
 
             if (!hasPermission) {
+                console.log('❌ Permission denied:', permissionName, 'for user:', userId);
                 return res.status(403).json({ message: 'Bạn không có quyền thực hiện hành động này' });
             }
 
@@ -78,7 +87,6 @@ const checkRole = (roleName) => {
         }
     }
 }
-module.exports = { checkPermission, checkRole };
 
 // Middleware: allow owner (task/subtask) OR role-permission
 const allowOwnerOrPermission = (resource, action) => {
@@ -126,6 +134,12 @@ const allowOwnerOrPermission = (resource, action) => {
 
             if (!user) {
                 return res.status(404).json({ message: 'Không tìm thấy người dùng' });
+            }
+
+            // Admin có tất cả quyền - bypass permission check
+            if (user.role?.name === 'admin') {
+                req.user = user;
+                return next();
             }
 
             const permissionName = `${resource}:${action}`;

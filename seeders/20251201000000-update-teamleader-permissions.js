@@ -7,14 +7,14 @@ module.exports = {
             "SELECT id, name FROM Roles WHERE name = 'teamleader'",
             { type: QueryTypes.SELECT }
         );
-        
+
         if (!roles.length) {
             console.log('⚠️  Teamleader role not found, skipping permissions');
             return;
         }
-        
+
         const teamleaderId = roles[0].id;
-        
+
         // Get permissions that teamleader should have
         // Teamleader can manage their group, tasks, subtasks, approve worklogs, manage documents, view performance
         const permissionNames = [
@@ -37,25 +37,25 @@ module.exports = {
             'documents:delete',   // Xóa tài liệu
             'members:read'        // Xem thông tin thành viên (cho performance)
         ];
-        
+
         const permissions = await queryInterface.sequelize.query(
             `SELECT id, name FROM Permissions WHERE name IN (${permissionNames.map(n => `'${n}'`).join(',')})`,
             { type: QueryTypes.SELECT }
         );
-        
+
         if (!permissions.length) {
             console.log('⚠️  No permissions found, skipping');
             return;
         }
-        
+
         console.log(`✅ Found ${permissions.length} permissions for teamleader`);
-        
+
         // Remove existing role-permission mappings for teamleader
         await queryInterface.sequelize.query(
             `DELETE FROM RolePermissions WHERE roleId = ${teamleaderId}`,
             { type: QueryTypes.DELETE }
         );
-        
+
         const now = new Date();
         const rolePermissions = permissions.map(p => ({
             roleId: teamleaderId,
@@ -63,7 +63,7 @@ module.exports = {
             createdAt: now,
             updatedAt: now
         }));
-        
+
         await queryInterface.bulkInsert('RolePermissions', rolePermissions);
         console.log(`✅ Assigned ${rolePermissions.length} permissions to teamleader role`);
     },
@@ -73,9 +73,9 @@ module.exports = {
             "SELECT id FROM Roles WHERE name = 'teamleader'",
             { type: QueryTypes.SELECT }
         );
-        
+
         if (!roles.length) return;
-        
+
         const teamleaderId = roles[0].id;
         await queryInterface.sequelize.query(
             `DELETE FROM RolePermissions WHERE roleId = ${teamleaderId}`,

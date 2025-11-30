@@ -134,7 +134,7 @@ function initializeSocket(httpServer) {
         socket.on('message:read', async ({ conversationId, messageId }) => {
             try {
                 await chatService.markAsRead(user.id, conversationId, messageId);
-                
+
                 // Notify other participants
                 socket.to(`conversation:${conversationId}`).emit('message:read', {
                     conversationId,
@@ -170,19 +170,19 @@ function initializeSocket(httpServer) {
         // Handle disconnect
         socket.on('disconnect', () => {
             console.log(`🔌 User disconnected: ${user.id} (${user.hoten})`);
-            
+
             // Remove user from online set
             onlineUsers.delete(user.id);
             console.log('📊 Online users after disconnect:', Array.from(onlineUsers));
-            
+
             // Broadcast to all users that this user is offline
             console.log('📢 Broadcasting user:offline for userId:', user.id);
             io.emit('user:offline', { userId: user.id });
         });
 
-         // ===== CALL SIGNALING (1-1) =====
+        // ===== CALL SIGNALING (1-1) =====
 
-         socket.on("call:request" , ({ toUserId, conversationId , callType }) => {
+        socket.on("call:request", ({ toUserId, conversationId, callType }) => {
             io.to(`user:${toUserId}`).emit("call:incoming", {
                 fromUserId: user.id,
                 fromName: user.hoten,
@@ -191,27 +191,27 @@ function initializeSocket(httpServer) {
             });
         });
 
-        socket.on("call:accept" , ({ toUserId, conversationId }) => {
+        socket.on("call:accept", ({ toUserId, conversationId }) => {
             io.to(`user:${toUserId}`).emit("call:accepted", {
                 fromUserId: user.id,
                 conversationId,
             });
         });
 
-        socket.on("call:reject" , ({ toUserId, conversationId }) => {
+        socket.on("call:reject", ({ toUserId, conversationId }) => {
             io.to(`user:${toUserId}`).emit("call:rejected", {
                 fromUserId: user.id,
                 conversationId,
             });
         });
 
-        socket.on("call:end" , ({ toUserId }) => {
+        socket.on("call:end", ({ toUserId }) => {
             io.to(`user:${toUserId}`).emit("call:ended", {
                 fromUserId: user.id,
             });
         });
 
-         socket.on('webrtc:offer', ({ toUserId, offer }) => {
+        socket.on('webrtc:offer', ({ toUserId, offer }) => {
             io.to(`user:${toUserId}`).emit('webrtc:offer', {
                 fromUserId: user.id,
                 offer
@@ -231,7 +231,7 @@ function initializeSocket(httpServer) {
                 candidate
             });
         });
-         // ===== WEBRTC SIGNALING =====
+        // ===== WEBRTC SIGNALING =====
     });
 
     console.log('✅ Socket.IO server initialized');

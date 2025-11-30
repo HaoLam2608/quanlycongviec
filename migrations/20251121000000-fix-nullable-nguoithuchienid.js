@@ -3,11 +3,11 @@
 module.exports = {
     up: async (queryInterface, Sequelize) => {
         const transaction = await queryInterface.sequelize.transaction();
-        
+
         try {
             // Xóa các foreign key constraints cũ (nếu có)
             const constraints = [
-                'subtasks_ibfk_2', 'subtasks_ibfk_3', 'subtasks_ibfk_4', 
+                'subtasks_ibfk_2', 'subtasks_ibfk_3', 'subtasks_ibfk_4',
                 'subtasks_ibfk_5', 'subtasks_ibfk_6', 'subtasks_ibfk_7',
                 'subtasks_ibfk_8', 'subtasks_ibfk_9', 'subtasks_ibfk_10',
                 'subtasks_ibfk_11', 'subtasks_ibfk_12', 'subtasks_ibfk_13',
@@ -73,7 +73,7 @@ module.exports = {
 
     down: async (queryInterface, Sequelize) => {
         const transaction = await queryInterface.sequelize.transaction();
-        
+
         try {
             // Xóa constraint mới
             await queryInterface.removeConstraint('Subtasks', 'fk_subtasks_nguoiThucHienId', { transaction });

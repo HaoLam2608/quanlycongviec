@@ -1381,15 +1381,20 @@ exports.requestToClaimTask = async (req, res) => {
 }
 
 // Manager: Get all pending task claim requests
-// Shows all pending assignments where current user is the manager (task creator)
+// Shows all pending assignments where:
+// 1. Current user is the manager (task creator) - assignments.managerId = userId
+// 2. Current user is the project manager - task.duan.userId = userId
 // Note: This includes assignments created by manager assigning tasks/subtasks to members
 exports.getClaimRequests = async (req, res) => {
     try {
         const managerId = req.user.id;
+        const userRole = req.user.role?.name || req.user.role;
 
-        const assignments = await Assignment.findAll({
+        console.log('🔍 getClaimRequests for manager:', { managerId, userRole });
+
+        // Get all pending assignments with task and project info
+        const allPendingAssignments = await Assignment.findAll({
             where: {
-                managerId,
                 taskId: { [require('sequelize').Op.ne]: null },
                 subtaskId: null, // Only task assignments, not subtask assignments
                 status: 'pending'
@@ -1398,12 +1403,13 @@ exports.getClaimRequests = async (req, res) => {
                 {
                     model: Task,
                     as: 'task',
-                    attributes: ['id', 'tentask', 'mota', 'duanId'],
+                    attributes: ['id', 'tentask', 'mota', 'duanId', 'nguoiGiaoId'],
                     include: [
                         {
                             model: DuAn,
                             as: 'duan',
-                            attributes: ['id', 'tenduan']
+                            attributes: ['id', 'tenduan', 'userId'],
+                            required: false
                         },
                         {
                             model: User,
@@ -1426,10 +1432,34 @@ exports.getClaimRequests = async (req, res) => {
             order: [['createdAt', 'DESC']]
         });
 
+        console.log('📊 Total pending assignments found:', allPendingAssignments.length);
+
+        // Filter assignments where:
+        // 1. User is the direct manager (assignment.managerId = userId)
+        // 2. User is the project manager (task.duan.userId = userId)
+        const filteredAssignments = allPendingAssignments.filter(assignment => {
+            // Case 1: Direct manager
+            if (assignment.managerId === managerId) {
+                console.log('✅ Direct manager match for assignment:', assignment.id);
+                return true;
+            }
+
+            // Case 2: Project manager
+            if (assignment.task && assignment.task.duan && assignment.task.duan.userId === managerId) {
+                console.log('✅ Project manager match for assignment:', assignment.id, 'project:', assignment.task.duan.tenduan);
+                return true;
+            }
+
+            console.log('❌ No match for assignment:', assignment.id);
+            return false;
+        });
+
+        console.log('✅ Filtered assignments for manager:', filteredAssignments.length);
+
         res.json({
             success: true,
             message: 'Danh sách yêu cầu nhận công việc',
-            data: assignments
+            data: filteredAssignments
         });
     } catch (error) {
         console.error('getClaimRequests error:', error);

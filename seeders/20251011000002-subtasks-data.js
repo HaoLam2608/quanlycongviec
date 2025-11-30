@@ -8,31 +8,31 @@ module.exports = {
       'SELECT id, tentask FROM Tasks',
       { type: Sequelize.QueryTypes.SELECT }
     );
-    
+
     const users = await queryInterface.sequelize.query(
       'SELECT id, hoten FROM Users',
       { type: Sequelize.QueryTypes.SELECT }
     );
-    
+
     if (tasks.length === 0 || users.length === 0) {
       console.log('Cần có tasks và users để tạo subtasks');
       return;
     }
-    
+
     // Tìm task "Phân tích yêu cầu"
     const phanTichTask = tasks.find(t => t.tentask === 'Phân tích yêu cầu');
-    
+
     // Tìm task "Thiết kế Database" 
     const thietKeDBTask = tasks.find(t => t.tentask === 'Thiết kế Database');
-    
+
     // Tìm task "Xây dựng API"
     const xayDungAPITask = tasks.find(t => t.tentask === 'Xây dựng API');
-    
+
     // Tìm task "Thiết kế UI/UX"
     const thietKeUITask = tasks.find(t => t.tentask === 'Thiết kế UI/UX');
-    
+
     const subtasks = [];
-    
+
     // Subtasks cho "Phân tích yêu cầu"
     if (phanTichTask) {
       subtasks.push(
@@ -80,7 +80,7 @@ module.exports = {
         }
       );
     }
-    
+
     // Subtasks cho "Thiết kế Database"
     if (thietKeDBTask) {
       subtasks.push(
@@ -128,7 +128,7 @@ module.exports = {
         }
       );
     }
-    
+
     // Subtasks cho "Xây dựng API"
     if (xayDungAPITask) {
       subtasks.push(
@@ -176,7 +176,7 @@ module.exports = {
         }
       );
     }
-    
+
     // Subtasks cho "Thiết kế UI/UX"
     if (thietKeUITask) {
       subtasks.push(
@@ -224,7 +224,7 @@ module.exports = {
         }
       );
     }
-    
+
     if (subtasks.length > 0) {
       await queryInterface.bulkInsert('Subtasks', subtasks);
     }

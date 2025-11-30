@@ -3,7 +3,7 @@ const { sequelize } = require('./models');
 async function createCommentsTable() {
     try {
         console.log('🔧 Creating Comments table...');
-        
+
         await sequelize.query(`
             CREATE TABLE IF NOT EXISTS Comments (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -24,14 +24,14 @@ async function createCommentsTable() {
                 FOREIGN KEY (subtaskId) REFERENCES Subtasks(id) ON DELETE CASCADE ON UPDATE CASCADE
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         `);
-        
+
         console.log('✅ Comments table created successfully!');
-        
+
         // Verify
         const [results] = await sequelize.query('DESCRIBE Comments;');
         console.log('\n📋 Comments table structure:');
         console.table(results);
-        
+
     } catch (error) {
         console.error('❌ Error:', error.message);
     } finally {

@@ -1,12 +1,12 @@
 'use strict';
 
-const { 
-  Comment, 
-  User, 
-  Task, 
-  Subtask, 
-  Notification, 
-  GroupMember, 
+const {
+  Comment,
+  User,
+  Task,
+  Subtask,
+  Notification,
+  GroupMember,
   Assignment,
   DuAn,
   Group,
@@ -20,19 +20,19 @@ const {
  */
 const extractMentions = (text) => {
   if (!text) return [];
-  
+
   // Match @userId or @[userId] pattern
   const mentionPattern = /@\[?(\d+)\]?|@(\w+)/g;
   const mentions = new Set();
   let match;
-  
+
   while ((match = mentionPattern.exec(text)) !== null) {
     const userId = match[1]; // Direct userId like @123
     if (userId) {
       mentions.add(parseInt(userId));
     }
   }
-  
+
   return Array.from(mentions);
 };
 
@@ -49,9 +49,9 @@ const getTaskMembers = async (taskId) => {
       }
     ]
   });
-  
+
   if (!task) return [];
-  
+
   const members = task.assignments?.map(a => a.user).filter(u => u) || [];
   return members;
 };
@@ -61,15 +61,15 @@ const getTaskMembers = async (taskId) => {
  */
 const createMentionNotifications = async (comment, authorId, mentionedUserIds) => {
   if (!mentionedUserIds || mentionedUserIds.length === 0) return;
-  
+
   const author = await User.findByPk(authorId, { attributes: ['hoten'] });
   const authorName = author?.hoten || 'Người dùng';
-  
+
   // Determine context
   let contextType = 'comment';
   let contextId = comment.taskId || comment.subtaskId;
   let message = '';
-  
+
   if (comment.taskId) {
     // Task model uses `tentask` for the title field
     try {
@@ -89,7 +89,7 @@ const createMentionNotifications = async (comment, authorId, mentionedUserIds) =
       message = `${authorName} đã nhắc đến bạn trong bình luận của subtask`;
     }
   }
-  
+
   // Create notification for each mentioned user (except author)
   const notifications = mentionedUserIds
     .filter(userId => userId !== authorId)
@@ -100,7 +100,7 @@ const createMentionNotifications = async (comment, authorId, mentionedUserIds) =
       relatedId: comment.id,
       relatedType: 'comment'
     }));
-  
+
   if (notifications.length > 0) {
     await Notification.bulkCreate(notifications);
   }
@@ -116,17 +116,17 @@ const createComment = async (req, res) => {
       console.log('📎 Files type:', Array.isArray(req.files) ? 'Array' : 'Object');
       console.log('📎 Files structure:', Array.isArray(req.files) ? req.files.length : Object.keys(req.files));
     }
-    
+
     const authorId = req.user && req.user.id;
     if (!authorId) return res.status(401).json({ message: 'Unauthorized' });
 
     const { taskId, subtaskId, content, mentions: mentionsStr } = req.body;
-    
+
     // Validate: must have either taskId or subtaskId
     if (!taskId && !subtaskId) {
       return res.status(400).json({ message: 'Either taskId or subtaskId is required' });
     }
-    
+
     // Must have either content or files
     const allFiles = [];
     if (req.files) {
@@ -135,10 +135,10 @@ const createComment = async (req, res) => {
       } else {
         if (req.files['images']) allFiles.push(...req.files['images']);
         if (req.files['files']) allFiles.push(...req.files['files']);
-          if (req.files['attachments']) allFiles.push(...req.files['attachments']);
+        if (req.files['attachments']) allFiles.push(...req.files['attachments']);
       }
     }
-    
+
     if (!content && allFiles.length === 0) {
       return res.status(400).json({ message: 'Content or attachments required' });
     }
@@ -160,17 +160,17 @@ const createComment = async (req, res) => {
       try {
         attachments = allFiles.map(file => {
           console.log('Processing file:', file.originalname, 'size:', file.size, 'mimetype:', file.mimetype);
-          
+
           // Check file size (limit to 1MB for base64 storage in MySQL)
           const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB
           if (file.size > MAX_FILE_SIZE) {
             throw new Error(`File ${file.originalname} quá lớn. Tối đa 1MB cho lưu trữ trong database.`);
           }
-          
+
           // Convert buffer to base64 (multer is using memoryStorage)
           const base64Data = file.buffer.toString('base64');
           console.log('Base64 length:', base64Data.length, 'bytes');
-          
+
           return {
             filename: file.originalname,
             mimetype: file.mimetype,
@@ -210,27 +210,27 @@ const createComment = async (req, res) => {
     }
     console.log('Extracted mentions:', mentions);
 
-    const comment = await Comment.create({ 
-      authorId, 
-      taskId, 
-      subtaskId, 
+    const comment = await Comment.create({
+      authorId,
+      taskId,
+      subtaskId,
       content: content || '', // Default to empty string if no content
       attachments,
       mentions: mentions.length > 0 ? mentions : null
     });
     console.log('Comment created with ID:', comment.id);
-    
+
     // Create notifications for mentioned users
     if (mentions.length > 0) {
       await createMentionNotifications(comment, authorId, mentions);
       console.log('Created mention notifications for users:', mentions);
     }
-    
+
     // Reload with author info
     const commentWithAuthor = await Comment.findByPk(comment.id, {
       include: [{ model: User, as: 'author', attributes: ['id', 'manv', 'hoten', 'email'] }]
     });
-    
+
     // Parse attachments if it's a string
     const result = commentWithAuthor.toJSON();
     if (result.attachments && typeof result.attachments === 'string') {
@@ -241,7 +241,7 @@ const createComment = async (req, res) => {
         result.attachments = [];
       }
     }
-    
+
     return res.status(201).json(result);
   } catch (err) {
     console.error('❌ createComment error:', err);
@@ -252,9 +252,9 @@ const createComment = async (req, res) => {
       taskId: req.body.taskId,
       subtaskId: req.body.subtaskId
     });
-    return res.status(500).json({ 
-      message: 'Internal server error', 
-      error: err.message 
+    return res.status(500).json({
+      message: 'Internal server error',
+      error: err.message
     });
   }
 };
@@ -269,7 +269,7 @@ const listCommentsByTask = async (req, res) => {
       ],
       order: [['createdAt', 'ASC']]
     });
-    
+
     // Ensure attachments is always an array and parsed from JSON
     const commentsWithAttachments = comments.map(c => {
       const json = c.toJSON();
@@ -288,7 +288,7 @@ const listCommentsByTask = async (req, res) => {
       }
       return json;
     });
-    
+
     return res.json(commentsWithAttachments);
   } catch (err) {
     console.error('listCommentsByTask error', err);
@@ -306,7 +306,7 @@ const listCommentsBySubtask = async (req, res) => {
       ],
       order: [['createdAt', 'ASC']]
     });
-    
+
     // Ensure attachments is always an array and parsed from JSON
     const commentsWithAttachments = comments.map(c => {
       const json = c.toJSON();
@@ -325,7 +325,7 @@ const listCommentsBySubtask = async (req, res) => {
       }
       return json;
     });
-    
+
     return res.json(commentsWithAttachments);
   } catch (err) {
     console.error('listCommentsBySubtask error', err);
@@ -357,7 +357,7 @@ const updateComment = async (req, res) => {
     const id = req.params.id;
     const { content } = req.body;
     const authorId = req.user && req.user.id;
-    
+
     if (!authorId) return res.status(401).json({ message: 'Unauthorized' });
 
     const comment = await Comment.findByPk(id);
@@ -372,26 +372,26 @@ const updateComment = async (req, res) => {
     let attachments = comment.attachments;
     if (req.files && req.files.length > 0) {
       console.log('Processing new files for update:', req.files.length);
-      
+
       try {
         const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB
-        
+
         const newAttachments = req.files.map(file => {
           console.log('Processing file:', file.originalname, 'size:', file.size, 'mimetype:', file.mimetype);
-          
+
           if (file.size > MAX_FILE_SIZE) {
             throw new Error(`File ${file.originalname} quá lớn. Tối đa 1MB cho lưu trữ trong database.`);
           }
-          
+
           const fileBuffer = fs.readFileSync(file.path);
           const base64Data = fileBuffer.toString('base64');
-        
+
           try {
             fs.unlinkSync(file.path);
           } catch (err) {
             console.error('Error deleting temp file:', err);
           }
-        
+
           return {
             filename: file.originalname,
             mimetype: file.mimetype,
@@ -399,7 +399,7 @@ const updateComment = async (req, res) => {
             data: base64Data
           };
         });
-      
+
         // Parse existing attachments if string
         let existingAttachments = [];
         if (attachments) {
@@ -413,7 +413,7 @@ const updateComment = async (req, res) => {
             existingAttachments = attachments;
           }
         }
-      
+
         // Combine existing and new attachments
         attachments = [...existingAttachments, ...newAttachments];
       } catch (fileErr) {
@@ -426,7 +426,7 @@ const updateComment = async (req, res) => {
     const oldMentions = comment.mentions ? (Array.isArray(comment.mentions) ? comment.mentions : JSON.parse(comment.mentions)) : [];
     const newMentions = extractMentions(content);
     const addedMentions = newMentions.filter(id => !oldMentions.includes(id));
-    
+
     console.log('Old mentions:', oldMentions, 'New mentions:', newMentions, 'Added:', addedMentions);
 
     // Update comment
@@ -435,7 +435,7 @@ const updateComment = async (req, res) => {
       attachments: attachments,
       mentions: newMentions.length > 0 ? newMentions : null
     });
-    
+
     // Create notifications for newly mentioned users
     if (addedMentions.length > 0) {
       await createMentionNotifications(comment, authorId, addedMentions);
@@ -471,21 +471,21 @@ const updateComment = async (req, res) => {
 const getMentionableUsers = async (req, res) => {
   try {
     const { taskId, subtaskId } = req.query;
-    
+
     if (!taskId && !subtaskId) {
       return res.status(400).json({ message: 'taskId or subtaskId required' });
     }
-    
+
     const userMap = new Map(); // To avoid duplicates
-    
+
     if (taskId) {
       // Get task with related users
       const task = await Task.findByPk(taskId, {
         include: [
           { model: User, as: 'nguoiGiao', attributes: ['id', 'manv', 'hoten', 'email'] },
           { model: User, as: 'nguoiDuocGiao', attributes: ['id', 'manv', 'hoten', 'email'] },
-          { 
-            model: DuAn, 
+          {
+            model: DuAn,
             as: 'duan',
             include: [
               {
@@ -510,12 +510,12 @@ const getMentionableUsers = async (req, res) => {
           }
         ]
       });
-      
+
       if (task) {
         // Add nguoiGiao and nguoiDuocGiao
         if (task.nguoiGiao) userMap.set(task.nguoiGiao.id, task.nguoiGiao);
         if (task.nguoiDuocGiao) userMap.set(task.nguoiDuocGiao.id, task.nguoiDuocGiao);
-        
+
         // Add all group members from the project
         if (task.duan && task.duan.groupProjects) {
           task.duan.groupProjects.forEach(gp => {
@@ -527,7 +527,7 @@ const getMentionableUsers = async (req, res) => {
             }
           });
         }
-        
+
         // Also get assignments if they exist
         const assignments = await Assignment.findAll({
           where: { taskId },
@@ -536,7 +536,7 @@ const getMentionableUsers = async (req, res) => {
             { model: User, as: 'manager', attributes: ['id', 'manv', 'hoten', 'email'] }
           ]
         });
-        
+
         assignments.forEach(assignment => {
           if (assignment.assignee) userMap.set(assignment.assignee.id, assignment.assignee);
           if (assignment.manager) userMap.set(assignment.manager.id, assignment.manager);
@@ -550,20 +550,20 @@ const getMentionableUsers = async (req, res) => {
           { model: User, as: 'nguoiDuocGiao', attributes: ['id', 'manv', 'hoten', 'email'] }
         ]
       });
-      
+
       if (subtask) {
         // Add subtask users
         if (subtask.nguoiGiao) userMap.set(subtask.nguoiGiao.id, subtask.nguoiGiao);
         if (subtask.nguoiDuocGiao) userMap.set(subtask.nguoiDuocGiao.id, subtask.nguoiDuocGiao);
-        
+
         // Get parent task users
         if (subtask.taskId) {
           const task = await Task.findByPk(subtask.taskId, {
             include: [
               { model: User, as: 'nguoiGiao', attributes: ['id', 'manv', 'hoten', 'email'] },
               { model: User, as: 'nguoiDuocGiao', attributes: ['id', 'manv', 'hoten', 'email'] },
-              { 
-                model: DuAn, 
+              {
+                model: DuAn,
                 as: 'duan',
                 include: [
                   {
@@ -588,11 +588,11 @@ const getMentionableUsers = async (req, res) => {
               }
             ]
           });
-          
+
           if (task) {
             if (task.nguoiGiao) userMap.set(task.nguoiGiao.id, task.nguoiGiao);
             if (task.nguoiDuocGiao) userMap.set(task.nguoiDuocGiao.id, task.nguoiDuocGiao);
-            
+
             // Add group members
             if (task.duan && task.duan.groupProjects) {
               task.duan.groupProjects.forEach(gp => {
@@ -606,7 +606,7 @@ const getMentionableUsers = async (req, res) => {
             }
           }
         }
-        
+
         // Get subtask assignments
         const subtaskAssignments = await Assignment.findAll({
           where: { subtaskId },
@@ -615,17 +615,17 @@ const getMentionableUsers = async (req, res) => {
             { model: User, as: 'manager', attributes: ['id', 'manv', 'hoten', 'email'] }
           ]
         });
-        
+
         subtaskAssignments.forEach(assignment => {
           if (assignment.assignee) userMap.set(assignment.assignee.id, assignment.assignee);
           if (assignment.manager) userMap.set(assignment.manager.id, assignment.manager);
         });
       }
     }
-    
+
     const users = Array.from(userMap.values());
     console.log('Mentionable users found:', users.length, 'unique users');
-    
+
     return res.json(users);
   } catch (err) {
     console.error('getMentionableUsers error', err);

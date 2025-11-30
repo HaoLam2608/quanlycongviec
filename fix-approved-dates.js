@@ -5,11 +5,11 @@ const { Op } = require('sequelize');
     try {
         const result = await Subtask.update(
             { approvedAt: new Date() },
-            { 
-                where: { 
+            {
+                where: {
                     approvedBy: { [Op.not]: null },
-                    approvedAt: null 
-                } 
+                    approvedAt: null
+                }
             }
         );
         console.log('Updated subtasks:', result[0]);

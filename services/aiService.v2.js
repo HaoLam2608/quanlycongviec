@@ -19,7 +19,7 @@ class AIServiceV2 {
     constructor() {
         // Load .env file
         require('dotenv').config();
-        
+
         const apiKey = process.env.OPENAI_API_KEY || process.env.GOOGLE_AI_KEY || process.env.GEMINI_API_KEY;
         if (!apiKey) {
             console.warn('⚠️ No AI API key found. AI features will use fallback responses.');
@@ -39,15 +39,15 @@ class AIServiceV2 {
     // ============================================
     // CORE AI QUERY FUNCTION
     // ============================================
-    
+
     async queryDatabase(question, userId) {
         console.log('🤖 AI Query V2:', question, '| User:', userId);
-        
+
         try {
             // Step 1: Analyze question intent
             const intent = this.analyzeQuestionIntent(question);
             console.log('🎯 Intent:', intent);
-            
+
             // Step 2: Fetch comprehensive context
             const context = await this.fetchComprehensiveContext(userId, question, intent);
             console.log('📊 Context fetched:', {
@@ -58,10 +58,10 @@ class AIServiceV2 {
                 subtasks: context.subtasks?.length || 0,
                 groups: context.groups?.length || 0
             });
-            
+
             // Step 3: Generate AI response
             const response = await this.generateIntelligentResponse(question, context, intent);
-            
+
             return response;
         } catch (error) {
             console.error('❌ AI Query Error:', error);
@@ -72,10 +72,10 @@ class AIServiceV2 {
     // ============================================
     // INTENT ANALYSIS
     // ============================================
-    
+
     analyzeQuestionIntent(question) {
         const q = question.toLowerCase();
-        
+
         const intent = {
             type: 'general',
             action: null,
@@ -148,7 +148,7 @@ class AIServiceV2 {
     // ============================================
     // COMPREHENSIVE DATA FETCHING
     // ============================================
-    
+
     async fetchComprehensiveContext(userId, question, intent) {
         const context = {};
 
@@ -193,7 +193,7 @@ class AIServiceV2 {
 
     async fetchProjectsWithDetails(userId, intent) {
         const where = {};
-        
+
         if (intent.filters.status) {
             where.status = intent.filters.status;
         }
@@ -203,9 +203,9 @@ class AIServiceV2 {
             limit: 200,
             order: [['createdAt', 'DESC']],
             include: [
-                { 
-                    model: User, 
-                    as: 'nguoiDamNhan', 
+                {
+                    model: User,
+                    as: 'nguoiDamNhan',
                     attributes: ['id', 'hoten', 'manv', 'email']
                 },
                 {
@@ -225,7 +225,7 @@ class AIServiceV2 {
 
     async fetchTasksWithDetails(userId, intent) {
         const where = {};
-        
+
         if (intent.filters.status) {
             where.trangThai = intent.filters.status;
         }
@@ -260,7 +260,7 @@ class AIServiceV2 {
 
     async fetchUsersWithDetails(searchName = null) {
         const where = {};
-        
+
         if (searchName) {
             where.hoten = { [Op.like]: `%${searchName}%` };
         }
@@ -294,7 +294,7 @@ class AIServiceV2 {
     // ============================================
     // INTELLIGENT RESPONSE GENERATION
     // ============================================
-    
+
     async generateIntelligentResponse(question, context, intent) {
         // If no AI model, use smart fallback
         if (!this.model) {
@@ -303,7 +303,7 @@ class AIServiceV2 {
 
         try {
             const prompt = this.buildOptimizedPrompt(question, context, intent);
-            
+
             console.log('🤖 Calling Gemini API...');
             console.log('📊 Prompt length:', prompt.length, 'characters');
 
@@ -342,10 +342,10 @@ class AIServiceV2 {
     // ============================================
     // OPTIMIZED PROMPT ENGINEERING
     // ============================================
-    
+
     buildOptimizedPrompt(question, context, intent) {
         const today = new Date().toLocaleDateString('vi-VN');
-        
+
         let prompt = `Bạn là trợ lý AI cho hệ thống quản lý công việc. Hôm nay là ${today}.
 
 `;
@@ -391,7 +391,7 @@ class AIServiceV2 {
         prompt += `6. QUAN TRỌNG: Nếu hỏi "có bao nhiêu", "đếm", "tổng số" → trả lời SỐ LƯỢNG CỤ THỂ và LIỆT KÊ\n`;
         prompt += `7. QUAN TRỌNG: Nếu hỏi "danh sách", "liệt kê" → LIỆT KÊ CHI TIẾT, KHÔNG NÓI "hỏi cụ thể hơn"\n`;
         prompt += `8. Nếu không có dữ liệu → nói "Không có" hoặc "0", KHÔNG nói "hỏi cụ thể hơn"\n\n`;
-        
+
         prompt += `CÂU HỎI: ${question}\n\nTRẢ LỜI:`;
 
         return prompt;
@@ -406,7 +406,7 @@ class AIServiceV2 {
             const pic = p.nguoiDamNhan ? `${p.nguoiDamNhan.hoten} (${p.nguoiDamNhan.manv})` : 'Chưa có';
             const start = p.ngaybatdau ? new Date(p.ngaybatdau).toLocaleDateString('vi-VN') : 'N/A';
             const end = p.ngayketthuc ? new Date(p.ngayketthuc).toLocaleDateString('vi-VN') : 'N/A';
-            text += `${i+1}. ${p.tenduan} | ${start}→${end} | ${p.status} | PIC: ${pic}\n`;
+            text += `${i + 1}. ${p.tenduan} | ${start}→${end} | ${p.status} | PIC: ${pic}\n`;
         });
 
         if (!showAll && projects.length > 15) {
@@ -424,7 +424,7 @@ class AIServiceV2 {
         tasksToShow.forEach((t, i) => {
             const deadline = t.ngayKetThuc ? new Date(t.ngayKetThuc).toLocaleDateString('vi-VN') : 'N/A';
             const assignee = t.nguoiDuocGiao ? t.nguoiDuocGiao.hoten : 'Chưa phân';
-            text += `${i+1}. ${t.tentask} | ${t.trangThai} | Hạn: ${deadline} | Người: ${assignee}\n`;
+            text += `${i + 1}. ${t.tentask} | ${t.trangThai} | Hạn: ${deadline} | Người: ${assignee}\n`;
         });
 
         if (!showAll && tasks.length > 15) {
@@ -437,7 +437,7 @@ class AIServiceV2 {
     formatUsersCompact(users) {
         let text = `THÀNH VIÊN (${users.length}):\n`;
         users.slice(0, 20).forEach((u, i) => {
-            text += `${i+1}. ${u.hoten} (${u.manv}) - ${u.chucvu || 'N/A'}`;
+            text += `${i + 1}. ${u.hoten} (${u.manv}) - ${u.chucvu || 'N/A'}`;
             if (u.email) text += ` | ${u.email}`;
             text += `\n`;
         });
@@ -451,7 +451,7 @@ class AIServiceV2 {
         groups.slice(0, 10).forEach((g, i) => {
             const leader = g.leader ? g.leader.hoten : 'Chưa có';
             const members = g.groupMembers?.length || 0;
-            text += `${i+1}. ${g.name} | Leader: ${leader} | ${members} thành viên\n`;
+            text += `${i + 1}. ${g.name} | Leader: ${leader} | ${members} thành viên\n`;
         });
         if (groups.length > 10) text += `... và ${groups.length - 10} nhóm khác\n`;
         text += `\n`;
@@ -461,7 +461,7 @@ class AIServiceV2 {
     // ============================================
     // SMART FALLBACK (Rule-based responses)
     // ============================================
-    
+
     generateSmartFallback(question, context, intent) {
         let answer = '';
 
@@ -551,7 +551,7 @@ class AIServiceV2 {
                 const deadline = new Date(p.ngayketthuc);
                 const daysLate = Math.floor((today - deadline) / (1000 * 60 * 60 * 24));
                 const pic = p.nguoiDamNhan ? p.nguoiDamNhan.hoten : 'Chưa có';
-                answer += `${i+1}. **${p.tenduan}**\n`;
+                answer += `${i + 1}. **${p.tenduan}**\n`;
                 answer += `   - Deadline: ${deadline.toLocaleDateString('vi-VN')}\n`;
                 answer += `   - Trễ: ${daysLate} ngày\n`;
                 answer += `   - PIC: ${pic}\n`;
@@ -566,7 +566,7 @@ class AIServiceV2 {
                 const deadline = new Date(t.ngayKetThuc);
                 const daysLate = Math.floor((today - deadline) / (1000 * 60 * 60 * 24));
                 const assignee = t.nguoiDuocGiao ? t.nguoiDuocGiao.hoten : 'Chưa phân';
-                answer += `${i+1}. **${t.tentask}**\n`;
+                answer += `${i + 1}. **${t.tentask}**\n`;
                 answer += `   - Deadline: ${deadline.toLocaleDateString('vi-VN')}\n`;
                 answer += `   - Trễ: ${daysLate} ngày\n`;
                 answer += `   - Người nhận: ${assignee}\n`;
@@ -594,14 +594,14 @@ class AIServiceV2 {
         answer += `\n`;
 
         // Find projects this person is managing
-        const userProjects = (context.projects || []).filter(p => 
+        const userProjects = (context.projects || []).filter(p =>
             p.nguoiDamNhan && p.nguoiDamNhan.id === user.id
         );
 
         if (userProjects.length > 0) {
             answer += `📁 **Dự án phụ trách (${userProjects.length}):**\n`;
             userProjects.forEach((p, i) => {
-                answer += `${i+1}. ${p.tenduan} - ${p.status}\n`;
+                answer += `${i + 1}. ${p.tenduan} - ${p.status}\n`;
             });
         } else {
             answer += `📁 Chưa được phân công phụ trách dự án nào.\n`;
@@ -615,7 +615,7 @@ class AIServiceV2 {
         if (userTasks.length > 0) {
             answer += `\n📋 **Công việc được giao (${userTasks.length}):**\n`;
             userTasks.slice(0, 5).forEach((t, i) => {
-                answer += `${i+1}. ${t.tentask} - ${t.trangThai}\n`;
+                answer += `${i + 1}. ${t.tentask} - ${t.trangThai}\n`;
             });
             if (userTasks.length > 5) {
                 answer += `... và ${userTasks.length - 5} công việc khác\n`;
@@ -638,7 +638,7 @@ class AIServiceV2 {
             answer += `📁 **Dự án bạn phụ trách (${myProjects.length}):**\n`;
             myProjects.forEach((p, i) => {
                 const end = p.ngayketthuc ? new Date(p.ngayketthuc).toLocaleDateString('vi-VN') : 'N/A';
-                answer += `${i+1}. ${p.tenduan} - ${p.status} - Deadline: ${end}\n`;
+                answer += `${i + 1}. ${p.tenduan} - ${p.status} - Deadline: ${end}\n`;
             });
             answer += '\n';
         } else {
@@ -654,7 +654,7 @@ class AIServiceV2 {
             answer += `📋 **Công việc được giao cho bạn (${myTasks.length}):**\n`;
             myTasks.slice(0, 10).forEach((t, i) => {
                 const end = t.ngayKetThuc ? new Date(t.ngayKetThuc).toLocaleDateString('vi-VN') : 'N/A';
-                answer += `${i+1}. ${t.tentask} - ${t.trangThai} - Hạn: ${end}\n`;
+                answer += `${i + 1}. ${t.tentask} - ${t.trangThai} - Hạn: ${end}\n`;
             });
             if (myTasks.length > 10) {
                 answer += `... và ${myTasks.length - 10} công việc khác\n`;
@@ -690,7 +690,7 @@ class AIServiceV2 {
     // ============================================
     // UTILITY FUNCTIONS
     // ============================================
-    
+
     extractSources(context) {
         const sources = [];
         if (context.projects?.length) sources.push({ type: 'projects', count: context.projects.length });
