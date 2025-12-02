@@ -265,7 +265,9 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
             setUnavailableMembers(membersData.unavailableUsers || []);
             
             // Lọc chỉ dự án chua_bat_dau hoặc dang_chay
-            setProjects((projectRes.data || []).filter((p: any) => p.status === 'chua_bat_dau' || p.status === 'dang_chay'));
+            // Backend returns { success, data: [...], pagination: {...} }
+            const projectsData = projectRes.data?.data && Array.isArray(projectRes.data.data) ? projectRes.data.data : (Array.isArray(projectRes.data) ? projectRes.data : []);
+            setProjects(projectsData.filter((p: any) => p.status === 'chua_bat_dau' || p.status === 'dang_chay'));
             
             // Đếm số nhóm mỗi user đang tham gia (thành viên) - CHỈ ĐẾM NHÓM ACTIVE
             const groupCounts: { [userId: number]: number } = {};

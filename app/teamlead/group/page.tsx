@@ -97,7 +97,7 @@ export default function TeamLeadGroupPage() {
     return (
         <div className="p-6 space-y-6">
             {/* Group Selector - Tabs with Cards */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+            <div key="group-selector" className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
                 {/* Tabs Header */}
                 <div className="flex items-center justify-between border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
                     <div className="flex">
@@ -236,7 +236,7 @@ export default function TeamLeadGroupPage() {
             </div>
 
             {/* Selected Group Details */}
-            <div className={`bg-gradient-to-r ${isClosed ? 'from-gray-500 to-gray-600' : 'from-blue-600 to-indigo-600'} rounded-2xl p-8 text-white shadow-lg`}>
+            <div key="group-details" className={`bg-gradient-to-r ${isClosed ? 'from-gray-500 to-gray-600' : 'from-blue-600 to-indigo-600'} rounded-2xl p-8 text-white shadow-lg`}>
                 <div className="flex items-start justify-between">
                     <div className="flex-1">
                         <div className="flex items-center gap-3 mb-3">
@@ -258,8 +258,8 @@ export default function TeamLeadGroupPage() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+            <div key="stats-section" className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div key="stat-members" className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                     <div className="flex items-center gap-4">
                         <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isClosed ? 'bg-gray-400' : 'bg-gradient-to-br from-blue-500 to-blue-600'}`}>
                             <Users className="w-6 h-6 text-white" />
@@ -271,7 +271,7 @@ export default function TeamLeadGroupPage() {
                     </div>
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                <div key="stat-projects" className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                     <div className="flex items-center gap-4">
                         <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isClosed ? 'bg-gray-400' : 'bg-gradient-to-br from-green-500 to-green-600'}`}>
                             <FolderKanban className="w-6 h-6 text-white" />
@@ -283,7 +283,7 @@ export default function TeamLeadGroupPage() {
                     </div>
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                <div key="stat-date" className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                     <div className="flex items-center gap-4">
                         <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isClosed ? 'bg-gray-400' : 'bg-gradient-to-br from-purple-500 to-purple-600'}`}>
                             <Calendar className="w-6 h-6 text-white" />
@@ -299,7 +299,7 @@ export default function TeamLeadGroupPage() {
             </div>
 
             {isClosed && (
-                <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4">
+                <div key="closed-warning" className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4">
                     <div className="flex items-center gap-3">
                         <Lock className="w-6 h-6 text-amber-600" />
                         <div>
@@ -311,7 +311,7 @@ export default function TeamLeadGroupPage() {
             )}
 
             {/* Leader Info */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+            <div key="leader-info" className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                     <UserCheck className={`w-6 h-6 ${isClosed ? 'text-gray-500' : 'text-purple-600'}`} />
                     Trưởng nhóm
@@ -325,18 +325,18 @@ export default function TeamLeadGroupPage() {
                             <h3 className="text-lg font-bold text-gray-900">{selectedGroup.leader.hoten}</h3>
                             <p className="text-sm text-gray-600">{selectedGroup.leader.chucvu || 'Trưởng nhóm'}</p>
                             <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
-                                <span key="manv" className="flex items-center gap-1">
+                                <span className="flex items-center gap-1">
                                     <Award className="w-4 h-4" />
                                     {selectedGroup.leader.manv}
                                 </span>
                                 {selectedGroup.leader.email && (
-                                    <span key="email" className="flex items-center gap-1">
+                                    <span className="flex items-center gap-1">
                                         <Mail className="w-4 h-4" />
                                         {selectedGroup.leader.email}
                                     </span>
                                 )}
                                 {selectedGroup.leader.sdt && (
-                                    <span key="sdt" className="flex items-center gap-1">
+                                    <span className="flex items-center gap-1">
                                         <Phone className="w-4 h-4" />
                                         {selectedGroup.leader.sdt}
                                     </span>
@@ -348,7 +348,7 @@ export default function TeamLeadGroupPage() {
             </div>
 
             {/* Members List */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+            <div key="members-list" className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                     <Users className={`w-6 h-6 ${isClosed ? 'text-gray-500' : 'text-blue-600'}`} />
                     Danh sách thành viên ({selectedGroup.members?.length || 0})
@@ -369,12 +369,12 @@ export default function TeamLeadGroupPage() {
                                     <h3 className="font-semibold text-gray-900 truncate">{member.hoten}</h3>
                                     <p className="text-sm text-gray-600 truncate">{member.chucvu || 'Nhân viên'}</p>
                                     <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                                        <span key="manv" className="flex items-center gap-1">
+                                        <span className="flex items-center gap-1">
                                             <Award className="w-3 h-3" />
                                             {member.manv}
                                         </span>
                                         {member.email && (
-                                            <span key="email" className="flex items-center gap-1 truncate">
+                                            <span className="flex items-center gap-1 truncate">
                                                 <Mail className="w-3 h-3" />
                                                 {member.email}
                                             </span>
@@ -388,7 +388,7 @@ export default function TeamLeadGroupPage() {
             </div>
 
             {/* Projects Section */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+            <div key="projects-section" className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                     <FolderKanban className={`w-6 h-6 ${isClosed ? 'text-gray-500' : 'text-green-600'}`} />
                     {isClosed ? 'Dự án đã tham gia' : 'Dự án đang tham gia'} ({activeProjects.length})

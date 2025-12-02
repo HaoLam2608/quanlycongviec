@@ -113,7 +113,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const token = getToken();
     if (!user.id || !token) {
-      console.log('⚠️ Cannot initialize socket: missing user.id or token', { userId: user.id, hasToken: !!token });
+      // Only log if socket is currently connected (was previously initialized)
+      if (socket) {
+        console.log('🔌 Socket connection cleared due to logout or missing credentials');
+        socket.close();
+        setSocket(null);
+        setIsConnected(false);
+        setOnlineUsers(new Set());
+      }
       return;
     }
 

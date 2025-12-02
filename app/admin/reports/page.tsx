@@ -17,7 +17,7 @@ import {
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import html2canvas from 'html2canvas'
-import { showError } from '@/lib/notifications'
+import { showError, showSuccess } from '@/lib/notifications'
 
 // Loading Skeleton Component
 const StatCardSkeleton = () => (
@@ -558,7 +558,7 @@ export default function ReportsPage() {
                 }),
             ])
 
-            const projectsList = projectsRes.duans || projectsRes || []
+            const projectsList = projectsRes?.data && Array.isArray(projectsRes.data) ? projectsRes.data : (Array.isArray(projectsRes) ? projectsRes : [])
             const usersList = usersRes.users || usersRes || []
             const groupsList = (groupsRes as any).groups || groupsRes || []
             const documentsList = (documentsRes as any).documents || documentsRes || []
@@ -710,54 +710,8 @@ export default function ReportsPage() {
 
     const handleExportExcel = () => {
         try {
-            // Prepare main project data with more details
-            const exportData = tableData.map(row => ({
-                'STT': tableData.indexOf(row) + 1,
-                'Tên dự án': row.project,
-                'Quản lý': row.manager,
-                'Tổng công việc': row.tasks,
-                'Đã hoàn thành': row.completed,
-                'Tiến độ (%)': row.progress,
-                'Ngày hết hạn': row.deadline,
-                'Trạng thái': getStatusLabel(row.status),
-                'Công việc còn lại': row.tasks - row.completed,
-                'Mức độ rủi ro': row.progress < 30 ? 'Cao' : row.progress < 70 ? 'Trung bình' : 'Thấp'
-            }))
-
             // Create workbook
             const wb = XLSX.utils.book_new()
-
-            // Main report sheet with enhanced formatting
-            const ws = XLSX.utils.json_to_sheet(exportData)
-
-            // Add column widths
-            ws['!cols'] = [
-                { wch: 5 },  // STT
-                { wch: 30 }, // Tên dự án
-                { wch: 20 }, // Quản lý
-                { wch: 12 }, // Tổng công việc
-                { wch: 12 }, // Đã hoàn thành
-                { wch: 10 }, // Tiến độ
-                { wch: 15 }, // Ngày hết hạn
-                { wch: 15 }, // Trạng thái
-                { wch: 12 }, // Còn lại
-                { wch: 15 }, // Rủi ro
-            ]
-
-            // Add title and metadata
-            XLSX.utils.sheet_add_aoa(ws, [
-                ['BÁO CÁO TỔNG QUAN DỰ ÁN'],
-                [`Ngày xuất: ${new Date().toLocaleDateString('vi-VN')}`],
-                [`Thời gian: ${new Date().toLocaleTimeString('vi-VN')}`],
-                [''], // Empty row
-            ], { origin: 'A1' })
-
-            // Shift data down to accommodate header
-            const range = XLSX.utils.decode_range(ws['!ref'] || 'A1')
-            range.s.r += 4
-            ws['!ref'] = XLSX.utils.encode_range(range)
-
-            XLSX.utils.book_append_sheet(wb, ws, 'Báo cáo dự án')
 
             // Enhanced stats sheet
             const currentDate = new Date()
@@ -945,7 +899,22 @@ export default function ReportsPage() {
             }
 
             tableData.slice(0, 30).forEach((row, index) => {
-                checkPageBreak(rowHeight + 5)
+                if (checkPageBreak(rowHeight + 5)) {
+                    // Draw header again on new page
+                    pdf.setFillColor(40, 86, 255)
+                    pdf.rect(margin, yPos, pageWidth - 2 * margin, rowHeight, 'F')
+                    pdf.setFontSize(9)
+                    pdf.setTextColor(255, 255, 255)
+                    pdf.text('STT', colX[0] + 2, yPos + 5)
+                    pdf.text('TEN DU AN', colX[1] + 2, yPos + 5)
+                    pdf.text('QUAN LY', colX[2] + 2, yPos + 5)
+                    pdf.text('TIEN DO', colX[3] + 2, yPos + 5)
+                    pdf.text('TASKS', colX[4] + 2, yPos + 5)
+                    pdf.text('TRANG THAI', colX[5] + 2, yPos + 5)
+                    yPos += rowHeight
+                    pdf.setFontSize(8)
+                    pdf.setTextColor(50, 50, 50)
+                }
 
                 // Alternating background
                 if (index % 2 === 0) {
@@ -1035,11 +1004,12 @@ export default function ReportsPage() {
             const time = new Date().toTimeString().slice(0, 5).replace(':', '')
             pdf.save(`Bao_cao_tong_quan_${date}_${time}.pdf`)
 
+            showSuccess("Xuat file PDF thanh cong")
         } catch (error) {
-
             console.error("Export PDF error:", error)
             showError("Có lỗi khi xuất file PDF")
-
+        } finally {
+            setExportingPdf(false)
         }
     }
 
@@ -1391,7 +1361,7 @@ export default function ReportsPage() {
                                 className="w-full px-3 py-2 border border-border rounded-lg text-xs md:text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
                             >
                                 <option value="">Tất cả</option>
-                                {projects.map((project) => (
+                                {Array.isArray(projects) && projects.map((project) => (
                                     <option key={project.id} value={project.id}>
                                         {project.tenduan || project.ten || `Dự án ${project.id}`}
                                     </option>

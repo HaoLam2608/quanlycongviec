@@ -17,7 +17,8 @@ import {
     Trash2,
     Plus
 } from "lucide-react"
-import { showSuccess, showWarning } from "@/lib/notifications"
+import { showSuccess, showWarning, showError } from "@/lib/notifications"
+import api from "@/axios/config"
 
 interface NotificationSettings {
     emailNotifications: boolean
@@ -49,6 +50,13 @@ interface TeamSettings {
 export default function ManagerSettingsPage() {
     const [loading, setLoading] = useState(true)
     const [activeTab, setActiveTab] = useState<"general" | "notifications" | "security" | "team">("general")
+    const [currentUser, setCurrentUser] = useState<any>(null)
+    const [formData, setFormData] = useState({
+        hoten: "",
+        email: "",
+        sdt: "",
+        chucvu: ""
+    })
     const [notifications, setNotifications] = useState<NotificationSettings>({
         emailNotifications: true,
         pushNotifications: true,
@@ -88,21 +96,49 @@ export default function ManagerSettingsPage() {
 
     const loadSettings = async () => {
         try {
-            // Mock loading settings
+            // Fetch current user profile
+            const userRes = await api.get('/users/me')
+            const user = userRes.data?.user || userRes.data?.data || userRes.data
+            
+            setCurrentUser(user)
+            
+            // Set form data from user profile
+            setFormData({
+                hoten: user?.hoten || "",
+                email: user?.email || "",
+                sdt: user?.sdt || "",
+                chucvu: user?.chucvu || ""
+            })
+            
+            console.log('✅ User profile loaded:', user)
             setLoading(false)
         } catch (error) {
-            console.error("Error loading settings:", error)
+            console.error("❌ Error loading settings:", error)
+            showError("Lỗi khi tải cài đặt")
             setLoading(false)
         }
     }
 
     const saveSettings = async () => {
         try {
-            // Mock save settings
-            console.log("Settings saved:", { notifications, security, team })
-            showSuccess("Cài đặt đã được lưu thành công!")
+            // Save user profile
+            if (activeTab === "general") {
+                const response = await api.put('/users/me', {
+                    hoten: formData.hoten,
+                    sdt: formData.sdt,
+                    chucvu: formData.chucvu
+                })
+                console.log('✅ Profile updated:', response.data)
+                setCurrentUser(response.data?.user)
+                showSuccess("Cài đặt đã được lưu thành công!")
+            } else {
+                // For other tabs, just show success (mock implementation)
+                console.log("Settings saved:", { notifications, security, team })
+                showSuccess("Cài đặt đã được lưu thành công!")
+            }
         } catch (error) {
-            console.error("Error saving settings:", error)
+            console.error("❌ Error saving settings:", error)
+            showError("Lỗi khi lưu cài đặt")
         }
     }
 
@@ -248,7 +284,8 @@ export default function ManagerSettingsPage() {
                                                 </label>
                                                 <input
                                                     type="text"
-                                                    defaultValue="Jane Smith"
+                                                    value={formData.hoten}
+                                                    onChange={(e) => setFormData({ ...formData, hoten: e.target.value })}
                                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                                 />
                                             </div>
@@ -258,9 +295,11 @@ export default function ManagerSettingsPage() {
                                                 </label>
                                                 <input
                                                     type="email"
-                                                    defaultValue="jane.smith@company.com"
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                    value={formData.email}
+                                                    disabled
+                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:cursor-not-allowed"
                                                 />
+                                                <p className="text-xs text-gray-500 mt-1">Email không thể thay đổi</p>
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -268,7 +307,8 @@ export default function ManagerSettingsPage() {
                                                 </label>
                                                 <input
                                                     type="tel"
-                                                    defaultValue="0123456789"
+                                                    value={formData.sdt}
+                                                    onChange={(e) => setFormData({ ...formData, sdt: e.target.value })}
                                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                                 />
                                             </div>
@@ -278,7 +318,8 @@ export default function ManagerSettingsPage() {
                                                 </label>
                                                 <input
                                                     type="text"
-                                                    defaultValue="Project Manager"
+                                                    value={formData.chucvu}
+                                                    onChange={(e) => setFormData({ ...formData, chucvu: e.target.value })}
                                                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                                 />
                                             </div>

@@ -16,6 +16,21 @@ export default function LoginPage() {
     completionRate: 0,
   })
   const [loading, setLoading] = useState(true)
+  const [particles, setParticles] = useState<Array<{ id: number; left: number; top: number; delay: number; duration: number; opacity: number }>>([])
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    // Generate particles only on client to avoid hydration mismatch
+    setParticles([...Array(20)].map((_, i) => ({
+      id: i,
+      left: Math.random() * 100,
+      top: Math.random() * 100,
+      delay: Math.random() * 5,
+      duration: 15 + Math.random() * 10,
+      opacity: Math.random() * 0.5 + 0.2,
+    })))
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     const loadStats = async () => {
@@ -45,16 +60,16 @@ export default function LoginPage() {
 
       {/* Floating particles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {[...Array(20)].map((_, i) => (
+        {mounted && particles.map((particle) => (
           <div
-            key={i}
+            key={particle.id}
             className="absolute h-1 w-1 bg-blue-400 rounded-full animate-float"
             style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 5}s`,
-              animationDuration: `${15 + Math.random() * 10}s`,
-              opacity: Math.random() * 0.5 + 0.2,
+              left: `${particle.left}%`,
+              top: `${particle.top}%`,
+              animationDelay: `${particle.delay}s`,
+              animationDuration: `${particle.duration}s`,
+              opacity: particle.opacity,
             }}
           />
         ))}

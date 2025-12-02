@@ -79,6 +79,13 @@ export default function PMLayout({ children }: { children: React.ReactNode }) {
     const handleLogout = async () => {
         const confirmed = await showConfirm("Bạn có chắc chắn muốn đăng xuất?")
         if (confirmed) {
+            // Gọi API logout
+            try {
+                await api.post('/auth/logout').catch(() => {})
+            } catch (error) {
+                // Bỏ qua lỗi nếu có
+            }
+            
             // Xóa accessToken (key chính dùng trong app) và các thông tin khác
             localStorage.removeItem("accessToken")
             // giữ xóa 'token' cũ để backward compat
@@ -86,13 +93,20 @@ export default function PMLayout({ children }: { children: React.ReactNode }) {
             localStorage.removeItem("refreshToken")
             localStorage.removeItem("manv")
             localStorage.removeItem("userId")
-            localStorage.removeItem("userId")
             localStorage.removeItem("hoten")
             localStorage.removeItem("role")
             localStorage.removeItem("avatar")
+            localStorage.removeItem("chucvu")
+            
+            // Xóa toàn bộ sessionStorage
+            sessionStorage.clear()
 
             showSuccess("Đăng xuất thành công!")
-            router.push("/")
+            
+            // Delay 500ms để hiển thị toast trước khi navigate
+            setTimeout(() => {
+                router.push("/")
+            }, 500)
         }
     }
 
@@ -123,6 +137,7 @@ export default function PMLayout({ children }: { children: React.ReactNode }) {
                                         width={120}
                                         height={40}
                                         className="h-8 w-auto object-contain"
+                                        priority
                                     />
                                 </div>
                                 <div className="flex-shrink-0 flex items-center px-4">
@@ -174,6 +189,7 @@ export default function PMLayout({ children }: { children: React.ReactNode }) {
                                         width={150}
                                         height={50}
                                         className="h-10 w-auto object-contain"
+                                        priority
                                     />
                                 </div>
                                 <div className="flex items-center flex-shrink-0 px-4">
