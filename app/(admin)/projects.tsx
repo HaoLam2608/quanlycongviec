@@ -67,12 +67,17 @@ export default function ProjectsManagement() {
         setLoading(true);
         try {
             const response = await api.get('/duan/getAll');
+            console.log('📊 Projects API Response:', response.data);
 
             if (response.data) {
-                setProjects(Array.isArray(response.data) ? response.data : (response.data.duans || []));
+                // Backend returns: { success: true, data: [...projects], pagination: {...} }
+                const projectsData = response.data.data || response.data.duans || response.data;
+                const projectsArray = Array.isArray(projectsData) ? projectsData : [];
+                console.log('✅ Loaded projects count:', projectsArray.length);
+                setProjects(projectsArray);
             }
         } catch (error) {
-            console.error('Error loading projects:', error);
+            console.error('❌ Error loading projects:', error);
             Alert.alert('Lỗi', 'Không thể tải danh sách dự án');
         } finally {
             setLoading(false);

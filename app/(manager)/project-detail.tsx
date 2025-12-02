@@ -6,6 +6,7 @@ import {
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
+import { Picker } from '@react-native-picker/picker';
 import * as Sharing from 'expo-sharing';
 import { createTask, deleteTask, fetchDocuments } from '@/src/axios/api';
 import { API_CONFIG } from '@/src/config/api';
@@ -390,7 +391,7 @@ export default function ProjectDetail() {
             if (!newDesc.trim()) return Alert.alert('Lỗi', 'Vui lòng nhập mô tả công việc');
             if (!newStartDate.trim()) return Alert.alert('Lỗi', 'Vui lòng chọn ngày bắt đầu');
             if (!newDueDate.trim()) return Alert.alert('Lỗi', 'Vui lòng chọn ngày kết thúc');
-            if (!selectedAssigneeId) return Alert.alert('Lỗi', 'Vui lòng chọn người thực hiện (trưởng nhóm)');
+            // Người thực hiện không còn bắt buộc
             if (!newPriority) return Alert.alert('Lỗi', 'Vui lòng chọn mức độ ưu tiên');
 
             setLoading(true);
@@ -407,12 +408,16 @@ export default function ProjectDetail() {
                 tentask: newTitle,
                 mota: newDesc,
                 duanId: Number(projectId),
-                nguoiDuocGiaoId: Number(selectedAssigneeId),
                 ngayBatDau: newStartDate,
                 ngayKetThuc: newDueDate,
                 mucDoUuTien: priorityForBackend,
                 ghiChu: newNotes,
             };
+
+            // Chỉ thêm người thực hiện nếu đã chọn
+            if (selectedAssigneeId) {
+                payload.nguoiDuocGiaoId = Number(selectedAssigneeId);
+            }
 
             const res = await createTask(payload as any);
 
@@ -882,25 +887,29 @@ export default function ProjectDetail() {
                                 />
                             )}
 
-                            {/* Assignee selection: only group leaders of groupsAttached */}
-                            <Text style={{ marginTop: 6, marginBottom: 6, fontWeight: '700', color: '#374151' }}>Người thực hiện (Chọn trưởng nhóm)</Text>
-                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
-                                {(() => {
-                                    const seen = new Set();
-                                    const leaders = (groupsAttached || []).map((g: any) => g.leader || g.truong || g.leaderInfo || null).filter(Boolean).reduce((acc: any[], l: any) => {
-                                        const id = l.id || l.userId || l.leaderId || l.uid;
-                                        if (!id || seen.has(id)) return acc;
-                                        seen.add(id);
-                                        acc.push({ id, name: l.hoten || l.name || l.fullName || l.hoTen || 'Không rõ' });
-                                        return acc;
-                                    }, [] as any[]);
-                                    if (!leaders || leaders.length === 0) return <Text style={{ color: '#6b7280' }}>Không có trưởng nhóm để chọn</Text>;
-                                    return leaders.map((L: any) => (
-                                        <TouchableOpacity key={L.id} onPress={() => setSelectedAssigneeId(Number(L.id))} style={[styles.tagPill, selectedAssigneeId === Number(L.id) ? { backgroundColor: '#1e40af' } : { backgroundColor: '#eef2ff' }]}>
-                                            <Text style={{ color: selectedAssigneeId === Number(L.id) ? '#fff' : '#111827', fontWeight: '600' }}>{L.name}</Text>
-                                        </TouchableOpacity>
-                                    ));
-                                })()}
+                            {/* Assignee selection: dropdown picker for group leaders */}
+                            <Text style={{ marginTop: 6, marginBottom: 6, fontWeight: '700', color: '#374151' }}>Người thực hiện (Tuỳ chọn)</Text>
+                            <View style={styles.pickerContainer}>
+                                <Picker
+                                    selectedValue={selectedAssigneeId}
+                                    onValueChange={(itemValue) => setSelectedAssigneeId(itemValue)}
+                                    style={styles.picker}
+                                >
+                                    <Picker.Item label="-- Không chọn --" value={null} />
+                                    {(() => {
+                                        const seen = new Set();
+                                        const leaders = (groupsAttached || []).map((g: any) => g.leader || g.truong || g.leaderInfo || null).filter(Boolean).reduce((acc: any[], l: any) => {
+                                            const id = l.id || l.userId || l.leaderId || l.uid;
+                                            if (!id || seen.has(id)) return acc;
+                                            seen.add(id);
+                                            acc.push({ id, name: l.hoten || l.name || l.fullName || l.hoTen || 'Không rõ' });
+                                            return acc;
+                                        }, [] as any[]);
+                                        return leaders.map((L: any) => (
+                                            <Picker.Item key={L.id} label={L.name} value={Number(L.id)} />
+                                        ));
+                                    })()}
+                                </Picker>
                             </View>
 
                             {/* Priority */}
@@ -1357,6 +1366,18 @@ const styles = StyleSheet.create({
         paddingHorizontal: 10,
         borderRadius: 20,
         marginRight: 8,
+    },
+    pickerContainer: {
+        borderWidth: 1,
+        borderColor: '#d1d5db',
+        borderRadius: 8,
+        backgroundColor: '#fff',
+        marginBottom: 8,
+        overflow: 'hidden',
+    },
+    picker: {
+        height: 50,
+        width: '100%',
     },
     priorityOption: {
         paddingVertical: 8,
