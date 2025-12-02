@@ -54,6 +54,7 @@ export const FloatingChatBox: React.FC<FloatingChatBoxProps> = ({ className }) =
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [showMemberList, setShowMemberList] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   // Calculate total unread count
   const totalUnread = conversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
@@ -69,6 +70,16 @@ export const FloatingChatBox: React.FC<FloatingChatBoxProps> = ({ className }) =
       loadConversations();
     }
   }, [isOpen, conversations.length, loadConversations]);
+
+  useEffect(() => {
+    const updateIsMobile = () => {
+      setIsMobile(window.innerWidth <= 640);
+    };
+
+    updateIsMobile();
+    window.addEventListener('resize', updateIsMobile);
+    return () => window.removeEventListener('resize', updateIsMobile);
+  }, []);
 
   const loadAllUsers = useCallback(async () => {
     setIsSearching(true);
@@ -268,7 +279,13 @@ export const FloatingChatBox: React.FC<FloatingChatBoxProps> = ({ className }) =
 
   if (!isOpen) {
     return (
-      <div className={cn("fixed bottom-6 right-6 z-50", className)}>
+      <div
+        className={cn(
+          "fixed z-50",
+          isMobile ? "bottom-4 right-4" : "bottom-6 right-6",
+          className
+        )}
+      >
         <Button
           size="lg"
           className="h-14 w-14 rounded-full shadow-lg relative"
@@ -290,7 +307,13 @@ export const FloatingChatBox: React.FC<FloatingChatBoxProps> = ({ className }) =
 
   if (isMinimized) {
     return (
-      <div className={cn("fixed bottom-6 right-6 z-50", className)}>
+      <div
+        className={cn(
+          "fixed z-50",
+          isMobile ? "bottom-4 left-1/2 -translate-x-1/2" : "bottom-6 right-6",
+          className
+        )}
+      >
         <Button
           size="lg"
           variant="secondary"
@@ -316,8 +339,27 @@ export const FloatingChatBox: React.FC<FloatingChatBoxProps> = ({ className }) =
 
   return (
     <>
-      <div className={cn("fixed bottom-6 right-6 z-50", className)}>
-        <div className="w-[420px] h-[650px] bg-card border rounded-lg shadow-2xl flex flex-col overflow-hidden">
+      {isMobile && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+      <div
+        className={cn(
+          "fixed z-50",
+          isMobile ? "inset-0 flex items-end justify-center p-3" : "bottom-6 right-6",
+          className
+        )}
+      >
+        <div
+          className={cn(
+            "bg-card border shadow-2xl flex flex-col overflow-hidden",
+            isMobile
+              ? "w-full h-full max-h-[calc(100vh-1.5rem)] rounded-t-3xl rounded-b-none"
+              : "w-[420px] h-[650px] rounded-lg"
+          )}
+        >
           {/* Header */}
           <div className="bg-primary text-primary-foreground p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">

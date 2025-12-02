@@ -43,6 +43,7 @@ export default function PMLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter()
     const { showSuccess } = useToastContext()
     const [sidebarOpen, setSidebarOpen] = useState(false)
+    const [isLoggingOut, setIsLoggingOut] = useState(false)
     const [isClient, setIsClient] = useState(false)
     const [userInfo, setUserInfo] = useState({
         hoten: "Jane Smith",
@@ -79,34 +80,28 @@ export default function PMLayout({ children }: { children: React.ReactNode }) {
     const handleLogout = async () => {
         const confirmed = await showConfirm("Bạn có chắc chắn muốn đăng xuất?")
         if (confirmed) {
-            // Gọi API logout
+            setIsLoggingOut(true)
             try {
-                await api.post('/auth/logout').catch(() => {})
-            } catch (error) {
-                // Bỏ qua lỗi nếu có
-            }
-            
-            // Xóa accessToken (key chính dùng trong app) và các thông tin khác
-            localStorage.removeItem("accessToken")
-            // giữ xóa 'token' cũ để backward compat
-            localStorage.removeItem("token")
-            localStorage.removeItem("refreshToken")
-            localStorage.removeItem("manv")
-            localStorage.removeItem("userId")
-            localStorage.removeItem("hoten")
-            localStorage.removeItem("role")
-            localStorage.removeItem("avatar")
-            localStorage.removeItem("chucvu")
-            
-            // Xóa toàn bộ sessionStorage
-            sessionStorage.clear()
+                await api.post('/auth/logout').catch(() => { })
 
-            showSuccess("Đăng xuất thành công!")
-            
-            // Delay 500ms để hiển thị toast trước khi navigate
-            setTimeout(() => {
+                localStorage.removeItem("accessToken")
+                localStorage.removeItem("token")
+                localStorage.removeItem("refreshToken")
+                localStorage.removeItem("manv")
+                localStorage.removeItem("userId")
+                localStorage.removeItem("hoten")
+                localStorage.removeItem("role")
+                localStorage.removeItem("avatar")
+                localStorage.removeItem("chucvu")
+
+                sessionStorage.clear()
+
+                showSuccess("Đăng xuất thành công!")
+                setSidebarOpen(false)
                 router.push("/")
-            }, 500)
+            } finally {
+                setIsLoggingOut(false)
+            }
         }
     }
 
@@ -174,6 +169,17 @@ export default function PMLayout({ children }: { children: React.ReactNode }) {
                                         </div>
                                     ))}
                                 </nav>
+                                {/* Logout for mobile */}
+                                <div className="mt-6 px-2">
+                                    <button
+                                        onClick={handleLogout}
+                                        disabled={isLoggingOut}
+                                        className="w-full text-left text-gray-600 hover:bg-red-50 hover:text-red-700 group flex items-center px-2 py-2 text-base font-medium rounded-md disabled:opacity-50"
+                                    >
+                                        <LogOut className={`text-gray-400 group-hover:text-red-500 mr-4 flex-shrink-0 h-6 w-6 ${isLoggingOut ? 'animate-spin' : ''}`} />
+                                        {isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -285,9 +291,10 @@ export default function PMLayout({ children }: { children: React.ReactNode }) {
                                 {/* Logout */}
                                 <button
                                     onClick={handleLogout}
-                                    className="p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+                                    disabled={isLoggingOut}
+                                    className="p-2 text-gray-400 hover:text-gray-500 hover:bg-gray-100 rounded-full transition-colors disabled:opacity-60"
                                 >
-                                    <LogOut className="h-5 w-5" />
+                                    <LogOut className={`h-5 w-5 ${isLoggingOut ? 'animate-spin' : ''}`} />
                                 </button>
                             </div>
                         </div>

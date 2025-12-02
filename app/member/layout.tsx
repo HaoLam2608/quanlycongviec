@@ -155,12 +155,12 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                 <div className="h-screen flex bg-gradient-to-br from-slate-50 via-blue-50/20 to-slate-50">
                     {/* Mobile sidebar */}
                     <div className={`fixed inset-0 flex z-40 md:hidden ${sidebarOpen ? '' : 'hidden'}`}>
-                        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
+                        <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
 
-                        <div className="relative flex-1 flex flex-col max-w-xs w-full bg-gradient-to-b from-slate-50 via-blue-50/30 to-slate-50">
+                        <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white">
                             <div className="absolute top-0 right-0 -mr-12 pt-2">
                                 <button
-                                    className="ml-1 flex items-center justify-center h-10 w-10 rounded-full bg-white/10 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white hover:bg-white/20 transition-colors"
+                                    className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
                                     onClick={() => setSidebarOpen(false)}
                                 >
                                     <X className="h-6 w-6 text-white" />

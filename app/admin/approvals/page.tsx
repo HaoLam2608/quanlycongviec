@@ -92,6 +92,7 @@ interface JoinRequest {
         processedAt?: string
         action?: "accepted" | "declined"
         assignmentId?: number  // For claim requests that also create notifications
+        projectId?: number
     }
 }
 
@@ -373,6 +374,10 @@ export default function AdminApprovalsPage() {
         }
     }
 
+    const handleApproveJoin = (request: JoinRequest) => handleAcceptRequest(request)
+
+    const handleRejectJoin = (request: JoinRequest) => handleDeclineRequest(request)
+
     const handleDeleteRequest = async (requestId: string) => {
         setProcessingRequestId(requestId)
         try {
@@ -514,15 +519,15 @@ export default function AdminApprovalsPage() {
     }
 
     return (
-        <div className="p-6 bg-gray-50 min-h-screen">
+        <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
             <div className="max-w-6xl mx-auto">
-                <div className="mb-6">
-                    <div className="flex items-center justify-between mb-4">
+                <div className="mb-4 md:mb-6">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4 gap-4">
                         <div>
-                            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
                                 Điều phối phê duyệt
                             </h1>
-                            <p className="text-gray-600">
+                            <p className="text-sm md:text-base text-gray-600">
                                 {activeTab === "completion"
                                     ? "Theo dõi và xử lý các yêu cầu hoàn thành công việc trên toàn hệ thống"
                                     : activeTab === "requests"
@@ -530,12 +535,12 @@ export default function AdminApprovalsPage() {
                                         : "Xem lại lịch sử phê duyệt, tiếp nhận công việc toàn công ty"}
                             </p>
                         </div>
-                        <div className="flex items-center gap-3">
-                            <div className="text-right">
-                                <p className="text-sm text-gray-500">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 w-full md:w-auto">
+                            <div className="w-full sm:w-auto border border-blue-100 bg-white rounded-lg px-4 py-3 shadow-sm">
+                                <p className="text-xs md:text-sm text-gray-500">
                                     {activeTab === "completion" ? "Tổng số chờ phê duyệt" : "Tổng số yêu cầu"}
                                 </p>
-                                <p className="text-2xl font-bold text-orange-600">
+                                <p className="text-xl md:text-2xl font-bold text-orange-600">
                                     {activeTab === "completion" ? totalCount : (joinRequests.filter(r => !r.meta?.assignmentId).length + claimRequests.filter(r => r.status === 'pending').length)}
                                 </p>
                             </div>
@@ -549,7 +554,7 @@ export default function AdminApprovalsPage() {
                                     }
                                 }}
                                 disabled={loading || loadingHistory}
-                                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
+                                className="w-full sm:w-auto px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 disabled:opacity-50 shadow-sm"
                             >
                                 <RefreshCw className={`w-4 h-4 ${(loading || loadingHistory) ? "animate-spin" : ""}`} />
                                 Làm mới
@@ -558,10 +563,10 @@ export default function AdminApprovalsPage() {
                     </div>
 
                     <div className="bg-white rounded-xl p-2 shadow-sm border border-gray-200 mb-4">
-                        <div className="flex gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2">
                             <button
                                 onClick={() => setActiveTab("completion")}
-                                className={`flex-1 px-4 py-3 rounded-lg font-medium text-sm transition-all ${activeTab === "completion"
+                                className={`w-full sm:flex-1 px-4 py-3 rounded-lg font-medium text-xs md:text-sm transition-all ${activeTab === "completion"
                                     ? "bg-blue-600 text-white shadow-md"
                                     : "text-gray-600 hover:bg-gray-50"
                                     }`}
@@ -581,7 +586,7 @@ export default function AdminApprovalsPage() {
                             </button>
                             <button
                                 onClick={() => setActiveTab("requests")}
-                                className={`flex-1 px-4 py-3 rounded-lg font-medium text-sm transition-all ${activeTab === "requests"
+                                className={`w-full sm:flex-1 px-4 py-3 rounded-lg font-medium text-xs md:text-sm transition-all ${activeTab === "requests"
                                     ? "bg-green-600 text-white shadow-md"
                                     : "text-gray-600 hover:bg-gray-50"
                                     }`}
@@ -601,7 +606,7 @@ export default function AdminApprovalsPage() {
                             </button>
                             <button
                                 onClick={() => setActiveTab("history")}
-                                className={`flex-1 px-4 py-3 rounded-lg font-medium text-sm transition-all ${activeTab === "history"
+                                className={`w-full sm:flex-1 px-4 py-3 rounded-lg font-medium text-xs md:text-sm transition-all ${activeTab === "history"
                                     ? "bg-purple-600 text-white shadow-md"
                                     : "text-gray-600 hover:bg-gray-50"
                                     }`}
@@ -624,21 +629,21 @@ export default function AdminApprovalsPage() {
 
                     {activeTab === "completion" && (
                         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-                            <div className="flex items-center gap-4">
-                                <div className="relative flex-1 max-w-md">
+                            <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3 md:gap-4">
+                                <div className="relative flex-1 md:max-w-md">
                                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                                     <input
                                         type="text"
                                         placeholder="Tìm kiếm công việc, nhân sự, dự án..."
                                         value={searchTerm}
                                         onChange={e => setSearchTerm(e.target.value)}
-                                        className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full"
+                                        className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full text-sm"
                                     />
                                 </div>
                                 <select
                                     value={filter}
                                     onChange={e => setFilter(e.target.value as any)}
-                                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm w-full md:w-auto"
                                 >
                                     <option value="all">Tất cả</option>
                                     <option value="tasks">Chỉ công việc chính</option>
@@ -671,15 +676,15 @@ export default function AdminApprovalsPage() {
                             ) : (
                                 <>
                                     {(filter === "all" || filter === "tasks") && filteredTasks.map(task => (
-                                        <div key={`task-${task.id}`} className="p-6 hover:bg-gray-50 transition-colors">
-                                            <div className="flex items-start justify-between">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-3 mb-2">
+                                        <div key={`task-${task.id}`} className="p-4 md:p-6 hover:bg-gray-50 transition-colors">
+                                            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-2">
                                                         <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                                                        <h3 className="text-lg font-semibold text-gray-900">
+                                                        <h3 className="text-base md:text-lg font-semibold text-gray-900 break-words">
                                                             {task.tentask}
                                                         </h3>
-                                                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
+                                                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full whitespace-nowrap">
                                                             Công việc chính
                                                         </span>
                                                         {task.duan?.tenduan && (
@@ -689,9 +694,9 @@ export default function AdminApprovalsPage() {
                                                         )}
                                                     </div>
                                                     {task.mota && (
-                                                        <p className="text-gray-600 mb-3 line-clamp-3">{task.mota}</p>
+                                                        <p className="text-sm md:text-base text-gray-600 mb-3 line-clamp-3">{task.mota}</p>
                                                     )}
-                                                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                                                    <div className="flex flex-col md:flex-row md:flex-wrap md:items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-500">
                                                         <div className="flex items-center gap-1">
                                                             <User className="w-4 h-4" />
                                                             <span>Người thực hiện: {task.nguoiDuocGiao?.hoten || "Chưa phân công"}</span>
@@ -712,27 +717,27 @@ export default function AdminApprovalsPage() {
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center gap-3 ml-4">
+                                                <div className="flex w-full sm:w-auto flex-col sm:flex-row md:flex-col lg:flex-row items-stretch sm:items-center gap-2 md:gap-3 md:ml-4">
                                                     <button
                                                         onClick={() => openApprovalModal(task, "task")}
-                                                        className="px-3 py-1 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-1"
+                                                        className="w-full sm:flex-1 md:w-full px-3 py-2 text-xs md:text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-1 whitespace-nowrap"
                                                     >
-                                                        <Eye className="w-4 h-4" />
-                                                        Chi tiết
+                                                        <Eye className="w-3 h-3 md:w-4 md:h-4" />
+                                                        <span className="hidden sm:inline">Chi tiết</span>
                                                     </button>
                                                     <button
                                                         onClick={() => handleApprove(task, "task", true)}
                                                         disabled={processingApproval}
-                                                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-1"
+                                                        className="w-full sm:flex-1 md:w-full px-3 md:px-4 py-2 text-xs md:text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-1 whitespace-nowrap"
                                                     >
-                                                        <CheckCheck className="w-4 h-4" />
+                                                        <CheckCheck className="w-3 h-3 md:w-4 md:h-4" />
                                                         Phê duyệt
                                                     </button>
                                                     <button
                                                         onClick={() => openApprovalModal(task, "task")}
-                                                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-1"
+                                                        className="w-full sm:flex-1 md:w-full px-3 md:px-4 py-2 text-xs md:text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center justify-center gap-1 whitespace-nowrap"
                                                     >
-                                                        <X className="w-4 h-4" />
+                                                        <X className="w-3 h-3 md:w-4 md:h-4" />
                                                         Từ chối
                                                     </button>
                                                 </div>
@@ -741,12 +746,12 @@ export default function AdminApprovalsPage() {
                                     ))}
 
                                     {(filter === "all" || filter === "subtasks") && filteredSubtasks.map(subtask => (
-                                        <div key={`subtask-${subtask.id}`} className="p-6 hover:bg-gray-50 transition-colors">
-                                            <div className="flex items-start justify-between">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-3 mb-2">
+                                        <div key={`subtask-${subtask.id}`} className="p-4 md:p-6 hover:bg-gray-50 transition-colors">
+                                            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-2">
                                                         <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                                                        <h3 className="text-lg font-semibold text-gray-900">
+                                                        <h3 className="text-base md:text-lg font-semibold text-gray-900 break-words">
                                                             {subtask.tenSubtask}
                                                         </h3>
                                                         <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs font-medium rounded-full">
@@ -758,14 +763,14 @@ export default function AdminApprovalsPage() {
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <div className="flex items-center gap-2 mb-3 text-sm text-gray-600">
+                                                    <div className="flex items-center gap-2 mb-3 text-xs md:text-sm text-gray-600">
                                                         <span>Thuộc task:</span>
                                                         <span className="font-medium text-gray-800">{subtask.task?.tentask || "Không rõ"}</span>
                                                     </div>
                                                     {subtask.mota && (
-                                                        <p className="text-gray-600 mb-3 line-clamp-3">{subtask.mota}</p>
+                                                        <p className="text-sm md:text-base text-gray-600 mb-3 line-clamp-3">{subtask.mota}</p>
                                                     )}
-                                                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                                                    <div className="flex flex-col md:flex-row md:flex-wrap md:items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-500">
                                                         <div className="flex items-center gap-1">
                                                             <User className="w-4 h-4" />
                                                             <span>Người thực hiện: {subtask.nguoiThucHien?.hoten || "Chưa phân công"}</span>
@@ -786,27 +791,27 @@ export default function AdminApprovalsPage() {
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center gap-3 ml-4">
+                                                <div className="flex w-full sm:w-auto flex-col sm:flex-row md:flex-col lg:flex-row items-stretch sm:items-center gap-2 md:gap-3 md:ml-4">
                                                     <button
                                                         onClick={() => openApprovalModal(subtask, "subtask")}
-                                                        className="px-3 py-1 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-1"
+                                                        className="w-full sm:flex-1 md:w-full px-3 py-2 text-xs md:text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-1 whitespace-nowrap"
                                                     >
-                                                        <Eye className="w-4 h-4" />
-                                                        Chi tiết
+                                                        <Eye className="w-3 h-3 md:w-4 md:h-4" />
+                                                        <span className="hidden sm:inline">Chi tiết</span>
                                                     </button>
                                                     <button
                                                         onClick={() => handleApprove(subtask, "subtask", true)}
                                                         disabled={processingApproval}
-                                                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-1"
+                                                        className="w-full sm:flex-1 md:w-full px-3 md:px-4 py-2 text-xs md:text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-1 whitespace-nowrap"
                                                     >
-                                                        <CheckCheck className="w-4 h-4" />
+                                                        <CheckCheck className="w-3 h-3 md:w-4 md:h-4" />
                                                         Phê duyệt
                                                     </button>
                                                     <button
                                                         onClick={() => openApprovalModal(subtask, "subtask")}
-                                                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-1"
+                                                        className="w-full sm:flex-1 md:w-full px-3 md:px-4 py-2 text-xs md:text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center justify-center gap-1 whitespace-nowrap"
                                                     >
-                                                        <X className="w-4 h-4" />
+                                                        <X className="w-3 h-3 md:w-4 md:h-4" />
                                                         Từ chối
                                                     </button>
                                                 </div>
@@ -821,10 +826,10 @@ export default function AdminApprovalsPage() {
 
                 {activeTab === "requests" && (
                     <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-                        <div className="p-6 border-b border-gray-200">
-                            <div className="flex items-center justify-between">
+                        <div className="p-4 md:p-6 border-b border-gray-200">
+                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0">
                                 <div>
-                                    <h2 className="text-lg font-semibold text-gray-900">
+                                    <h2 className="text-base md:text-lg font-semibold text-gray-900">
                                         Yêu cầu nhận công việc ({(() => {
                                             const claimCount = requestFilter === "Tất cả yêu cầu" || requestFilter === "Yêu cầu nhận việc"
                                                 ? claimRequests.filter(r => r.status === 'pending').length
@@ -888,12 +893,12 @@ export default function AdminApprovalsPage() {
                                                     const parentTaskName = isSubtask ? request.subtask?.task?.tentask : undefined;
 
                                                     return (
-                                                        <div key={`claim-${request.id}`} className="p-6 hover:bg-gray-50 transition-colors">
-                                                            <div className="flex items-start justify-between">
-                                                                <div className="flex-1">
-                                                                    <div className="flex items-center gap-3 mb-2">
+                                                        <div key={`claim-${request.id}`} className="p-4 md:p-6 hover:bg-gray-50 transition-colors">
+                                                            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-2">
                                                                         <div className={`w-2 h-2 rounded-full ${isSubtask ? 'bg-orange-500' : 'bg-indigo-500'}`}></div>
-                                                                        <h3 className="text-lg font-semibold text-gray-900">
+                                                                        <h3 className="text-base md:text-lg font-semibold text-gray-900 break-words">
                                                                             {itemName || 'Chưa đặt tên'}
                                                                         </h3>
                                                                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${isSubtask
@@ -910,48 +915,48 @@ export default function AdminApprovalsPage() {
                                                                     </div>
 
                                                                     {isSubtask && parentTaskName && (
-                                                                        <div className="flex items-center gap-2 mb-2 text-sm text-gray-600">
+                                                                        <div className="flex items-center gap-2 mb-2 text-xs md:text-sm text-gray-600">
                                                                             <span>Thuộc task:</span>
                                                                             <span className="font-medium text-gray-800">{parentTaskName}</span>
                                                                         </div>
                                                                     )}
 
                                                                     {itemDesc && (
-                                                                        <p className="text-gray-600 mb-3 line-clamp-2">{itemDesc}</p>
+                                                                        <p className="text-sm md:text-base text-gray-600 mb-3 line-clamp-2">{itemDesc}</p>
                                                                     )}
 
-                                                                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                                                                    <div className="flex flex-col md:flex-row md:flex-wrap md:items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-500">
                                                                         {request.assignee && (
                                                                             <div className="flex items-center gap-1">
-                                                                                <User className="w-4 h-4" />
+                                                                                <User className="w-3 h-3 md:w-4 md:h-4" />
                                                                                 <span>Người yêu cầu: {request.assignee.hoten} ({request.assignee.manv})</span>
                                                                             </div>
                                                                         )}
                                                                         {request.manager && (
                                                                             <div className="flex items-center gap-1">
-                                                                                <User className="w-4 h-4 text-blue-500" />
+                                                                                <User className="w-3 h-3 md:w-4 md:h-4 text-blue-500" />
                                                                                 <span>Manager: {request.manager.hoten} ({request.manager.manv})</span>
                                                                             </div>
                                                                         )}
                                                                         {taskCreator && (
                                                                             <div className="flex items-center gap-1">
-                                                                                <User className="w-4 h-4 text-green-500" />
+                                                                                <User className="w-3 h-3 md:w-4 md:h-4 text-green-500" />
                                                                                 <span>Người tạo: {taskCreator.hoten}</span>
                                                                             </div>
                                                                         )}
                                                                         <div className="flex items-center gap-1">
-                                                                            <Clock className="w-4 h-4" />
+                                                                            <Clock className="w-3 h-3 md:w-4 md:h-4" />
                                                                             <span>Yêu cầu: {new Date(request.createdAt).toLocaleString("vi-VN")}</span>
                                                                         </div>
                                                                     </div>
                                                                 </div>
-                                                                <div className="flex items-center gap-3 ml-4">
+                                                                <div className="flex flex-row md:flex-col lg:flex-row items-stretch md:items-center gap-2 md:gap-3 md:ml-4 w-full md:w-auto">
                                                                     <button
                                                                         onClick={() => handleApproveClaim(request)}
                                                                         disabled={processingRequestId === request.id}
-                                                                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-1 whitespace-nowrap"
+                                                                        className="flex-1 md:flex-none px-3 md:px-4 py-2 text-xs md:text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-1 whitespace-nowrap"
                                                                     >
-                                                                        <CheckCheck className="w-4 h-4" />
+                                                                        <CheckCheck className="w-3 h-3 md:w-4 md:h-4" />
                                                                         Phê duyệt
                                                                     </button>
                                                                     <button
@@ -960,9 +965,9 @@ export default function AdminApprovalsPage() {
                                                                             handleRejectClaim(request, reason)
                                                                         }}
                                                                         disabled={processingRequestId === request.id}
-                                                                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-1 whitespace-nowrap"
+                                                                        className="flex-1 md:flex-none px-3 md:px-4 py-2 text-xs md:text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-1 whitespace-nowrap"
                                                                     >
-                                                                        <X className="w-4 h-4" />
+                                                                        <X className="w-3 h-3 md:w-4 md:h-4" />
                                                                         Từ chối
                                                                     </button>
                                                                 </div>
@@ -979,93 +984,56 @@ export default function AdminApprovalsPage() {
                                                         ? `Task #${request.meta.taskId}`
                                                         : request.meta?.subtaskId
                                                             ? `Subtask #${request.meta.subtaskId}`
-                                                            : "Không xác định"
+                                                            : request.meta?.projectId
+                                                                ? `Dự án #${request.meta.projectId}`
+                                                                : "Yêu cầu chung"
 
                                                     return (
-                                                        <div
-                                                            key={`join-${request.id}-${request.meta?.requesterId}`}
-                                                            className={`p-6 transition-colors ${isProcessed ? "bg-gray-50 opacity-70" : "hover:bg-gray-50"
-                                                                }`}
-                                                        >
-                                                            <div className="flex items-start justify-between">
-                                                                <div className="flex-1">
-                                                                    <div className="flex items-center gap-3 mb-2">
-                                                                        <div
-                                                                            className={`w-2 h-2 rounded-full ${isProcessed
-                                                                                ? action === "accepted"
-                                                                                    ? "bg-green-500"
-                                                                                    : "bg-red-500"
-                                                                                : "bg-blue-500"
-                                                                                }`}
-                                                                        ></div>
-                                                                        <h3 className="text-lg font-semibold text-gray-900">
-                                                                            {request.title}
+                                                        <div key={`join-${request.id}`} className="p-4 md:p-6 hover:bg-gray-50 transition-colors">
+                                                            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                                                                <div className="flex-1 min-w-0">
+                                                                    <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-2">
+                                                                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                                                        <h3 className="text-base md:text-lg font-semibold text-gray-900 break-words">
+                                                                            {request.title || "Yêu cầu tham gia công việc"}
                                                                         </h3>
-                                                                        {isProcessed ? (
-                                                                            <span
-                                                                                className={`px-2 py-1 text-xs font-medium rounded-full ${action === "accepted"
-                                                                                    ? "bg-green-100 text-green-800"
-                                                                                    : "bg-red-100 text-red-800"
-                                                                                    }`}
-                                                                            >
-                                                                                {action === "accepted" ? "✓ Đã chấp nhận" : "✕ Đã từ chối"}
-                                                                            </span>
-                                                                        ) : (
-                                                                            <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
-                                                                                Yêu cầu tham gia
-                                                                            </span>
-                                                                        )}
+                                                                        <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                                                                            {targetLabel}
+                                                                        </span>
                                                                     </div>
-                                                                    <p className="text-gray-600 mb-3">{request.content}</p>
-                                                                    <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                                                                    <p className="text-sm md:text-base text-gray-600 mb-3 whitespace-pre-line">
+                                                                        {request.content}
+                                                                    </p>
+                                                                    <div className="flex flex-col md:flex-row md:flex-wrap md:items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-500">
                                                                         <div className="flex items-center gap-1">
-                                                                            <User className="w-4 h-4" />
-                                                                            <span>
-                                                                                Nhân viên: {request.meta?.requesterName || `#${request.meta.requesterId}`}
-                                                                            </span>
+                                                                            <User className="w-3 h-3 md:w-4 md:h-4" />
+                                                                            <span>Người yêu cầu: {request.meta?.requesterName || "Không rõ"}</span>
                                                                         </div>
                                                                         <div className="flex items-center gap-1">
-                                                                            <FileText className="w-4 h-4" />
-                                                                            <span>Công việc: {targetLabel}</span>
+                                                                            <Clock className="w-3 h-3 md:w-4 md:h-4" />
+                                                                            <span>Gửi lúc: {new Date(request.createdAt).toLocaleString("vi-VN")}</span>
                                                                         </div>
-                                                                        <div className="flex items-center gap-1">
-                                                                            <Clock className="w-4 h-4" />
-                                                                            <span>Yêu cầu lúc: {new Date(request.createdAt).toLocaleString("vi-VN")}</span>
-                                                                        </div>
-                                                                        {isProcessed && request.meta?.processedAt && (
-                                                                            <div className="flex items-center gap-1">
-                                                                                <CheckCircle2 className="w-4 h-4" />
-                                                                                <span>Xử lý lúc: {new Date(request.meta.processedAt).toLocaleString("vi-VN")}</span>
-                                                                            </div>
-                                                                        )}
                                                                     </div>
                                                                 </div>
-                                                                <div className="flex items-center gap-3 ml-4">
+                                                                <div className="flex flex-row md:flex-col lg:flex-row items-stretch md:items-center gap-2 md:gap-3 md:ml-4 w-full md:w-auto">
                                                                     {isProcessed ? (
-                                                                        <button
-                                                                            onClick={() => handleDeleteRequest(request.id)}
-                                                                            disabled={processingRequestId === request.id}
-                                                                            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 flex items-center gap-1"
-                                                                        >
-                                                                            <Trash2 className="w-4 h-4" />
-                                                                            Xóa
-                                                                        </button>
+                                                                        <div className={`flex-1 md:flex-none px-3 md:px-4 py-2 rounded-lg text-xs md:text-sm font-medium text-center ${action === "accepted" ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                                                                            {action === "accepted" ? "Đã chấp nhận" : "Đã từ chối"}
+                                                                        </div>
                                                                     ) : (
                                                                         <>
                                                                             <button
-                                                                                onClick={() => handleAcceptRequest(request)}
-                                                                                disabled={processingRequestId === request.id}
-                                                                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 flex items-center gap-1"
+                                                                                onClick={() => handleApproveJoin(request)}
+                                                                                className="flex-1 md:flex-none px-3 md:px-4 py-2 text-xs md:text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-1 whitespace-nowrap"
                                                                             >
-                                                                                <CheckCheck className="w-4 h-4" />
-                                                                                Chấp nhận
+                                                                                <CheckCircle2 className="w-3 h-3 md:w-4 md:h-4" />
+                                                                                Phê duyệt
                                                                             </button>
                                                                             <button
-                                                                                onClick={() => handleDeclineRequest(request)}
-                                                                                disabled={processingRequestId === request.id}
-                                                                                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-1"
+                                                                                onClick={() => handleRejectJoin(request)}
+                                                                                className="flex-1 md:flex-none px-3 md:px-4 py-2 text-xs md:text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center justify-center gap-1 whitespace-nowrap"
                                                                             >
-                                                                                <X className="w-4 h-4" />
+                                                                                <X className="w-3 h-3 md:w-4 md:h-4" />
                                                                                 Từ chối
                                                                             </button>
                                                                         </>
@@ -1073,7 +1041,7 @@ export default function AdminApprovalsPage() {
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                    )
+                                                    );
                                                 })}
                                             </>
                                         )

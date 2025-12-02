@@ -274,7 +274,7 @@ export default function TeamLeadApprovalsPage() {
 
     if (loading) {
         return (
-            <div className="p-6 space-y-6 animate-pulse">
+            <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 animate-pulse">
                 <div className="h-32 bg-gray-200 rounded-2xl"></div>
                 <div className="space-y-4">
                     {[1, 2, 3].map(i => (
@@ -286,17 +286,17 @@ export default function TeamLeadApprovalsPage() {
     }
 
     return (
-        <div className="p-6 space-y-6">
+        <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
             {/* Header */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                <div className="flex items-center justify-between flex-wrap gap-4">
-                    <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                            <CheckCircle className="w-7 h-7 text-white" />
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 sm:p-6">
+                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                            <CheckCircle className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                         </div>
                         <div>
-                            <h1 className="text-3xl font-bold text-gray-900">Phê duyệt công việc</h1>
-                            <p className="text-sm text-gray-500 mt-0.5">
+                            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Phê duyệt công việc</h1>
+                            <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
                                 {activeTab === 'completion'
                                     ? `${pendingSubtasks.length} công việc đang chờ phê duyệt hoàn thành`
                                     : `${joinRequests.length} yêu cầu nhận việc đang chờ`
@@ -316,7 +316,7 @@ export default function TeamLeadApprovalsPage() {
                             }
                         }}
                         disabled={loading || loadingHistory}
-                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium text-sm flex items-center gap-2 hover:from-blue-600 hover:to-blue-700 transition-all disabled:opacity-50"
+                        className="w-full lg:w-auto px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium text-sm flex items-center justify-center gap-2 hover:from-blue-600 hover:to-blue-700 transition-all disabled:opacity-50"
                     >
                         <RefreshCw size={16} className={(loading || loadingHistory) ? 'animate-spin' : ''} />
                         <span>Làm mới</span>
@@ -326,17 +326,17 @@ export default function TeamLeadApprovalsPage() {
 
             {/* Tabs */}
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-2">
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                     <button
                         onClick={() => setActiveTab('completion')}
-                        className={`flex-1 px-4 py-3 rounded-xl font-semibold text-sm transition-all ${activeTab === 'completion'
+                        className={`flex-1 px-3 sm:px-4 py-3 rounded-xl font-semibold text-xs sm:text-sm transition-all ${activeTab === 'completion'
                                 ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md'
                                 : 'text-gray-600 hover:bg-gray-50'
                             }`}
                     >
-                        <div className="flex items-center justify-center gap-2">
-                            <CheckSquare size={18} />
-                            <span>Phê duyệt hoàn thành</span>
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2">
+                            <CheckSquare size={16} className="sm:w-[18px] sm:h-[18px]" />
+                            <span className="text-center">Phê duyệt hoàn thành</span>
                             {pendingSubtasks.length > 0 && (
                                 <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === 'completion' ? 'bg-white/20' : 'bg-blue-100 text-blue-800'
                                     }`}>
@@ -347,14 +347,14 @@ export default function TeamLeadApprovalsPage() {
                     </button>
                     <button
                         onClick={() => setActiveTab('join')}
-                        className={`flex-1 px-4 py-3 rounded-xl font-semibold text-sm transition-all ${activeTab === 'join'
+                        className={`flex-1 px-3 sm:px-4 py-3 rounded-xl font-semibold text-xs sm:text-sm transition-all ${activeTab === 'join'
                                 ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md'
                                 : 'text-gray-600 hover:bg-gray-50'
                             }`}
                     >
-                        <div className="flex items-center justify-center gap-2">
-                            <UserPlus size={18} />
-                            <span>Yêu cầu nhận việc</span>
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2">
+                            <UserPlus size={16} className="sm:w-[18px] sm:h-[18px]" />
+                            <span className="text-center">Yêu cầu nhận việc</span>
                             {joinRequests.length > 0 && (
                                 <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === 'join' ? 'bg-white/20' : 'bg-blue-100 text-blue-800'
                                     }`}>
@@ -370,14 +370,14 @@ export default function TeamLeadApprovalsPage() {
                                 loadApprovedHistory()
                             }
                         }}
-                        className={`flex-1 px-4 py-3 rounded-xl font-semibold text-sm transition-all ${activeTab === 'history'
+                        className={`flex-1 px-3 sm:px-4 py-3 rounded-xl font-semibold text-xs sm:text-sm transition-all ${activeTab === 'history'
                                 ? 'bg-gradient-to-r from-green-500 to-green-600 text-white shadow-md'
                                 : 'text-gray-600 hover:bg-gray-50'
                             }`}
                     >
-                        <div className="flex items-center justify-center gap-2">
-                            <History size={18} />
-                            <span>Lịch sử phê duyệt</span>
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2">
+                            <History size={16} className="sm:w-[18px] sm:h-[18px]" />
+                            <span className="text-center">Lịch sử phê duyệt</span>
                             {approvedHistory.length > 0 && (
                                 <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === 'history' ? 'bg-white/20' : 'bg-green-100 text-green-800'
                                     }`}>
@@ -390,27 +390,27 @@ export default function TeamLeadApprovalsPage() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                            <Clock className="w-6 h-6 text-white" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 sm:p-6">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                            <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                         </div>
                         <div>
-                            <p className="text-sm text-gray-600">Chờ duyệt</p>
-                            <p className="text-2xl font-bold text-gray-900">{pendingSubtasks.length}</p>
+                            <p className="text-xs sm:text-sm text-gray-600">Chờ duyệt</p>
+                            <p className="text-xl sm:text-2xl font-bold text-gray-900">{pendingSubtasks.length}</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
-                            <CheckCircle className="w-6 h-6 text-white" />
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 sm:p-6">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
+                            <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                         </div>
                         <div>
-                            <p className="text-sm text-gray-600">Cần xử lý nhanh</p>
-                            <p className="text-2xl font-bold text-gray-900">
+                            <p className="text-xs sm:text-sm text-gray-600">Cần xử lý nhanh</p>
+                            <p className="text-xl sm:text-2xl font-bold text-gray-900">
                                 {pendingSubtasks.filter(s => {
                                     if (!s.ngayKetThuc) return false
                                     const daysLeft = Math.ceil((new Date(s.ngayKetThuc).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
@@ -421,14 +421,14 @@ export default function TeamLeadApprovalsPage() {
                     </div>
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center">
-                            <AlertCircle className="w-6 h-6 text-white" />
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 sm:p-6">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center">
+                            <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                         </div>
                         <div>
-                            <p className="text-sm text-gray-600">Quá hạn</p>
-                            <p className="text-2xl font-bold text-gray-900">
+                            <p className="text-xs sm:text-sm text-gray-600">Quá hạn</p>
+                            <p className="text-xl sm:text-2xl font-bold text-gray-900">
                                 {pendingSubtasks.filter(s => {
                                     if (!s.ngayKetThuc) return false
                                     return new Date(s.ngayKetThuc) < new Date()
@@ -463,28 +463,28 @@ export default function TeamLeadApprovalsPage() {
                                 return (
                                     <div
                                         key={subtask.id}
-                                        className={`bg-white rounded-2xl shadow-lg border-2 p-6 transition-all ${isOverdue ? 'border-red-300 bg-red-50/50' :
+                                        className={`bg-white rounded-2xl shadow-lg border-2 p-4 sm:p-6 transition-all ${isOverdue ? 'border-red-300 bg-red-50/50' :
                                             isUrgent ? 'border-yellow-300 bg-yellow-50/50' :
                                                 'border-gray-100 hover:border-blue-200'
                                             }`}
                                     >
-                                        <div className="flex items-start justify-between gap-4">
-                                            <div className="flex-1 space-y-4">
+                                        <div className="flex flex-col lg:flex-row items-start justify-between gap-4">
+                                            <div className="flex-1 space-y-3 sm:space-y-4 w-full">
                                                 {/* Header */}
-                                                <div className="flex items-start gap-3">
-                                                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
-                                                        <CheckSquare className="w-5 h-5 text-white" />
+                                                <div className="flex items-start gap-2 sm:gap-3">
+                                                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
+                                                        <CheckSquare className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                                                     </div>
-                                                    <div className="flex-1">
-                                                        <h3 className="text-lg font-bold text-gray-900 mb-1">{subtask.ten}</h3>
-                                                        <p className="text-sm text-gray-600">
+                                                    <div className="flex-1 min-w-0">
+                                                        <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1">{subtask.ten}</h3>
+                                                        <p className="text-xs sm:text-sm text-gray-600">
                                                             Công việc chính: <span className="font-semibold">{subtask.task?.tentask || 'N/A'}</span>
                                                         </p>
                                                     </div>
                                                 </div>
 
                                                 {/* Info Grid */}
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                                     <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
                                                         <User className="w-5 h-5 text-blue-600" />
                                                         <div>
@@ -538,21 +538,21 @@ export default function TeamLeadApprovalsPage() {
                                             </div>
 
                                             {/* Action Buttons */}
-                                            <div className="flex flex-col gap-2">
+                                            <div className="flex flex-row lg:flex-col gap-2 w-full lg:w-auto">
                                                 <button
                                                     onClick={() => handleApprove(subtask.id, true)}
                                                     disabled={processingId === subtask.id}
-                                                    className="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-semibold text-sm hover:from-green-600 hover:to-green-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+                                                    className="flex-1 lg:flex-none px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-semibold text-xs sm:text-sm hover:from-green-600 hover:to-green-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 flex items-center justify-center gap-2 whitespace-nowrap"
                                                 >
-                                                    <CheckCircle size={18} />
+                                                    <CheckCircle size={16} className="sm:w-[18px] sm:h-[18px]" />
                                                     <span>Phê duyệt</span>
                                                 </button>
                                                 <button
                                                     onClick={() => handleApprove(subtask.id, false)}
                                                     disabled={processingId === subtask.id}
-                                                    className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold text-sm hover:from-red-600 hover:to-red-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+                                                    className="flex-1 lg:flex-none px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold text-xs sm:text-sm hover:from-red-600 hover:to-red-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 flex items-center justify-center gap-2 whitespace-nowrap"
                                                 >
-                                                    <XCircle size={18} />
+                                                    <XCircle size={16} className="sm:w-[18px] sm:h-[18px]" />
                                                     <span>Từ chối</span>
                                                 </button>
                                             </div>
@@ -582,10 +582,10 @@ export default function TeamLeadApprovalsPage() {
                                 return (
                                     <div
                                         key={request.id}
-                                        className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 hover:border-blue-200 p-6 transition-all"
+                                        className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 hover:border-blue-200 p-4 sm:p-6 transition-all"
                                     >
-                                        <div className="flex items-start justify-between gap-4">
-                                            <div className="flex-1 space-y-4">
+                                        <div className="flex flex-col lg:flex-row items-start justify-between gap-4">
+                                            <div className="flex-1 space-y-3 sm:space-y-4 w-full">
                                                 <div className="flex items-start gap-3">
                                                     <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center flex-shrink-0">
                                                         <UserPlus className="w-5 h-5 text-white" />
@@ -609,21 +609,21 @@ export default function TeamLeadApprovalsPage() {
                                                 </div>
                                             </div>
 
-                                            <div className="flex flex-col gap-2">
+                                            <div className="flex flex-row lg:flex-col gap-2 w-full lg:w-auto">
                                                 <button
                                                     onClick={() => handleAcceptRequest(request)}
                                                     disabled={processingRequestId === request.id}
-                                                    className="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-semibold text-sm hover:from-green-600 hover:to-green-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+                                                    className="flex-1 lg:flex-none px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-semibold text-xs sm:text-sm hover:from-green-600 hover:to-green-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 flex items-center justify-center gap-2 whitespace-nowrap"
                                                 >
-                                                    <CheckCircle size={18} />
+                                                    <CheckCircle size={16} className="sm:w-[18px] sm:h-[18px]" />
                                                     <span>Chấp nhận</span>
                                                 </button>
                                                 <button
                                                     onClick={() => handleDeclineRequest(request)}
                                                     disabled={processingRequestId === request.id}
-                                                    className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold text-sm hover:from-red-600 hover:to-red-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 flex items-center gap-2 whitespace-nowrap"
+                                                    className="flex-1 lg:flex-none px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold text-xs sm:text-sm hover:from-red-600 hover:to-red-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 flex items-center justify-center gap-2 whitespace-nowrap"
                                                 >
-                                                    <XCircle size={18} />
+                                                    <XCircle size={16} className="sm:w-[18px] sm:h-[18px]" />
                                                     <span>Từ chối</span>
                                                 </button>
                                             </div>
@@ -638,17 +638,17 @@ export default function TeamLeadApprovalsPage() {
 
             {/* History Tab */}
             {activeTab === 'history' && (
-                <div className="space-y-6">
+                <div className="space-y-4 sm:space-y-6">
                     {/* Filter Header */}
-                    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-lg font-semibold text-gray-900">
+                    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 sm:p-6">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+                            <h2 className="text-base sm:text-lg font-semibold text-gray-900">
                                 Lịch sử phê duyệt ({filteredHistory.length})
                             </h2>
-                            <div className="flex gap-2">
+                            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                                 <button
                                     onClick={() => setHistoryFilter('all')}
-                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${historyFilter === 'all'
+                                    className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${historyFilter === 'all'
                                             ? 'bg-blue-600 text-white'
                                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                         }`}
@@ -724,10 +724,10 @@ export default function TeamLeadApprovalsPage() {
                                 return (
                                     <div
                                         key={`${item.type}-${item.id}`}
-                                        className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all"
+                                        className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 sm:p-6 hover:shadow-xl transition-all"
                                     >
-                                        <div className="flex items-start justify-between gap-6">
-                                            <div className="flex-1 space-y-4">
+                                        <div className="flex flex-col lg:flex-row items-start justify-between gap-4 sm:gap-6">
+                                            <div className="flex-1 space-y-3 sm:space-y-4 w-full">
                                                 <div className="flex items-center gap-3">
                                                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${isAssignment
                                                             ? 'bg-gradient-to-br from-blue-500 to-blue-600'
@@ -765,7 +765,7 @@ export default function TeamLeadApprovalsPage() {
                                                     </button>
                                                 </div>
 
-                                                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                                     {assignee && (
                                                         <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl">
                                                             <User className="w-5 h-5 text-blue-600" />

@@ -360,7 +360,7 @@ export default function ManagerReportsPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 p-6">
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 p-3 sm:p-6">
                 <div className="max-w-7xl mx-auto">
                     {/* Header Skeleton */}
                     <div className="mb-8">
@@ -381,7 +381,7 @@ export default function ManagerReportsPage() {
                     </div>
 
                     {/* Stats Cards Skeleton */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
                         {[1, 2, 3, 4].map(i => (
                             <div key={i} className="bg-white rounded-xl p-6 shadow-sm border">
                                 <div className="flex items-center justify-between mb-4">
@@ -409,21 +409,21 @@ export default function ManagerReportsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 p-6">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 p-3 sm:p-6">
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
-                <div className="mb-8">
-                    <h1 className="text-4xl font-bold text-slate-900 mb-2 flex items-center gap-3">
-                        <BarChart3 className="w-10 h-10 text-[#003D82]" />
+                <div className="mb-6 sm:mb-8">
+                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 mb-2 flex items-center gap-2 sm:gap-3">
+                        <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 text-[#003D82]" />
                         Báo cáo thống kê
                     </h1>
-                    <p className="text-slate-600">Theo dõi và phân tích hiệu suất dự án, nhiệm vụ và nhân sự</p>
+                    <p className="text-sm sm:text-base text-slate-600">Theo dõi và phân tích hiệu suất dự án, nhiệm vụ và nhân sự</p>
                 </div>
 
                 {/* Filters */}
-                <Card className="p-6 mb-8 bg-white shadow-lg border-slate-200">
+                <Card className="p-4 sm:p-6 mb-6 sm:mb-8 bg-white shadow-lg border-slate-200">
                     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-2 w-full lg:w-auto">
                             <Button
                                 onClick={() => setReportType("overview")}
                                 variant={reportType === "overview" ? "default" : "outline"}
@@ -450,9 +450,9 @@ export default function ManagerReportsPage() {
                             </Button>
                         </div>
 
-                        <div className="flex gap-3">
+                        <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
                             <Select value={dateRange} onValueChange={setDateRange}>
-                                <SelectTrigger className="w-[180px]">
+                                <SelectTrigger className="w-full sm:w-[180px]">
                                     <Calendar className="w-4 h-4 mr-2" />
                                     <SelectValue />
                                 </SelectTrigger>
@@ -467,7 +467,7 @@ export default function ManagerReportsPage() {
 
                             <Button
                                 onClick={handleExportExcel}
-                                className="bg-green-600 hover:bg-green-700 gap-2"
+                                className="w-full sm:w-auto bg-green-600 hover:bg-green-700 gap-2"
                             >
                                 <Download className="w-4 h-4" />
                                 Xuất Excel
@@ -480,72 +480,72 @@ export default function ManagerReportsPage() {
                 {reportType === "overview" && (
                     <>
                         {/* Main Stats Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                            <Card className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:shadow-lg transition-all">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
+                            <Card className="p-4 sm:p-6 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 hover:shadow-lg transition-all">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm font-medium text-slate-600 mb-1">Tổng dự án</p>
-                                        <p className="text-3xl font-bold text-blue-700">{totalStats.totalProjects}</p>
+                                        <p className="text-xs sm:text-sm font-medium text-slate-600 mb-1">Tổng dự án</p>
+                                        <p className="text-2xl sm:text-3xl font-bold text-blue-700">{totalStats.totalProjects}</p>
                                         <div className="flex items-center gap-1 mt-2">
-                                            <ArrowUpRight className="w-4 h-4 text-green-600" />
-                                            <span className="text-sm text-green-600 font-medium">Đang quản lý</span>
+                                            <ArrowUpRight className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />
+                                            <span className="text-xs sm:text-sm text-green-600 font-medium">Đang quản lý</span>
                                         </div>
                                     </div>
-                                    <FolderOpen className="w-12 h-12 text-blue-600 opacity-80" />
+                                    <FolderOpen className="w-10 h-10 sm:w-12 sm:h-12 text-blue-600 opacity-80" />
                                 </div>
                             </Card>
 
-                            <Card className="p-6 bg-gradient-to-br from-green-50 to-green-100 border-green-200 hover:shadow-lg transition-all">
+                            <Card className="p-4 sm:p-6 bg-gradient-to-br from-green-50 to-green-100 border-green-200 hover:shadow-lg transition-all">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm font-medium text-slate-600 mb-1">Nhiệm vụ hoàn thành</p>
-                                        <p className="text-3xl font-bold text-green-700">{totalStats.completedTasks}</p>
+                                        <p className="text-xs sm:text-sm font-medium text-slate-600 mb-1">Nhiệm vụ hoàn thành</p>
+                                        <p className="text-2xl sm:text-3xl font-bold text-green-700">{totalStats.completedTasks}</p>
                                         <div className="flex items-center gap-1 mt-2">
-                                            <CheckCircle className="w-4 h-4 text-green-600" />
-                                            <span className="text-sm text-slate-600">/{totalStats.totalTasks} tổng</span>
+                                            <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />
+                                            <span className="text-xs sm:text-sm text-slate-600">/{totalStats.totalTasks} tổng</span>
                                         </div>
                                     </div>
-                                    <CheckCircle className="w-12 h-12 text-green-600 opacity-80" />
+                                    <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-green-600 opacity-80" />
                                 </div>
                             </Card>
 
-                            <Card className="p-6 bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 hover:shadow-lg transition-all">
+                            <Card className="p-4 sm:p-6 bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200 hover:shadow-lg transition-all">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm font-medium text-slate-600 mb-1">Nhân sự</p>
-                                        <p className="text-3xl font-bold text-purple-700">{totalStats.totalTeamMembers}</p>
+                                        <p className="text-xs sm:text-sm font-medium text-slate-600 mb-1">Nhân sự</p>
+                                        <p className="text-2xl sm:text-3xl font-bold text-purple-700">{totalStats.totalTeamMembers}</p>
                                         <div className="flex items-center gap-1 mt-2">
                                             {/* Đã xóa dòng Hiệu suất */}
                                         </div>
                                     </div>
-                                    <Users className="w-12 h-12 text-purple-600 opacity-80" />
+                                    <Users className="w-10 h-10 sm:w-12 sm:h-12 text-purple-600 opacity-80" />
                                 </div>
                             </Card>
 
-                            <Card className="p-6 bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200 hover:shadow-lg transition-all">
+                            <Card className="p-4 sm:p-6 bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200 hover:shadow-lg transition-all">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-sm font-medium text-slate-600 mb-1">Tỷ lệ hoàn thành</p>
-                                        <p className="text-3xl font-bold text-orange-700">{completionRate}%</p>
+                                        <p className="text-xs sm:text-sm font-medium text-slate-600 mb-1">Tỷ lệ hoàn thành</p>
+                                        <p className="text-2xl sm:text-3xl font-bold text-orange-700">{completionRate}%</p>
                                         <div className="flex items-center gap-1 mt-2">
                                             {/* Đã xóa dòng Mục tiêu */}
                                         </div>
                                     </div>
-                                    <Target className="w-12 h-12 text-orange-600 opacity-80" />
+                                    <Target className="w-10 h-10 sm:w-12 sm:h-12 text-orange-600 opacity-80" />
                                 </div>
                             </Card>
                         </div>
 
                         {/* Charts Section */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 mb-6 sm:mb-8">
                             {/* Project Status Pie Chart */}
-                            <Card className="p-6 bg-white shadow-lg border-slate-200">
-                                <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                                    <PieChart className="w-5 h-5 text-[#003D82]" />
+                            <Card className="p-4 sm:p-6 bg-white shadow-lg border-slate-200">
+                                <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                                    <PieChart className="w-4 h-4 sm:w-5 sm:h-5 text-[#003D82]" />
                                     Phân bổ trạng thái dự án
                                 </h3>
                                 <div className="flex items-center justify-center">
-                                    <ResponsiveContainer width="100%" height={280}>
+                                    <ResponsiveContainer width="100%" height={240}>
                                         <RechartsPie>
                                             <Pie
                                                 data={[
@@ -596,12 +596,12 @@ export default function ManagerReportsPage() {
                             </Card>
 
                             {/* Task Status Bar Chart */}
-                            <Card className="p-6 bg-white shadow-lg border-slate-200">
-                                <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
-                                    <BarChart3 className="w-5 h-5 text-[#003D82]" />
+                            <Card className="p-4 sm:p-6 bg-white shadow-lg border-slate-200">
+                                <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-4 sm:mb-6 flex items-center gap-2">
+                                    <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-[#003D82]" />
                                     Phân bổ nhiệm vụ
                                 </h3>
-                                <ResponsiveContainer width="100%" height={300}>
+                                <ResponsiveContainer width="100%" height={240}>
                                     <RechartsBar data={[
                                         { name: 'Hoàn thành', value: totalStats.completedTasks, color: '#10b981' },
                                         { name: 'Đang thực hiện', value: totalStats.inProgressTasks, color: '#3b82f6' },
@@ -626,14 +626,14 @@ export default function ManagerReportsPage() {
                         </div>
 
                         {/* Additional Charts */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 mb-6 sm:mb-8">
                             {/* Project Progress Chart */}
-                            <Card className="p-6 bg-white shadow-lg border-slate-200">
-                                <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
-                                    <LineChart className="w-5 h-5 text-[#003D82]" />
+                            <Card className="p-4 sm:p-6 bg-white shadow-lg border-slate-200">
+                                <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-4 sm:mb-6 flex items-center gap-2">
+                                    <LineChart className="w-4 h-4 sm:w-5 sm:h-5 text-[#003D82]" />
                                     Tiến độ dự án (Top 6)
                                 </h3>
-                                <ResponsiveContainer width="100%" height={300}>
+                                <ResponsiveContainer width="100%" height={240}>
                                     <RechartsBar data={projectsWithStats.slice(0, 6).map(p => ({
                                         name: p.tenduan.substring(0, 15) + (p.tenduan.length > 15 ? '...' : ''),
                                         progress: p.progress
@@ -655,12 +655,12 @@ export default function ManagerReportsPage() {
                             </Card>
 
                             {/* Team Performance Radar Chart */}
-                            <Card className="p-6 bg-white shadow-lg border-slate-200">
-                                <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
-                                    <Target className="w-5 h-5 text-[#003D82]" />
+                            <Card className="p-4 sm:p-6 bg-white shadow-lg border-slate-200">
+                                <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-4 sm:mb-6 flex items-center gap-2">
+                                    <Target className="w-4 h-4 sm:w-5 sm:h-5 text-[#003D82]" />
                                     Hiệu suất nhân sự (Top 5)
                                 </h3>
-                                <ResponsiveContainer width="100%" height={300}>
+                                <ResponsiveContainer width="100%" height={240}>
                                     <RadarChart data={usersWithStats.slice(0, 5).map(u => ({
                                         name: u.hoten.substring(0, 10),
                                         efficiency: u.efficiency,
@@ -679,12 +679,12 @@ export default function ManagerReportsPage() {
                         </div>
 
                         {/* Weekly Trend Chart */}
-                        <Card className="p-6 bg-white shadow-lg border-slate-200 mb-8">
-                            <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
-                                <Activity className="w-5 h-5 text-[#003D82]" />
+                        <Card className="p-4 sm:p-6 bg-white shadow-lg border-slate-200 mb-6 sm:mb-8">
+                            <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-4 sm:mb-6 flex items-center gap-2">
+                                <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-[#003D82]" />
                                 Xu hướng nhiệm vụ theo dự án
                             </h3>
-                            <ResponsiveContainer width="100%" height={300}>
+                            <ResponsiveContainer width="100%" height={240}>
                                 <AreaChart data={projectsWithStats.slice(0, 8).map(p => ({
                                     name: p.tenduan.substring(0, 12) + (p.tenduan.length > 12 ? '...' : ''),
                                     completed: p.completedTasks,
@@ -742,12 +742,12 @@ export default function ManagerReportsPage() {
                         </Card>
 
                         {/* Recent Projects Summary */}
-                        <Card className="p-6 bg-white shadow-lg border-slate-200">
-                            <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
-                                <Briefcase className="w-5 h-5 text-[#003D82]" />
+                        <Card className="p-4 sm:p-6 bg-white shadow-lg border-slate-200">
+                            <h3 className="text-base sm:text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                                <Briefcase className="w-4 h-4 sm:w-5 sm:h-5 text-[#003D82]" />
                                 Dự án gần đây
                             </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                                 {projectsWithStats.slice(0, 6).map(project => (
                                     <div key={project.id} className="p-4 border border-slate-200 rounded-lg hover:shadow-md transition-all">
                                         <h4 className="font-semibold text-slate-900 mb-2 line-clamp-1">{project.tenduan}</h4>
@@ -779,9 +779,9 @@ export default function ManagerReportsPage() {
                 {/* Projects Report */}
                 {reportType === "projects" && (
                     <Card className="bg-white shadow-lg border-slate-200 overflow-hidden">
-                        <div className="p-6 border-b border-slate-200">
-                            <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-                                <FolderOpen className="w-6 h-6 text-[#003D82]" />
+                        <div className="p-4 sm:p-6 border-b border-slate-200">
+                            <h2 className="text-lg sm:text-xl font-semibold text-slate-900 flex items-center gap-2">
+                                <FolderOpen className="w-5 h-5 sm:w-6 sm:h-6 text-[#003D82]" />
                                 Báo cáo chi tiết dự án
                             </h2>
                         </div>
@@ -877,9 +877,9 @@ export default function ManagerReportsPage() {
                 {/* Team Report */}
                 {reportType === "team" && (
                     <Card className="bg-white shadow-lg border-slate-200 overflow-hidden">
-                        <div className="p-6 border-b border-slate-200">
-                            <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-                                <Users className="w-6 h-6 text-[#003D82]" />
+                        <div className="p-4 sm:p-6 border-b border-slate-200">
+                            <h2 className="text-lg sm:text-xl font-semibold text-slate-900 flex items-center gap-2">
+                                <Users className="w-5 h-5 sm:w-6 sm:h-6 text-[#003D82]" />
                                 Báo cáo hiệu suất nhân sự
                             </h2>
                         </div>
