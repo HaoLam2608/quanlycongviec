@@ -6,6 +6,7 @@ const {
   Task,
   Subtask,
   Notification,
+  UserNotification,
   GroupMember,
   Assignment,
   DuAn,
@@ -60,49 +61,101 @@ const getTaskMembers = async (taskId) => {
  * Create mention notifications for tagged users
  */
 const createMentionNotifications = async (comment, authorId, mentionedUserIds) => {
-  if (!mentionedUserIds || mentionedUserIds.length === 0) return;
-
-  const author = await User.findByPk(authorId, { attributes: ['hoten'] });
-  const authorName = author?.hoten || 'Người dùng';
-
-  // Determine context
-  let contextType = 'comment';
-  let contextId = comment.taskId || comment.subtaskId;
-  let message = '';
-
-  if (comment.taskId) {
-    // Task model uses `tentask` for the title field
-    try {
-      const task = await Task.findByPk(comment.taskId, { attributes: ['tentask'] });
-      message = `${authorName} đã nhắc đến bạn trong bình luận của task "${task?.tentask || 'Task'}"`;
-    } catch (e) {
-      console.error('Error fetching task title for mention message:', e);
-      message = `${authorName} đã nhắc đến bạn trong bình luận của task`;
-    }
-  } else if (comment.subtaskId) {
-    // Subtask model uses `tenSubtask` for the title field
-    try {
-      const subtask = await Subtask.findByPk(comment.subtaskId, { attributes: ['tenSubtask'] });
-      message = `${authorName} đã nhắc đến bạn trong bình luận của subtask "${subtask?.tenSubtask || 'Subtask'}"`;
-    } catch (e) {
-      console.error('Error fetching subtask title for mention message:', e);
-      message = `${authorName} đã nhắc đến bạn trong bình luận của subtask`;
-    }
+  console.log('🔔 createMentionNotifications called with:', { 
+    commentId: comment.id, 
+    authorId, 
+    mentionedUserIds,
+    mentionedUserIdsType: typeof mentionedUserIds,
+    isArray: Array.isArray(mentionedUserIds)
+  });
+  
+  if (!mentionedUserIds || mentionedUserIds.length === 0) {
+    console.log('⏭️ No mentions to process');
+    return;
   }
 
-  // Create notification for each mentioned user (except author)
-  const notifications = mentionedUserIds
-    .filter(userId => userId !== authorId)
-    .map(userId => ({
-      userId,
-      type: 'mention',
-      message,
-      relatedId: comment.id,
-      relatedType: 'comment'
-    }));
+  // Ensure we only create notifications for distinct recipients and skip the author
+  const recipientIds = [...new Set(mentionedUserIds)].filter(id => id !== authorId);
+  console.log('📧 Recipients after filtering:', recipientIds);
+  
+  if (recipientIds.length === 0) {
+    console.log('⏭️ No recipients after filtering (author or duplicates)');
+    return;
+  }
 
-  if (notifications.length > 0) {
-    await Notification.bulkCreate(notifications);
+  try {
+    const author = await User.findByPk(authorId, { attributes: ['hoten', 'manv'] });
+    const authorName = author?.hoten || author?.manv || 'Người dùng';
+    console.log('👤 Author name:', authorName);
+
+    let contextTitle = '';
+    let message = '';
+
+    if (comment.taskId) {
+      try {
+        const task = await Task.findByPk(comment.taskId, { attributes: ['tentask'] });
+        contextTitle = task?.tentask || 'Task';
+      } catch (e) {
+        console.error('Error fetching task title for mention message:', e);
+      }
+      message = `${authorName} đã nhắc đến bạn trong bình luận của task "${contextTitle || 'Task'}"`;
+    } else if (comment.subtaskId) {
+      try {
+        const subtask = await Subtask.findByPk(comment.subtaskId, { attributes: ['tenSubtask'] });
+        contextTitle = subtask?.tenSubtask || 'Subtask';
+      } catch (e) {
+        console.error('Error fetching subtask title for mention message:', e);
+      }
+      message = `${authorName} đã nhắc đến bạn trong bình luận của subtask "${contextTitle || 'Subtask'}"`;
+    } else {
+      message = `${authorName} đã nhắc đến bạn trong một bình luận`;
+    }
+
+    // Append a short excerpt of the comment content if available
+    if (comment.content) {
+      const normalized = comment.content.trim().replace(/\s+/g, ' ');
+      const excerpt = normalized.length > 150 ? `${normalized.slice(0, 147)}...` : normalized;
+      if (excerpt) {
+        message = `${message}\n"${excerpt}"`;
+      }
+    }
+
+    const notification = await Notification.create({
+      title: `${authorName} đã nhắc đến bạn`,
+      content: message,
+      type: 'task',
+      priority: 'medium',
+      targetAudience: 'direct',
+      authorId,
+      status: 'published',
+      publishedAt: new Date()
+    });
+    console.log('📬 Notification created:', notification.id);
+
+    const metaPayload = {
+      eventType: 'mention',
+      relatedType: 'comment',
+      commentId: comment.id,
+      taskId: comment.taskId || null,
+      subtaskId: comment.subtaskId || null,
+      mentionedBy: authorId,
+      contextTitle: contextTitle || null
+    };
+    console.log('📦 Meta payload:', metaPayload);
+
+    await UserNotification.bulkCreate(
+      recipientIds.map(userId => ({
+        userId,
+        notificationId: notification.id,
+        isRead: false,
+        meta: { ...metaPayload }
+      }))
+    );
+    console.log('✅ UserNotifications created for:', recipientIds.length, 'users');
+  } catch (error) {
+    console.error('❌ Error creating mention notifications:', error);
+    console.error('Error stack:', error.stack);
+    throw error; // Re-throw to be caught by caller
   }
 };
 
@@ -200,15 +253,17 @@ const createComment = async (req, res) => {
     let mentions = [];
     if (mentionsStr) {
       try {
+        console.log('Parsing mentions string:', mentionsStr, 'type:', typeof mentionsStr);
         mentions = JSON.parse(mentionsStr);
+        console.log('Parsed mentions:', mentions, 'isArray:', Array.isArray(mentions));
       } catch (e) {
-        console.warn('Failed to parse mentions JSON, extracting from content');
+        console.warn('Failed to parse mentions JSON:', e.message, '- extracting from content');
         mentions = extractMentions(content);
       }
     } else {
       mentions = extractMentions(content);
     }
-    console.log('Extracted mentions:', mentions);
+    console.log('Final extracted mentions:', mentions);
 
     const comment = await Comment.create({
       authorId,
@@ -222,8 +277,15 @@ const createComment = async (req, res) => {
 
     // Create notifications for mentioned users
     if (mentions.length > 0) {
-      await createMentionNotifications(comment, authorId, mentions);
-      console.log('Created mention notifications for users:', mentions);
+      console.log('Creating mention notifications for:', mentions);
+      try {
+        await createMentionNotifications(comment, authorId, mentions);
+        console.log('✅ Created mention notifications for users:', mentions);
+      } catch (notifError) {
+        console.error('❌ Error creating mention notifications:', notifError);
+        console.error('Stack:', notifError.stack);
+        // Don't fail the whole comment creation if notifications fail
+      }
     }
 
     // Reload with author info
@@ -264,30 +326,40 @@ const listCommentsByTask = async (req, res) => {
     const taskId = req.params.id;
     const comments = await Comment.findAll({
       where: { taskId },
+      attributes: ['id', 'content', 'authorId', 'taskId', 'subtaskId', 'mentions', 'createdAt', 'updatedAt'],
       include: [
         { model: User, as: 'author', attributes: ['id', 'manv', 'hoten', 'email'] }
       ],
       order: [['createdAt', 'ASC']]
     });
 
-    // Ensure attachments is always an array and parsed from JSON
-    const commentsWithAttachments = comments.map(c => {
+    // Load attachments separately for each comment to avoid large sort operations
+    const commentsWithAttachments = await Promise.all(comments.map(async (c) => {
       const json = c.toJSON();
+      
+      // Fetch attachments separately
+      const fullComment = await Comment.findByPk(c.id, {
+        attributes: ['attachments']
+      });
+      
       // Parse JSON string to array if needed
-      if (json.attachments) {
-        if (typeof json.attachments === 'string') {
+      if (fullComment && fullComment.attachments) {
+        if (typeof fullComment.attachments === 'string') {
           try {
-            json.attachments = JSON.parse(json.attachments);
+            json.attachments = JSON.parse(fullComment.attachments);
           } catch (e) {
             console.error('Failed to parse attachments JSON:', e);
             json.attachments = [];
           }
+        } else {
+          json.attachments = fullComment.attachments;
         }
       } else {
         json.attachments = [];
       }
+      
       return json;
-    });
+    }));
 
     return res.json(commentsWithAttachments);
   } catch (err) {
@@ -301,35 +373,45 @@ const listCommentsBySubtask = async (req, res) => {
     const subtaskId = req.params.id;
     const comments = await Comment.findAll({
       where: { subtaskId },
+      attributes: ['id', 'content', 'authorId', 'taskId', 'subtaskId', 'mentions', 'createdAt', 'updatedAt'],
       include: [
         { model: User, as: 'author', attributes: ['id', 'manv', 'hoten', 'email'] }
       ],
       order: [['createdAt', 'ASC']]
     });
 
-    // Ensure attachments is always an array and parsed from JSON
-    const commentsWithAttachments = comments.map(c => {
+    // Load attachments separately for each comment to avoid large sort operations
+    const commentsWithAttachments = await Promise.all(comments.map(async (c) => {
       const json = c.toJSON();
+      
+      // Fetch attachments separately
+      const fullComment = await Comment.findByPk(c.id, {
+        attributes: ['attachments']
+      });
+      
       // Parse JSON string to array if needed
-      if (json.attachments) {
-        if (typeof json.attachments === 'string') {
+      if (fullComment && fullComment.attachments) {
+        if (typeof fullComment.attachments === 'string') {
           try {
-            json.attachments = JSON.parse(json.attachments);
+            json.attachments = JSON.parse(fullComment.attachments);
           } catch (e) {
             console.error('Failed to parse attachments JSON:', e);
             json.attachments = [];
           }
+        } else {
+          json.attachments = fullComment.attachments;
         }
       } else {
         json.attachments = [];
       }
+      
       return json;
-    });
+    }));
 
     return res.json(commentsWithAttachments);
   } catch (err) {
     console.error('listCommentsBySubtask error', err);
-    return res.status(500).json({ message: 'Internal server error' });
+    return res.status(500).json({ message: 'Internal server error', error: err.message });
   }
 };
 
@@ -546,15 +628,15 @@ const getMentionableUsers = async (req, res) => {
       // Get subtask and parent task
       const subtask = await Subtask.findByPk(subtaskId, {
         include: [
-          { model: User, as: 'nguoiGiao', attributes: ['id', 'manv', 'hoten', 'email'] },
-          { model: User, as: 'nguoiDuocGiao', attributes: ['id', 'manv', 'hoten', 'email'] }
+          { model: User, as: 'nguoiThucHien', attributes: ['id', 'manv', 'hoten', 'email'] },
+          { model: User, as: 'approver', attributes: ['id', 'manv', 'hoten', 'email'] }
         ]
       });
 
       if (subtask) {
         // Add subtask users
-        if (subtask.nguoiGiao) userMap.set(subtask.nguoiGiao.id, subtask.nguoiGiao);
-        if (subtask.nguoiDuocGiao) userMap.set(subtask.nguoiDuocGiao.id, subtask.nguoiDuocGiao);
+        if (subtask.nguoiThucHien) userMap.set(subtask.nguoiThucHien.id, subtask.nguoiThucHien);
+        if (subtask.approver) userMap.set(subtask.approver.id, subtask.approver);
 
         // Get parent task users
         if (subtask.taskId) {

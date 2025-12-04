@@ -16,6 +16,12 @@ module.exports = (sequelize, DataTypes) => {
         as: 'nguoiThucHien'
       });
 
+      // Subtask được tạo bởi một user (teamlead)
+      Subtask.belongsTo(models.User, {
+        foreignKey: 'createdBy',
+        as: 'creator'
+      });
+
       // Subtask được phê duyệt bởi một user
       Subtask.belongsTo(models.User, {
         foreignKey: 'approvedBy',
@@ -88,6 +94,13 @@ module.exports = (sequelize, DataTypes) => {
     ghiChu: {
       type: DataTypes.TEXT,
       allowNull: true
+    },
+    createdBy: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      validate: {
+        isInt: true
+      }
     }
   }, {
     sequelize,

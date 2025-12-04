@@ -19,13 +19,40 @@ const checkJoinRequestPermission = async (userId, userRole, taskId, subtaskId, r
         }
 
         let task = null;
+        let subCreatorId = null;
         if (subtaskId) {
-            const sub = await Subtask.findByPk(subtaskId, { include: [{ model: Task, as: 'task', include: [{ model: DuAn, as: 'duan' }] }] });
+            const sub = await Subtask.findByPk(subtaskId, {
+                include: [
+                    {
+                        model: Task,
+                        as: 'task',
+                        include: [
+                            { model: DuAn, as: 'duan' },
+                            { model: User, as: 'nguoiGiao', attributes: ['id', 'manv', 'hoten', 'email'] }
+                        ]
+                    },
+                    {
+                        model: User,
+                        as: 'creator',
+                        attributes: ['id', 'manv', 'hoten', 'email']
+                    }
+                ]
+            });
             if (!sub) return { hasPermission: false, reason: 'Subtask không tồn tại' };
             task = sub.task;
+            subCreatorId = sub.createdBy || (sub.creator && sub.creator.id) || null;
         } else {
-            task = await Task.findByPk(taskId, { include: [{ model: DuAn, as: 'duan' }] });
+            task = await Task.findByPk(taskId, {
+                include: [
+                    { model: DuAn, as: 'duan' },
+                    { model: User, as: 'nguoiGiao', attributes: ['id', 'manv', 'hoten', 'email'] }
+                ]
+            });
             if (!task) return { hasPermission: false, reason: 'Task không tồn tại' };
+        }
+
+        if (subCreatorId && subCreatorId === userId) {
+            return { hasPermission: true, reason: 'Subtask creator' };
         }
 
         // 1. Task creator (nguoiGiaoId) can approve
@@ -325,13 +352,39 @@ exports.requestToJoin = async (req, res) => {
         let itemName = '';
         let task = null;
 
+        let subCreatorUser = null;
+        let subCreatorId = null;
+
         if (subtaskId) {
-            const sub = await Subtask.findByPk(subtaskId, { include: [{ model: Task, as: 'task', include: [{ model: DuAn, as: 'duan' }] }] });
+            const sub = await Subtask.findByPk(subtaskId, {
+                include: [
+                    {
+                        model: Task,
+                        as: 'task',
+                        include: [
+                            { model: DuAn, as: 'duan' },
+                            { model: User, as: 'nguoiGiao', attributes: ['id', 'manv', 'hoten', 'email'] }
+                        ]
+                    },
+                    {
+                        model: User,
+                        as: 'creator',
+                        attributes: ['id', 'manv', 'hoten', 'email']
+                    }
+                ]
+            });
             if (!sub) return res.status(404).json({ success: false, message: 'Subtask không tồn tại' });
             task = sub.task;
             itemName = sub.tenSubtask || (task && task.tentask) || 'Subtask';
+            subCreatorUser = sub.creator || null;
+            subCreatorId = sub.createdBy || (subCreatorUser && subCreatorUser.id) || null;
         } else if (taskId) {
-            task = await Task.findByPk(taskId, { include: [{ model: DuAn, as: 'duan' }] });
+            task = await Task.findByPk(taskId, {
+                include: [
+                    { model: DuAn, as: 'duan' },
+                    { model: User, as: 'nguoiGiao', attributes: ['id', 'manv', 'hoten', 'email'] }
+                ]
+            });
             if (!task) return res.status(404).json({ success: false, message: 'Task không tồn tại' });
             itemName = task.tentask;
         }
@@ -357,6 +410,11 @@ exports.requestToJoin = async (req, res) => {
         // 4. All admins
 
         const approversSet = new Set();
+
+        // 0. Subtask creator (nếu có) luôn được quyền phê duyệt
+        if (subCreatorId) {
+            approversSet.add(subCreatorId);
+        }
 
         // 1. Task creator
         if (task.nguoiGiaoId) {
@@ -400,12 +458,37 @@ exports.requestToJoin = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Không tìm thấy người có quyền duyệt yêu cầu' });
         }
 
+        const taskCreatorUser = subCreatorUser || task?.nguoiGiao || null;
+        let taskCreatorId = subCreatorId || task?.nguoiGiaoId || null;
+
+        if (!taskCreatorId && task?.duan?.userId) {
+            taskCreatorId = task.duan.userId;
+        }
+
+        if (taskCreatorId === requesterId) {
+            const fallbackApprover = approverIds.find(id => id !== requesterId);
+            if (fallbackApprover) {
+                taskCreatorId = fallbackApprover;
+            }
+        }
+
+        let taskCreator = taskCreatorUser;
+        if (taskCreatorId && (!taskCreator || taskCreator.id !== taskCreatorId)) {
+            taskCreator = await User.findByPk(taskCreatorId, {
+                attributes: ['id', 'manv', 'hoten', 'email']
+            });
+        }
+
         console.log('📢 Creating request-to-join notification', {
             requesterId,
             taskId,
             subtaskId,
             approverIds,
-            itemName
+            itemName,
+            subCreatorId,
+            subCreatorName: subCreatorUser?.hoten || subCreatorUser?.manv,
+            taskCreatorId,
+            taskCreatorName: taskCreator?.hoten || taskCreator?.manv
         });
 
         // Build notification for all approvers
@@ -419,7 +502,7 @@ exports.requestToJoin = async (req, res) => {
             type: 'task',
             priority: 'low',
             targetAudience: 'specific',
-            authorId: requesterId,
+            authorId: taskCreatorId || requesterId,
             status: 'published',
             publishedAt: new Date()
         });
@@ -435,7 +518,10 @@ exports.requestToJoin = async (req, res) => {
                     taskId: taskId || null,
                     subtaskId: subtaskId || null,
                     requesterId,
-                    requesterName: requester.hoten || requester.manv
+                    requesterName: requester.hoten || requester.manv,
+                    taskCreatorId: taskCreatorId || null,
+                    taskCreatorName: taskCreator?.hoten || taskCreator?.manv || null,
+                    taskCreatorManv: taskCreator?.manv || null
                 }
             });
         }

@@ -88,6 +88,7 @@ exports.getUserNotifications = async (req, res) => {
         const roleNotifications = await Notification.findAll({
             where: {
                 status: 'published',
+                targetAudience: { [Op.notLike]: '%direct%' },
                 [Op.or]: [
                     { targetAudience: { [Op.like]: '%all%' } },
                     { targetAudience: { [Op.like]: `%${mappedRole}%` } }

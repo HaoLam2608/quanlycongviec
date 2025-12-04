@@ -1,10 +1,20 @@
 {
   "development": {
     "username": "root",
-    "password": "hao260804",
+    "password": "123456",
     "database": "qlcv",
     "host": "127.0.0.1",
-    "dialect": "mysql"
+    "dialect": "mysql",
+    "dialectOptions": {
+      "connectTimeout": 60000,
+      "initSql": "SET SESSION sort_buffer_size = 8388608; SET SESSION max_sort_length = 8192;"
+    },
+    "pool": {
+      "max": 10,
+      "min": 0,
+      "acquire": 30000,
+      "idle": 10000
+    }
   },
   "test": {
     "username": "root",
