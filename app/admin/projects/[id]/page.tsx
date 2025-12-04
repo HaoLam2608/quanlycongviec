@@ -182,6 +182,7 @@ export default function ProjectDetailPage() {
         description: "",
         assigneeId: "",
         priority: "medium",
+        status: "Chưa bắt đầu",
         dueDate: "",
         startDate: "",
     });
@@ -193,6 +194,7 @@ export default function ProjectDetailPage() {
                 description: editTask.mota || "",
                 assigneeId: editTask.nguoiDuocGiaoId?.toString() || editTask.nguoiDuocGiao?.id?.toString() || "",
                 priority: editTask.mucDoUuTien || "medium",
+                status: editTask.trangThai || "Chưa bắt đầu",
                 dueDate: editTask.ngayKetThuc ? editTask.ngayKetThuc.slice(0, 10) : "",
                 startDate: editTask.ngayBatDau ? editTask.ngayBatDau.slice(0, 10) : "",
             });
@@ -485,15 +487,59 @@ export default function ProjectDetailPage() {
             setProjectGroups(projectGroups);
 
             // Lọc nhóm khả dụng để thêm vào dự án:
+            // - Nhóm chưa đóng (status !== 'closed')
             // - Chưa tham gia dự án này
-            // - Số lượng dự án đang active < 2 (dựa vào groupProjects status)
+            // - Số lượng dự án chưa hoàn thành < 2 (tức là đang tham gia 0 hoặc 1 dự án chưa hoàn thành)
             const availableGroups = allGroups.filter((g: any) => {
+                // 1. Loại bỏ nhóm đã đóng
+                if (g.status === 'closed') {
+                    console.log(`Nhóm ${g.name} (ID: ${g.id}) bị loại vì đã đóng`);
+                    return false;
+                }
+
                 const groupProjects = Array.isArray(g.groupProjects) ? g.groupProjects : [];
-                const joinedActiveProjects = groupProjects.filter((gp: any) => gp.status === 'active').length;
-                const isInThisProject = groupProjects.some((gp: any) => gp.projectId === Number(id) && gp.status === 'active');
-                return !isInThisProject && joinedActiveProjects < 2;
+                
+                // 2. Kiểm tra nhóm đã tham gia dự án này chưa
+                const isInThisProject = groupProjects.some((gp: any) => 
+                    gp.projectId === Number(id) && gp.status === 'active'
+                );
+                if (isInThisProject) {
+                    console.log(`Nhóm ${g.name} (ID: ${g.id}) bị loại vì đã tham gia dự án này`);
+                    return false;
+                }
+
+                // 3. Đếm số dự án chưa hoàn thành mà nhóm đang tham gia
+                // Sử dụng thông tin từ g.projects (belongsToMany association)
+                const projects = Array.isArray(g.projects) ? g.projects : [];
+                
+                // Lọc các dự án chưa hoàn thành từ danh sách projects
+                // Giả sử status của project được map từ backend (nếu có)
+                // Nếu không có status trong projects, ta phải dựa vào groupProjects đang active
+                const activeProjectIds = groupProjects
+                    .filter((gp: any) => gp.status === 'active')
+                    .map((gp: any) => gp.projectId);
+                
+                // Đếm số dự án đang active (chưa hoàn thành)
+                // Vì backend không trả về status của project trong include, 
+                // ta giả định các project trong groupProjects có status='active' là chưa hoàn thành
+                const incompleteProjectCount = activeProjectIds.length;
+
+                // Loại bỏ nhóm đã tham gia 2 hoặc nhiều hơn dự án chưa hoàn thành
+                if (incompleteProjectCount >= 2) {
+                    console.log(`Nhóm ${g.name} (ID: ${g.id}) bị loại vì đã tham gia ${incompleteProjectCount} dự án chưa hoàn thành`);
+                    return false;
+                }
+
+                console.log(`Nhóm ${g.name} (ID: ${g.id}) khả dụng (${incompleteProjectCount} dự án chưa hoàn thành)`);
+                return true;
             });
-            // removed debug log
+            
+            console.log('Available groups after filtering:', availableGroups.map((g: any) => ({
+                id: g.id,
+                name: g.name,
+                status: g.status,
+                activeProjects: g.groupProjects?.filter((gp: any) => gp.status === 'active').length || 0
+            })));
             setAvailableGroups(availableGroups);
         } catch (err) {
             console.error("Lỗi load nhóm:", err);
@@ -677,6 +723,47 @@ export default function ProjectDetailPage() {
         } catch (error: any) {
             console.error('Delete task error:', error)
             showError(error.response?.data?.message || 'Lỗi xóa task')
+        }
+    }
+
+    const handleUpdateTask = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!editTask) return
+
+        try {
+            await api.put(`/tasks/${editTask.id}`, {
+                tentask: editTaskForm.name,
+                mota: editTaskForm.description,
+                nguoiDuocGiaoId: editTaskForm.assigneeId ? Number(editTaskForm.assigneeId) : null,
+                mucDoUuTien: editTaskForm.priority,
+                trangThai: editTaskForm.status,
+                ngayBatDau: editTaskForm.startDate,
+                ngayKetThuc: editTaskForm.dueDate
+            })
+
+            showSuccess('Cập nhật công việc thành công!')
+
+            // Reload tasks with pagination
+            const response = await api.get(`/tasks/project/${id}`, {
+                params: {
+                    page: taskCurrentPage,
+                    limit: taskItemsPerPage
+                }
+            });
+
+            if (response.data.tasks) {
+                setTasks(response.data.tasks);
+                if (response.data.pagination) {
+                    setTaskTotalPages(response.data.pagination.pages);
+                    setTaskTotalItems(response.data.pagination.total);
+                }
+            }
+
+            setIsEditTaskModalOpen(false)
+            setEditTask(null)
+        } catch (error: any) {
+            console.error('Update task error:', error)
+            showError(error.response?.data?.message || 'Lỗi cập nhật công việc')
         }
     }
 
@@ -1108,38 +1195,7 @@ export default function ProjectDetailPage() {
                                                                             showWarning('Ngày bắt đầu của công việc phải nhỏ hơn hoặc bằng ngày kết thúc!');
                                                                             return;
                                                                         }
-                                                                        try {
-                                                                            await updateTask(editTask.id, {
-                                                                                tentask: editTaskForm.name,
-                                                                                mota: editTaskForm.description,
-                                                                                mucDoUuTien: editTaskForm.priority,
-                                                                                ngayBatDau: editTaskForm.startDate,
-                                                                                ngayKetThuc: editTaskForm.dueDate,
-                                                                                nguoiDuocGiaoId: Number(editTaskForm.assigneeId),
-                                                                            });
-
-                                                                            // Reload tasks with pagination
-                                                                            const response = await api.get(`/tasks/project/${id}`, {
-                                                                                params: {
-                                                                                    page: taskCurrentPage,
-                                                                                    limit: taskItemsPerPage
-                                                                                }
-                                                                            });
-
-                                                                            if (response.data.tasks) {
-                                                                                setTasks(response.data.tasks);
-                                                                                if (response.data.pagination) {
-                                                                                    setTaskTotalPages(response.data.pagination.pages);
-                                                                                    setTaskTotalItems(response.data.pagination.total);
-                                                                                }
-                                                                            }
-
-                                                                            setIsEditTaskModalOpen(false);
-                                                                            setEditTask(null);
-                                                                            showSuccess('Cập nhật công việc thành công!');
-                                                                        } catch (error) {
-                                                                            showError('Lỗi khi cập nhật công việc!');
-                                                                        }
+                                                                        await handleUpdateTask(e);
                                                                     }}
                                                                     className="space-y-5"
                                                                 >
@@ -1212,6 +1268,20 @@ export default function ProjectDetailPage() {
                                                                                 <option value="low">Thấp</option>
                                                                                 <option value="medium">Trung bình</option>
                                                                                 <option value="high">Cao</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="block text-sm font-semibold text-foreground mb-2">Trạng thái *</label>
+                                                                            <select
+                                                                                required
+                                                                                value={editTaskForm.status}
+                                                                                onChange={(e) => setEditTaskForm({ ...editTaskForm, status: e.target.value })}
+                                                                                className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                                                                            >
+                                                                                <option value="Chưa bắt đầu">Chưa bắt đầu</option>
+                                                                                <option value="Đang chạy">Đang chạy</option>
+                                                                                <option value="Chờ xác nhận hoàn thành">Chờ xác nhận hoàn thành</option>
+                                                                                <option value="Hoàn thành">Hoàn thành</option>
                                                                             </select>
                                                                         </div>
                                                                     </div>

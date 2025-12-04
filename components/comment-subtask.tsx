@@ -20,6 +20,7 @@ export default function CommentSubtask({ subtaskId, subtaskStatus }: CommentSubt
   const [showForm, setShowForm] = useState(false);
   const [content, setContent] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [mentions, setMentions] = useState<number[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { id: userId } = useAuth();
   const [error, setError] = useState("");
@@ -76,9 +77,11 @@ export default function CommentSubtask({ subtaskId, subtaskStatus }: CommentSubt
         subtaskId,
         content: content.trim(),
         files: selectedFiles,
+        mentions,
       });
       setContent("");
       setSelectedFiles([]);
+      setMentions([]);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -146,6 +149,7 @@ export default function CommentSubtask({ subtaskId, subtaskStatus }: CommentSubt
           <MentionTextarea
             value={content}
             onChange={setContent}
+            onMentionsChange={setMentions}
             placeholder="Viết bình luận... (Gõ @ để tag người dùng)"
             subtaskId={subtaskId}
             className="border rounded px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -208,6 +212,7 @@ export default function CommentSubtask({ subtaskId, subtaskStatus }: CommentSubt
                 setShowForm(false);
                 setContent("");
                 setSelectedFiles([]);
+                setMentions([]);
                 setError("");
                 if (fileInputRef.current) {
                   fileInputRef.current.value = "";

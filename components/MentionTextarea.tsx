@@ -6,6 +6,7 @@ import { getMentionableUsers, MentionableUser } from "@/axios/commentApi";
 interface MentionTextareaProps {
   value: string;
   onChange: (value: string) => void;
+  onMentionsChange?: (mentions: number[]) => void;
   placeholder?: string;
   taskId?: number;
   subtaskId?: number;
@@ -16,6 +17,7 @@ interface MentionTextareaProps {
 export default function MentionTextarea({
   value,
   onChange,
+  onMentionsChange,
   placeholder = "Nhập bình luận...",
   taskId,
   subtaskId,
@@ -50,6 +52,17 @@ export default function MentionTextarea({
     fetchUsers();
   }, [taskId, subtaskId]);
 
+  // Extract mention IDs from text
+  const extractMentionIds = (text: string): number[] => {
+    const mentionPattern = /@\[(\d+)\]/g;
+    const mentions = new Set<number>();
+    let match;
+    while ((match = mentionPattern.exec(text)) !== null) {
+      mentions.add(parseInt(match[1]));
+    }
+    return Array.from(mentions);
+  };
+
   // Detect @ symbol and show suggestions
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
@@ -57,6 +70,12 @@ export default function MentionTextarea({
     
     onChange(newValue);
     setCursorPosition(cursorPos);
+    
+    // Extract and notify parent about mentions
+    if (onMentionsChange) {
+      const mentionIds = extractMentionIds(newValue);
+      onMentionsChange(mentionIds);
+    }
 
     // Find @ symbol before cursor
     const textBeforeCursor = newValue.slice(0, cursorPos);

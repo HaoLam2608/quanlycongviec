@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Bell, X, Circle, AlertCircle, Info, CheckCircle2 } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { Bell, X, Circle, AlertCircle, Info, CheckCircle2, AtSign } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { notificationUserAPI, type Notification } from '@/axios/notificationAPI'
@@ -21,6 +22,8 @@ const getNotificationIcon = (type: string) => {
             return <CheckCircle2 className="w-4 h-4 text-orange-500" />
         case 'announcement':
             return <Bell className="w-4 h-4 text-purple-500" />
+        case 'mention':
+            return <AtSign className="w-4 h-4 text-sky-500" />
         default:
             return <Circle className="w-4 h-4 text-gray-500" />
     }
@@ -36,6 +39,8 @@ const getTypeColor = (type: string) => {
             return 'border-l-orange-500 bg-orange-50'
         case 'announcement':
             return 'border-l-purple-500 bg-purple-50'
+        case 'mention':
+            return 'border-l-sky-500 bg-sky-50'
         default:
             return 'border-l-gray-500 bg-gray-50'
     }
@@ -51,21 +56,44 @@ const getTypeLabel = (type: string) => {
             return 'Nhiệm vụ'
         case 'announcement':
             return 'Thông báo'
+        case 'mention':
+            return 'Nhắc tới bạn'
         default:
             return 'Khác'
     }
+}
+
+const extractNotificationMeta = (notification: Notification) => {
+    return notification.userMeta ?? notification.meta ?? {}
+}
+
+const isMentionNotification = (notification: Notification) => {
+    const meta = extractNotificationMeta(notification) as any
+    return meta?.eventType === 'mention' || meta?.type === 'mention'
 }
 
 export default function NotificationBell({ userRole }: NotificationBellProps) {
     const [isOpen, setIsOpen] = useState(false)
     const [notifications, setNotifications] = useState<Notification[]>([])
     const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null)
+    const [isClient, setIsClient] = useState(false)
     const [declineReason, setDeclineReason] = useState('')
     const [processingAction, setProcessingAction] = useState(false)
     const [loading, setLoading] = useState(false)
     const [activeTab, setActiveTab] = useState<'general' | 'assignments'>('general')
     const [assignmentStatus, setAssignmentStatus] = useState<string | null>(null)
     const [assignmentAssigneeName, setAssignmentAssigneeName] = useState<string | null>(null)
+
+    const handleCloseModal = () => {
+        setSelectedNotification(null)
+        setAssignmentStatus(null)
+        setAssignmentAssigneeName(null)
+        setDeclineReason('')
+    }
+
+    useEffect(() => {
+        setIsClient(true)
+    }, [])
 
     const fetchNotifications = async () => {
         try {
@@ -150,6 +178,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
     // Filter out regular request-to-join notifications from assignments tab (those are for manager approvals page)
     // BUT keep claim requests (requestToJoin with action: 'claim_request') - these are actionable in the bell
     const assignmentNotifications = notifications.filter(n => {
+        if (isMentionNotification(n)) return false;
         const isAssignment = isAssignmentNotification(n) || looksLikeAssignmentByText(n);
         if (!isAssignment) return false;
 
@@ -172,6 +201,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
     const generalNotifications = notifications.filter(n => {
         const isAssignment = isAssignmentNotification(n) || looksLikeAssignmentByText(n);
         if (isAssignment) return false;
+        if (isMentionNotification(n)) return true;
         // Only include announcement and system types
         return n.type === 'announcement' || n.type === 'system';
     })
@@ -451,7 +481,18 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                                 <div className="divide-y">
                                     {activeNotifications.map((notification) => {
                                         const isRead = notification.isRead
-                                        const displayType = notification.type
+                                        const displayType = isMentionNotification(notification) ? 'mention' : notification.type
+                                        const iconWrapperClass = displayType === 'system'
+                                            ? 'bg-blue-50 text-blue-600'
+                                            : displayType === 'project'
+                                                ? 'bg-green-50 text-green-600'
+                                                : displayType === 'task'
+                                                    ? 'bg-orange-50 text-orange-600'
+                                                    : displayType === 'announcement'
+                                                        ? 'bg-purple-50 text-purple-600'
+                                                        : displayType === 'mention'
+                                                            ? 'bg-sky-50 text-sky-600'
+                                                            : 'bg-gray-50 text-gray-600'
                                         return (
                                             <div
                                                 key={notification.id}
@@ -459,8 +500,8 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                                                 className={`flex gap-3 px-4 py-3 items-start hover:bg-gray-50 cursor-pointer transition-colors ${!isRead ? 'bg-blue-50' : 'bg-white'}`}
                                             >
                                                 <div className="flex-shrink-0">
-                                                    <div className={`w-10 h-10 rounded-md flex items-center justify-center ${displayType === 'system' ? 'bg-blue-50 text-blue-600' : displayType === 'project' ? 'bg-green-50 text-green-600' : displayType === 'task' ? 'bg-orange-50 text-orange-600' : 'bg-purple-50 text-purple-600'}`}>
-                                                        {getNotificationIcon(notification.type)}
+                                                    <div className={`w-10 h-10 rounded-md flex items-center justify-center ${iconWrapperClass}`}>
+                                                        {getNotificationIcon(displayType)}
                                                     </div>
                                                 </div>
 
@@ -501,26 +542,22 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
             </div>
 
             {/* Notification Detail Modal */}
-            {selectedNotification && (
-                <div className="fixed inset-0 bg-black/10 flex items-center justify-center z-[9999] p-4">
-                    <div className="bg-white rounded-lg max-w-md w-full max-h-[80vh] overflow-y-auto shadow-2xl ring-1 ring-black/10">
+            {isClient && selectedNotification && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-transparent" onClick={handleCloseModal} />
+                    <div className="relative bg-white rounded-2xl max-w-xl w-full max-h-[85vh] overflow-y-auto shadow-2xl">
                         <div className="p-6">
                             <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-2">
-                                    {getNotificationIcon(selectedNotification.type)}
+                                    {getNotificationIcon(isMentionNotification(selectedNotification) ? 'mention' : selectedNotification.type)}
                                     <span className="text-sm px-2 py-1 bg-gray-100 text-gray-600 rounded-full">
-                                        {getTypeLabel(selectedNotification.type)}
+                                        {getTypeLabel(isMentionNotification(selectedNotification) ? 'mention' : selectedNotification.type)}
                                     </span>
                                 </div>
-                                <button
-                                    onClick={() => {
-                                        setSelectedNotification(null)
-                                        setAssignmentStatus(null)
-                                        setAssignmentAssigneeName(null)
-                                        setDeclineReason('')
-                                    }}
+                                    <button
+                                    onClick={handleCloseModal}
                                     className="text-gray-400 hover:text-gray-600"
-                                >
+                                    >
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
@@ -554,7 +591,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                                 <div className="flex justify-between text-sm">
                                     <span className="text-gray-500">Loại:</span>
                                     <span className="text-gray-900">
-                                        {getTypeLabel(selectedNotification.userMeta && selectedNotification.userMeta.relatedType === 'comment' ? 'announcement' : selectedNotification.type)}
+                                        {getTypeLabel(isMentionNotification(selectedNotification) ? 'mention' : selectedNotification.type)}
                                     </span>
                                 </div>
                             </div>
@@ -622,7 +659,8 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                             {/* Removed for manager and teamleader - they should use the approvals page */}
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Click outside to close */}

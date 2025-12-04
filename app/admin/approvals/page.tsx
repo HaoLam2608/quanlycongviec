@@ -82,12 +82,20 @@ interface JoinRequest {
     createdAt: string
     isRead: boolean
     assignmentId?: number
+    author?: {
+        id: number
+        hoten: string
+        manv: string
+    }
     meta: {
         requestToJoin: boolean
         taskId?: number
         subtaskId?: number
         requesterId: number
         requesterName?: string
+        taskCreatorId?: number
+        taskCreatorName?: string
+        taskCreatorManv?: string
         processed?: boolean
         processedAt?: string
         action?: "accepted" | "declined"
@@ -255,7 +263,20 @@ export default function AdminApprovalsPage() {
                     content: n.content,
                     createdAt: n.createdAt,
                     isRead: n.isRead || (n.userNotification && n.userNotification.isRead) || false,
-                    meta: n.userMeta || n.meta || (n.userNotification && n.userNotification.meta)
+                    meta: n.userMeta || n.meta || (n.userNotification && n.userNotification.meta),
+                    author: n.author
+                        || (n.notification && n.notification.author)
+                        || (() => {
+                            const meta = n.userMeta || n.meta || (n.userNotification && n.userNotification.meta)
+                            if (meta?.taskCreatorName || meta?.taskCreatorManv) {
+                                return {
+                                    id: meta.taskCreatorId,
+                                    hoten: meta.taskCreatorName || meta.taskCreatorManv,
+                                    manv: meta.taskCreatorManv || ''
+                                }
+                            }
+                            return undefined
+                        })()
                 })) as JoinRequest[]
             console.log('✅ Formatted requests:', requests.length)
             setJoinRequests(requests)
@@ -929,19 +950,19 @@ export default function AdminApprovalsPage() {
                                                                         {request.assignee && (
                                                                             <div className="flex items-center gap-1">
                                                                                 <User className="w-3 h-3 md:w-4 md:h-4" />
-                                                                                <span>Người yêu cầu: {request.assignee.hoten} ({request.assignee.manv})</span>
-                                                                            </div>
-                                                                        )}
-                                                                        {request.manager && (
-                                                                            <div className="flex items-center gap-1">
-                                                                                <User className="w-3 h-3 md:w-4 md:h-4 text-blue-500" />
-                                                                                <span>Manager: {request.manager.hoten} ({request.manager.manv})</span>
+                                                                                <span>👤 Người yêu cầu: <span className="font-medium text-blue-600">{request.assignee.hoten} ({request.assignee.manv})</span></span>
                                                                             </div>
                                                                         )}
                                                                         {taskCreator && (
                                                                             <div className="flex items-center gap-1">
-                                                                                <User className="w-3 h-3 md:w-4 md:h-4 text-green-500" />
-                                                                                <span>Người tạo: {taskCreator.hoten}</span>
+                                                                                <UserPlus className="w-3 h-3 md:w-4 md:h-4 text-green-500" />
+                                                                                <span>🎯 Người giao việc: <span className="font-medium text-green-600">{taskCreator.hoten} ({taskCreator.manv})</span></span>
+                                                                            </div>
+                                                                        )}
+                                                                        {request.manager && request.manager.id !== taskCreator?.id && (
+                                                                            <div className="flex items-center gap-1">
+                                                                                <User className="w-3 h-3 md:w-4 md:h-4 text-purple-500" />
+                                                                                <span>👔 Manager: <span className="font-medium text-purple-600">{request.manager.hoten} ({request.manager.manv})</span></span>
                                                                             </div>
                                                                         )}
                                                                         <div className="flex items-center gap-1">
@@ -987,6 +1008,8 @@ export default function AdminApprovalsPage() {
                                                             : request.meta?.projectId
                                                                 ? `Dự án #${request.meta.projectId}`
                                                                 : "Yêu cầu chung"
+                                                    const authorName = request.author?.hoten || request.author?.manv
+                                                    const authorManv = request.author?.manv
 
                                                     return (
                                                         <div key={`join-${request.id}`} className="p-4 md:p-6 hover:bg-gray-50 transition-colors">
@@ -1005,10 +1028,13 @@ export default function AdminApprovalsPage() {
                                                                         {request.content}
                                                                     </p>
                                                                     <div className="flex flex-col md:flex-row md:flex-wrap md:items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-500">
-                                                                        <div className="flex items-center gap-1">
-                                                                            <User className="w-3 h-3 md:w-4 md:h-4" />
-                                                                            <span>Người yêu cầu: {request.meta?.requesterName || "Không rõ"}</span>
-                                                                        </div>
+                                                                       
+                                                                        {request.author && (
+                                                                            <div className="flex items-center gap-1">
+                                                                                <UserPlus className="w-3 h-3 md:w-4 md:h-4" />
+                                                                                <span>Người giao việc: <span className="font-medium text-green-600">{authorManv ? `${authorName} (${authorManv})` : (authorName || "Chưa xác định")}</span></span>
+                                                                            </div>
+                                                                        )}
                                                                         <div className="flex items-center gap-1">
                                                                             <Clock className="w-3 h-3 md:w-4 md:h-4" />
                                                                             <span>Gửi lúc: {new Date(request.createdAt).toLocaleString("vi-VN")}</span>
