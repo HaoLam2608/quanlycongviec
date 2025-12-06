@@ -71,26 +71,57 @@ export default function AdminDashboard() {
         const timer = setTimeout(() => {
             loadStats()
             loadProjects()
-        }, 1000) // Increased delay to ensure token is ready
+        }, 500)
 
         return () => clearTimeout(timer)
     }, [])
 
     const loadProjects = async () => {
         try {
-            const data = await fetchProjects()
-            setProjects(data || [])
+            const response = await fetchProjects()
+            
+            // Handle response structure: backend returns { success, data: [...], pagination: {...} }
+            let projectsData: any[] = []
+            
+            if (Array.isArray(response)) {
+                projectsData = response
+            } else if (response?.data && Array.isArray(response.data)) {
+                projectsData = response.data
+            } else if (response?.projects && Array.isArray(response.projects)) {
+                projectsData = response.projects
+            }
+            
+            setProjects(projectsData)
+            console.log("Projects fetched:", projectsData)
 
             // Calculate project statistics
-            const total = data.length
-            const completed = data.filter((p: any) => p.status === 'da_hoan_thanh' || p.status === 'completed').length
-            const active = data.filter((p: any) => p.status === 'dang_chay' || p.status === 'in_progress').length
-            const pending = data.filter((p: any) => p.status === 'chua_bat_dau' || p.status === 'not_started').length
+            const total = projectsData.length
+            
+            // Map status values - be explicit about status codes/names
+            const completed = projectsData.filter((p: any) => {
+                const status = String(p.status || '').toLowerCase().trim()
+                return status === 'da_hoan_thanh' || status === 'completed' || status === '3'
+            }).length
+            
+            const active = projectsData.filter((p: any) => {
+                const status = String(p.status || '').toLowerCase().trim()
+                return status === 'dang_chay' || status === 'in_progress' || status === '2'
+            }).length
+            
+            const pending = projectsData.filter((p: any) => {
+                const status = String(p.status || '').toLowerCase().trim()
+                return status === 'chua_bat_dau' || status === 'not_started' || status === '1'
+            }).length
+            
             const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0
 
             setProjectStats({ total, active, completed, pending, completionRate })
+            
+            console.log("Project stats calculated:", { total, active, completed, pending, completionRate })
+            console.log("Sample projects:", projectsData.slice(0, 3).map(p => ({ id: p.id, status: p.status, tenduan: p.tenduan })))
         } catch (error) {
             console.error("Load projects error:", error)
+            setProjectStats({ total: 0, active: 0, completed: 0, pending: 0, completionRate: 0 })
         }
     }
 

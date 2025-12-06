@@ -78,11 +78,11 @@ export default function TeamLeadGroupPage() {
 
     if (!selectedGroup) {
         return (
-            <div className="p-6">
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-12">
+            <div className="p-3 sm:p-6">
+                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 sm:p-12">
                     <div className="text-center">
-                        <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">Chưa có nhóm</h3>
+                        <Users className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
+                        <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">Chưa có nhóm</h3>
                         <p className="text-gray-600">Bạn chưa được gán làm trưởng nhóm cho nhóm nào.</p>
                     </div>
                 </div>
@@ -95,12 +95,12 @@ export default function TeamLeadGroupPage() {
     const currentGroups = showClosed ? closedGroups : activeGroups
 
     return (
-        <div className="p-6 space-y-6">
+        <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
             {/* Group Selector - Tabs with Cards */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+            <div key="group-selector" className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
                 {/* Tabs Header */}
-                <div className="flex items-center justify-between border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
-                    <div className="flex">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white gap-3 sm:gap-0">
+                    <div className="flex flex-col sm:flex-row w-full sm:w-auto">
                         <button
                             onClick={() => {
                                 setShowClosed(false)
@@ -108,7 +108,7 @@ export default function TeamLeadGroupPage() {
                                     setSelectedGroup(activeGroups[0])
                                 }
                             }}
-                            className={`px-6 py-4 font-semibold text-sm flex items-center gap-2 border-b-2 transition-all ${
+                            className={`px-4 sm:px-6 py-3 sm:py-4 font-semibold text-xs sm:text-sm flex items-center gap-2 border-b-2 transition-all flex-1 sm:flex-none justify-center sm:justify-start ${
                                 !showClosed
                                     ? 'border-blue-500 text-blue-600 bg-blue-50'
                                     : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
@@ -129,7 +129,7 @@ export default function TeamLeadGroupPage() {
                                     setSelectedGroup(closedGroups[0])
                                 }
                             }}
-                            className={`px-6 py-4 font-semibold text-sm flex items-center gap-2 border-b-2 transition-all ${
+                            className={`px-4 sm:px-6 py-3 sm:py-4 font-semibold text-xs sm:text-sm flex items-center gap-2 border-b-2 transition-all flex-1 sm:flex-none justify-center sm:justify-start ${
                                 showClosed
                                     ? 'border-gray-500 text-gray-700 bg-gray-100'
                                     : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
@@ -146,15 +146,15 @@ export default function TeamLeadGroupPage() {
                     </div>
                     <button
                         onClick={loadGroupsInfo}
-                        className="mr-4 px-4 py-2 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 rounded-lg font-medium flex items-center gap-2 transition-all shadow-sm"
+                        className="mr-3 sm:mr-4 px-3 sm:px-4 py-2 bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 rounded-lg font-medium flex items-center gap-2 transition-all shadow-sm"
                     >
                         <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-                        <span className="text-sm">Làm mới</span>
+                        <span className="text-xs sm:text-sm">Làm mới</span>
                     </button>
                 </div>
 
                 {/* Cards Grid */}
-                <div className="p-6">
+                <div className="p-4 sm:p-6">
                     {currentGroups.length === 0 ? (
                         <div className="text-center py-12">
                             {showClosed ? (
@@ -172,12 +172,12 @@ export default function TeamLeadGroupPage() {
                             )}
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                             {currentGroups.map(group => (
                                 <button
                                     key={group.id}
                                     onClick={() => setSelectedGroup(group)}
-                                    className={`p-5 rounded-xl text-left transition-all border-2 ${
+                                    className={`p-4 sm:p-5 rounded-xl text-left transition-all border-2 ${
                                         selectedGroup?.id === group.id
                                             ? showClosed
                                                 ? 'border-gray-500 bg-gray-50 shadow-lg ring-2 ring-gray-200'
@@ -185,21 +185,21 @@ export default function TeamLeadGroupPage() {
                                             : 'border-gray-200 hover:border-gray-300 hover:shadow-md bg-white'
                                     }`}
                                 >
-                                    <div className="flex items-start gap-4">
-                                        <div className={`w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                                    <div className="flex items-start gap-3 sm:gap-4">
+                                        <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl flex items-center justify-center flex-shrink-0 ${
                                             showClosed
                                                 ? 'bg-gradient-to-br from-gray-400 to-gray-500'
                                                 : 'bg-gradient-to-br from-blue-500 to-indigo-600'
                                         }`}>
                                             {showClosed ? (
-                                                <Lock className="w-7 h-7 text-white" />
+                                                <Lock className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                                             ) : (
-                                                <Users className="w-7 h-7 text-white" />
+                                                <Users className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                                             )}
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-start justify-between gap-2 mb-2">
-                                                <h4 className="font-bold text-lg text-gray-900 truncate">{group.name}</h4>
+                                                <h4 className="font-bold text-base sm:text-lg text-gray-900 truncate">{group.name}</h4>
                                                 {selectedGroup?.id === group.id && (
                                                     <span className={`px-2 py-1 rounded-lg text-xs font-bold ${
                                                         showClosed ? 'bg-gray-600 text-white' : 'bg-blue-600 text-white'
@@ -211,15 +211,15 @@ export default function TeamLeadGroupPage() {
                                             <p className="text-sm text-gray-600 mb-3 line-clamp-2">
                                                 {group.description || 'Không có mô tả'}
                                             </p>
-                                            <div className="flex items-center gap-4 text-sm">
-                                                <span className="flex items-center gap-1.5 text-gray-700">
-                                                    <Users className="w-4 h-4" />
+                                            <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm">
+                                                <span className="flex items-center gap-1 sm:gap-1.5 text-gray-700">
+                                                    <Users className="w-3 h-3 sm:w-4 sm:h-4" />
                                                     <span className="font-semibold">{group.members?.length || 0}</span>
                                                     <span className="text-gray-500">thành viên</span>
                                                 </span>
                                                 <span className="text-gray-300">•</span>
-                                                <span className="flex items-center gap-1.5 text-gray-700">
-                                                    <FolderKanban className="w-4 h-4" />
+                                                <span className="flex items-center gap-1 sm:gap-1.5 text-gray-700">
+                                                    <FolderKanban className="w-3 h-3 sm:w-4 sm:h-4" />
                                                     <span className="font-semibold">
                                                         {group.groupProjects?.filter(gp => gp.status === 'active').length || 0}
                                                     </span>
@@ -236,16 +236,16 @@ export default function TeamLeadGroupPage() {
             </div>
 
             {/* Selected Group Details */}
-            <div className={`bg-gradient-to-r ${isClosed ? 'from-gray-500 to-gray-600' : 'from-blue-600 to-indigo-600'} rounded-2xl p-8 text-white shadow-lg`}>
+            <div key="group-details" className={`bg-gradient-to-r ${isClosed ? 'from-gray-500 to-gray-600' : 'from-blue-600 to-indigo-600'} rounded-2xl p-4 sm:p-6 lg:p-8 text-white shadow-lg`}>
                 <div className="flex items-start justify-between">
                     <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="w-14 h-14 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                                {isClosed ? <Lock className="w-8 h-8 text-white" /> : <Users className="w-8 h-8 text-white" />}
+                        <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                                {isClosed ? <Lock className="w-6 h-6 sm:w-8 sm:h-8 text-white" /> : <Users className="w-6 h-6 sm:w-8 sm:h-8 text-white" />}
                             </div>
                             <div>
-                                <h1 className="text-3xl font-bold">{selectedGroup.name}</h1>
-                                <p className={`text-sm ${isClosed ? 'text-gray-200' : 'text-blue-200'}`}>
+                                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold">{selectedGroup.name}</h1>
+                                <p className={`text-xs sm:text-sm ${isClosed ? 'text-gray-200' : 'text-blue-200'}`}>
                                     {isClosed ? 'Nhóm đã đóng - Chỉ xem' : 'Nhóm đang hoạt động'}
                                 </p>
                             </div>
@@ -258,39 +258,39 @@ export default function TeamLeadGroupPage() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                    <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isClosed ? 'bg-gray-400' : 'bg-gradient-to-br from-blue-500 to-blue-600'}`}>
-                            <Users className="w-6 h-6 text-white" />
+            <div key="stats-section" className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
+                <div key="stat-members" className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 sm:p-6">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                        <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center ${isClosed ? 'bg-gray-400' : 'bg-gradient-to-br from-blue-500 to-blue-600'}`}>
+                            <Users className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                         </div>
                         <div>
-                            <p className="text-sm text-gray-600">Thành viên</p>
-                            <p className="text-2xl font-bold text-gray-900">{selectedGroup.members?.length || 0}</p>
+                            <p className="text-xs sm:text-sm text-gray-600">Thành viên</p>
+                            <p className="text-xl sm:text-2xl font-bold text-gray-900">{selectedGroup.members?.length || 0}</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                    <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isClosed ? 'bg-gray-400' : 'bg-gradient-to-br from-green-500 to-green-600'}`}>
-                            <FolderKanban className="w-6 h-6 text-white" />
+                <div key="stat-projects" className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 sm:p-6">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                        <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center ${isClosed ? 'bg-gray-400' : 'bg-gradient-to-br from-green-500 to-green-600'}`}>
+                            <FolderKanban className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                         </div>
                         <div>
-                            <p className="text-sm text-gray-600">Dự án {isClosed ? '' : 'đang tham gia'}</p>
-                            <p className="text-2xl font-bold text-gray-900">{activeProjects.length}</p>
+                            <p className="text-xs sm:text-sm text-gray-600">Dự án {isClosed ? '' : 'đang tham gia'}</p>
+                            <p className="text-xl sm:text-2xl font-bold text-gray-900">{activeProjects.length}</p>
                         </div>
                     </div>
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                    <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isClosed ? 'bg-gray-400' : 'bg-gradient-to-br from-purple-500 to-purple-600'}`}>
-                            <Calendar className="w-6 h-6 text-white" />
+                <div key="stat-date" className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 sm:p-6">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                        <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center ${isClosed ? 'bg-gray-400' : 'bg-gradient-to-br from-purple-500 to-purple-600'}`}>
+                            <Calendar className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                         </div>
                         <div>
-                            <p className="text-sm text-gray-600">Ngày tạo</p>
-                            <p className="text-lg font-bold text-gray-900">
+                            <p className="text-xs sm:text-sm text-gray-600">Ngày tạo</p>
+                            <p className="text-base sm:text-lg font-bold text-gray-900">
                                 {new Date(selectedGroup.createdAt).toLocaleDateString('vi-VN')}
                             </p>
                         </div>
@@ -299,7 +299,7 @@ export default function TeamLeadGroupPage() {
             </div>
 
             {isClosed && (
-                <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4">
+                <div key="closed-warning" className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4">
                     <div className="flex items-center gap-3">
                         <Lock className="w-6 h-6 text-amber-600" />
                         <div>
@@ -311,32 +311,32 @@ export default function TeamLeadGroupPage() {
             )}
 
             {/* Leader Info */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <UserCheck className={`w-6 h-6 ${isClosed ? 'text-gray-500' : 'text-purple-600'}`} />
+            <div key="leader-info" className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 sm:p-6">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <UserCheck className={`w-5 h-5 sm:w-6 sm:h-6 ${isClosed ? 'text-gray-500' : 'text-purple-600'}`} />
                     Trưởng nhóm
                 </h2>
                 {selectedGroup.leader && (
-                    <div className={`flex items-center gap-4 p-4 rounded-xl ${isClosed ? 'bg-gray-100' : 'bg-gradient-to-r from-purple-50 to-indigo-50'}`}>
-                        <div className={`w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-bold ${isClosed ? 'bg-gray-400' : 'bg-gradient-to-br from-purple-500 to-purple-600'}`}>
+                    <div className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl ${isClosed ? 'bg-gray-100' : 'bg-gradient-to-r from-purple-50 to-indigo-50'}`}>
+                        <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center text-white text-xl sm:text-2xl font-bold ${isClosed ? 'bg-gray-400' : 'bg-gradient-to-br from-purple-500 to-purple-600'}`}>
                             {selectedGroup.leader.hoten.charAt(0).toUpperCase()}
                         </div>
-                        <div className="flex-1">
-                            <h3 className="text-lg font-bold text-gray-900">{selectedGroup.leader.hoten}</h3>
-                            <p className="text-sm text-gray-600">{selectedGroup.leader.chucvu || 'Trưởng nhóm'}</p>
-                            <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
-                                <span key="manv" className="flex items-center gap-1">
+                        <div className="flex-1 min-w-0">
+                            <h3 className="text-base sm:text-lg font-bold text-gray-900">{selectedGroup.leader.hoten}</h3>
+                            <p className="text-xs sm:text-sm text-gray-600">{selectedGroup.leader.chucvu || 'Trưởng nhóm'}</p>
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 mt-2 text-xs sm:text-sm text-gray-600">
+                                <span className="flex items-center gap-1">
                                     <Award className="w-4 h-4" />
                                     {selectedGroup.leader.manv}
                                 </span>
                                 {selectedGroup.leader.email && (
-                                    <span key="email" className="flex items-center gap-1">
+                                    <span className="flex items-center gap-1">
                                         <Mail className="w-4 h-4" />
                                         {selectedGroup.leader.email}
                                     </span>
                                 )}
                                 {selectedGroup.leader.sdt && (
-                                    <span key="sdt" className="flex items-center gap-1">
+                                    <span className="flex items-center gap-1">
                                         <Phone className="w-4 h-4" />
                                         {selectedGroup.leader.sdt}
                                     </span>
@@ -348,9 +348,9 @@ export default function TeamLeadGroupPage() {
             </div>
 
             {/* Members List */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <Users className={`w-6 h-6 ${isClosed ? 'text-gray-500' : 'text-blue-600'}`} />
+            <div key="members-list" className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 sm:p-6">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <Users className={`w-5 h-5 sm:w-6 sm:h-6 ${isClosed ? 'text-gray-500' : 'text-blue-600'}`} />
                     Danh sách thành viên ({selectedGroup.members?.length || 0})
                 </h2>
                 {!selectedGroup.members || selectedGroup.members.length === 0 ? (
@@ -359,22 +359,22 @@ export default function TeamLeadGroupPage() {
                         <p>Chưa có thành viên nào</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                         {selectedGroup.members.map(member => (
-                            <div key={member.id} className={`flex items-center gap-4 p-4 rounded-xl transition-all ${isClosed ? 'bg-gray-100' : 'bg-gray-50 hover:bg-gray-100'}`}>
-                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
+                            <div key={member.id} className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl transition-all ${isClosed ? 'bg-gray-100' : 'bg-gray-50 hover:bg-gray-100'}`}>
+                                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-base sm:text-lg font-bold flex-shrink-0">
                                     {member.hoten.charAt(0).toUpperCase()}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <h3 className="font-semibold text-gray-900 truncate">{member.hoten}</h3>
-                                    <p className="text-sm text-gray-600 truncate">{member.chucvu || 'Nhân viên'}</p>
-                                    <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                                        <span key="manv" className="flex items-center gap-1">
+                                    <h3 className="text-sm sm:text-base font-semibold text-gray-900 truncate">{member.hoten}</h3>
+                                    <p className="text-xs sm:text-sm text-gray-600 truncate">{member.chucvu || 'Nhân viên'}</p>
+                                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mt-1 text-xs text-gray-500">
+                                        <span className="flex items-center gap-1">
                                             <Award className="w-3 h-3" />
                                             {member.manv}
                                         </span>
                                         {member.email && (
-                                            <span key="email" className="flex items-center gap-1 truncate">
+                                            <span className="flex items-center gap-1 truncate">
                                                 <Mail className="w-3 h-3" />
                                                 {member.email}
                                             </span>
@@ -388,9 +388,9 @@ export default function TeamLeadGroupPage() {
             </div>
 
             {/* Projects Section */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-                    <FolderKanban className={`w-6 h-6 ${isClosed ? 'text-gray-500' : 'text-green-600'}`} />
+            <div key="projects-section" className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 sm:p-6">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <FolderKanban className={`w-5 h-5 sm:w-6 sm:h-6 ${isClosed ? 'text-gray-500' : 'text-green-600'}`} />
                     {isClosed ? 'Dự án đã tham gia' : 'Dự án đang tham gia'} ({activeProjects.length})
                 </h2>
                 {activeProjects.length === 0 ? (
@@ -399,17 +399,17 @@ export default function TeamLeadGroupPage() {
                         <p>Chưa tham gia dự án nào</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                         {activeProjects.map(gp => (
-                            <div key={gp.id} className={`p-4 rounded-xl border transition-all ${isClosed ? 'bg-gray-100 border-gray-200' : 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-100 hover:shadow-md'}`}>
-                                <div className="flex items-start gap-3">
-                                    <div className="w-10 h-10 rounded-lg bg-green-500 flex items-center justify-center flex-shrink-0">
-                                        <FolderKanban className="w-5 h-5 text-white" />
+                            <div key={gp.id} className={`p-3 sm:p-4 rounded-xl border transition-all ${isClosed ? 'bg-gray-100 border-gray-200' : 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-100 hover:shadow-md'}`}>
+                                <div className="flex items-start gap-2 sm:gap-3">
+                                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-green-500 flex items-center justify-center flex-shrink-0">
+                                        <FolderKanban className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                        <h3 className="font-bold text-gray-900 truncate">{gp.project.tenduan}</h3>
+                                        <h3 className="text-sm sm:text-base font-bold text-gray-900 truncate">{gp.project.tenduan}</h3>
                                         {gp.project.moTa && (
-                                            <p className="text-sm text-gray-600 mt-1 line-clamp-2">{gp.project.moTa}</p>
+                                            <p className="text-xs sm:text-sm text-gray-600 mt-1 line-clamp-2">{gp.project.moTa}</p>
                                         )}
                                         <div className="mt-2">
                                             <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded-lg text-xs font-semibold">

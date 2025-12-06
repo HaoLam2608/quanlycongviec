@@ -9,6 +9,9 @@ import api from '@/axios/config'
 import NotificationBell from "@/components/NotificationBell"
 import { useToastContext } from "@/components/providers/toast-provider"
 import { showConfirm } from '@/lib/notifications'
+import AuthGuard from "@/components/auth/AuthGuard"
+import { GlobalChatProvider } from "@/components/chat/GlobalChatProvider"
+import { FloatingAI } from "@/components/ai/FloatingAI"
 import {
     LayoutDashboard,
     CheckSquare,
@@ -146,22 +149,25 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
     }
 
     return (
-        <div className="h-screen flex bg-gradient-to-br from-slate-50 via-blue-50/20 to-slate-50">
-            {/* Mobile sidebar */}
-            <div className={`fixed inset-0 flex z-40 md:hidden ${sidebarOpen ? '' : 'hidden'}`}>
-                <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
+        <AuthGuard>
+            <GlobalChatProvider>
+                <FloatingAI />
+                <div className="h-screen flex bg-gradient-to-br from-slate-50 via-blue-50/20 to-slate-50">
+                    {/* Mobile sidebar */}
+                    <div className={`fixed inset-0 flex z-40 md:hidden ${sidebarOpen ? '' : 'hidden'}`}>
+                        <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
 
-                <div className="relative flex-1 flex flex-col max-w-xs w-full bg-gradient-to-b from-slate-50 via-blue-50/30 to-slate-50">
-                    <div className="absolute top-0 right-0 -mr-12 pt-2">
-                        <button
-                            className="ml-1 flex items-center justify-center h-10 w-10 rounded-full bg-white/10 backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white hover:bg-white/20 transition-colors"
-                            onClick={() => setSidebarOpen(false)}
-                        >
-                            <X className="h-6 w-6 text-white" />
-                        </button>
-                    </div>
+                        <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white">
+                            <div className="absolute top-0 right-0 -mr-12 pt-2">
+                                <button
+                                    className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
+                                    onClick={() => setSidebarOpen(false)}
+                                >
+                                    <X className="h-6 w-6 text-white" />
+                                </button>
+                            </div>
 
-                    <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
+                            <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
                         <div className="flex-shrink-0 flex items-center px-4 mb-6">
                             <Image
                                 src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Logo_Huit-IWimrgiEFAgwC7TB8MBStRusseaQ9A.png"
@@ -206,68 +212,68 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                                 {isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}
                             </button>
                         </nav>
-                    </div>
-                </div>
-            </div>
-
-            {/* Desktop sidebar */}
-            <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
-                <div className="flex-1 flex flex-col min-h-0 bg-gradient-to-b from-slate-50 via-blue-50/30 to-slate-50 border-r border-blue-100 shadow-sm">
-                    <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-                        <div className="flex items-center flex-shrink-0 px-4 mb-8">
-                            <Image
-                                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Logo_Huit-IWimrgiEFAgwC7TB8MBStRusseaQ9A.png"
-                                alt="HUIT Logo"
-                                width={150}
-                                height={50}
-                                className="h-10 w-auto object-contain"
-                            />
-                        </div>
-                        <div className="flex items-center flex-shrink-0 px-4 mb-6">
-                            <div className="flex items-center gap-2">
-                                <h2 className="text-lg font-semibold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">Trang nhân viên</h2>
                             </div>
                         </div>
-                        <nav className="mt-5 flex-1 px-3 space-y-1">
-                            {updatedNavigation.map((item) => (
-                                <Link
-                                    key={item.name}
-                                    href={item.href}
-                                    className={`
-                                        group flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl
-                                        transition-all duration-200 ease-in-out
-                                        ${item.current
-                                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30 scale-105'
-                                            : 'text-slate-700 hover:bg-white hover:shadow-md hover:scale-102 hover:text-blue-600'
-                                        }
-                                    `}
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <item.icon className={`h-5 w-5 transition-transform duration-200 ${item.current ? 'text-white' : 'text-slate-500 group-hover:text-blue-500 group-hover:scale-110'}`} />
-                                        <span>{item.name}</span>
-                                    </div>
-                                    {item.current && <ChevronRight className="h-4 w-4 text-white/70" />}
-                                </Link>
-                            ))}
-                        </nav>
                     </div>
-                </div>
-            </div>
 
-            {/* Main content */}
-            <div className="md:pl-64 flex flex-col flex-1">
-                {/* Top navigation */}
-                <div className="sticky top-0 z-10 md:hidden pl-1 pt-1 sm:pl-3 sm:pt-3 bg-white/80 backdrop-blur-xl border-b border-blue-100 shadow-sm">
-                    <button
-                        className="-ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-xl text-slate-600 hover:text-blue-600 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 transition-colors"
-                        onClick={() => setSidebarOpen(true)}
-                    >
-                        <Menu className="h-6 w-6" />
-                    </button>
-                </div>
+                    {/* Desktop sidebar */}
+                    <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
+                        <div className="flex-1 flex flex-col min-h-0 bg-gradient-to-b from-slate-50 via-blue-50/30 to-slate-50 border-r border-blue-100 shadow-sm">
+                            <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
+                                <div className="flex items-center flex-shrink-0 px-4 mb-8">
+                                    <Image
+                                        src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Logo_Huit-IWimrgiEFAgwC7TB8MBStRusseaQ9A.png"
+                                        alt="HUIT Logo"
+                                        width={150}
+                                        height={50}
+                                        className="h-10 w-auto object-contain"
+                                    />
+                                </div>
+                                <div className="flex items-center flex-shrink-0 px-4 mb-6">
+                                    <div className="flex items-center gap-2">
+                                        <h2 className="text-lg font-semibold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">Trang nhân viên</h2>
+                                    </div>
+                                </div>
+                                <nav className="mt-5 flex-1 px-3 space-y-1">
+                                    {updatedNavigation.map((item) => (
+                                        <Link
+                                            key={item.name}
+                                            href={item.href}
+                                            className={`
+                                                group flex items-center justify-between px-4 py-3 text-sm font-medium rounded-xl
+                                                transition-all duration-200 ease-in-out
+                                                ${item.current
+                                                    ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/30 scale-105'
+                                                    : 'text-slate-700 hover:bg-white hover:shadow-md hover:scale-102 hover:text-blue-600'
+                                                }
+                                            `}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <item.icon className={`h-5 w-5 transition-transform duration-200 ${item.current ? 'text-white' : 'text-slate-500 group-hover:text-blue-500 group-hover:scale-110'}`} />
+                                                <span>{item.name}</span>
+                                            </div>
+                                            {item.current && <ChevronRight className="h-4 w-4 text-white/70" />}
+                                        </Link>
+                                    ))}
+                                </nav>
+                            </div>
+                        </div>
+                    </div>
 
-                {/* Desktop header */}
-                <div className="hidden md:flex sticky top-0 z-10 flex-shrink-0 h-16 bg-white/80 backdrop-blur-xl border-b border-blue-100 items-center justify-between px-6 shadow-sm">
+                    {/* Main content */}
+                    <div className="md:pl-64 flex flex-col flex-1">
+                        {/* Top navigation */}
+                        <div className="sticky top-0 z-10 md:hidden pl-1 pt-1 sm:pl-3 sm:pt-3 bg-white/80 backdrop-blur-xl border-b border-blue-100 shadow-sm">
+                            <button
+                                className="-ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-xl text-slate-600 hover:text-blue-600 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 transition-colors"
+                                onClick={() => setSidebarOpen(true)}
+                            >
+                                <Menu className="h-6 w-6" />
+                            </button>
+                        </div>
+
+                        {/* Desktop header */}
+                        <div className="hidden md:flex sticky top-0 z-10 flex-shrink-0 h-16 bg-white/80 backdrop-blur-xl border-b border-blue-100 items-center justify-between px-6 shadow-sm">
                     <div className="flex-1">
                         <div className="flex items-center gap-2">
 
@@ -320,13 +326,15 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                             </button>
                         </div>
                     </div>
-                </div>
+                        </div>
 
-                {/* Page content */}
-                <main className="flex-1 relative overflow-y-auto focus:outline-none">
-                    {children}
-                </main>
-            </div>
-        </div>
+                        {/* Page content */}
+                        <main className="flex-1 relative overflow-y-auto focus:outline-none">
+                            {children}
+                        </main>
+                    </div>
+                </div>
+            </GlobalChatProvider>
+        </AuthGuard>
     )
 }

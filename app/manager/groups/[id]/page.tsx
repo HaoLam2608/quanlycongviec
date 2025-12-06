@@ -21,9 +21,20 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
                     fetchProjects()
                 ]);
                 setGroup(groupRes.data.group);
-                setProjects(projectsRes.duans || projectsRes.projects || projectsRes || []);
+                
+                // Handle different response structures from backend
+                const projectsData = projectsRes?.data && Array.isArray(projectsRes.data)
+                    ? projectsRes.data
+                    : (projectsRes?.duans && Array.isArray(projectsRes.duans)
+                        ? projectsRes.duans
+                        : (projectsRes?.projects && Array.isArray(projectsRes.projects)
+                            ? projectsRes.projects
+                            : (Array.isArray(projectsRes) ? projectsRes : [])))
+                
+                setProjects(projectsData);
             } catch (err: any) {
                 setError("Không tìm thấy nhóm hoặc không có quyền xem");
+                setProjects([]);
             } finally {
                 setLoading(false);
             }
@@ -193,7 +204,7 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {activeProjects.map((gp: any) => {
-                                    const project = projects.find((p: any) => p.id === gp.projectId);
+                                    const project = Array.isArray(projects) ? projects.find((p: any) => p.id === gp.projectId) : null;
                                     return (
                                         <div key={gp.id} className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200 hover:shadow-md transition-all">
                                             <div className="flex items-start gap-3">
@@ -231,7 +242,7 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {completedProjects.map((gp: any) => {
-                                    const project = projects.find((p: any) => p.id === gp.projectId);
+                                    const project = Array.isArray(projects) ? projects.find((p: any) => p.id === gp.projectId) : null;
                                     return (
                                         <div key={gp.id} className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:shadow-md transition-all">
                                             <div className="flex items-start gap-3">

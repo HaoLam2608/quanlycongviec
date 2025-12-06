@@ -182,6 +182,7 @@ export default function ProjectDetailPage() {
         description: "",
         assigneeId: "",
         priority: "medium",
+        status: "Chưa bắt đầu",
         dueDate: "",
         startDate: "",
     });
@@ -193,6 +194,7 @@ export default function ProjectDetailPage() {
                 description: editTask.mota || "",
                 assigneeId: editTask.nguoiDuocGiaoId?.toString() || editTask.nguoiDuocGiao?.id?.toString() || "",
                 priority: editTask.mucDoUuTien || "medium",
+                status: editTask.trangThai || "Chưa bắt đầu",
                 dueDate: editTask.ngayKetThuc ? editTask.ngayKetThuc.slice(0, 10) : "",
                 startDate: editTask.ngayBatDau ? editTask.ngayBatDau.slice(0, 10) : "",
             });
@@ -485,15 +487,59 @@ export default function ProjectDetailPage() {
             setProjectGroups(projectGroups);
 
             // Lọc nhóm khả dụng để thêm vào dự án:
+            // - Nhóm chưa đóng (status !== 'closed')
             // - Chưa tham gia dự án này
-            // - Số lượng dự án đang active < 2 (dựa vào groupProjects status)
+            // - Số lượng dự án chưa hoàn thành < 2 (tức là đang tham gia 0 hoặc 1 dự án chưa hoàn thành)
             const availableGroups = allGroups.filter((g: any) => {
+                // 1. Loại bỏ nhóm đã đóng
+                if (g.status === 'closed') {
+                    console.log(`Nhóm ${g.name} (ID: ${g.id}) bị loại vì đã đóng`);
+                    return false;
+                }
+
                 const groupProjects = Array.isArray(g.groupProjects) ? g.groupProjects : [];
-                const joinedActiveProjects = groupProjects.filter((gp: any) => gp.status === 'active').length;
-                const isInThisProject = groupProjects.some((gp: any) => gp.projectId === Number(id) && gp.status === 'active');
-                return !isInThisProject && joinedActiveProjects < 2;
+                
+                // 2. Kiểm tra nhóm đã tham gia dự án này chưa
+                const isInThisProject = groupProjects.some((gp: any) => 
+                    gp.projectId === Number(id) && gp.status === 'active'
+                );
+                if (isInThisProject) {
+                    console.log(`Nhóm ${g.name} (ID: ${g.id}) bị loại vì đã tham gia dự án này`);
+                    return false;
+                }
+
+                // 3. Đếm số dự án chưa hoàn thành mà nhóm đang tham gia
+                // Sử dụng thông tin từ g.projects (belongsToMany association)
+                const projects = Array.isArray(g.projects) ? g.projects : [];
+                
+                // Lọc các dự án chưa hoàn thành từ danh sách projects
+                // Giả sử status của project được map từ backend (nếu có)
+                // Nếu không có status trong projects, ta phải dựa vào groupProjects đang active
+                const activeProjectIds = groupProjects
+                    .filter((gp: any) => gp.status === 'active')
+                    .map((gp: any) => gp.projectId);
+                
+                // Đếm số dự án đang active (chưa hoàn thành)
+                // Vì backend không trả về status của project trong include, 
+                // ta giả định các project trong groupProjects có status='active' là chưa hoàn thành
+                const incompleteProjectCount = activeProjectIds.length;
+
+                // Loại bỏ nhóm đã tham gia 2 hoặc nhiều hơn dự án chưa hoàn thành
+                if (incompleteProjectCount >= 2) {
+                    console.log(`Nhóm ${g.name} (ID: ${g.id}) bị loại vì đã tham gia ${incompleteProjectCount} dự án chưa hoàn thành`);
+                    return false;
+                }
+
+                console.log(`Nhóm ${g.name} (ID: ${g.id}) khả dụng (${incompleteProjectCount} dự án chưa hoàn thành)`);
+                return true;
             });
-            // removed debug log
+            
+            console.log('Available groups after filtering:', availableGroups.map((g: any) => ({
+                id: g.id,
+                name: g.name,
+                status: g.status,
+                activeProjects: g.groupProjects?.filter((gp: any) => gp.status === 'active').length || 0
+            })));
             setAvailableGroups(availableGroups);
         } catch (err) {
             console.error("Lỗi load nhóm:", err);
@@ -677,6 +723,47 @@ export default function ProjectDetailPage() {
         } catch (error: any) {
             console.error('Delete task error:', error)
             showError(error.response?.data?.message || 'Lỗi xóa task')
+        }
+    }
+
+    const handleUpdateTask = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!editTask) return
+
+        try {
+            await api.put(`/tasks/${editTask.id}`, {
+                tentask: editTaskForm.name,
+                mota: editTaskForm.description,
+                nguoiDuocGiaoId: editTaskForm.assigneeId ? Number(editTaskForm.assigneeId) : null,
+                mucDoUuTien: editTaskForm.priority,
+                trangThai: editTaskForm.status,
+                ngayBatDau: editTaskForm.startDate,
+                ngayKetThuc: editTaskForm.dueDate
+            })
+
+            showSuccess('Cập nhật công việc thành công!')
+
+            // Reload tasks with pagination
+            const response = await api.get(`/tasks/project/${id}`, {
+                params: {
+                    page: taskCurrentPage,
+                    limit: taskItemsPerPage
+                }
+            });
+
+            if (response.data.tasks) {
+                setTasks(response.data.tasks);
+                if (response.data.pagination) {
+                    setTaskTotalPages(response.data.pagination.pages);
+                    setTaskTotalItems(response.data.pagination.total);
+                }
+            }
+
+            setIsEditTaskModalOpen(false)
+            setEditTask(null)
+        } catch (error: any) {
+            console.error('Update task error:', error)
+            showError(error.response?.data?.message || 'Lỗi cập nhật công việc')
         }
     }
 
@@ -867,7 +954,7 @@ export default function ProjectDetailPage() {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-3 sm:space-y-6">
             <Link
                 href="/admin/projects"
                 className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors text-sm md:text-base"
@@ -876,36 +963,36 @@ export default function ProjectDetailPage() {
                 <span>Quay lại danh sách dự án</span>
             </Link>
 
-            <div className="bg-card border border-border rounded-lg md:rounded-2xl p-4 md:p-6 lg:p-8 shadow-sm">
-                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 md:gap-6 mb-4 md:mb-6">
+            <div className="bg-card border border-border rounded-lg md:rounded-2xl p-3 md:p-6 lg:p-8 shadow-sm">
+                <div className="flex flex-col gap-3 md:gap-4 mb-3 md:mb-6">
                     <div className="flex-1">
-                        <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-3">
-                            <span className="text-xs md:text-sm font-mono text-muted-foreground bg-secondary px-2 md:px-3 py-1 rounded-lg">
+                        <div className="flex items-center gap-2 mb-1 md:mb-2">
+                            <span className="text-[10px] md:text-sm font-mono text-muted-foreground bg-secondary px-2 py-0.5 md:py-1 rounded">
                                 {id}
                             </span>
                         </div>
-                        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground mb-2 md:mb-3">{project?.tenduan}</h1>
-                        <p className="text-xs md:text-sm text-muted-foreground mb-2 md:mb-3 line-clamp-2">{project?.mota}</p>
-                        <p className="text-xs md:text-sm text-muted-foreground flex items-center gap-2">
-                            <Users size={14} className="md:w-4 md:h-4" />
-                            Quản lý: <span className="font-semibold text-foreground">
+                        <h1 className="text-base md:text-2xl lg:text-3xl font-bold text-foreground mb-1 md:mb-2">{project?.tenduan}</h1>
+                        <p className="text-xs md:text-sm text-muted-foreground mb-1 md:mb-2 line-clamp-2">{project?.mota}</p>
+                        <p className="text-xs md:text-sm text-muted-foreground flex items-center gap-1 md:gap-2">
+                            <Users size={12} className="md:w-4 md:h-4" />
+                            Quản lý: <span className="font-semibold text-foreground truncate">
                                 {project?.nguoiDamNhan?.hoten || "Chưa phân công"}
                             </span>
                         </p>
                     </div>
-                    <div className="flex flex-col gap-2 md:gap-3 w-full lg:w-auto">
-                        <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
-                            <Calendar size={14} className="md:w-4 md:h-4 flex-shrink-0" />
-                            <span className="line-clamp-1">
+                    <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm text-muted-foreground">
+                            <Calendar size={12} className="md:w-4 md:h-4 flex-shrink-0" />
+                            <span className="truncate">
                                 {formatDate(project?.ngaybatdau)} - {formatDate(project?.ngayketthuc)}
                             </span>
                         </div>
-                        <div className="flex flex-col sm:flex-row gap-2 md:gap-3">
+                        <div className="flex flex-col sm:flex-row gap-2">
                             <button
                                 onClick={() => setIsEditModalOpen(true)}
-                                className="w-full sm:w-auto px-3 md:px-4 py-2 text-xs md:text-sm bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors font-medium"
+                                className="w-full sm:w-auto px-2 md:px-3 py-1.5 md:py-2 text-xs md:text-sm bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors font-medium"
                             >
-                                Sửa dự án
+                                Sửa
                             </button>
                             <button
                                 onClick={async () => {
@@ -915,9 +1002,9 @@ export default function ProjectDetailPage() {
                                         router.push("/admin/projects");
                                     }
                                 }}
-                                className="w-full sm:w-auto px-3 md:px-4 py-2 text-xs md:text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium"
+                                className="w-full sm:w-auto px-2 md:px-3 py-1.5 md:py-2 text-xs md:text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium"
                             >
-                                Xoá dự án
+                                Xoá
                             </button>
                         </div>
                     </div>
@@ -983,7 +1070,7 @@ export default function ProjectDetailPage() {
                     </button>
                 </div>
 
-                <div className="p-6 bg-gradient-to-br from-white to-gray-50">
+                <div className="p-3 sm:p-6 bg-gradient-to-br from-white to-gray-50">
                     {activeTab === "tasks" && (
                         <div className="space-y-3 md:space-y-4">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 md:gap-4 mb-3 md:mb-4">
@@ -1006,8 +1093,7 @@ export default function ProjectDetailPage() {
                                     <table className="w-full table-fixed text-xs md:text-sm">
                                         <thead>
                                             <tr className="border-b-2 border-border bg-secondary/20">
-                                                <th className="text-left p-2 md:p-4 text-xs md:text-sm font-semibold text-foreground w-12 md:w-20">Mã</th>
-                                                <th className="text-left p-2 md:p-4 text-xs md:text-sm font-semibold text-foreground w-24 md:w-64 hidden sm:table-cell">Tên</th>
+                                                <th className="text-left p-2 md:p-4 text-xs md:text-sm font-semibold text-foreground w-24 md:w-64">Tên</th>
                                                 <th className="text-left p-2 md:p-4 text-xs md:text-sm font-semibold text-foreground w-20 md:w-40 hidden md:table-cell">Người PH</th>
                                                 <th className="text-left p-2 md:p-4 text-xs md:text-sm font-semibold text-foreground w-16 md:w-28 hidden lg:table-cell">Ưu tiên</th>
                                                 <th className="text-left p-2 md:p-4 text-xs md:text-sm font-semibold text-foreground w-16 md:w-32 hidden lg:table-cell">Tiến độ</th>
@@ -1023,11 +1109,16 @@ export default function ProjectDetailPage() {
                                                     className="border-b border-border last:border-0 hover:bg-secondary/50 transition-colors"
                                                 >
                                                     <td className="p-2 md:p-3">
-                                                        <span className="inline-block px-2 py-1 bg-blue-100 text-blue-800 rounded-md font-mono text-xs font-semibold">
-                                                            T-{task.id}
-                                                        </span>
+                                                        <div className="font-medium text-xs md:text-sm text-foreground truncate" title={task.tentask}>
+                                                            {task.tentask}
+                                                        </div>
+                                                        {task.mota && (
+                                                            <div className="text-xs text-muted-foreground mt-1 truncate" title={task.mota}>
+                                                                {task.mota}
+                                                            </div>
+                                                        )}
                                                     </td>
-                                                    <td className="p-2 md:p-3 hidden sm:table-cell">
+                                                    <td className="p-2 md:p-3 hidden md:table-cell">
                                                         <div className="font-medium text-xs md:text-sm text-foreground truncate" title={task.tentask}>
                                                             {task.tentask}
                                                         </div>
@@ -1104,38 +1195,7 @@ export default function ProjectDetailPage() {
                                                                             showWarning('Ngày bắt đầu của công việc phải nhỏ hơn hoặc bằng ngày kết thúc!');
                                                                             return;
                                                                         }
-                                                                        try {
-                                                                            await updateTask(editTask.id, {
-                                                                                tentask: editTaskForm.name,
-                                                                                mota: editTaskForm.description,
-                                                                                mucDoUuTien: editTaskForm.priority,
-                                                                                ngayBatDau: editTaskForm.startDate,
-                                                                                ngayKetThuc: editTaskForm.dueDate,
-                                                                                nguoiDuocGiaoId: Number(editTaskForm.assigneeId),
-                                                                            });
-
-                                                                            // Reload tasks with pagination
-                                                                            const response = await api.get(`/tasks/project/${id}`, {
-                                                                                params: {
-                                                                                    page: taskCurrentPage,
-                                                                                    limit: taskItemsPerPage
-                                                                                }
-                                                                            });
-
-                                                                            if (response.data.tasks) {
-                                                                                setTasks(response.data.tasks);
-                                                                                if (response.data.pagination) {
-                                                                                    setTaskTotalPages(response.data.pagination.pages);
-                                                                                    setTaskTotalItems(response.data.pagination.total);
-                                                                                }
-                                                                            }
-
-                                                                            setIsEditTaskModalOpen(false);
-                                                                            setEditTask(null);
-                                                                            showSuccess('Cập nhật công việc thành công!');
-                                                                        } catch (error) {
-                                                                            showError('Lỗi khi cập nhật công việc!');
-                                                                        }
+                                                                        await handleUpdateTask(e);
                                                                     }}
                                                                     className="space-y-5"
                                                                 >
@@ -1208,6 +1268,20 @@ export default function ProjectDetailPage() {
                                                                                 <option value="low">Thấp</option>
                                                                                 <option value="medium">Trung bình</option>
                                                                                 <option value="high">Cao</option>
+                                                                            </select>
+                                                                        </div>
+                                                                        <div>
+                                                                            <label className="block text-sm font-semibold text-foreground mb-2">Trạng thái *</label>
+                                                                            <select
+                                                                                required
+                                                                                value={editTaskForm.status}
+                                                                                onChange={(e) => setEditTaskForm({ ...editTaskForm, status: e.target.value })}
+                                                                                className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                                                                            >
+                                                                                <option value="Chưa bắt đầu">Chưa bắt đầu</option>
+                                                                                <option value="Đang chạy">Đang chạy</option>
+                                                                                <option value="Chờ xác nhận hoàn thành">Chờ xác nhận hoàn thành</option>
+                                                                                <option value="Hoàn thành">Hoàn thành</option>
                                                                             </select>
                                                                         </div>
                                                                     </div>
@@ -1671,26 +1745,26 @@ export default function ProjectDetailPage() {
 
                         {/* Assignees working on this task */}
                         <div>
-                            <h4 className="text-lg font-bold text-foreground mb-3 flex items-center gap-2">
-                                <User size={18} />
+                            <h4 className="text-base md:text-lg font-bold text-foreground mb-3 flex items-center gap-2">
+                                <User size={16} className="md:w-[18px] md:h-[18px]" />
                                 Nhân viên tham gia ({getTaskAssignees(selectedTask).length})
                             </h4>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:gap-3">
                                 {getTaskAssignees(selectedTask).map((member) => {
                                     const team = projectGroups.find((group) => group.members?.some((m: any) => m.id === member.id))
                                     return (
                                         <div
                                             key={member.id}
-                                            className="flex items-center gap-3 p-3 bg-secondary/30 rounded-lg border border-border"
+                                            className="flex items-center gap-2 md:gap-3 p-2 md:p-3 bg-secondary/30 rounded-lg border border-border"
                                         >
                                             <div
-                                                className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-indigo-700 font-bold flex-shrink-0 shadow-md"
+                                                className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center text-indigo-700 font-bold flex-shrink-0 shadow-md text-xs md:text-sm"
                                             >
                                                 {mounted ? (member.avatar || (member.name?.charAt(0)?.toUpperCase() || '')) : ''}
                                             </div>
-                                            <div>
-                                                <p className="font-semibold text-foreground text-sm">{member.name}</p>
-                                                <p className="text-xs text-muted-foreground">{member.role}</p>
+                                            <div className="min-w-0">
+                                                <p className="font-semibold text-foreground text-xs md:text-sm truncate">{member.name}</p>
+                                                <p className="text-xs text-muted-foreground truncate">{member.role}</p>
                                             </div>
                                         </div>
                                     )
@@ -1700,14 +1774,14 @@ export default function ProjectDetailPage() {
 
                         {/* Subtasks */}
                         <div>
-                            <div className="flex items-center justify-between mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-200">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                                        <ListTodo size={20} className="text-white" />
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 md:mb-6 p-3 md:p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl md:rounded-2xl border border-blue-200">
+                                <div className="flex items-center gap-2 md:gap-3">
+                                    <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg md:rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+                                        <ListTodo size={16} className="md:w-5 md:h-5 text-white" />
                                     </div>
                                     <div>
-                                        <h4 className="text-xl font-bold text-gray-800">Công việc nhỏ</h4>
-                                        <p className="text-sm text-gray-600">{selectedTask.subtasks?.length || 0} nhiệm vụ</p>
+                                        <h4 className="text-base md:text-xl font-bold text-gray-800">Công việc nhỏ</h4>
+                                        <p className="text-xs md:text-sm text-gray-600">{selectedTask.subtasks?.length || 0} nhiệm vụ</p>
                                     </div>
                                 </div>
                                 <button
@@ -1716,52 +1790,52 @@ export default function ProjectDetailPage() {
                                         setShowAllAssigneesFallback(false);
                                         setIsAddSubtaskModalOpen(true);
                                     }}
-                                    className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl text-sm font-semibold hover:shadow-lg hover:from-blue-600 hover:to-indigo-700 transition-all flex items-center gap-2 shadow-md"
+                                    className="w-full sm:w-auto px-3 md:px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg md:rounded-xl text-xs md:text-sm font-semibold hover:shadow-lg hover:from-blue-600 hover:to-indigo-700 transition-all flex items-center justify-center gap-2 shadow-md"
                                 >
-                                    <Plus size={16} />
+                                    <Plus size={14} className="md:w-4 md:h-4" />
                                     Thêm mới
                                 </button>
                             </div>
 
-                            <div className="space-y-4">
+                            <div className="space-y-3 md:space-y-4">
                                 {selectedTask.subtasks && selectedTask.subtasks.length > 0 ? (
                                     selectedTask.subtasks.map((subtask: any) => (
                                         <div
                                             key={subtask.id}
-                                            className="bg-white border-2 border-gray-200 rounded-2xl p-5 hover:border-blue-300 hover:shadow-lg transition-all duration-300"
+                                            className="bg-white border-2 border-gray-200 rounded-xl md:rounded-2xl p-3 md:p-5 hover:border-blue-300 hover:shadow-lg transition-all duration-300"
                                         >
                                             {/* Header với ID và tên subtask */}
-                                            <div className="flex items-start justify-between mb-4">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-3 mb-2">
-                                                        <span className="inline-block px-3 py-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full font-mono text-xs font-bold shadow-sm">
+                                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3 md:mb-4">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-2">
+                                                        <span className="inline-block px-2 md:px-3 py-1 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-full font-mono text-xs font-bold shadow-sm flex-shrink-0">
                                                             ST-{subtask.id}
                                                         </span>
-                                                        <h4 className="font-bold text-gray-800 text-base">{subtask.tenSubtask}</h4>
+                                                        <h4 className="font-bold text-gray-800 text-sm md:text-base break-words">{subtask.tenSubtask}</h4>
                                                     </div>
 
                                                     {/* Người thực hiện */}
-                                                    <div className="flex items-center gap-3 mt-3">
+                                                    <div className="flex items-center gap-2 md:gap-3 mt-2 md:mt-3">
                                                         {subtask.assignments && subtask.assignments.length > 0 && subtask.assignments[0].status === 'pending' ? (
                                                             <>
-                                                                <div className="w-8 h-8 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-md animate-pulse">
-                                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <div className="w-7 h-7 md:w-8 md:h-8 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-md animate-pulse flex-shrink-0">
+                                                                    <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                                     </svg>
                                                                 </div>
-                                                                <div>
-                                                                    <span className="text-orange-600 font-semibold">Đang chờ xác nhận</span>
-                                                                    <div className="text-xs text-gray-500">
+                                                                <div className="min-w-0">
+                                                                    <span className="text-orange-600 font-semibold text-xs md:text-sm">Đang chờ xác nhận</span>
+                                                                    <div className="text-xs text-gray-500 truncate">
                                                                         Đã gửi đến: {subtask.assignments[0].assignee?.hoten || subtask.assignments[0].assignee?.manv}
                                                                     </div>
                                                                 </div>
                                                             </>
                                                         ) : (
                                                             <>
-                                                                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white text-sm font-bold shadow-md">
+                                                                <div className="w-7 h-7 md:w-8 md:h-8 bg-gradient-to-r from-blue-500 to-green-500 rounded-full flex items-center justify-center text-white text-xs md:text-sm font-bold shadow-md flex-shrink-0">
                                                                     {subtask.nguoiThucHien?.hoten?.charAt(0) || "?"}
                                                                 </div>
-                                                                <span className="text-gray-600 font-medium">
+                                                                <span className="text-gray-600 font-medium text-xs md:text-sm truncate">
                                                                     {subtask.nguoiThucHien?.hoten || "Chưa phân công"}
                                                                 </span>
                                                             </>
@@ -1774,15 +1848,15 @@ export default function ProjectDetailPage() {
                                                 </div>
 
                                                 {/* Trạng thái badge */}
-                                                <div className="ml-4">
+                                                <div className="sm:ml-4">
                                                     {getStatusBadge(subtask.trangThai)}
                                                 </div>
                                             </div>
 
                                             {/* Controls section tách riêng */}
-                                            <div className="flex items-center justify-between pt-4 mt-4 border-t border-gray-200">
-                                                <div className="flex items-center gap-3">
-                                                    <label className="text-sm font-medium text-gray-700">Trạng thái:</label>
+                                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 md:pt-4 mt-3 md:mt-4 border-t border-gray-200">
+                                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 md:gap-3 w-full sm:w-auto">
+                                                    <label className="text-xs md:text-sm font-medium text-gray-700 flex-shrink-0">Trạng thái:</label>
                                                     <select
                                                         value={subtask.trangThai}
                                                         onChange={async (e) => {
@@ -1801,7 +1875,7 @@ export default function ProjectDetailPage() {
                                                                 showError("Không thể cập nhật trạng thái!");
                                                             }
                                                         }}
-                                                        className="px-4 py-2 border-2 border-gray-300 rounded-xl bg-white hover:border-blue-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all text-sm font-medium"
+                                                        className="w-full sm:w-auto px-3 md:px-4 py-2 border-2 border-gray-300 rounded-lg md:rounded-xl bg-white hover:border-blue-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all text-xs md:text-sm font-medium"
                                                     >
                                                         <option value="Chưa bắt đầu">Chưa bắt đầu</option>
                                                         <option value="Đang chạy">Đang chạy</option>
@@ -1809,40 +1883,42 @@ export default function ProjectDetailPage() {
                                                     </select>
                                                 </div>
 
-                                                <button
-                                                    onClick={() => {
-                                                        setSelectedSubtask(subtask);
-                                                        setIsEditSubtaskModalOpen(true);
-                                                    }}
-                                                    className="px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-sm rounded-xl font-medium transition-colors shadow-sm hover:shadow-md"
-                                                >
-                                                    Chỉnh sửa
-                                                </button>
-                                                <button
-                                                    onClick={async () => {
-                                                        const confirmed = await showConfirm("Bạn có chắc muốn xóa công việc nhỏ này?");
-                                                        if (confirmed) {
-                                                            try {
-                                                                await deleteSubtask(selectedTask.id, subtask.id);
-                                                                // Refresh tasks
-                                                                const tasksData = await getTasksByProject(id as string);
-                                                                setTasks(tasksData.tasks || []);
-                                                                // Update selected task
-                                                                const updatedTask = tasksData.tasks?.find((t: any) => t.id === selectedTask.id);
-                                                                if (updatedTask) {
-                                                                    setSelectedTask(updatedTask);
+                                                <div className="flex flex-col sm:flex-row gap-2 md:gap-3 w-full sm:w-auto">
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedSubtask(subtask);
+                                                            setIsEditSubtaskModalOpen(true);
+                                                        }}
+                                                        className="w-full sm:w-auto px-3 md:px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white text-xs md:text-sm rounded-lg md:rounded-xl font-medium transition-colors shadow-sm hover:shadow-md"
+                                                    >
+                                                        Chỉnh sửa
+                                                    </button>
+                                                    <button
+                                                        onClick={async () => {
+                                                            const confirmed = await showConfirm("Bạn có chắc muốn xóa công việc nhỏ này?");
+                                                            if (confirmed) {
+                                                                try {
+                                                                    await deleteSubtask(selectedTask.id, subtask.id);
+                                                                    // Refresh tasks
+                                                                    const tasksData = await getTasksByProject(id as string);
+                                                                    setTasks(tasksData.tasks || []);
+                                                                    // Update selected task
+                                                                    const updatedTask = tasksData.tasks?.find((t: any) => t.id === selectedTask.id);
+                                                                    if (updatedTask) {
+                                                                        setSelectedTask(updatedTask);
+                                                                    }
+                                                                } catch (error) {
+                                                                    console.error("Lỗi xóa subtask:", error);
+                                                                    showError("Không thể xóa công việc nhỏ!");
                                                                 }
-                                                            } catch (error) {
-                                                                console.error("Lỗi xóa subtask:", error);
-                                                                showError("Không thể xóa công việc nhỏ!");
                                                             }
-                                                        }
-                                                    }}
-                                                    className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-sm rounded-xl font-medium transition-colors shadow-sm hover:shadow-md flex items-center gap-2"
-                                                >
-                                                    <span>🗑️</span>
-                                                    Xóa
-                                                </button>
+                                                        }}
+                                                        className="w-full sm:w-auto px-3 md:px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-xs md:text-sm rounded-lg md:rounded-xl font-medium transition-colors shadow-sm hover:shadow-md flex items-center justify-center gap-2"
+                                                    >
+                                                        <span>🗑️</span>
+                                                        Xóa
+                                                    </button>
+                                                </div>
                                             </div>
 
                                             {/* Worklog và Comments cho subtask */}
@@ -1853,12 +1929,12 @@ export default function ProjectDetailPage() {
                                         </div>
                                     ))
                                 ) : (
-                                    <div className="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-300">
-                                        <div className="w-16 h-16 mx-auto mb-4 bg-gray-200 rounded-full flex items-center justify-center">
-                                            <ListTodo size={32} className="text-gray-400" />
+                                    <div className="text-center py-8 md:py-12 bg-gray-50 rounded-xl md:rounded-2xl border-2 border-dashed border-gray-300">
+                                        <div className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 bg-gray-200 rounded-full flex items-center justify-center">
+                                            <ListTodo size={24} className="md:w-8 md:h-8 text-gray-400" />
                                         </div>
-                                        <p className="text-gray-500 text-lg font-medium mb-2">Chưa có công việc nhỏ nào</p>
-                                        <p className="text-gray-400 text-sm">Nhấn "Thêm" để tạo công việc nhỏ đầu tiên</p>
+                                        <p className="text-gray-500 text-base md:text-lg font-medium mb-2">Chưa có công việc nhỏ nào</p>
+                                        <p className="text-gray-400 text-xs md:text-sm">Nhấn "Thêm" để tạo công việc nhỏ đầu tiên</p>
                                     </div>
                                 )}
                             </div>

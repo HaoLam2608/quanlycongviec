@@ -134,31 +134,31 @@ export default function ProjectCalendarPage({ params }: { params: { id: string }
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col overflow-hidden">
             {/* Header */}
-            <div className="bg-white border-b px-3 md:px-6 py-3 md:py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 md:gap-4 flex-shrink-0">
+            <div className="bg-white border-b px-3 md:px-6 py-3 md:py-4 flex flex-col gap-3 flex-shrink-0">
                 <div className="min-w-0">
-                    <h1 className="text-base md:text-xl font-bold text-gray-900 flex items-center gap-2">
-                        <CalendarIcon size={18} className="md:w-6 md:h-6 flex-shrink-0" />
+                    <h1 className="text-base md:text-xl lg:text-2xl font-bold text-gray-900 flex items-center gap-2 mb-1">
+                        <CalendarIcon size={18} className="md:w-5 md:h-5 lg:w-6 lg:h-6 flex-shrink-0" />
                         <span className="truncate">Calendar: {project.tenduan}</span>
                     </h1>
                     <p className="text-xs md:text-sm text-gray-500">
                         Lịch công việc theo tháng
                     </p>
                 </div>
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 md:gap-3 md:gap-4">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 md:gap-3">
                     <div className="flex items-center gap-1 md:gap-2 bg-gray-100 rounded-lg p-1">
                         <button
                             onClick={goToPreviousMonth}
-                            className="p-1 md:p-2 hover:bg-white rounded-md transition-all shadow-sm flex-shrink-0"
+                            className="p-1.5 md:p-2 hover:bg-white rounded-md transition-all shadow-sm flex-shrink-0"
                             title="Tháng trước"
                         >
                             <ChevronLeft size={16} className="md:w-5 md:h-5" />
                         </button>
-                        <span className="text-xs md:text-sm font-semibold min-w-[100px] md:min-w-[120px] text-center px-1 md:px-2">
+                        <span className="text-xs md:text-sm font-semibold min-w-[110px] md:min-w-[120px] text-center px-2">
                             {monthNames[currentMonth]} {currentYear}
                         </span>
                         <button
                             onClick={goToNextMonth}
-                            className="p-1 md:p-2 hover:bg-white rounded-md transition-all shadow-sm flex-shrink-0"
+                            className="p-1.5 md:p-2 hover:bg-white rounded-md transition-all shadow-sm flex-shrink-0"
                             title="Tháng sau"
                         >
                             <ChevronRight size={16} className="md:w-5 md:h-5" />
@@ -170,7 +170,7 @@ export default function ProjectCalendarPage({ params }: { params: { id: string }
                             setCurrentDate(now)
                             setSelectedDate(now)
                         }}
-                        className="w-full sm:w-auto px-3 md:px-4 py-2 md:py-3 bg-blue-600 text-white rounded-lg text-xs md:text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"
+                        className="w-full sm:w-auto px-3 md:px-4 py-2 bg-blue-600 text-white rounded-lg text-xs md:text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"
                     >
                         Hôm nay
                     </button>
@@ -179,19 +179,20 @@ export default function ProjectCalendarPage({ params }: { params: { id: string }
 
             <div className="flex-1 flex flex-col overflow-hidden">
                 {/* Calendar Grid */}
-                <div className="flex-1 p-3 md:p-6 overflow-y-auto -mx-3 md:-mx-6">
-                    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+                <div className="flex-1 p-2 sm:p-3 md:p-6 overflow-y-auto">
+                    <div className="bg-white rounded-lg md:rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                         {/* Week header */}
-                        <div className="grid grid-cols-7 min-w-max md:min-w-full border-b bg-gray-50/50 rounded-t-xl">
+                        <div className="grid grid-cols-7 border-b bg-gray-50/50">
                             {weekDays.map((day) => (
-                                <div key={day} className="p-2 md:p-4 text-center text-xs md:text-sm font-semibold text-gray-600 border-r last:border-r-0 w-20 md:w-auto">
-                                    {day}
+                                <div key={day} className="p-2 md:p-3 lg:p-4 text-center text-xs md:text-sm font-semibold text-gray-600 border-r last:border-r-0">
+                                    <span className="hidden sm:inline">{day}</span>
+                                    <span className="sm:hidden">{day.charAt(0)}</span>
                                 </div>
                             ))}
                         </div>
 
                         {/* Calendar grid */}
-                        <div className="grid grid-cols-7 min-w-max md:min-w-full">
+                        <div className="grid grid-cols-7">
                             {calendarDays.map((date, index) => {
                                 const isCurrentMonth = date.getMonth() === currentMonth
                                 const isToday =
@@ -230,7 +231,7 @@ export default function ProjectCalendarPage({ params }: { params: { id: string }
                                         key={index}
                                         onClick={() => setSelectedDate(date)}
                                         className={`
-                                            border-r border-b last:border-r-0 p-1 md:p-2 min-h-[80px] md:min-h-[100px] cursor-pointer transition-all flex flex-col w-20 md:w-auto
+                                            border-r border-b last:border-r-0 p-1 sm:p-1.5 md:p-2 min-h-[70px] sm:min-h-[80px] md:min-h-[100px] cursor-pointer transition-all flex flex-col
                                             ${!isCurrentMonth ? 'bg-gray-50/50 text-gray-400' : 'bg-white hover:bg-blue-50/30'}
                                             ${isSelected ? 'ring-2 ring-inset ring-blue-500 bg-blue-50/30 z-10' : ''}
                                         `}
@@ -279,13 +280,13 @@ export default function ProjectCalendarPage({ params }: { params: { id: string }
                     </div>
 
                     {/* Detailed Task List */}
-                    <div className="mt-3 md:mt-6 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                        <div className="px-3 md:px-6 py-3 md:py-4 border-b bg-gray-50/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 md:gap-3">
-                            <h2 className="text-sm md:text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <div className="mt-3 md:mt-6 bg-white rounded-lg md:rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div className="px-3 md:px-6 py-3 md:py-4 border-b bg-gray-50/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <h2 className="text-sm md:text-base lg:text-lg font-bold text-gray-900 flex items-center gap-2">
                                 <Clock className="w-4 h-4 md:w-5 md:h-5 text-blue-600 flex-shrink-0" />
-                                <span className="truncate">Chi tiết ngày {selectedDate.toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                                <span className="truncate">Chi tiết ngày {selectedDate.toLocaleDateString('vi-VN', { day: 'numeric', month: 'long' })}</span>
                             </h2>
-                            <span className="text-xs md:text-sm text-gray-500 font-medium bg-white px-2 md:px-3 py-1 rounded-full border shadow-sm whitespace-nowrap">
+                            <span className="text-xs md:text-sm text-gray-500 font-medium bg-white px-2 md:px-3 py-1 rounded-full border shadow-sm whitespace-nowrap self-start sm:self-auto">
                                 {selectedDateTasks.length} công việc
                             </span>
                         </div>
@@ -304,27 +305,27 @@ export default function ProjectCalendarPage({ params }: { params: { id: string }
                                     <div key={task.id} className="group">
                                         {/* Parent Task Row */}
                                         <div
-                                            className="p-2 md:p-4 hover:bg-gray-50 transition-colors cursor-pointer flex items-start gap-2 md:gap-4 flex-col sm:flex-row"
+                                            className="p-3 md:p-4 hover:bg-gray-50 transition-colors cursor-pointer flex items-start gap-2 md:gap-3"
                                             onClick={() => toggleTaskExpand(task.id)}
                                         >
-                                            <button className="p-1 hover:bg-gray-200 rounded text-gray-500 transition-colors flex-shrink-0">
-                                                {expandedTasks.has(task.id) ? <ChevronUp size={18} className="md:w-5 md:h-5" /> : <ChevronDown size={18} className="md:w-5 md:h-5" />}
+                                            <button className="p-1 hover:bg-gray-200 rounded text-gray-500 transition-colors flex-shrink-0 mt-0.5">
+                                                {expandedTasks.has(task.id) ? <ChevronUp size={16} className="md:w-[18px] md:h-[18px]" /> : <ChevronDown size={16} className="md:w-[18px] md:h-[18px]" />}
                                             </button>
 
                                             <div className="flex-1 min-w-0">
-                                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 md:gap-3 mb-1 md:mb-2">
-                                                    <h3 className="font-semibold text-gray-900 text-sm md:text-lg truncate">{task.tentask}</h3>
-                                                    <span className={`text-xs px-2 md:px-2.5 py-0.5 rounded-full border font-medium whitespace-nowrap ${getTaskColor(task.trangThai)}`}>
+                                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1 md:mb-2">
+                                                    <h3 className="font-semibold text-gray-900 text-sm md:text-base lg:text-lg break-words">{task.tentask}</h3>
+                                                    <span className={`text-xs px-2 md:px-2.5 py-0.5 rounded-full border font-medium whitespace-nowrap self-start ${getTaskColor(task.trangThai)}`}>
                                                         {task.trangThai}
                                                     </span>
                                                 </div>
-                                                <div className="flex flex-col sm:flex-row sm:items-center gap-2 md:gap-4 text-xs md:text-sm text-gray-500">
+                                                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 md:gap-4 text-xs md:text-sm text-gray-500">
                                                     <span className="flex items-center gap-1">
-                                                        <CalendarIcon size={14} className="flex-shrink-0" />
-                                                        <span className="truncate">{new Date(task.ngayBatDau).toLocaleDateString('vi-VN')} - {new Date(task.ngayKetThuc).toLocaleDateString('vi-VN')}</span>
+                                                        <CalendarIcon size={12} className="md:w-[14px] md:h-[14px] flex-shrink-0" />
+                                                        <span className="break-all">{new Date(task.ngayBatDau).toLocaleDateString('vi-VN')} - {new Date(task.ngayKetThuc).toLocaleDateString('vi-VN')}</span>
                                                     </span>
                                                     {task.activeSubtasks?.length > 0 && (
-                                                        <span className="flex items-center gap-1 text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full text-xs whitespace-nowrap">
+                                                        <span className="flex items-center gap-1 text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full text-xs whitespace-nowrap self-start">
                                                             {task.activeSubtasks.length} subtasks
                                                         </span>
                                                     )}
@@ -334,7 +335,7 @@ export default function ProjectCalendarPage({ params }: { params: { id: string }
 
                                         {/* Subtasks List */}
                                         {expandedTasks.has(task.id) && (
-                                            <div className="bg-gray-50/50 border-t border-gray-100 px-2 md:px-6 pl-6 md:pl-14 py-2 md:py-3 space-y-2">
+                                            <div className="bg-gray-50/50 border-t border-gray-100 px-3 md:px-6 pl-8 sm:pl-10 md:pl-14 py-2 md:py-3 space-y-2">
                                                 {task.subtasks && task.subtasks.length > 0 ? (
                                                     task.subtasks.map((subtask: any) => {
                                                         const isActive = isDateInRange(
@@ -347,7 +348,7 @@ export default function ProjectCalendarPage({ params }: { params: { id: string }
                                                             <div
                                                                 key={subtask.id}
                                                                 className={`
-                                                                    flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 md:gap-3 p-2 md:p-3 rounded-lg border
+                                                                    flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-2 md:p-3 rounded-lg border
                                                                     ${isActive ? 'bg-white border-gray-200 shadow-sm' : 'bg-gray-100/50 border-transparent opacity-60'}
                                                                 `}
                                                             >
@@ -358,7 +359,7 @@ export default function ProjectCalendarPage({ params }: { params: { id: string }
                                                                         <Circle className="w-4 h-4 md:w-5 md:h-5 text-gray-400 flex-shrink-0 mt-0.5" />
                                                                     )}
                                                                     <div className="min-w-0">
-                                                                        <p className={`font-medium text-xs md:text-sm ${isActive ? 'text-gray-900' : 'text-gray-500'} truncate`}>
+                                                                        <p className={`font-medium text-xs md:text-sm ${isActive ? 'text-gray-900' : 'text-gray-500'} break-words`}>
                                                                             {subtask.tenSubtask}
                                                                         </p>
                                                                         <p className="text-xs text-gray-500 truncate">
@@ -366,7 +367,7 @@ export default function ProjectCalendarPage({ params }: { params: { id: string }
                                                                         </p>
                                                                     </div>
                                                                 </div>
-                                                                <span className={`text-xs px-2 py-1 rounded-full border whitespace-nowrap ${getTaskColor(subtask.trangThai)}`}>
+                                                                <span className={`text-xs px-2 py-1 rounded-full border whitespace-nowrap self-start sm:self-auto ${getTaskColor(subtask.trangThai)}`}>
                                                                     {subtask.trangThai}
                                                                 </span>
                                                             </div>

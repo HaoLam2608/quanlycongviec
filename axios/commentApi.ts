@@ -37,6 +37,7 @@ export interface CreateCommentPayload {
   subtaskId?: number;
   content: string;
   files?: File[];
+  mentions?: number[];
 }
 
 // Get comments for a task
@@ -80,6 +81,11 @@ export const createComment = async (payload: CreateCommentPayload): Promise<Comm
         formData.append('content', payload.content.trim());
       }
       
+      // Append mentions if present
+      if (payload.mentions && payload.mentions.length > 0) {
+        formData.append('mentions', JSON.stringify(payload.mentions));
+      }
+      
       // Append all files
       payload.files.forEach((file) => {
         formData.append('attachments', file);
@@ -99,6 +105,7 @@ export const createComment = async (payload: CreateCommentPayload): Promise<Comm
         taskId: payload.taskId,
         subtaskId: payload.subtaskId,
         content: payload.content,
+        mentions: payload.mentions && payload.mentions.length > 0 ? JSON.stringify(payload.mentions) : undefined,
       });
       return response.data;
     }

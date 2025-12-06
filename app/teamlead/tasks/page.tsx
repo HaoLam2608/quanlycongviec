@@ -305,22 +305,79 @@ export default function TeamLeadTasksPage() {
         console.log('Loading group members for task', task?.id, 'project', task?.duanId)
         try {
             const res = await api.get('/groups/my-group')
-            let allMembers = res.data.groups?.flatMap((g: any) => g.members || []) || []
-
-            if (fallbackMember?.id) {
-                const exists = allMembers.some((m: any) => m.id === fallbackMember.id)
-                if (!exists) {
-                    allMembers = [...allMembers, {
-                        id: fallbackMember.id,
-                        hoten: fallbackMember.hoten,
-                        manv: fallbackMember.manv,
-                        email: fallbackMember.email
-                    }]
+            const allGroups = res.data.groups || []
+            
+            console.log('All groups data:', allGroups)
+            
+            // Nếu task có duanId, cần lọc members thuộc nhóm tham gia dự án
+            if (task?.duanId) {
+                console.log('Task has project ID:', task.duanId)
+                
+                // Kiểm tra cả projects (belongsToMany) và groupProjects (hasMany)
+                const projectGroups = allGroups.filter((g: any) => {
+                    // Cách 1: Kiểm tra qua projects (belongsToMany association)
+                    const hasProjectInProjects = g.projects?.some((p: any) => p.id === task.duanId)
+                    
+                    // Cách 2: Kiểm tra qua groupProjects (hasMany association)
+                    const hasProjectInGroupProjects = g.groupProjects?.some((gp: any) => 
+                        gp.projectId === task.duanId && gp.status === 'active'
+                    )
+                    
+                    console.log(`Group ${g.name} (ID: ${g.id}):`, {
+                        hasProjectInProjects,
+                        hasProjectInGroupProjects,
+                        projects: g.projects,
+                        groupProjects: g.groupProjects
+                    })
+                    
+                    return hasProjectInProjects || hasProjectInGroupProjects
+                })
+                
+                console.log('Filtered groups for project:', projectGroups)
+                
+                let projectMembers = projectGroups.flatMap((g: any) => g.members || [])
+                
+                // Loại bỏ duplicate members
+                const uniqueMembers = projectMembers.reduce((acc: any[], member: any) => {
+                    if (!acc.some(m => m.id === member.id)) {
+                        acc.push(member)
+                    }
+                    return acc
+                }, [])
+                
+                if (fallbackMember?.id) {
+                    const exists = uniqueMembers.some((m: any) => m.id === fallbackMember.id)
+                    if (!exists) {
+                        uniqueMembers.push({
+                            id: fallbackMember.id,
+                            hoten: fallbackMember.hoten,
+                            manv: fallbackMember.manv,
+                            email: fallbackMember.email
+                        })
+                    }
                 }
-            }
+                
+                console.log('Final filtered members for project:', uniqueMembers)
+                setGroupMembers(uniqueMembers)
+            } else {
+                // Nếu task không có duanId, lấy tất cả members
+                let allMembers = allGroups.flatMap((g: any) => g.members || [])
 
-            console.log('Group members loaded:', allMembers)
-            setGroupMembers(allMembers)
+                if (fallbackMember?.id) {
+                    const exists = allMembers.some((m: any) => m.id === fallbackMember.id)
+                    if (!exists) {
+                        allMembers = [...allMembers, {
+                            id: fallbackMember.id,
+                            hoten: fallbackMember.hoten,
+                            manv: fallbackMember.manv,
+                            email: fallbackMember.email
+                        }]
+                    }
+                }
+
+                console.log('All group members loaded:', allMembers)
+                setGroupMembers(allMembers)
+            }
         } catch (error) {
             console.error('Load members error:', error)
         }
@@ -2118,7 +2175,7 @@ export default function TeamLeadTasksPage() {
 
             {/* Claim Task Modal */}
             {showClaimModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-transparent">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
                         <div className="flex items-center gap-3 mb-4">
                             <Hand className="w-6 h-6 text-blue-600" />
