@@ -31,8 +31,8 @@ const menuCategories = [
     {
         title: "Quản lý công việc",
         items: [
-            { name: "Công việc lớn", href: "/teamlead/tasks", icon: ListTodo },
-            { name: "Công việc nhỏ", href: "/teamlead/subtasks", icon: CheckSquare },
+            { name: "Công việc", href: "/teamlead/tasks", icon: ListTodo },
+            { name: "Kanban", href: "/teamlead/subtasks", icon: CheckSquare },
             { name: "Phê duyệt", href: "/teamlead/approvals", icon: ClipboardCheck },
         ],
     },
@@ -45,7 +45,7 @@ const menuCategories = [
         ],
     },
 ]
-const API_URL = "https://taskhadflow-api.nibies.space"
+const API_URL = "http://localhost:5000"
 
 export default function TeamLeadLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()

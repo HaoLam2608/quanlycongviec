@@ -77,7 +77,7 @@ interface ChatContextType {
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
-const SOCKET_URL = "https://taskhadflow-api.nibies.space";
+const SOCKET_URL = "http://localhost:5000";
 export const useChatContext = () => {
   const context = useContext(ChatContext);
   if (!context) {

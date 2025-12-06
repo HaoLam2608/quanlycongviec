@@ -958,20 +958,20 @@ export default function ProjectDetailPage() {
                         <span className="hidden sm:inline">Calendar</span>
                     </button>
                     <button
-                        onClick={() => setActiveTab("documents")}
-                        className={`flex-shrink-0 md:flex-1 px-3 sm:px-4 md:px-2 lg:px-4 py-3 md:py-4 lg:py-5 font-semibold text-xs sm:text-sm md:text-base transition-all flex items-center justify-center gap-1 md:gap-2 whitespace-nowrap border-b-4 ${activeTab === "documents" ? "bg-primary text-primary-foreground border-primary-foreground" : "text-muted-foreground hover:bg-secondary border-transparent"
-                            }`}
-                    >
-                        <FolderKanban size={16} className="md:w-5 md:h-5" />
-                        <span className="hidden sm:inline">Tài liệu</span>
-                    </button>
-                    <button
                         onClick={() => setActiveTab("kanban")}
                         className={`flex-shrink-0 md:flex-1 px-3 sm:px-4 md:px-2 lg:px-4 py-3 md:py-4 lg:py-5 font-semibold text-xs sm:text-sm md:text-base transition-all flex items-center justify-center gap-1 md:gap-2 whitespace-nowrap border-b-4 ${activeTab === "kanban" ? "bg-primary text-primary-foreground border-primary-foreground" : "text-muted-foreground hover:bg-secondary border-transparent"
                             }`}
                     >
                         <FolderKanban size={16} className="md:w-5 md:h-5" />
                         <span className="hidden sm:inline">Kanban</span>
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("documents")}
+                        className={`flex-shrink-0 md:flex-1 px-3 sm:px-4 md:px-2 lg:px-4 py-3 md:py-4 lg:py-5 font-semibold text-xs sm:text-sm md:text-base transition-all flex items-center justify-center gap-1 md:gap-2 whitespace-nowrap border-b-4 ${activeTab === "documents" ? "bg-primary text-primary-foreground border-primary-foreground" : "text-muted-foreground hover:bg-secondary border-transparent"
+                            }`}
+                    >
+                        <FolderKanban size={16} className="md:w-5 md:h-5" />
+                        <span className="hidden sm:inline">Tài liệu</span>
                     </button>
                     <button
                         onClick={() => setActiveTab("reports")}

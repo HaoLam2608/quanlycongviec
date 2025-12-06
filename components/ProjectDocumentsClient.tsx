@@ -1,7 +1,7 @@
 "use client"
 import { useEffect, useState } from 'react'
 import { fetchDocuments, downloadDocument } from '@/axios/api'
-const API_URL = "https://taskhadflow-api.nibies.space"
+const API_URL = "http://localhost:5000"
 
 export default function ProjectDocumentsClient({ projectId }: { projectId: number | string }) {
     const [docs, setDocs] = useState<any[]>([])

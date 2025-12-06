@@ -23,7 +23,7 @@ export default function KanbanPage() {
   const [loading, setLoading] = useState(true);
   const subtasksView = searchParams.get('subtasks') === 'true';
   const actualSubtasksView = false;
-  
+
   useEffect(() => {
     const fetchProject = async () => {
       try {
@@ -54,7 +54,7 @@ export default function KanbanPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto px-8 py-6 space-y-6 max-w-[1600px]">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">

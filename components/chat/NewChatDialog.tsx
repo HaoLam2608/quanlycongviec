@@ -27,7 +27,7 @@ interface UserItem {
   email: string;
   avatar?: string;
 }
-const SOCKET_URL = "https://taskhadflow-api.nibies.space";
+const SOCKET_URL = "http://localhost:5000";
 export const NewChatDialog: React.FC = () => {
   const { createDirectConversation, createGroupConversation, selectConversation, onlineUsers } = useChatContext();
   const [open, setOpen] = useState(false);

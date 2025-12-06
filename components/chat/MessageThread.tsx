@@ -9,7 +9,7 @@ import { vi } from 'date-fns/locale';
 import { User, File as FileIcon, Image as ImageIcon, Check, CheckCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
-const SOCKET_URL = "https://taskhadflow-api.nibies.space";
+const SOCKET_URL = "http://localhost:5000";
 export const MessageThread: React.FC = () => {
   const { messages, activeConversation, typingUsers, isLoading } = useChatContext();
   const user = useAuth();
