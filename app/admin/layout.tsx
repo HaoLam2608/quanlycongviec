@@ -28,7 +28,7 @@ import { GlobalChatProvider } from "@/components/chat/GlobalChatProvider"
 
 import { showConfirm } from '@/lib/notifications'
 import Image from "next/image"
-const base_url = "http://localhost:5000"
+const base_url = "https://taskhadflow-api.nibies.space"
 const menuCategories = [
     {
         title: "Chính",

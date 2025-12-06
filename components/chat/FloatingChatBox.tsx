@@ -30,7 +30,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 interface FloatingChatBoxProps {
   className?: string;
 }
-const SOCKET_URL = "http://localhost:5000";
+const SOCKET_URL = "https://taskhadflow-api.nibies.space";
 export const FloatingChatBox: React.FC<FloatingChatBoxProps> = ({ className }) => {
   const {
     conversations,

@@ -50,7 +50,7 @@ interface Settings {
     language: string
     timezone: string
 }
-const API_URL = "http://localhost:5000"
+const API_URL = "https://taskhadflow-api.nibies.space"
 export default function ProfilePage() {
     const [profile, setProfile] = useState<UserProfile | null>(null)
     const [settings, setSettings] = useState<Settings | null>(null)

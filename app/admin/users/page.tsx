@@ -26,7 +26,7 @@ interface Pagination {
     total: number
     pages: number
 }
-const API_URL = "http://localhost:5000"
+const API_URL = "https://taskhadflow-api.nibies.space"
 export default function UsersPage() {
     const [openModal, setOpenModal] = useState(false)
     const [searchQuery, setSearchQuery] = useState("")
