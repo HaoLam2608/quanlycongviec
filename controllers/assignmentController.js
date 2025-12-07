@@ -195,7 +195,11 @@ exports.acceptAssignment = async (req, res) => {
         if (assignment.status !== 'pending') return res.status(400).json({ success: false, message: 'Assignment không ở trạng thái pending' });
 
         // Update assignment status
-        await assignment.update({ status: 'accepted' });
+        await assignment.update({
+            status: 'accepted',
+            acceptedBy: userId,
+            acceptedAt: new Date()
+        });
 
         // Assign to task/subtask
         // Only update the specific item being assigned, not the parent task
@@ -1678,7 +1682,11 @@ exports.approveClaimRequest = async (req, res) => {
         }
 
         // Update assignment status to accepted
-        await assignment.update({ status: 'accepted' });
+        await assignment.update({
+            status: 'accepted',
+            acceptedBy: userId,
+            acceptedAt: new Date()
+        });
 
         // Update task/subtask - assign to the requester
         if (assignment.taskId) {

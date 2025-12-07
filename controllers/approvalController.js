@@ -380,7 +380,7 @@ const getApprovedHistory = async (req, res) => {
                 where: {
                     trangThai: 'Hoàn thành',
                     taskId: taskIds,
-                    approvedBy: { [Op.not]: null }
+                    approvedBy: userId
                 },
                 include: [
                     {
@@ -420,7 +420,7 @@ const getApprovedHistory = async (req, res) => {
             assignments = await Assignment.findAll({
                 where: {
                     status: 'accepted',
-                    acceptedBy: { [Op.not]: null },
+                    acceptedBy: userId,
                     [Op.or]: [
                         { taskId: taskIds },
                         { subtaskId: { [Op.not]: null } }
@@ -515,7 +515,7 @@ const getApprovedHistory = async (req, res) => {
                         where: {
                             trangThai: 'Hoàn thành',
                             duanId: projectIds,
-                            approvedBy: { [Op.not]: null }
+                            approvedBy: userId
                         },
                         include: [
                             {
@@ -571,7 +571,7 @@ const getApprovedHistory = async (req, res) => {
                         where: {
                             trangThai: 'Hoàn thành',
                             taskId: taskIds,
-                            approvedBy: { [Op.not]: null }
+                            approvedBy: userId
                         },
                         include: [
                             {
@@ -651,7 +651,7 @@ const getApprovedHistory = async (req, res) => {
 
                     const whereConditions = {
                         status: 'accepted',
-                        acceptedBy: { [Op.not]: null },
+                        acceptedBy: userId,
                         [Op.or]: orConditions
                     };
 
@@ -748,7 +748,7 @@ const getApprovedHistory = async (req, res) => {
                 const tasksResult = await Task.findAndCountAll({
                     where: {
                         trangThai: 'Hoàn thành',
-                        approvedBy: { [Op.not]: null }
+                        approvedBy: userId
                     },
                     include: [
                         {
@@ -792,7 +792,7 @@ const getApprovedHistory = async (req, res) => {
                 const subtasksResult = await Subtask.findAndCountAll({
                     where: {
                         trangThai: 'Hoàn thành',
-                        approvedBy: { [Op.not]: null }
+                        approvedBy: userId
                     },
                     include: [
                         {
@@ -837,7 +837,7 @@ const getApprovedHistory = async (req, res) => {
             assignments = await Assignment.findAll({
                 where: {
                     status: 'accepted',
-                    acceptedBy: { [Op.not]: null }
+                    acceptedBy: userId
                 },
                 include: [
                     {

@@ -101,6 +101,17 @@ module.exports = (sequelize, DataTypes) => {
       validate: {
         isInt: true
       }
+    },
+    approvedBy: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      validate: {
+        isInt: true
+      }
+    },
+    approvedAt: {
+      type: DataTypes.DATE,
+      allowNull: true
     }
   }, {
     sequelize,
