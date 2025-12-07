@@ -168,50 +168,50 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
                             </div>
 
                             <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
-                        <div className="flex-shrink-0 flex items-center px-4 mb-6">
-                            <Image
-                                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Logo_Huit-IWimrgiEFAgwC7TB8MBStRusseaQ9A.png"
-                                alt="HUIT Logo"
-                                width={120}
-                                height={40}
-                                className="h-8 w-auto object-contain"
-                            />
-                        </div>
-                        <div className="flex-shrink-0 flex items-center px-4 mb-6">
-                            <div className="flex items-center gap-2">
-                                <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-                                <h2 className="text-lg font-semibold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">Member Portal</h2>
-                            </div>
-                        </div>
-                        <nav className="mt-5 px-3 space-y-1">
-                            {updatedNavigation.map((item) => (
-                                <Link
-                                    key={item.name}
-                                    href={item.href}
-                                    className={`${item.current
-                                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg'
-                                        : 'text-slate-700 hover:bg-white hover:shadow-md hover:text-blue-600'
-                                        } group flex items-center px-4 py-3 text-base font-medium rounded-xl transition-all duration-200`}
-                                    onClick={() => setSidebarOpen(false)}
-                                >
-                                    <item.icon
-                                        className={`${item.current ? 'text-white' : 'text-slate-500 group-hover:text-blue-500'
-                                            } mr-4 flex-shrink-0 h-6 w-6 transition-transform group-hover:scale-110`}
+                                <div className="flex-shrink-0 flex items-center px-4 mb-6">
+                                    <Image
+                                        src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Logo_Huit-IWimrgiEFAgwC7TB8MBStRusseaQ9A.png"
+                                        alt="HUIT Logo"
+                                        width={120}
+                                        height={40}
+                                        className="h-8 w-auto object-contain"
                                     />
-                                    {item.name}
-                                </Link>
-                            ))}
+                                </div>
+                                <div className="flex-shrink-0 flex items-center px-4 mb-6">
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                                        <h2 className="text-lg font-semibold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">Member Portal</h2>
+                                    </div>
+                                </div>
+                                <nav className="mt-5 px-3 space-y-1">
+                                    {updatedNavigation.map((item) => (
+                                        <Link
+                                            key={item.name}
+                                            href={item.href}
+                                            className={`${item.current
+                                                ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg'
+                                                : 'text-slate-700 hover:bg-white hover:shadow-md hover:text-blue-600'
+                                                } group flex items-center px-4 py-3 text-base font-medium rounded-xl transition-all duration-200`}
+                                            onClick={() => setSidebarOpen(false)}
+                                        >
+                                            <item.icon
+                                                className={`${item.current ? 'text-white' : 'text-slate-500 group-hover:text-blue-500'
+                                                    } mr-4 flex-shrink-0 h-6 w-6 transition-transform group-hover:scale-110`}
+                                            />
+                                            {item.name}
+                                        </Link>
+                                    ))}
 
-                            {/* Logout for mobile */}
-                            <button
-                                onClick={handleLogout}
-                                disabled={isLoggingOut}
-                                className="w-full text-left text-slate-700 hover:bg-red-50 hover:text-red-600 group flex items-center px-4 py-3 text-base font-medium rounded-xl disabled:opacity-50 transition-all duration-200"
-                            >
-                                <LogOut className={`text-slate-500 group-hover:text-red-500 mr-4 flex-shrink-0 h-6 w-6 transition-transform group-hover:scale-110 ${isLoggingOut ? 'animate-spin' : ''}`} />
-                                {isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}
-                            </button>
-                        </nav>
+                                    {/* Logout for mobile */}
+                                    <button
+                                        onClick={handleLogout}
+                                        disabled={isLoggingOut}
+                                        className="w-full text-left text-slate-700 hover:bg-red-50 hover:text-red-600 group flex items-center px-4 py-3 text-base font-medium rounded-xl disabled:opacity-50 transition-all duration-200"
+                                    >
+                                        <LogOut className={`text-slate-500 group-hover:text-red-500 mr-4 flex-shrink-0 h-6 w-6 transition-transform group-hover:scale-110 ${isLoggingOut ? 'animate-spin' : ''}`} />
+                                        {isLoggingOut ? 'Đang đăng xuất...' : 'Đăng xuất'}
+                                    </button>
+                                </nav>
                             </div>
                         </div>
                     </div>
@@ -274,58 +274,58 @@ export default function MemberLayout({ children }: MemberLayoutProps) {
 
                         {/* Desktop header */}
                         <div className="hidden md:flex sticky top-0 z-10 flex-shrink-0 h-16 bg-white/80 backdrop-blur-xl border-b border-blue-100 items-center justify-between px-6 shadow-sm">
-                    <div className="flex-1">
-                        <div className="flex items-center gap-2">
+                            <div className="flex-1">
+                                <div className="flex items-center gap-2">
 
-                            <span className="text-sm font-medium text-slate-600">Hệ thống quản lý công việc</span>
-                        </div>
-                    </div>
+                                    <span className="text-sm font-medium text-slate-600">Hệ thống quản lý công việc</span>
+                                </div>
+                            </div>
 
-                    {/* Header actions */}
-                    <div className="flex items-center gap-4">
-                        <NotificationBell userRole="member" />
+                            {/* Header actions */}
+                            <div className="flex items-center gap-4">
+                                <NotificationBell userRole="member" />
 
-                        {/* (search removed) */}
+                                {/* (search removed) */}
 
-                        {/* Settings */}
-                        <Link href="/member/profile">
-                            <button className="p-2.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-200 hover:scale-105">
-                                <Settings className="h-5 w-5" />
-                            </button>
-                        </Link>
+                                {/* Settings */}
+                                <Link href="/member/profile">
+                                    <button className="p-2.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-200 hover:scale-105">
+                                        <Settings className="h-5 w-5" />
+                                    </button>
+                                </Link>
 
-                        {/* User info - inline, less prominent */}
-                        <div className="flex items-center gap-2">
-                            <Link href="/member/profile" className="flex items-center gap-2 group cursor-pointer">
-                                <div className="relative flex-shrink-0">
-                                    {currentUser?.avatar ? (
-                                        <Avatar className="w-9 h-9 ring-2 ring-blue-500/20 group-hover:ring-blue-500">
-                                            <AvatarImage src={currentUser.avatar} alt={currentUser?.hoten || 'Member'} />
-                                            <AvatarFallback className="text-xs bg-gradient-to-br from-blue-500 to-blue-600 text-white">
-                                                {(currentUser?.hoten || 'M').substring(0, 2).toUpperCase()}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                    ) : (
-                                        <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center ring-2 ring-blue-500/20 group-hover:ring-blue-500">
-                                            <User className="w-5 h-5 text-white" />
+                                {/* User info - inline, less prominent */}
+                                <div className="flex items-center gap-2">
+                                    <Link href="/member/profile" className="flex items-center gap-2 group cursor-pointer">
+                                        <div className="relative flex-shrink-0">
+                                            {currentUser?.avatar ? (
+                                                <Avatar className="w-9 h-9 ring-2 ring-blue-500/20 group-hover:ring-blue-500">
+                                                    <AvatarImage src={currentUser.avatar} alt={currentUser?.hoten || 'Member'} />
+                                                    <AvatarFallback className="text-xs bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                                                        {(currentUser?.hoten || 'M').substring(0, 2).toUpperCase()}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                            ) : (
+                                                <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center ring-2 ring-blue-500/20 group-hover:ring-blue-500">
+                                                    <User className="w-5 h-5 text-white" />
+                                                </div>
+                                            )}
+                                            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
                                         </div>
-                                    )}
-                                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full" />
+                                        <div className="min-w-0">
+                                            <span className="text-sm font-medium text-slate-700 truncate group-hover:text-blue-600">{currentUser?.hoten || 'Member User'}</span>
+                                        </div>
+                                    </Link>
+                                    <button
+                                        onClick={handleLogout}
+                                        disabled={isLoggingOut}
+                                        className="ml-2 px-2 py-1 text-sm text-slate-500 hover:text-red-600 hover:bg-red-50 rounded transition-all duration-200 disabled:opacity-50"
+                                        title="Đăng xuất"
+                                    >
+                                        <LogOut className={`w-4 h-4 ${isLoggingOut ? 'animate-spin' : ''}`} />
+                                    </button>
                                 </div>
-                                <div className="min-w-0">
-                                    <span className="text-sm font-medium text-slate-700 truncate group-hover:text-blue-600">{currentUser?.hoten || 'Member User'}</span>
-                                </div>
-                            </Link>
-                            <button
-                                onClick={handleLogout}
-                                disabled={isLoggingOut}
-                                className="ml-2 px-2 py-1 text-sm text-slate-500 hover:text-red-600 hover:bg-red-50 rounded transition-all duration-200 disabled:opacity-50"
-                                title="Đăng xuất"
-                            >
-                                <LogOut className={`w-4 h-4 ${isLoggingOut ? 'animate-spin' : ''}`} />
-                            </button>
-                        </div>
-                    </div>
+                            </div>
                         </div>
 
                         {/* Page content */}
