@@ -34,6 +34,39 @@ class AIServiceV2 {
             this.embeddingModel = this.genAI.getGenerativeModel({ model: 'text-embedding-004' });
             console.log('🤖 AI Service V2 initialized with Gemini API');
         }
+
+        // Conversation memory (user ID → last context)
+        this.conversationMemory = new Map();
+    }
+
+    // ============================================
+    // CONVERSATION MEMORY
+    // ============================================
+
+    getConversationContext(userId) {
+        const memory = this.conversationMemory.get(userId);
+        if (!memory) return null;
+
+        const MEMORY_TTL = 5 * 60 * 1000; // 5 minutes
+        if (Date.now() - memory.timestamp > MEMORY_TTL) {
+            this.conversationMemory.delete(userId);
+            return null;
+        }
+
+        return memory;
+    }
+
+    updateConversationContext(userId, question, intent, context) {
+        this.conversationMemory.set(userId, {
+            timestamp: Date.now(),
+            lastQuestion: question,
+            lastIntent: intent,
+            lastContext: {
+                projects: context.projects?.slice(0, 5).map(p => ({ id: p.id, tenduan: p.tenduan })),
+                tasks: context.tasks?.slice(0, 5).map(t => ({ id: t.id, tentask: t.tentask })),
+                groups: context.groups?.slice(0, 3).map(g => ({ id: g.id, name: g.name })),
+            }
+        });
     }
 
     // ============================================
@@ -44,11 +77,14 @@ class AIServiceV2 {
         console.log('🤖 AI Query V2:', question, '| User:', userId);
 
         try {
-            // Step 1: Analyze question intent
-            const intent = this.analyzeQuestionIntent(question);
+            // Step 1: Get conversation context
+            const conversationContext = this.getConversationContext(userId);
+
+            // Step 2: Analyze question intent
+            const intent = this.analyzeQuestionIntent(question, conversationContext);
             console.log('🎯 Intent:', intent);
 
-            // Step 2: Fetch comprehensive context
+            // Step 3: Fetch comprehensive context
             const context = await this.fetchComprehensiveContext(userId, question, intent);
             console.log('📊 Context fetched:', {
                 currentUser: !!context.currentUser,
@@ -59,8 +95,11 @@ class AIServiceV2 {
                 groups: context.groups?.length || 0
             });
 
-            // Step 3: Generate AI response
-            const response = await this.generateIntelligentResponse(question, context, intent);
+            // Step 4: Generate AI response
+            const response = await this.generateIntelligentResponse(question, context, intent, conversationContext);
+
+            // Step 5: Update conversation memory
+            this.updateConversationContext(userId, question, intent, context);
 
             return response;
         } catch (error) {
@@ -73,7 +112,7 @@ class AIServiceV2 {
     // INTENT ANALYSIS
     // ============================================
 
-    analyzeQuestionIntent(question) {
+    analyzeQuestionIntent(question, conversationContext = null) {
         const q = question.toLowerCase();
 
         const intent = {
@@ -89,8 +128,25 @@ class AIServiceV2 {
             wantsRoleInfo: false,
             wantsGroupManagement: false,
             wantsGroupMembers: false,
-            followUpGroupReference: false
+            followUpGroupReference: false,
+            isFollowUp: false
         };
+
+        // Detect follow-up questions (còn, nữa, thêm, khác)
+        const followUpKeywords = /^(còn|con|nữa|nua|thêm|them|khác|khac|và|va|other|more|also|else)\s+(cái|dự án|du an|task|công việc|cong viec|nhóm|nhom|gì|gi|nào|nao|ai)/i;
+        if (followUpKeywords.test(q) || /^(còn|con|nữa|nua|more|other|else)(\s+|$)/i.test(q)) {
+            intent.isFollowUp = true;
+            if (conversationContext) {
+                console.log('🔗 Follow-up detected. Last question:', conversationContext.lastQuestion);
+                // Inherit context from previous question
+                if (conversationContext.lastIntent) {
+                    intent.entities = conversationContext.lastIntent.entities || [];
+                    intent.needsProjects = conversationContext.lastIntent.needsProjects;
+                    intent.needsTasks = conversationContext.lastIntent.needsTasks;
+                    intent.needsGroups = conversationContext.lastIntent.needsGroups;
+                }
+            }
+        }
 
         // Detect question type
         if (/có bao nhiêu|bao nhiêu|count|đếm|số lượng/i.test(question)) {
@@ -164,8 +220,8 @@ class AIServiceV2 {
             intent.filters.status = 'chua_bat_dau';
         }
 
-        // If no specific entities detected, fetch all relevant data
-        if (intent.entities.length === 0) {
+        // If no specific entities detected AND not asking about role/groups, fetch all relevant data
+        if (intent.entities.length === 0 && !intent.wantsRoleInfo && !intent.wantsGroupManagement && !intent.wantsGroupMembers) {
             intent.needsProjects = true;
             intent.needsTasks = true;
             intent.needsUsers = intent.action === 'user_data' || intent.targetPerson;
@@ -328,14 +384,14 @@ class AIServiceV2 {
     // INTELLIGENT RESPONSE GENERATION
     // ============================================
 
-    async generateIntelligentResponse(question, context, intent) {
+    async generateIntelligentResponse(question, context, intent, conversationContext = null) {
         // If no AI model, use smart fallback
         if (!this.model) {
             return this.generateSmartFallback(question, context, intent);
         }
 
         try {
-            const prompt = this.buildOptimizedPrompt(question, context, intent);
+            const prompt = this.buildOptimizedPrompt(question, context, intent, conversationContext);
 
             console.log('🤖 Calling Gemini API...');
             console.log('📊 Prompt length:', prompt.length, 'characters');
@@ -376,12 +432,28 @@ class AIServiceV2 {
     // OPTIMIZED PROMPT ENGINEERING
     // ============================================
 
-    buildOptimizedPrompt(question, context, intent) {
+    buildOptimizedPrompt(question, context, intent, conversationContext = null) {
         const today = new Date().toLocaleDateString('vi-VN');
 
         let prompt = `Bạn là trợ lý AI cho hệ thống quản lý công việc. Hôm nay là ${today}.
 
 `;
+
+        // Add conversation context for follow-up questions
+        if (conversationContext && intent.isFollowUp) {
+            prompt += `🔗 NGỮ CẢNH TRƯỚC ĐÓ:\n`;
+            prompt += `Câu hỏi trước: "${conversationContext.lastQuestion}"\n`;
+            if (conversationContext.lastContext?.projects?.length) {
+                prompt += `Dự án đã nhắc: ${conversationContext.lastContext.projects.map(p => p.tenduan).join(', ')}\n`;
+            }
+            if (conversationContext.lastContext?.tasks?.length) {
+                prompt += `Task đã nhắc: ${conversationContext.lastContext.tasks.map(t => t.tentask).join(', ')}\n`;
+            }
+            if (conversationContext.lastContext?.groups?.length) {
+                prompt += `Nhóm đã nhắc: ${conversationContext.lastContext.groups.map(g => g.name).join(', ')}\n`;
+            }
+            prompt += `\n⚠️ Câu hỏi hiện tại "${question}" là câu HỎI TIẾP THEO. Hãy trả lời dựa trên ngữ cảnh trên.\n\n`;
+        }
 
         // Add current user context
         if (context.currentUser) {
@@ -426,13 +498,14 @@ class AIServiceV2 {
         prompt += `3. Nếu hỏi về "tôi/mình" → tìm theo ID người dùng hiện tại\n`;
         prompt += `4. Nếu hỏi về người khác → tìm theo tên trong danh sách\n`;
         prompt += `5. PIC = Person In Charge (người phụ trách)\n`;
-    prompt += `6. QUAN TRỌNG: Nếu hỏi "có bao nhiêu", "đếm", "tổng số" → trả lời SỐ LƯỢNG CỤ THỂ và LIỆT KÊ\n`;
-    prompt += `7. QUAN TRỌNG: Nếu hỏi "danh sách", "liệt kê" → LIỆT KÊ CHI TIẾT, KHÔNG NÓI "hỏi cụ thể hơn"\n`;
-    prompt += `8. Nếu không có dữ liệu → nói "Không có" hoặc "0", KHÔNG nói "hỏi cụ thể hơn"\n`;
-    prompt += `9. Nếu câu hỏi nhắc "vai trò", "teamlead", "leader" hoặc "nhóm của tôi" → mô tả rõ chức vụ hiện tại và các nhóm người dùng đang dẫn dắt/thuộc về.\n`;
-    prompt += `10. Đánh dấu những nhóm mà người dùng là leader bằng cụm từ "Bạn phụ trách" trong câu trả lời khi có dữ liệu.\n`;
-    prompt += `11. Nếu câu hỏi nhắc "thành viên"/"members" hoặc "nhóm đó" → liệt kê tên từng thành viên trong nhóm liên quan, ưu tiên nhóm mà người dùng đang phụ trách.\n\n`;
-        
+        prompt += `6. QUAN TRỌNG: Nếu hỏi "có bao nhiêu", "đếm", "tổng số" → trả lời SỐ LƯỢNG CỤ THỂ và LIỆT KÊ\n`;
+        prompt += `7. QUAN TRỌNG: Nếu hỏi "danh sách", "liệt kê" → LIỆT KÊ CHI TIẾT, KHÔNG NÓI "hỏi cụ thể hơn"\n`;
+        prompt += `8. Nếu không có dữ liệu → nói "Không có" hoặc "0", KHÔNG nói "hỏi cụ thể hơn"\n`;
+        prompt += `9. Nếu câu hỏi nhắc "vai trò", "teamlead", "leader" hoặc "nhóm của tôi" → mô tả rõ chức vụ hiện tại và các nhóm người dùng đang dẫn dắt/thuộc về.\n`;
+        prompt += `10. Đánh dấu những nhóm mà người dùng là leader bằng cụm từ "Bạn phụ trách" trong câu trả lời khi có dữ liệu.\n`;
+        prompt += `11. Nếu câu hỏi nhắc "thành viên"/"members" hoặc "nhóm đó" → liệt kê tên từng thành viên trong nhóm liên quan, ưu tiên nhóm mà người dùng đang phụ trách.\n`;
+        prompt += `12. QUAN TRỌNG: Nếu câu hỏi là "Còn cái nào nữa không", "Còn gì khác", "More" → liệt kê NHỮNG DỰ ÁN/TASK KHÁC ngoài những cái đã nhắc trong ngữ cảnh trước.\n\n`;
+
         prompt += `CÂU HỎI: ${question}\n\nTRẢ LỜI:`;
 
         return prompt;
@@ -531,8 +604,8 @@ class AIServiceV2 {
         else if (intent.action === 'user_data') {
             answer = this.handleUserDataQuestion(context, intent.targetPerson);
         }
-        // Handle my data questions
-        else if (intent.action === 'my_data') {
+        // Handle my data questions (includes role/group management)
+        else if (intent.action === 'my_data' || intent.wantsRoleInfo || intent.wantsGroupManagement) {
             answer = this.handleMyDataQuestion(context, intent);
         }
         else if (intent.wantsGroupMembers) {
