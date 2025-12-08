@@ -23,7 +23,7 @@ class AIService {
     async createEmbedding(text) {
         try {
             if (!this.embeddingModel) return null;
-            
+
             const result = await this.embeddingModel.embedContent(text);
             return result.embedding.values; // Array of floats
         } catch (error) {
@@ -37,11 +37,11 @@ class AIService {
      */
     cosineSimilarity(vecA, vecB) {
         if (!vecA || !vecB || vecA.length !== vecB.length) return 0;
-        
+
         const dotProduct = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
         const magA = Math.sqrt(vecA.reduce((sum, a) => sum + a * a, 0));
         const magB = Math.sqrt(vecB.reduce((sum, b) => sum + b * b, 0));
-        
+
         if (magA === 0 || magB === 0) return 0;
         return dotProduct / (magA * magB);
     }
@@ -52,38 +52,38 @@ class AIService {
     async findSimilarTasks(question, tasks, topK = 10) {
         try {
             if (!tasks || tasks.length === 0) return tasks;
-            
+
             console.log('🔍 Finding similar tasks using embeddings...');
             const questionVec = await this.createEmbedding(question);
-            
+
             if (!questionVec) {
                 console.log('⚠️ Embedding failed, returning all tasks');
                 return tasks.slice(0, topK);
             }
-            
+
             // Create embeddings for all tasks (in parallel batches)
             const taskWithSimilarity = await Promise.all(
                 tasks.map(async (task) => {
                     const taskText = `${task.tentask || ''} ${task.mota || ''}`.trim();
                     if (!taskText) return { task, similarity: 0 };
-                    
+
                     const taskVec = await this.createEmbedding(taskText);
                     const similarity = this.cosineSimilarity(questionVec, taskVec);
-                    
+
                     return { task, similarity };
                 })
             );
-            
+
             // Sort by similarity and return top K
             const sorted = taskWithSimilarity
                 .sort((a, b) => b.similarity - a.similarity)
                 .slice(0, topK);
-            
-            console.log('✅ Found similar tasks:', sorted.map(t => ({ 
-                name: t.task.tentask, 
-                similarity: t.similarity.toFixed(3) 
+
+            console.log('✅ Found similar tasks:', sorted.map(t => ({
+                name: t.task.tentask,
+                similarity: t.similarity.toFixed(3)
             })));
-            
+
             return sorted.map(t => t.task);
         } catch (error) {
             console.error('Error in findSimilarTasks:', error.message);
@@ -97,33 +97,33 @@ class AIService {
     async findSimilarProjects(question, projects, topK = 10) {
         try {
             if (!projects || projects.length === 0) return projects;
-            
+
             console.log('🔍 Finding similar projects using embeddings...');
             const questionVec = await this.createEmbedding(question);
-            
+
             if (!questionVec) return projects.slice(0, topK);
-            
+
             const projectWithSimilarity = await Promise.all(
                 projects.map(async (project) => {
                     const projectText = `${project.tenduan || ''} ${project.mota || ''}`.trim();
                     if (!projectText) return { project, similarity: 0 };
-                    
+
                     const projectVec = await this.createEmbedding(projectText);
                     const similarity = this.cosineSimilarity(questionVec, projectVec);
-                    
+
                     return { project, similarity };
                 })
             );
-            
+
             const sorted = projectWithSimilarity
                 .sort((a, b) => b.similarity - a.similarity)
                 .slice(0, topK);
-            
-            console.log('✅ Found similar projects:', sorted.map(p => ({ 
-                name: p.project.tenduan, 
-                similarity: p.similarity.toFixed(3) 
+
+            console.log('✅ Found similar projects:', sorted.map(p => ({
+                name: p.project.tenduan,
+                similarity: p.similarity.toFixed(3)
             })));
-            
+
             return sorted.map(p => p.project);
         } catch (error) {
             console.error('Error in findSimilarProjects:', error.message);
@@ -136,24 +136,24 @@ class AIService {
      */
     async queryDatabase(question, userId) {
         console.log('🤖 AI Query:', question, 'from user:', userId);
-        
+
         // Analyze question to determine what data to fetch
         const intent = await this.analyzeIntent(question);
-        
+
         // ALWAYS fetch comprehensive context (current user + related data based on question)
         // This ensures AI has enough information to answer any question
         const contextData = await this.fetchRelevantData(intent, userId, question);
-        
+
         // Generate response using LLM with context
         const response = await this.generateResponse(question, contextData, userId);
-        
+
         return response;
     }    /**
      * Analyze user's intent to determine what data to query
      */
     async analyzeIntent(question) {
         const lowerQuestion = question.toLowerCase();
-        
+
         const intent = {
             type: 'general',
             entities: [],
@@ -165,22 +165,22 @@ class AIService {
             intent.type = 'tasks';
             intent.entities.push('Task');
         }
-        
+
         if (lowerQuestion.includes('dự án') || lowerQuestion.includes('project')) {
             intent.type = 'projects';
             intent.entities.push('DuAn');
         }
-        
+
         if (lowerQuestion.includes('user') || lowerQuestion.includes('người dùng') || lowerQuestion.includes('thành viên')) {
             intent.type = 'users';
             intent.entities.push('User');
         }
-        
+
         if (lowerQuestion.includes('assignment') || lowerQuestion.includes('phân công')) {
             intent.type = 'assignments';
             intent.entities.push('Assignment');
         }
-        
+
         if (lowerQuestion.includes('tin nhắn') || lowerQuestion.includes('chat') || lowerQuestion.includes('message')) {
             intent.type = 'messages';
             intent.entities.push('Message');
@@ -242,7 +242,7 @@ class AIService {
             // Fetch Tasks (if needed)
             if (shouldFetchTasks) {
                 const whereClause = {};
-                
+
                 // Time filters
                 if (intent.keywords.includes('today')) {
                     whereClause.createdAt = { [Op.gte]: new Date(today.setHours(0, 0, 0, 0)) };
@@ -280,7 +280,7 @@ class AIService {
                         { model: User, as: 'nguoiDuocGiao', attributes: ['id', 'hoten', 'manv'] }
                     ]
                 });
-                
+
                 // Apply semantic search if question has meaningful content
                 const tasksArray = tasks.map(t => t.toJSON());
                 if (tasksArray.length > 0 && question && question.length > 10) {
@@ -296,9 +296,9 @@ class AIService {
             if (shouldFetchProjects) {
                 // Check if question is asking for counts/statistics (không dùng semantic search)
                 const isCountingQuestion = /có bao nhiêu|bao nhiêu.*dự án|số.*dự án|tổng.*dự án|count|how many/i.test(question);
-                
+
                 let projects;
-                
+
                 // Nếu là câu hỏi đếm, KHÔNG filter theo tên - lấy tất cả
                 if (isCountingQuestion) {
                     console.log('🔢 Counting question detected - fetching ALL projects');
@@ -336,7 +336,7 @@ class AIService {
                         });
                     }
                 }
-                
+
                 // Apply semantic search for projects ONLY if NOT a counting question
                 const projectsArray = projects.map(p => p.toJSON());
                 if (!isCountingQuestion && projectsArray.length > 0 && question && question.length > 10) {
@@ -353,14 +353,14 @@ class AIService {
                 let users;
                 let searchName = null;
                 let searchCode = null;
-                
+
                 // 1. Try to extract employee code (e.g., QLY001, NV001, etc.)
                 const codeMatch = question.match(/\b([A-Z]{2,}[0-9]{3,})\b/);
                 if (codeMatch) {
                     searchCode = codeMatch[1];
                     console.log('🔍 Extracted employee code:', searchCode);
                 }
-                
+
                 // 2. Try to extract full Vietnamese name from question
                 // Match patterns like "cho Lâm Nguyễn Anh Hào" or "nhắn tin cho Nguyễn Văn A"
                 const fullNamePatterns = [
@@ -369,7 +369,7 @@ class AIService {
                     /(?:tên|tên là|có tên|người tên)\s+(?:tên\s+)?([A-ZÀÁẢÃẠÂẦẤẨẪẬĂẰẮẲẴẶÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ][a-zàáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]*(?:\s+[A-ZÀÁẢÃẠÂẦẤẨẪẬĂẰẮẲẴẶÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ][a-zàáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]*)*)/i,
                     /đang làm.*?([A-ZÀÁẢÃẠÂẦẤẨẪẬĂẰẮẲẴẶÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ][a-zàáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]+(?:\s+[A-ZÀÁẢÃẠÂẦẤẨẪẬĂẰẮẲẴẶÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ][a-zàáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]+){1,})\s+đang/i
                 ];
-                
+
                 for (const pattern of fullNamePatterns) {
                     const match = question.match(pattern);
                     if (match && match[1]) {
@@ -378,7 +378,7 @@ class AIService {
                         break;
                     }
                 }
-                
+
                 // 3. Search by employee code first (most specific)
                 if (searchCode) {
                     users = await User.findAll({
@@ -389,26 +389,26 @@ class AIService {
                     });
                     console.log(`📊 Found ${users.length} users by code "${searchCode}"`);
                 }
-                
+
                 // 4. If no code or code not found, search by name
                 if ((!users || users.length === 0) && searchName) {
                     // Split name into parts for flexible matching
                     const nameParts = searchName.split(/\s+/).filter(p => p.length > 0);
-                    
+
                     // Try exact match first
                     users = await User.findAll({
-                        where: { 
+                        where: {
                             hoten: { [Op.like]: `%${searchName}%` }
                         },
                         attributes: ['id', 'manv', 'hoten', 'email', 'sdt', 'chucvu'],
                         limit: 50,
                         include: [{ model: require('../models').Role, as: 'role' }]
                     });
-                    
+
                     // If no exact match, try matching all name parts
                     if (users.length === 0 && nameParts.length > 1) {
-                        const nameConditions = nameParts.map(part => ({ 
-                            hoten: { [Op.like]: `%${part}%` } 
+                        const nameConditions = nameParts.map(part => ({
+                            hoten: { [Op.like]: `%${part}%` }
                         }));
                         users = await User.findAll({
                             where: { [Op.and]: nameConditions },
@@ -417,15 +417,15 @@ class AIService {
                             include: [{ model: require('../models').Role, as: 'role' }]
                         });
                     }
-                    
+
                     console.log(`📊 Found ${users.length} users matching name "${searchName}"`);
                 }
-                
+
                 // 5. Fallback: if still no results, try capitalized words
                 if (!users || users.length === 0) {
                     const nameTokens = (question || '').match(/[A-ZÀÁẢÃẠÂẦẤẨẪẬĂẰẮẲẴẶÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ][a-zàáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]+/g) || [];
                     const candidateTokens = nameTokens.filter(t => t.length >= 3);
-                    
+
                     if (candidateTokens.length > 0) {
                         const orClauses = candidateTokens.map(t => ({ hoten: { [Op.like]: `%${t}%` } }));
                         users = await User.findAll({
@@ -444,7 +444,7 @@ class AIService {
                         });
                     }
                 }
-                
+
                 data.users = users.map(u => u.toJSON());
                 console.log(`✅ Final users count: ${data.users.length}, names: ${data.users.map(u => u.hoten).join(', ')}`);
             }
@@ -522,10 +522,10 @@ class AIService {
             // Build system prompt with context
             const systemPrompt = this.buildSystemPrompt(contextData, question);
             const fullPrompt = `${systemPrompt}\n\nCÂU HỎI: ${question}\n\nTRẢ LỜI:`;
-            
+
             console.log('🤖 Calling Gemini API...');
             console.log('📊 Prompt length:', fullPrompt.length, 'characters');
-            
+
             // Call Google Gemini API with generation config
             const result = await this.model.generateContent({
                 contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
@@ -536,15 +536,15 @@ class AIService {
                     topK: 40,
                 }
             });
-            
+
             const response = await result.response;
-            
+
             // Check for safety blocks or issues
             if (!response) {
                 console.error('❌ No response from Gemini');
                 throw new Error('No response from AI');
             }
-            
+
             // Check candidates and safety ratings
             const candidates = response.candidates;
             if (candidates && candidates.length > 0) {
@@ -554,19 +554,19 @@ class AIService {
                     console.log('🛡️ Safety ratings:', JSON.stringify(candidate.safetyRatings));
                 }
             }
-            
+
             const answer = response.text();
-            
+
             console.log('✅ Gemini response received');
             console.log('📝 AI Answer length:', answer.length, 'characters');
             console.log('📝 AI Answer preview:', answer.substring(0, 300) + (answer.length > 300 ? '...' : ''));
-            
+
             // If empty response, use fallback
             if (!answer || answer.trim().length === 0) {
                 console.warn('⚠️ Empty response from Gemini, using fallback');
                 return this.generateFallbackResponse(question, contextData);
             }
-            
+
             return {
                 answer: answer,
                 sources: this.extractSources(contextData),
@@ -575,7 +575,7 @@ class AIService {
         } catch (error) {
             console.error('Gemini AI error:', error.message);
             console.log('📊 Using fallback response instead');
-            
+
             // Fallback to rule-based response if API fails
             return this.generateFallbackResponse(question, contextData);
         }
@@ -587,13 +587,13 @@ class AIService {
     buildSystemPrompt(contextData, question) {
         // Detect if this is a deadline/overdue related question
         const isDeadlineQuestion = /quá hạn|trễ hạn|tre han|qua han|deadline|overdue|late|còn hạn|con han|cái nào.*hạn|nào.*quá|nào.*trễ/i.test(question);
-        
+
         let prompt = `Bạn là trợ lý AI thông minh cho hệ thống quản lý công việc.
 Bạn có khả năng truy vấn và phân tích dữ liệu từ database để trả lời các câu hỏi của người dùng.
 ${isDeadlineQuestion ? '\n⚠️ CẢNH BÁO: Đây là câu hỏi về DEADLINE/QUÁ HẠN. Hãy kiểm tra ngày kết thúc của TẤT CẢ dự án/công việc so với ngày hiện tại!\n' : ''}
 DỮ LIỆU HIỆN CÓ:
 `;
-        
+
         if (contextData.currentUser) {
             prompt += `\nNGƯỜI DÙNG HIỆN TẠI:\n`;
             prompt += `- ID: ${contextData.currentUser.id}\n`;
@@ -612,7 +612,7 @@ DỮ LIỆU HIỆN CÓ:
                 const tenTask = task.tentask || task.tieuDe || 'Không rõ';
                 const deadline = task.ngayKetThuc || task.thoiHan;
                 const deadlineStr = deadline ? new Date(deadline).toLocaleDateString('vi-VN') : 'N/A';
-                
+
                 prompt += `${idx + 1}. ${tenTask} | ${task.trangThai} | Hạn: ${deadlineStr}`;
                 if (task.mucDoUuTien) prompt += ` | ${task.mucDoUuTien}`;
                 if (task.tienDo !== undefined) prompt += ` | ${task.tienDo}%`;
@@ -628,7 +628,7 @@ DỮ LIỆU HIỆN CÓ:
             prompt += `\nDỰ ÁN (${contextData.projects.length}):\n`;
             // Hiển thị tất cả dự án nếu câu hỏi liên quan đến deadline/quá hạn
             const projectsToShow = isDeadlineQuestion ? contextData.projects : contextData.projects.slice(0, 10);
-            
+
             projectsToShow.forEach((project, idx) => {
                 const ten = project.tenduan || project.tenDuAn || 'Không có tên';
                 const mo = project.mota || project.moTa || '';
@@ -665,13 +665,13 @@ DỮ LIỆU HIỆN CÓ:
         prompt += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
         prompt += `📅 HÔM NAY: ${new Date().toLocaleDateString('vi-VN')}\n`;
         prompt += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-        
+
         if (isDeadlineQuestion) {
             prompt += `\n🚨 KIỂM TRA QUÁ HẠN:
 So sánh ngayketthuc với hôm nay. Nếu < hôm nay VÀ chưa hoàn thành = QUÁ HẠN.
 Liệt kê: tên, deadline, số ngày trễ. Nếu không có → nói "Không có mục nào quá hạn".\n\n`;
         }
-        
+
         prompt += `HƯỚNG DẪN:
 - Trả lời ngắn gọn, chính xác, tiếng Việt, có emoji
 - Khi hỏi về "người tên X đang làm dự án nào" hoặc "X đang làm gì":
@@ -686,7 +686,7 @@ Liệt kê: tên, deadline, số ngày trễ. Nếu không có → nói "Không 
 
 
 
-        
+
         return prompt;
     }
 
@@ -695,7 +695,7 @@ Liệt kê: tên, deadline, số ngày trễ. Nếu không có → nói "Không 
      */
     extractSources(contextData) {
         const sources = [];
-        
+
         if (contextData.tasks?.length > 0) {
             sources.push({ type: 'tasks', count: contextData.tasks.length });
         }
@@ -705,7 +705,7 @@ Liệt kê: tên, deadline, số ngày trễ. Nếu không có → nói "Không 
         if (contextData.users?.length > 0) {
             sources.push({ type: 'users', count: contextData.users.length });
         }
-        
+
         return sources;
     }
 
@@ -714,24 +714,24 @@ Liệt kê: tên, deadline, số ngày trễ. Nếu không có → nói "Không 
      */
     generateFallbackResponse(question, contextData) {
         let answer = '';
-        
+
         // Analyze question type and provide relevant answer
         const lowerQ = question.toLowerCase();
-        
+
         // Check for overdue/deadline questions
         const isDeadlineQuestion = /quá hạn|trễ hạn|tre han|qua han|deadline|overdue|late|còn hạn|con han|cái nào.*hạn|nào.*quá|nào.*trễ/i.test(question);
-        
+
         if (isDeadlineQuestion) {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            
+
             // Check overdue projects
             const overdueProjects = (contextData.projects || []).filter(p => {
                 if (!p.ngayketthuc || p.status === 'Hoàn thành') return false;
                 const deadline = new Date(p.ngayketthuc);
                 return deadline < today;
             });
-            
+
             // Check overdue tasks
             const overdueTasks = (contextData.tasks || []).filter(t => {
                 const deadline = t.ngayKetThuc || t.thoiHan;
@@ -739,13 +739,13 @@ Liệt kê: tên, deadline, số ngày trễ. Nếu không có → nói "Không 
                 const deadlineDate = new Date(deadline);
                 return deadlineDate < today;
             });
-            
+
             if (overdueProjects.length === 0 && overdueTasks.length === 0) {
                 answer = '✅ **KHÔNG CÓ dự án hoặc công việc nào đang quá hạn!**\n\n';
                 answer += `Tất cả ${(contextData.projects || []).length} dự án và ${(contextData.tasks || []).length} công việc đều trong hạn hoặc đã hoàn thành. 🎉`;
             } else {
                 answer = '🚨 **CẢNH BÁO: CÓ CÁC MỤC QUÁ HẠN!**\n\n';
-                
+
                 if (overdueProjects.length > 0) {
                     answer += `📁 **DỰ ÁN QUÁ HẠN (${overdueProjects.length}):**\n`;
                     overdueProjects.forEach((p, idx) => {
@@ -758,7 +758,7 @@ Liệt kê: tên, deadline, số ngày trễ. Nếu không có → nói "Không 
                     });
                     answer += '\n';
                 }
-                
+
                 if (overdueTasks.length > 0) {
                     answer += `📋 **CÔNG VIỆC QUÁ HẠN (${overdueTasks.length}):**\n`;
                     overdueTasks.forEach((t, idx) => {
@@ -772,28 +772,28 @@ Liệt kê: tên, deadline, số ngày trễ. Nếu không có → nói "Không 
                     });
                 }
             }
-            
+
             return {
                 answer: answer,
                 sources: this.extractSources(contextData),
                 confidence: 'medium'
             };
         }
-        
+
         if (contextData.tasks && contextData.tasks.length > 0) {
             const total = contextData.tasks.length;
             const completed = contextData.tasks.filter(t => t.trangThai === 'Hoàn thành').length;
             const inProgress = contextData.tasks.filter(t => t.trangThai === 'Đang chạy').length;
             const pending = contextData.tasks.filter(t => t.trangThai === 'Chưa bắt đầu').length;
             const waiting = contextData.tasks.filter(t => t.trangThai === 'Chờ xác nhận hoàn thành').length;
-            
+
             answer += `📋 **CÔNG VIỆC:**\n`;
             answer += `- Tổng số: ${total} công việc\n`;
             answer += `- ✅ Hoàn thành: ${completed}\n`;
             answer += `- 🔄 Đang chạy: ${inProgress}\n`;
             answer += `- ⏸️ Chưa bắt đầu: ${pending}\n`;
             if (waiting > 0) answer += `- ⏳ Chờ xác nhận: ${waiting}\n`;
-            
+
             // Show details of in-progress tasks
             if (inProgress > 0 && contextData.tasks.filter(t => t.trangThai === 'Đang chạy').length <= 5) {
                 answer += `\n**Chi tiết công việc đang chạy:**\n`;

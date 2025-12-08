@@ -3,7 +3,7 @@
 module.exports = {
   up: async (queryInterface, Sequelize) => {
     const table = await queryInterface.describeTable('Comments');
-    
+
     // Only add column if it doesn't exist
     if (!table.mentions) {
       await queryInterface.addColumn('Comments', 'mentions', {
@@ -19,7 +19,7 @@ module.exports = {
 
   down: async (queryInterface, Sequelize) => {
     const table = await queryInterface.describeTable('Comments');
-    
+
     if (table.mentions) {
       await queryInterface.removeColumn('Comments', 'mentions');
     }

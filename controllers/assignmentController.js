@@ -19,13 +19,40 @@ const checkJoinRequestPermission = async (userId, userRole, taskId, subtaskId, r
         }
 
         let task = null;
+        let subCreatorId = null;
         if (subtaskId) {
-            const sub = await Subtask.findByPk(subtaskId, { include: [{ model: Task, as: 'task', include: [{ model: DuAn, as: 'duan' }] }] });
+            const sub = await Subtask.findByPk(subtaskId, {
+                include: [
+                    {
+                        model: Task,
+                        as: 'task',
+                        include: [
+                            { model: DuAn, as: 'duan' },
+                            { model: User, as: 'nguoiGiao', attributes: ['id', 'manv', 'hoten', 'email'] }
+                        ]
+                    },
+                    {
+                        model: User,
+                        as: 'creator',
+                        attributes: ['id', 'manv', 'hoten', 'email']
+                    }
+                ]
+            });
             if (!sub) return { hasPermission: false, reason: 'Subtask không tồn tại' };
             task = sub.task;
+            subCreatorId = sub.createdBy || (sub.creator && sub.creator.id) || null;
         } else {
-            task = await Task.findByPk(taskId, { include: [{ model: DuAn, as: 'duan' }] });
+            task = await Task.findByPk(taskId, {
+                include: [
+                    { model: DuAn, as: 'duan' },
+                    { model: User, as: 'nguoiGiao', attributes: ['id', 'manv', 'hoten', 'email'] }
+                ]
+            });
             if (!task) return { hasPermission: false, reason: 'Task không tồn tại' };
+        }
+
+        if (subCreatorId && subCreatorId === userId) {
+            return { hasPermission: true, reason: 'Subtask creator' };
         }
 
         // 1. Task creator (nguoiGiaoId) can approve
@@ -168,7 +195,11 @@ exports.acceptAssignment = async (req, res) => {
         if (assignment.status !== 'pending') return res.status(400).json({ success: false, message: 'Assignment không ở trạng thái pending' });
 
         // Update assignment status
-        await assignment.update({ status: 'accepted' });
+        await assignment.update({
+            status: 'accepted',
+            acceptedBy: userId,
+            acceptedAt: new Date()
+        });
 
         // Assign to task/subtask
         // Only update the specific item being assigned, not the parent task
@@ -325,13 +356,39 @@ exports.requestToJoin = async (req, res) => {
         let itemName = '';
         let task = null;
 
+        let subCreatorUser = null;
+        let subCreatorId = null;
+
         if (subtaskId) {
-            const sub = await Subtask.findByPk(subtaskId, { include: [{ model: Task, as: 'task', include: [{ model: DuAn, as: 'duan' }] }] });
+            const sub = await Subtask.findByPk(subtaskId, {
+                include: [
+                    {
+                        model: Task,
+                        as: 'task',
+                        include: [
+                            { model: DuAn, as: 'duan' },
+                            { model: User, as: 'nguoiGiao', attributes: ['id', 'manv', 'hoten', 'email'] }
+                        ]
+                    },
+                    {
+                        model: User,
+                        as: 'creator',
+                        attributes: ['id', 'manv', 'hoten', 'email']
+                    }
+                ]
+            });
             if (!sub) return res.status(404).json({ success: false, message: 'Subtask không tồn tại' });
             task = sub.task;
             itemName = sub.tenSubtask || (task && task.tentask) || 'Subtask';
+            subCreatorUser = sub.creator || null;
+            subCreatorId = sub.createdBy || (subCreatorUser && subCreatorUser.id) || null;
         } else if (taskId) {
-            task = await Task.findByPk(taskId, { include: [{ model: DuAn, as: 'duan' }] });
+            task = await Task.findByPk(taskId, {
+                include: [
+                    { model: DuAn, as: 'duan' },
+                    { model: User, as: 'nguoiGiao', attributes: ['id', 'manv', 'hoten', 'email'] }
+                ]
+            });
             if (!task) return res.status(404).json({ success: false, message: 'Task không tồn tại' });
             itemName = task.tentask;
         }
@@ -357,6 +414,11 @@ exports.requestToJoin = async (req, res) => {
         // 4. All admins
 
         const approversSet = new Set();
+
+        // 0. Subtask creator (nếu có) luôn được quyền phê duyệt
+        if (subCreatorId) {
+            approversSet.add(subCreatorId);
+        }
 
         // 1. Task creator
         if (task.nguoiGiaoId) {
@@ -400,12 +462,37 @@ exports.requestToJoin = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Không tìm thấy người có quyền duyệt yêu cầu' });
         }
 
+        const taskCreatorUser = subCreatorUser || task?.nguoiGiao || null;
+        let taskCreatorId = subCreatorId || task?.nguoiGiaoId || null;
+
+        if (!taskCreatorId && task?.duan?.userId) {
+            taskCreatorId = task.duan.userId;
+        }
+
+        if (taskCreatorId === requesterId) {
+            const fallbackApprover = approverIds.find(id => id !== requesterId);
+            if (fallbackApprover) {
+                taskCreatorId = fallbackApprover;
+            }
+        }
+
+        let taskCreator = taskCreatorUser;
+        if (taskCreatorId && (!taskCreator || taskCreator.id !== taskCreatorId)) {
+            taskCreator = await User.findByPk(taskCreatorId, {
+                attributes: ['id', 'manv', 'hoten', 'email']
+            });
+        }
+
         console.log('📢 Creating request-to-join notification', {
             requesterId,
             taskId,
             subtaskId,
             approverIds,
-            itemName
+            itemName,
+            subCreatorId,
+            subCreatorName: subCreatorUser?.hoten || subCreatorUser?.manv,
+            taskCreatorId,
+            taskCreatorName: taskCreator?.hoten || taskCreator?.manv
         });
 
         // Build notification for all approvers
@@ -419,7 +506,7 @@ exports.requestToJoin = async (req, res) => {
             type: 'task',
             priority: 'low',
             targetAudience: 'specific',
-            authorId: requesterId,
+            authorId: taskCreatorId || requesterId,
             status: 'published',
             publishedAt: new Date()
         });
@@ -435,7 +522,10 @@ exports.requestToJoin = async (req, res) => {
                     taskId: taskId || null,
                     subtaskId: subtaskId || null,
                     requesterId,
-                    requesterName: requester.hoten || requester.manv
+                    requesterName: requester.hoten || requester.manv,
+                    taskCreatorId: taskCreatorId || null,
+                    taskCreatorName: taskCreator?.hoten || taskCreator?.manv || null,
+                    taskCreatorManv: taskCreator?.manv || null
                 }
             });
         }
@@ -1362,7 +1452,7 @@ exports.requestToClaimTask = async (req, res) => {
             userId: task.nguoiGiaoId,
             notificationId: notification.id,
             isRead: false,
-            meta: { assignmentId: assignment.id, action: 'claim_request' }
+            meta: { assignmentId: assignment.id, action: 'claim_request', requestToJoin: true }
         });
 
         res.status(201).json({
@@ -1381,27 +1471,35 @@ exports.requestToClaimTask = async (req, res) => {
 }
 
 // Manager: Get all pending task claim requests
-// Shows all pending assignments where current user is the manager (task creator)
+// Shows all pending assignments where:
+// 1. Current user is the manager (task creator) - assignments.managerId = userId
+// 2. Current user is the project manager - task.duan.userId = userId
+// Note: This includes assignments created by manager assigning tasks/subtasks to members
 exports.getClaimRequests = async (req, res) => {
     try {
         const managerId = req.user.id;
+        const userRole = req.user.role?.name || req.user.role;
 
-        const assignments = await Assignment.findAll({
+        console.log('🔍 getClaimRequests for manager:', { managerId, userRole });
+
+        // Get all pending assignments with task and project info
+        const allPendingAssignments = await Assignment.findAll({
             where: {
-                managerId,
                 taskId: { [require('sequelize').Op.ne]: null },
+                subtaskId: null, // Only task assignments, not subtask assignments
                 status: 'pending'
             },
             include: [
                 {
                     model: Task,
                     as: 'task',
-                    attributes: ['id', 'tentask', 'mota', 'duanId'],
+                    attributes: ['id', 'tentask', 'mota', 'duanId', 'nguoiGiaoId'],
                     include: [
                         {
                             model: DuAn,
                             as: 'duan',
-                            attributes: ['id', 'tenduan']
+                            attributes: ['id', 'tenduan', 'userId'],
+                            required: false
                         },
                         {
                             model: User,
@@ -1424,10 +1522,34 @@ exports.getClaimRequests = async (req, res) => {
             order: [['createdAt', 'DESC']]
         });
 
+        console.log('📊 Total pending assignments found:', allPendingAssignments.length);
+
+        // Filter assignments where:
+        // 1. User is the direct manager (assignment.managerId = userId)
+        // 2. User is the project manager (task.duan.userId = userId)
+        const filteredAssignments = allPendingAssignments.filter(assignment => {
+            // Case 1: Direct manager
+            if (assignment.managerId === managerId) {
+                console.log('✅ Direct manager match for assignment:', assignment.id);
+                return true;
+            }
+
+            // Case 2: Project manager
+            if (assignment.task && assignment.task.duan && assignment.task.duan.userId === managerId) {
+                console.log('✅ Project manager match for assignment:', assignment.id, 'project:', assignment.task.duan.tenduan);
+                return true;
+            }
+
+            console.log('❌ No match for assignment:', assignment.id);
+            return false;
+        });
+
+        console.log('✅ Filtered assignments for manager:', filteredAssignments.length);
+
         res.json({
             success: true,
             message: 'Danh sách yêu cầu nhận công việc',
-            data: assignments
+            data: filteredAssignments
         });
     } catch (error) {
         console.error('getClaimRequests error:', error);
@@ -1560,7 +1682,11 @@ exports.approveClaimRequest = async (req, res) => {
         }
 
         // Update assignment status to accepted
-        await assignment.update({ status: 'accepted' });
+        await assignment.update({
+            status: 'accepted',
+            acceptedBy: userId,
+            acceptedAt: new Date()
+        });
 
         // Update task/subtask - assign to the requester
         if (assignment.taskId) {

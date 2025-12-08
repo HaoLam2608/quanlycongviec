@@ -4,8 +4,11 @@ const WorklogController = {
     // Thêm worklog mới
     async create(req, res) {
         try {
-            const { userId, taskId, subtaskId, hours, note, date } = req.body;
-            if (!userId || (!taskId && !subtaskId) || !hours || !date) {
+            // Use userId from authenticated token, ignore body userId for security
+            const userId = req.user.id;
+            const { taskId, subtaskId, hours, note, date } = req.body;
+
+            if ((!taskId && !subtaskId) || !hours || !date) {
                 return res.status(400).json({ error: "Thiếu các trường bắt buộc" });
             }
             const worklog = await Worklog.create({ userId, taskId, subtaskId, hours, note, date });

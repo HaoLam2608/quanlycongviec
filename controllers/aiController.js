@@ -26,7 +26,7 @@ exports.askAI = async (req, res) => {
         });
     } catch (error) {
         console.error('AI ask error:', error);
-        res.status(500).json({ 
+        res.status(500).json({
             error: error.message,
             answer: 'Xin lỗi, đã có lỗi xảy ra khi xử lý câu hỏi của bạn.'
         });

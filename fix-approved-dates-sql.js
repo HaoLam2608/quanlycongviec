@@ -8,7 +8,7 @@ const { sequelize } = require('./models');
             WHERE approvedBy IS NOT NULL AND approvedAt IS NULL
         `);
         console.log('Updated rows:', results);
-        
+
         // Check again
         const [subtasks] = await sequelize.query(`
             SELECT id, tenSubtask, approvedBy, approvedAt 
@@ -16,7 +16,7 @@ const { sequelize } = require('./models');
             WHERE approvedBy IS NOT NULL
         `);
         console.log('Subtasks with approvedBy:', JSON.stringify(subtasks, null, 2));
-        
+
         process.exit(0);
     } catch (error) {
         console.error('Error:', error);

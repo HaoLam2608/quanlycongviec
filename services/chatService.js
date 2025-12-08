@@ -27,9 +27,9 @@ class ChatService {
     async getOrCreateDirectConversation(userId1, userId2) {
         // Find existing direct conversation
         const existingConversation = await sequelize.query(`
-            SELECT c.* FROM Conversations c
-            INNER JOIN ConversationParticipants cp1 ON cp1.conversationId = c.id AND cp1.userId = ?
-            INNER JOIN ConversationParticipants cp2 ON cp2.conversationId = c.id AND cp2.userId = ?
+            SELECT c.* FROM conversations c
+            INNER JOIN conversationparticipants cp1 ON cp1.conversationId = c.id AND cp1.userId = ?
+            INNER JOIN conversationparticipants cp2 ON cp2.conversationId = c.id AND cp2.userId = ?
             WHERE c.type = 'direct' AND cp1.leftAt IS NULL AND cp2.leftAt IS NULL
             LIMIT 1
         `, {
@@ -162,7 +162,7 @@ class ChatService {
      */
     async getUserConversations(userId, { limit = 50, offset = 0 } = {}) {
         console.log('📋 getUserConversations - userId:', userId);
-        
+
         // Get all conversations where user is a participant
         const conversations = await Conversation.findAll({
             include: [
@@ -177,7 +177,7 @@ class ChatService {
                 id: {
                     [Op.in]: sequelize.literal(`(
                         SELECT conversationId 
-                        FROM ConversationParticipants 
+                        FROM conversationparticipants 
                         WHERE userId = ${userId} AND leftAt IS NULL
                     )`)
                 }
@@ -350,7 +350,7 @@ class ChatService {
      */
     async updateMessage(messageId, userId, updates) {
         const message = await Message.findByPk(messageId);
-        
+
         if (!message) {
             throw new Error('Tin nhắn không tồn tại');
         }
@@ -376,7 +376,7 @@ class ChatService {
      */
     async deleteMessage(messageId, userId) {
         const message = await Message.findByPk(messageId);
-        
+
         if (!message) {
             throw new Error('Tin nhắn không tồn tại');
         }
@@ -413,7 +413,7 @@ class ChatService {
 
             // Get conversation info
             const conversation = await Conversation.findByPk(conversationId);
-            const title = conversation.type === 'direct' 
+            const title = conversation.type === 'direct'
                 ? sender?.hoten || 'Tin nhắn mới'
                 : conversation.name || 'Cuộc trò chuyện nhóm';
 
@@ -435,7 +435,7 @@ class ChatService {
      */
     async addParticipants(conversationId, userId, participantIds) {
         const conversation = await Conversation.findByPk(conversationId);
-        
+
         if (!conversation || conversation.type !== 'group') {
             throw new Error('Chỉ có thể thêm thành viên vào nhóm');
         }
@@ -479,7 +479,7 @@ class ChatService {
      */
     async removeParticipant(conversationId, userId, targetUserId) {
         const conversation = await Conversation.findByPk(conversationId);
-        
+
         if (!conversation || conversation.type !== 'group') {
             throw new Error('Chỉ có thể xóa thành viên khỏi nhóm');
         }

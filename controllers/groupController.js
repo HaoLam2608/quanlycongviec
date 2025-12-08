@@ -58,7 +58,7 @@ exports.createGroup = async (req, res) => {
             // Kiểm tra leader đã là leader của nhóm ĐANG HOẠT ĐỘNG (không phải closed) chưa
             const allLeaderGroups = await Group.findAll({ where: { leaderId } });
             const activeLeaderGroup = allLeaderGroups.find(g => g.status !== 'closed');
-            
+
             if (activeLeaderGroup) {
                 return res.status(400).json({
                     message: `Người này đã là nhóm trưởng của nhóm "${activeLeaderGroup.name}"`
@@ -84,7 +84,7 @@ exports.createGroup = async (req, res) => {
                 // Kiểm tra user đã là leader của nhóm ĐANG HOẠT ĐỘNG khác chưa
                 const allLeaderGroups = await Group.findAll({ where: { leaderId: userId } });
                 const activeLeaderGroup = allLeaderGroups.find(g => g.status !== 'closed');
-                
+
                 if (activeLeaderGroup) {
                     const user = await User.findByPk(userId);
                     return res.status(400).json({
@@ -103,7 +103,7 @@ exports.createGroup = async (req, res) => {
                         activeGroupCount++;
                     }
                 }
-                
+
                 if (activeGroupCount >= 2) {
                     const user = await User.findByPk(userId);
                     return res.status(400).json({
@@ -288,7 +288,7 @@ exports.addMembers = async (req, res) => {
             // Kiểm tra user đã là leader của nhóm ĐANG HOẠT ĐỘNG khác chưa
             const allLeaderGroups = await Group.findAll({ where: { leaderId: userId } });
             const activeLeaderGroup = allLeaderGroups.find(g => g.status !== 'closed');
-            
+
             if (activeLeaderGroup) {
                 const user = await User.findByPk(userId);
                 return res.status(400).json({
@@ -305,7 +305,7 @@ exports.addMembers = async (req, res) => {
                     activeGroupCount++;
                 }
             }
-            
+
             if (activeGroupCount >= 2) {
                 const user = await User.findByPk(userId);
                 return res.status(400).json({
@@ -342,7 +342,7 @@ exports.removeGroupFromProject = async (req, res) => {
         if (!groupId || !projectId) return res.status(400).json({ message: 'Thiếu groupId hoặc projectId' });
 
         const { GroupProject } = require('../models');
-        
+
         // Tìm bản ghi group_projects
         const groupProject = await GroupProject.findOne({
             where: { groupId, projectId, status: 'active' }
@@ -354,7 +354,7 @@ exports.removeGroupFromProject = async (req, res) => {
 
         // Xóa bản ghi
         await groupProject.destroy();
-        
+
         res.json({ message: 'Đã xóa nhóm khỏi dự án thành công' });
     } catch (e) {
         console.error(e);
@@ -377,7 +377,7 @@ exports.deleteGroup = async (req, res) => {
         await GroupMember.destroy({ where: { groupId: id }, transaction: t });
         const { GroupProject } = require('../models');
         await GroupProject.destroy({ where: { groupId: id }, transaction: t });
-        await GroupProjectHistory.destroy({ where: { groupId: id }, transaction: t }).catch(() => {});
+        await GroupProjectHistory.destroy({ where: { groupId: id }, transaction: t }).catch(() => { });
 
         // Finally remove the group
         await group.destroy({ transaction: t });
@@ -440,7 +440,7 @@ exports.completeProject = async (req, res) => {
 exports.getMyGroup = async (req, res) => {
     try {
         console.log('🔍 getMyGroup called by user:', req.user);
-        
+
         // Tìm tất cả nhóm mà user là leader (bao gồm cả active và closed)
         const groups = await Group.findAll({
             where: { leaderId: req.user.id },
@@ -481,7 +481,7 @@ exports.getMyGroup = async (req, res) => {
         const closedGroups = groups.filter(g => g.status === 'closed');
 
         console.log(`✅ Found ${groups.length} groups for teamleader (${activeGroups.length} active, ${closedGroups.length} closed)`);
-        res.json({ 
+        res.json({
             groups,
             activeGroups,
             closedGroups,
@@ -498,7 +498,7 @@ exports.getMyGroup = async (req, res) => {
 exports.getGroupProjects = async (req, res) => {
     try {
         console.log('🔍 getGroupProjects called by user:', req.user.id);
-        
+
         // Tìm tất cả nhóm mà user là leader
         const groups = await Group.findAll({
             where: { leaderId: req.user.id },
@@ -542,7 +542,7 @@ exports.getGroupProjects = async (req, res) => {
         const completedProjects = groupProjects.filter(gp => gp.status === 'completed');
 
         console.log(`✅ Found ${groupProjects.length} projects (${activeProjects.length} active, ${completedProjects.length} completed)`);
-        
+
         res.json({
             projects: groupProjects,
             activeProjects,
@@ -559,7 +559,7 @@ exports.getGroupProjects = async (req, res) => {
 exports.getAvailableMembers = async (req, res) => {
     try {
         const { groupId } = req.query; // Optional: để loại trừ members hiện tại khi update
-        
+
         // Lấy tất cả users
         const allUsers = await User.findAll({
             attributes: ['id', 'manv', 'hoten', 'email', 'sdt', 'chucvu'],
@@ -592,7 +592,7 @@ exports.getAvailableMembers = async (req, res) => {
             if (isAvailable) {
                 const userMemberships = allGroupMembers.filter(m => m.userId === user.id);
                 let activeGroupCount = 0;
-                
+
                 for (const membership of userMemberships) {
                     const group = activeGroups.find(g => g.id === membership.groupId);
                     if (group) {
@@ -719,9 +719,9 @@ exports.getGroupDetail = async (req, res) => {
             taskStats.completed = tasks.filter(t => t.trangThai === 'Hoàn thành').length;
             taskStats.inProgress = tasks.filter(t => t.trangThai === 'Đang chạy').length;
             taskStats.pending = tasks.filter(t => t.trangThai === 'Chưa bắt đầu').length;
-            taskStats.overdue = tasks.filter(t => 
-                t.trangThai !== 'Hoàn thành' && 
-                t.ngayKetThuc && 
+            taskStats.overdue = tasks.filter(t =>
+                t.trangThai !== 'Hoàn thành' &&
+                t.ngayKetThuc &&
                 new Date(t.ngayKetThuc) < today
             ).length;
 

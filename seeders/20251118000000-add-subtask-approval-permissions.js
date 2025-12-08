@@ -3,7 +3,7 @@ const { QueryTypes } = require('sequelize');
 module.exports = {
     async up(queryInterface, Sequelize) {
         const now = new Date();
-        
+
         // Kiểm tra xem các permissions đã tồn tại chưa
         const existingPerms = await queryInterface.sequelize.query(
             "SELECT name FROM Permissions WHERE name IN ('subtasks:read', 'subtasks:create', 'subtasks:update', 'subtasks:delete', 'approvals:read', 'approvals:create', 'approvals:update')",

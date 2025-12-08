@@ -108,6 +108,17 @@ module.exports = (sequelize, DataTypes) => {
     ghiChu: {
       type: DataTypes.TEXT,
       allowNull: true
+    },
+    approvedBy: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      validate: {
+        isInt: true
+      }
+    },
+    approvedAt: {
+      type: DataTypes.DATE,
+      allowNull: true
     }
   }, {
     sequelize,

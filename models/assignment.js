@@ -37,6 +37,14 @@ module.exports = (sequelize, DataTypes) => {
         reason: {
             type: DataTypes.TEXT,
             allowNull: true
+        },
+        acceptedBy: {
+            type: DataTypes.INTEGER,
+            allowNull: true
+        },
+        acceptedAt: {
+            type: DataTypes.DATE,
+            allowNull: true
         }
     }, {
         sequelize,

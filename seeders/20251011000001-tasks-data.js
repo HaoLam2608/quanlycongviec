@@ -8,38 +8,38 @@ module.exports = {
       'SELECT id, manv FROM Users',
       { type: Sequelize.QueryTypes.SELECT }
     );
-    
+
     const projects = await queryInterface.sequelize.query(
       'SELECT id, tenduan FROM DuAns',
       { type: Sequelize.QueryTypes.SELECT }
     );
-    
+
     if (projects.length === 0 || users.length === 0) {
       console.log('Cần có ít nhất 1 dự án và users để tạo tasks');
       return;
     }
-    
+
     const adminUser = users.find(u => u.manv === 'ADMIN001') || users[0];
     const managerUser1 = users.find(u => u.manv === 'QLY001') || users[1] || users[0];
     const managerUser2 = users.find(u => u.manv === 'QLY002') || users[2] || users[0];
-    
+
     const findProjectIdByName = (name) => {
       const p = projects.find(x => x.tenduan === name);
       return p ? p.id : null;
     };
-    
+
     const findUserIdByManv = (manv) => {
       const u = users.find(x => x.manv === manv);
       return u ? u.id : null;
     };
-    
+
     const hrmProjectId = findProjectIdByName('Hệ thống quản lý nhân sự HRM');
     const ecommerceProjectId = findProjectIdByName('Website bán hàng trực tuyến');
     const mobileProjectId = findProjectIdByName('Ứng dụng mobile quản lý công việc');
     const biProjectId = findProjectIdByName('Hệ thống Business Intelligence');
-    
+
     const tasks = [];
-    
+
     // Tasks cho dự án đầu tiên (để Subtasks seeder có thể tham chiếu)
     const firstProjectId = projects[0]?.id;
     if (firstProjectId) {
@@ -142,7 +142,7 @@ module.exports = {
         }
       );
     }
-    
+
     // Tasks cho dự án HRM
     if (hrmProjectId) {
       tasks.push(
@@ -212,7 +212,7 @@ module.exports = {
         }
       );
     }
-    
+
     // Tasks cho dự án E-commerce
     if (ecommerceProjectId) {
       tasks.push(
@@ -250,7 +250,7 @@ module.exports = {
         }
       );
     }
-    
+
     // Tasks cho dự án Mobile App
     if (mobileProjectId) {
       tasks.push(
@@ -304,7 +304,7 @@ module.exports = {
         }
       );
     }
-    
+
     // Tasks cho dự án BI
     if (biProjectId) {
       tasks.push(
@@ -374,7 +374,7 @@ module.exports = {
         }
       );
     }
-    
+
     if (tasks.length > 0) {
       await queryInterface.bulkInsert('Tasks', tasks);
     }

@@ -370,15 +370,16 @@ exports.updateTask = async (req, res) => {
         });
 
         // Kiểm tra quyền cập nhật:
-        // 1. Người tạo task (nguoiGiaoId)
-        // 2. Người được giao task (nguoiDuocGiaoId)
-        // 3. Manager của dự án chứa task này
-        // 4. Admin (đã được kiểm tra ở middleware checkPermission)
+        // 1. Admin có tất cả quyền
+        // 2. Người tạo task (nguoiGiaoId)
+        // 3. Người được giao task (nguoiDuocGiaoId)
+        // 4. Manager của dự án chứa task này
+        const isAdmin = req.user.role?.name === 'admin';
         const isTaskCreator = task.nguoiGiaoId === req.user.id;
         const isTaskAssignee = task.nguoiDuocGiaoId === req.user.id;
         const isProjectManager = task.duan && task.duan.userId === req.user.id;
 
-        if (!isTaskCreator && !isTaskAssignee && !isProjectManager) {
+        if (!isAdmin && !isTaskCreator && !isTaskAssignee && !isProjectManager) {
             console.log('❌ [updateTask] Permission denied');
             return res.status(403).json({ error: 'Không có quyền cập nhật công việc này' });
         }
@@ -443,13 +444,27 @@ exports.deleteTask = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const task = await Task.findByPk(id);
+        const task = await Task.findByPk(id, {
+            include: [{
+                model: DuAn,
+                as: 'duan',
+                attributes: ['id', 'userId']
+            }]
+        });
+
         if (!task) {
             return res.status(404).json({ error: 'Không tìm thấy công việc' });
         }
 
-        // Kiểm tra quyền xóa (chỉ người tạo mới được xóa)
-        if (task.nguoiGiaoId !== req.user.id) {
+        // Kiểm tra quyền xóa:
+        // 1. Admin có tất cả quyền
+        // 2. Người tạo task (nguoiGiaoId)
+        // 3. Manager của dự án
+        const isAdmin = req.user.role?.name === 'admin';
+        const isTaskCreator = task.nguoiGiaoId === req.user.id;
+        const isProjectManager = task.duan && task.duan.userId === req.user.id;
+
+        if (!isAdmin && !isTaskCreator && !isProjectManager) {
             return res.status(403).json({ error: 'Không có quyền xóa công việc này' });
         }
 

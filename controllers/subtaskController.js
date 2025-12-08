@@ -110,7 +110,8 @@ exports.createSubtask = async (req, res) => {
             ngayBatDau,
             ngayKetThuc,
             thuTu: maxOrder + 1,
-            ghiChu
+            ghiChu,
+            createdBy: req.user.id
         });
 
         // If creator is assigning someone else (not themselves), create Assignment + Notification

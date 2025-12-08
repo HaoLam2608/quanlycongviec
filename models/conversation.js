@@ -24,7 +24,7 @@ module.exports = (sequelize, DataTypes) => {
         as: 'messages'
       });
 
-      // Many-to-many through ConversationParticipants
+      // Many-to-many through conversationparticipants
       Conversation.belongsToMany(models.User, {
         through: models.ConversationParticipant,
         foreignKey: 'conversationId',

@@ -13,8 +13,8 @@ exports.uploadDocument = async (req, res) => {
         // Giới hạn kích thước file cho BLOB storage (max 5MB)
         const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
         if (file.size > MAX_FILE_SIZE) {
-            return res.status(400).json({ 
-                message: `File quá lớn. Kích thước tối đa: 5MB. File của bạn: ${(file.size / (1024 * 1024)).toFixed(2)}MB` 
+            return res.status(400).json({
+                message: `File quá lớn. Kích thước tối đa: 5MB. File của bạn: ${(file.size / (1024 * 1024)).toFixed(2)}MB`
             });
         }
 
@@ -41,8 +41,8 @@ exports.uploadDocument = async (req, res) => {
 
         console.log('✅ Document uploaded successfully:', doc.id);
 
-        res.json({ 
-            message: 'Upload successful', 
+        res.json({
+            message: 'Upload successful',
             document: {
                 id: doc.id,
                 filename: doc.originalname,
@@ -51,17 +51,17 @@ exports.uploadDocument = async (req, res) => {
         });
     } catch (err) {
         console.error('❌ Upload error:', err);
-        
+
         // Xử lý lỗi cụ thể
         if (err.message && err.message.includes('Property storage exceeds')) {
-            return res.status(400).json({ 
-                message: 'File quá lớn để lưu vào database. Vui lòng chọn file nhỏ hơn 5MB.' 
+            return res.status(400).json({
+                message: 'File quá lớn để lưu vào database. Vui lòng chọn file nhỏ hơn 5MB.'
             });
         }
-        
-        res.status(500).json({ 
+
+        res.status(500).json({
             message: err.message || 'Lỗi khi upload tài liệu',
-            error: err.message 
+            error: err.message
         });
     }
 };

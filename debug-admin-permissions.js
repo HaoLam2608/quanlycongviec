@@ -5,19 +5,19 @@ async function debugAdminPermissions() {
         console.log('=== DEBUGGING ADMIN PERMISSIONS ===\n');
 
         // 1. Check admin user
-        const adminUser = await User.findOne({ 
+        const adminUser = await User.findOne({
             where: { email: 'admin001@example.com' },
             include: [{
                 model: Role,
                 as: 'role'
             }]
         });
-        
+
         if (!adminUser) {
             console.log('❌ Admin user not found');
             return;
         }
-        
+
         console.log('✅ Admin user found:');
         console.log(`   ID: ${adminUser.id}`);
         console.log(`   Email: ${adminUser.email}`);
@@ -30,15 +30,15 @@ async function debugAdminPermissions() {
         }
 
         // 2. Check permissions in Permission table
-        const usersReadPermission = await Permission.findOne({ 
-            where: { name: 'users:read' } 
+        const usersReadPermission = await Permission.findOne({
+            where: { name: 'users:read' }
         });
-        
+
         if (!usersReadPermission) {
             console.log('❌ Permission "users:read" not found in database');
             return;
         }
-        
+
         console.log('✅ Permission "users:read" exists:');
         console.log(`   ID: ${usersReadPermission.id}`);
         console.log(`   Name: ${usersReadPermission.name}`);
@@ -46,15 +46,15 @@ async function debugAdminPermissions() {
 
         // 3. Check if admin role has users:read permission
         const adminRolePermission = await RolePermission.findOne({
-            where: { 
+            where: {
                 roleId: adminUser.role.id,
-                permissionId: usersReadPermission.id 
+                permissionId: usersReadPermission.id
             }
         });
 
         if (!adminRolePermission) {
             console.log('❌ Admin role does not have "users:read" permission');
-            
+
             // Show all permissions for admin role
             const adminPermissions = await RolePermission.findAll({
                 where: { roleId: adminUser.role.id },
@@ -63,7 +63,7 @@ async function debugAdminPermissions() {
                     as: 'permission'
                 }]
             });
-            
+
             console.log(`Admin role has ${adminPermissions.length} permissions:`);
             adminPermissions.forEach(rp => {
                 console.log(`   - ${rp.permission.name}`);
@@ -86,7 +86,7 @@ async function debugAdminPermissions() {
             }]
         });
 
-        const hasUsersReadPermission = fullAdminUser.role?.permissions?.some(p => 
+        const hasUsersReadPermission = fullAdminUser.role?.permissions?.some(p =>
             p.name === 'users:read'
         );
 

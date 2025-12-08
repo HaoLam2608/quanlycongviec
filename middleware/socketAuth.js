@@ -23,7 +23,7 @@ const socketAuth = async (socket, next) => {
         // Verify JWT
         const decoded = jwt.verify(token, SECRET_KEY);
         console.log('✅ Token decoded successfully:', { userId: decoded.id, manv: decoded.manv });
-        
+
         // Fetch user from database with role association
         const user = await User.findByPk(decoded.id, {
             include: [{

@@ -9,29 +9,29 @@ module.exports = {
       'SELECT id, manv, hoten FROM Users',
       { type: QueryTypes.SELECT }
     );
-    
+
     const duans = await queryInterface.sequelize.query(
       'SELECT id, tenduan FROM DuAns',
       { type: QueryTypes.SELECT }
     );
-    
+
     if (users.length === 0 || duans.length === 0) {
       console.log('Cần có users và dự án để tạo documents');
       return;
     }
-    
+
     const getUser = (manv) => {
       const u = users.find(u => u.manv === manv);
       return u ? u.id : users[0].id;
     };
-    
+
     const getDuan = (tenduan) => {
       const d = duans.find(d => d.tenduan === tenduan);
       return d ? d.id : duans[0].id;
     };
-    
+
     const now = new Date();
-    
+
     const documents = [
       {
         filename: 'requirements-specification.pdf',
@@ -144,10 +144,10 @@ module.exports = {
         updatedAt: new Date('2024-11-15')
       }
     ];
-    
+
     // Lọc documents hợp lệ
     const validDocs = documents.filter(d => d.userId);
-    
+
     if (validDocs.length > 0) {
       await queryInterface.bulkInsert('Documents', validDocs);
     }

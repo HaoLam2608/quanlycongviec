@@ -66,7 +66,7 @@ function validateAnswer(answer, expectedPatterns, testName) {
 
     results.score = Math.round((matchedPatterns / expectedPatterns.length) * 100);
     results.passed = results.score >= 70; // 70% patterns match = pass
-    results.reason = results.passed 
+    results.reason = results.passed
         ? `${matchedPatterns}/${expectedPatterns.length} patterns matched (${results.score}%)`
         : `Failed: ${failedPatterns.join(', ')}`;
 
@@ -108,7 +108,7 @@ const TEST_QUESTIONS = [
             },
         ]
     },
-    
+
     // Overdue checks
     {
         category: '⏰ OVERDUE CHECK',
@@ -136,7 +136,7 @@ const TEST_QUESTIONS = [
             },
         ]
     },
-    
+
     // Personal data
     {
         category: '� MY DATA',
@@ -155,7 +155,7 @@ const TEST_QUESTIONS = [
             },
         ]
     },
-    
+
     // Listing & Search
     {
         category: '📋 LIST & SEARCH',
@@ -175,7 +175,7 @@ const TEST_QUESTIONS = [
             },
         ]
     },
-    
+
     // Advanced - Multi-criteria
     {
         category: '🎯 ADVANCED - MULTI-CRITERIA',
@@ -194,7 +194,7 @@ const TEST_QUESTIONS = [
             },
         ]
     },
-    
+
     // Advanced - Statistics
     {
         category: '� ADVANCED - STATISTICS',
@@ -220,7 +220,7 @@ const TEST_QUESTIONS = [
 async function runTests() {
     console.log('🚀 Starting AI Service V2 Test Suite với Validation\n');
     console.log('='.repeat(60));
-    
+
     let totalTests = 0;
     let passedTests = 0;
     let failedTests = 0;
@@ -253,7 +253,7 @@ async function runTests() {
 
                 // Validate answer
                 const validation = validateAnswer(response.answer, test.expectedPatterns, test.question);
-                
+
                 if (validation.passed) {
                     passedTests++;
                     console.log(`✅ PASS (${duration}ms) - ${validation.reason}`);
@@ -269,13 +269,13 @@ async function runTests() {
                         answer: response.answer.substring(0, 200)
                     });
                 }
-                
+
                 console.log(`🔍 Sources: ${JSON.stringify(response.sources)}`);
                 console.log(`💯 Confidence: ${response.confidence} | Score: ${validation.score}%`);
-                
+
                 // Add delay to avoid rate limit (only for Gemini API tests)
                 await new Promise(resolve => setTimeout(resolve, 2000));
-                
+
             } catch (error) {
                 failedTests++;
                 console.log(`❌ FAIL: ${error.message}`);
@@ -284,7 +284,7 @@ async function runTests() {
                     question: test.question,
                     reason: `Error: ${error.message}`
                 });
-                
+
                 // Add delay after error
                 await new Promise(resolve => setTimeout(resolve, 2000));
             }
@@ -296,9 +296,9 @@ async function runTests() {
     console.log('📊 TEST SUMMARY');
     console.log('='.repeat(60));
     console.log(`Total Tests: ${totalTests}`);
-    console.log(`✅ Passed: ${passedTests} (${Math.round(passedTests/totalTests*100)}%)`);
-    console.log(`❌ Failed: ${failedTests} (${Math.round(failedTests/totalTests*100)}%)`);
-    
+    console.log(`✅ Passed: ${passedTests} (${Math.round(passedTests / totalTests * 100)}%)`);
+    console.log(`❌ Failed: ${failedTests} (${Math.round(failedTests / totalTests * 100)}%)`);
+
     if (failedTests > 0) {
         console.log('\n' + '='.repeat(60));
         console.log('❌ FAILED TESTS DETAILS');
@@ -312,9 +312,9 @@ async function runTests() {
             }
         });
     }
-    
+
     console.log('\n' + (passedTests === totalTests ? '🎉 ALL TESTS PASSED!' : `⚠️  ${failedTests} TESTS FAILED - Need improvement`));
-    
+
     // Tính accuracy rate
     const accuracyRate = Math.round((passedTests / totalTests) * 100);
     console.log(`\n📈 Accuracy Rate: ${accuracyRate}%`);

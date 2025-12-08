@@ -99,7 +99,7 @@ module.exports = (sequelize, DataTypes) => {
                     msg: 'Đối tượng mục tiêu không được để trống'
                 },
                 isValidAudience(value) {
-                    const validAudiences = ['all', 'admin', 'manager', 'member'];
+                    const validAudiences = ['all', 'admin', 'manager', 'member', 'direct'];
                     const audiences = value.split(',');
                     for (const audience of audiences) {
                         if (!validAudiences.includes(audience.trim())) {

@@ -25,12 +25,46 @@ exports.createDuAn = async (req, res) => {
 // Lấy danh sách dự án + người đảm nhận
 exports.getAllDuAn = async (req, res) => {
     try {
-        const duans = await DuAn.findAll({
-            include: [{ model: User, as: 'nguoiDamNhan', attributes: ['id', 'manv', 'hoten', 'chucvu'] }]
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const offset = (page - 1) * limit;
+        const search = req.query.search;
+        const status = req.query.status;
+
+        let whereClause = {};
+
+        if (status && status !== 'all') {
+            whereClause.status = status;
+        }
+
+        if (search) {
+            const { Op } = require('sequelize');
+            whereClause[Op.or] = [
+                { tenduan: { [Op.like]: `%${search}%` } },
+                { mota: { [Op.like]: `%${search}%` } }
+            ];
+        }
+
+        const { count, rows } = await DuAn.findAndCountAll({
+            where: whereClause,
+            include: [{ model: User, as: 'nguoiDamNhan', attributes: ['id', 'manv', 'hoten', 'chucvu'] }],
+            order: [['createdAt', 'DESC']],
+            limit,
+            offset
         });
-        res.json(duans);
+
+        res.json({
+            success: true,
+            data: rows,
+            pagination: {
+                page,
+                limit,
+                total: count,
+                totalPages: Math.ceil(count / limit)
+            }
+        });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ success: false, error: err.message });
     }
 };
 // Lấy danh sách dự án theo managerId (dành cho admin hoặc dùng manv)
@@ -38,7 +72,7 @@ exports.getDuAnByManagerId = async (req, res) => {
     try {
         const { managerId } = req.params;
         console.log('🔍 getDuAnByManagerId called with:', managerId);
-        
+
         if (!managerId) return res.status(400).json({ message: 'managerId is required' });
 
         let whereClause = {};
