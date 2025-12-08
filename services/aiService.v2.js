@@ -85,7 +85,11 @@ class AIServiceV2 {
             needsProjects: false,
             needsTasks: false,
             needsGroups: false,
-            targetPerson: null
+            targetPerson: null,
+            wantsRoleInfo: false,
+            wantsGroupManagement: false,
+            wantsGroupMembers: false,
+            followUpGroupReference: false
         };
 
         // Detect question type
@@ -124,6 +128,31 @@ class AIServiceV2 {
         if (/người|user|thành viên/i.test(question)) {
             intent.entities.push('user');
             intent.needsUsers = true;
+        }
+
+        const roleKeywords = /(vai trò|vaitro|role|teamlead|team lead|leader|trưởng nhóm|truong nhom|quản lý nhóm|quan ly nhom)/i;
+        if (roleKeywords.test(question)) {
+            intent.wantsRoleInfo = true;
+            intent.needsGroups = true;
+            intent.needsUsers = true;
+        }
+
+        const groupManagementKeywords = /(quản lý nhóm|quan ly nhom|teamlead|team lead|dẫn dắt nhóm|dan dat nhom|lead team|lead nhóm|lead nhom|group lead)/i;
+        if (groupManagementKeywords.test(question) || (/nhóm|group|team/i.test(question) && /tôi|my|của tôi|cua toi|mình|minh/i.test(question))) {
+            intent.wantsGroupManagement = true;
+            intent.needsGroups = true;
+        }
+
+        const groupMemberKeywords = /(thành viên|member|members|trong nhóm|những ai trong|ai trong nhóm|team gồm|bao gồm những ai)/i;
+        if (groupMemberKeywords.test(question)) {
+            intent.wantsGroupMembers = true;
+            intent.needsGroups = true;
+            intent.needsUsers = true;
+        }
+
+        if (/trong đó|trong do|nhóm đó|nhom do|team đó|team do/i.test(question)) {
+            intent.followUpGroupReference = true;
+            intent.needsGroups = true;
         }
 
         // Detect status filters
@@ -281,9 +310,13 @@ class AIServiceV2 {
             include: [
                 { model: User, as: 'leader', attributes: ['id', 'hoten', 'manv'] },
                 {
-                    model: GroupMember,
-                    as: 'groupMembers',
-                    include: [{ model: User, as: 'user', attributes: ['id', 'hoten', 'manv'] }]
+                    model: User,
+                    as: 'members',
+                    attributes: ['id', 'hoten', 'manv'],
+                    through: {
+                        model: GroupMember,
+                        attributes: ['roleInGroup', 'joinedAt']
+                    }
                 }
             ]
         });
@@ -352,7 +385,12 @@ class AIServiceV2 {
 
         // Add current user context
         if (context.currentUser) {
-            prompt += `NGƯỜI DÙNG: ${context.currentUser.hoten} (ID: ${context.currentUser.id}, Mã: ${context.currentUser.manv})\n\n`;
+            const roleLabel = context.currentUser.role?.name || context.currentUser.chucvu;
+            prompt += `NGƯỜI DÙNG: ${context.currentUser.hoten} (ID: ${context.currentUser.id}, Mã: ${context.currentUser.manv || 'N/A'})\n`;
+            if (roleLabel) {
+                prompt += `VAI TRÒ HIỆN TẠI: ${roleLabel}\n`;
+            }
+            prompt += `\n`;
         }
 
         // Add specific instructions based on intent
@@ -378,7 +416,7 @@ class AIServiceV2 {
         }
 
         if (context.groups && context.groups.length > 0) {
-            prompt += this.formatGroupsCompact(context.groups);
+            prompt += this.formatGroupsCompact(context.groups, context.currentUser?.id, intent);
         }
 
         // Add instructions
@@ -388,9 +426,12 @@ class AIServiceV2 {
         prompt += `3. Nếu hỏi về "tôi/mình" → tìm theo ID người dùng hiện tại\n`;
         prompt += `4. Nếu hỏi về người khác → tìm theo tên trong danh sách\n`;
         prompt += `5. PIC = Person In Charge (người phụ trách)\n`;
-        prompt += `6. QUAN TRỌNG: Nếu hỏi "có bao nhiêu", "đếm", "tổng số" → trả lời SỐ LƯỢNG CỤ THỂ và LIỆT KÊ\n`;
-        prompt += `7. QUAN TRỌNG: Nếu hỏi "danh sách", "liệt kê" → LIỆT KÊ CHI TIẾT, KHÔNG NÓI "hỏi cụ thể hơn"\n`;
-        prompt += `8. Nếu không có dữ liệu → nói "Không có" hoặc "0", KHÔNG nói "hỏi cụ thể hơn"\n\n`;
+    prompt += `6. QUAN TRỌNG: Nếu hỏi "có bao nhiêu", "đếm", "tổng số" → trả lời SỐ LƯỢNG CỤ THỂ và LIỆT KÊ\n`;
+    prompt += `7. QUAN TRỌNG: Nếu hỏi "danh sách", "liệt kê" → LIỆT KÊ CHI TIẾT, KHÔNG NÓI "hỏi cụ thể hơn"\n`;
+    prompt += `8. Nếu không có dữ liệu → nói "Không có" hoặc "0", KHÔNG nói "hỏi cụ thể hơn"\n`;
+    prompt += `9. Nếu câu hỏi nhắc "vai trò", "teamlead", "leader" hoặc "nhóm của tôi" → mô tả rõ chức vụ hiện tại và các nhóm người dùng đang dẫn dắt/thuộc về.\n`;
+    prompt += `10. Đánh dấu những nhóm mà người dùng là leader bằng cụm từ "Bạn phụ trách" trong câu trả lời khi có dữ liệu.\n`;
+    prompt += `11. Nếu câu hỏi nhắc "thành viên"/"members" hoặc "nhóm đó" → liệt kê tên từng thành viên trong nhóm liên quan, ưu tiên nhóm mà người dùng đang phụ trách.\n\n`;
         
         prompt += `CÂU HỎI: ${question}\n\nTRẢ LỜI:`;
 
@@ -446,12 +487,25 @@ class AIServiceV2 {
         return text;
     }
 
-    formatGroupsCompact(groups) {
+    formatGroupsCompact(groups, currentUserId = null, intent = null) {
         let text = `NHÓM (${groups.length}):\n`;
         groups.slice(0, 10).forEach((g, i) => {
-            const leader = g.leader ? g.leader.hoten : 'Chưa có';
-            const members = g.groupMembers?.length || 0;
-            text += `${i+1}. ${g.name} | Leader: ${leader} | ${members} thành viên\n`;
+            const leaderName = g.leader ? `${g.leader.hoten}${g.leader.manv ? ` (${g.leader.manv})` : ''}` : 'Chưa có';
+            const members = this.getGroupMembers(g);
+            const memberCount = members.length;
+            const tags = [];
+            if (currentUserId && this.isUserLeaderOfGroup(g, currentUserId)) {
+                tags.push('Bạn phụ trách');
+            } else if (currentUserId && this.isUserMemberOfGroup(g, currentUserId)) {
+                tags.push('Bạn là thành viên');
+            }
+            text += `${i+1}. ${g.name} | Leader: ${leaderName} | ${memberCount} thành viên${tags.length ? ` | ${tags.join(', ')}` : ''}\n`;
+            if (intent?.wantsGroupMembers && memberCount > 0) {
+                const sampleMembers = members.slice(0, 4)
+                    .map(m => `${m.hoten}${m.manv ? ` (${m.manv})` : ''}`)
+                    .join(', ');
+                text += `   ↳ Thành viên: ${sampleMembers}${memberCount > 4 ? '…' : ''}\n`;
+            }
         });
         if (groups.length > 10) text += `... và ${groups.length - 10} nhóm khác\n`;
         text += `\n`;
@@ -479,7 +533,10 @@ class AIServiceV2 {
         }
         // Handle my data questions
         else if (intent.action === 'my_data') {
-            answer = this.handleMyDataQuestion(context);
+            answer = this.handleMyDataQuestion(context, intent);
+        }
+        else if (intent.wantsGroupMembers) {
+            answer = this.handleGroupMemberQuestion(context, intent);
         }
         // General summary
         else {
@@ -622,14 +679,64 @@ class AIServiceV2 {
             }
         }
 
+        const userGroups = (context.groups || []).filter(g => 
+            this.isUserLeaderOfGroup(g, user.id) || this.isUserMemberOfGroup(g, user.id)
+        );
+
+        if (userGroups.length > 0) {
+            answer += `\n👥 **Nhóm liên quan (${userGroups.length}):**\n`;
+            userGroups.forEach((g, i) => {
+                const relation = this.isUserLeaderOfGroup(g, user.id) ? 'Leader' : 'Thành viên';
+                answer += `${i+1}. ${g.name} · ${relation}\n`;
+            });
+        }
+
         return answer;
     }
 
-    handleMyDataQuestion(context) {
+    handleMyDataQuestion(context, intent) {
         const user = context.currentUser;
-        let answer = `👤 **DỮ LIỆU CỦA BẠN:**\n\n`;
+        if (!user) {
+            return '❌ Không xác định được thông tin người dùng hiện tại.';
+        }
 
-        // Projects I'm managing
+        const roleLabel = user.role?.name || user.chucvu || 'Chưa cập nhật';
+        let answer = `� Chào ${user.hoten}!\n\n`;
+        answer += `- 🧩 Vai trò hiện tại: **${roleLabel}**\n`;
+        if (user.chucvu && user.role?.name && user.role.name !== user.chucvu) {
+            answer += `- Chức danh nội bộ: ${user.chucvu}\n`;
+        }
+        if (user.manv) {
+            answer += `- Mã nhân viên: ${user.manv}\n`;
+        }
+        if (user.email) {
+            answer += `- Email: ${user.email}\n`;
+        }
+        answer += '\n';
+
+        const groups = context.groups || [];
+        const leadingGroups = groups.filter(g => this.isUserLeaderOfGroup(g, user.id));
+        const memberGroups = groups.filter(g => !this.isUserLeaderOfGroup(g, user.id) && this.isUserMemberOfGroup(g, user.id));
+
+        if (leadingGroups.length > 0) {
+            answer += `👨‍💼 **Nhóm bạn đang phụ trách (${leadingGroups.length}):**\n`;
+            leadingGroups.forEach((g, index) => {
+                const memberCount = g.members?.length || 0;
+                answer += `${index + 1}. ${g.name} · ${memberCount} thành viên\n`;
+            });
+            answer += '\n';
+        } else if (intent?.wantsGroupManagement || intent?.needsGroups) {
+            answer += '👨‍💼 Bạn hiện chưa được giao làm leader nhóm nào.\n\n';
+        }
+
+        if (memberGroups.length > 0) {
+            answer += `🤝 **Nhóm bạn đang tham gia (${memberGroups.length}):**\n`;
+            memberGroups.forEach((g, index) => {
+                answer += `${index + 1}. ${g.name} (Leader: ${g.leader?.hoten || 'Chưa có'})\n`;
+            });
+            answer += '\n';
+        }
+
         const myProjects = (context.projects || []).filter(p =>
             p.nguoiDamNhan && p.nguoiDamNhan.id === user.id
         );
@@ -645,7 +752,6 @@ class AIServiceV2 {
             answer += `📁 Bạn chưa được phân công phụ trách dự án nào.\n\n`;
         }
 
-        // Tasks assigned to me
         const myTasks = (context.tasks || []).filter(t =>
             t.nguoiDuocGiao && t.nguoiDuocGiao.id === user.id
         );
@@ -661,6 +767,48 @@ class AIServiceV2 {
             }
         } else {
             answer += `📋 Bạn chưa có công việc nào được giao.\n`;
+        }
+
+        return answer;
+    }
+
+    handleGroupMemberQuestion(context, intent) {
+        const user = context.currentUser;
+        if (!user) {
+            return '❌ Không xác định được thông tin người dùng hiện tại.';
+        }
+
+        const groups = context.groups || [];
+        const leadingGroups = groups.filter(g => this.isUserLeaderOfGroup(g, user.id));
+
+        if (leadingGroups.length === 0) {
+            return '❌ Bạn chưa phụ trách nhóm nào.';
+        }
+
+        // Focus on the first group they lead (most relevant for follow-up)
+        const targetGroup = leadingGroups[0];
+        const members = this.getGroupMembers(targetGroup);
+
+        let answer = `👥 **Thành viên nhóm "${targetGroup.name}":**\n\n`;
+        
+        if (members.length === 0) {
+            answer += 'Nhóm này chưa có thành viên nào.\n';
+        } else {
+            members.forEach((member, index) => {
+                const name = member.hoten || 'N/A';
+                const code = member.manv ? ` (${member.manv})` : '';
+                const role = member.chucvu || '';
+                answer += `${index + 1}. **${name}**${code}`;
+                if (role) {
+                    answer += ` - ${role}`;
+                }
+                answer += '\n';
+            });
+            answer += `\n_Tổng cộng: ${members.length} thành viên_`;
+        }
+
+        if (leadingGroups.length > 1) {
+            answer += `\n\n💡 _Bạn còn phụ trách ${leadingGroups.length - 1} nhóm khác. Hỏi cụ thể tên nhóm nếu cần xem thành viên của nhóm đó._`;
         }
 
         return answer;
@@ -698,6 +846,42 @@ class AIServiceV2 {
         if (context.users?.length) sources.push({ type: 'users', count: context.users.length });
         if (context.groups?.length) sources.push({ type: 'groups', count: context.groups.length });
         return sources;
+    }
+
+    getGroupMembers(group) {
+        if (!group) return [];
+        
+        // Try the belongsToMany association first
+        if (group.members && Array.isArray(group.members)) {
+            return group.members;
+        }
+        
+        // Fallback to hasMany association if available
+        if (group.groupMembers && Array.isArray(group.groupMembers)) {
+            return group.groupMembers.map(gm => gm.user).filter(u => u);
+        }
+        
+        return [];
+    }
+
+    isUserLeaderOfGroup(group, userId) {
+        if (!group || !userId) return false;
+        const leaderId = group.leader?.id || group.leaderId;
+        return leaderId === userId;
+    }
+
+    isUserMemberOfGroup(group, userId) {
+        if (!group || !userId) return false;
+
+        if (group.members && Array.isArray(group.members)) {
+            return group.members.some(member => member.id === userId || member.userId === userId);
+        }
+
+        if (group.groupMembers && Array.isArray(group.groupMembers)) {
+            return group.groupMembers.some(member => member.userId === userId || member.user?.id === userId);
+        }
+
+        return false;
     }
 
     generateErrorResponse(question, error) {

@@ -128,6 +128,29 @@ if (action === 'user_data') {
 ✅ Match: "người tên tên Lan Anh"
 ✅ Match: "Lan Anh đang làm gì"
 
+### 6. **Ngữ nghĩa + Ngôn ngữ tự nhiên**
+- ✅ **Semantic Ranking**: mỗi câu hỏi được chuyển thành vector embedding (`text-embedding-004`) rồi so khớp với nội dung dự án/công việc/thành viên → AI luôn ưu tiên đúng dữ liệu liên quan nhất.
+- ✅ **Context Highlight**: prompt now ghi rõ "DỰ ÁN LIÊN QUAN NHẤT", kèm % khớp để Gemini hiểu trọng tâm và tránh lan man.
+- ✅ **Tự nhiên hơn**: hướng dẫn mới yêu cầu trả lời tiếng Việt thân thiện, có markdown đẹp, nhắc AI phải nêu số liệu cụ thể và giải thích rõ ràng.
+- ✅ **Insight Summary**: trước khi trả lời, AI nhận đoạn tóm tắt "✨ GỢI Ý NGỮ NGHĨA" giúp nó hiểu nhanh các thực thể quan trọng.
+
+> Kết quả: AI hiểu câu hỏi "ngữ nghĩa" (ví dụ *"project onboarding của team sale"* vẫn match đúng dự án liên quan) và câu trả lời nghe giống con người hơn.
+
+### 7. **Bộ nhớ hội thoại & chủ đề nâng cao**
+- ✅ **Short-term memory**: lưu lại câu hỏi + intent gần nhất (trong 5 phút). Nếu người dùng hỏi "không có luôn à?" lập tức hiểu đây là câu hỏi tiếp nối và trả lời vào đúng chủ đề.
+- ✅ **Follow-up prompt**: Gemini nhận thêm phần "NGỮ CẢNH GẦN NHẤT" để không trả lời chệch hướng.
+- ✅ **Keyword inference**: nếu câu mới không có từ khóa nhưng trước đó đang nói "kiến trúc hệ thống", AI tự động gắn lại bộ từ khóa đó.
+- ✅ **Domain map mở rộng**: bổ sung các cụm như *"kiến trúc hệ thống", "system design", "solution architect"*, giúp truy vấn về kiến trúc/microservice trả lời chính xác hơn.
+
+> Nhờ đó, luồng hội thoại trở nên tự nhiên: bạn có thể hỏi liên tiếp "Có task kiến trúc hệ thống không?" → "không có luôn à?" và AI vẫn hiểu đang nói về cùng một chủ đề.
+
+### 8. **Intent JSON + RAG bảo chứng + Feedback loop**
+- ✅ **Intent JSON**: (ĐÃ TẮT THEO YÊU CẦU) trước đây mọi câu trả lời đính kèm block `Intent JSON`. Hiện tại backend không còn append block này vào câu trả lời gửi người dùng; thông tin intent chỉ dùng cho logging nội bộ.
+- ✅ **RAG Grounding**: prompt yêu cầu “không bịa” + fallback logic chỉ dùng dữ liệu DB/log. Nếu không có dữ liệu → trả lời rõ chưa có trong hệ thống.
+- ✅ **Feedback endpoint**: `/api/ai/feedback` nhận `responseId`, `rating (1-5)` và comment; dữ liệu được ghi vào `uploads/ai-feedback.log` để phân tích và cải thiện rule.
+- ✅ **Response ID**: mỗi câu trả lời có `responseId` để truy dấu và chấm điểm.
+- ✅ **Domain map mở rộng**: thêm security/devops/ops/product/hr/finance/support để người dùng hỏi gì cũng bám đúng lĩnh vực.
+
 ## 📊 So sánh hiệu năng
 
 | Feature | V1 | V2 | Improvement |

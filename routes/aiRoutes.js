@@ -12,4 +12,7 @@ router.post('/ask', aiController.askAI);
 // Chat history
 router.get('/history', aiController.getChatHistory);
 
+// Feedback
+router.post('/feedback', aiController.rateAnswer);
+
 module.exports = router;
