@@ -572,7 +572,35 @@ export default function ProjectDetailPage() {
     }
 
     const handleAddTask = async (e: React.FormEvent) => {
-        e.preventDefault()
+        e.preventDefault();
+
+        // Kiểm tra ngày bắt đầu và kết thúc của task phải nằm trong khoảng ngày của dự án
+        const projectStart = project?.ngaybatdau ? new Date(project.ngaybatdau) : null;
+        const projectEnd = project?.ngayketthuc ? new Date(project.ngayketthuc) : null;
+        const taskStart = taskFormData.startDate ? new Date(taskFormData.startDate) : null;
+        const taskEnd = taskFormData.dueDate ? new Date(taskFormData.dueDate) : null;
+
+        if (projectStart && taskStart && taskStart < projectStart) {
+            showWarning('Ngày bắt đầu của công việc phải lớn hơn hoặc bằng ngày bắt đầu của dự án!');
+            return;
+        }
+        if (projectEnd && taskStart && taskStart > projectEnd) {
+            showWarning('Ngày bắt đầu của công việc không được lớn hơn ngày kết thúc của dự án!');
+            return;
+        }
+        if (projectStart && taskEnd && taskEnd < projectStart) {
+            showWarning('Ngày kết thúc của công việc không được nhỏ hơn ngày bắt đầu của dự án!');
+            return;
+        }
+        if (projectEnd && taskEnd && taskEnd > projectEnd) {
+            showWarning('Ngày kết thúc của công việc phải nhỏ hơn hoặc bằng ngày kết thúc của dự án!');
+            return;
+        }
+        if (taskStart && taskEnd && taskStart > taskEnd) {
+            showWarning('Ngày bắt đầu của công việc phải nhỏ hơn hoặc bằng ngày kết thúc!');
+            return;
+        }
+
         try {
             const payload: any = {
                 tentask: taskFormData.name,

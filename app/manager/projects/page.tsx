@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import type React from "react"
 
 import Link from "next/link"
-import { FolderKanban, ArrowRight, Clock, Plus, User } from "lucide-react"
+import { FolderKanban, ArrowRight, Clock, Plus, User, Search, Filter } from "lucide-react"
 import Modal from "@/components/admin/Modal"
 import { createProject, fetchProjectsByManager, fetchUsers } from "@/axios/api"
 
@@ -35,6 +35,12 @@ export default function PMProjectsPage() {
     const [submitting, setSubmitting] = useState(false)
     const [isClient, setIsClient] = useState(false);
 
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 6; // 6 projects per page (2 columns x 3 rows)
+    const [searchTerm, setSearchTerm] = useState("");
+    const [statusFilter, setStatusFilter] = useState("all");
+
     useEffect(() => {
         setIsClient(true);
     }, []);
@@ -65,6 +71,24 @@ export default function PMProjectsPage() {
         }
         load()
     }, [isClient])
+
+    // Filter projects by search and status
+    const filteredProjects = projects.filter(project => {
+        const matchesSearch = searchTerm === "" ||
+            project.tenduan?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            project.mota?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            project.nguoiDamNhan?.hoten?.toLowerCase().includes(searchTerm.toLowerCase());
+
+        const matchesStatus = statusFilter === "all" || project.status === statusFilter;
+
+        return matchesSearch && matchesStatus;
+    });
+
+    // Calculate pagination
+    const totalPages = Math.ceil(filteredProjects.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const currentProjects = filteredProjects.slice(startIndex, endIndex);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -106,7 +130,42 @@ export default function PMProjectsPage() {
                     </h1>
                     <p className="text-muted-foreground">Theo dõi tiến độ và quản lý các dự án của bạn</p>
                 </div>
-                
+
+            </div>
+
+            {/* Search and Filter */}
+            <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                        <input
+                            type="text"
+                            placeholder="Tìm kiếm dự án..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2.5 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                        />
+                    </div>
+                    <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="px-4 py-2.5 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                    >
+                        <option value="all">Tất cả trạng thái</option>
+                        <option value="chua_bat_dau">Chưa bắt đầu</option>
+                        <option value="dang_chay">Đang chạy</option>
+                        <option value="da_hoan_thanh">Đã hoàn thành</option>
+                        <option value="da_dong">Đã đóng</option>
+                    </select>
+                </div>
+                {filteredProjects.length > 0 && (
+                    <div className="mt-3 text-sm text-muted-foreground">
+                        Hiển thị <span className="font-medium text-foreground">{currentProjects.length}</span> / <span className="font-medium text-foreground">{filteredProjects.length}</span> dự án
+                        {(searchTerm || statusFilter !== "all") && (
+                            <span> (từ tổng số {projects.length} dự án)</span>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Projects Grid */}
@@ -132,67 +191,135 @@ export default function PMProjectsPage() {
                 </div>
             ) : projects.length === 0 ? (
                 <div className="p-6 bg-card border border-border rounded-2xl">Chưa có dự án được phân công cho bạn.</div>
+            ) : filteredProjects.length === 0 ? (
+                <div className="p-6 bg-card border border-border rounded-2xl">
+                    Không tìm thấy dự án nào phù hợp với tiêu chí tìm kiếm.
+                    {(searchTerm || statusFilter !== "all") && (
+                        <button
+                            onClick={() => {
+                                setSearchTerm("");
+                                setStatusFilter("all");
+                            }}
+                            className="ml-2 text-primary hover:underline"
+                        >
+                            Xóa bộ lọc
+                        </button>
+                    )}
+                </div>
             ) : (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {projects.map((project: any) => (
-                        <Link key={project.id} href={`/manager/projects/${project.id}`}>
-                            <div className="group bg-card border border-border rounded-2xl p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 cursor-pointer shadow-sm">
-                                <div className="flex items-start justify-between mb-4">
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <span className="text-xs font-mono text-muted-foreground bg-secondary px-2 py-1 rounded">
-                                                PJ-{project.id}
-                                            </span>
-                                            <span
-                                                className={`px-3 py-1 rounded-full text-xs font-medium ${project.status === "da_hoan_thanh"
-                                                    ? "bg-green-100 text-green-700 border border-green-200"
-                                                    : project.status === "dang_chay"
-                                                        ? "bg-blue-100 text-blue-700 border border-blue-200"
-                                                        : project.status === "da_dong"
-                                                            ? "bg-gray-200 text-gray-700 border border-gray-300"
-                                                            : "bg-yellow-100 text-yellow-700 border border-yellow-200"
+                <>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {currentProjects.map((project: any) => (
+                            <Link key={project.id} href={`/manager/projects/${project.id}`}>
+                                <div className="group bg-card border border-border rounded-2xl p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 cursor-pointer shadow-sm">
+                                    <div className="flex items-start justify-between mb-4">
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <span className="text-xs font-mono text-muted-foreground bg-secondary px-2 py-1 rounded">
+                                                    PJ-{project.id}
+                                                </span>
+                                                <span
+                                                    className={`px-3 py-1 rounded-full text-xs font-medium ${project.status === "da_hoan_thanh"
+                                                        ? "bg-green-100 text-green-700 border border-green-200"
+                                                        : project.status === "dang_chay"
+                                                            ? "bg-blue-100 text-blue-700 border border-blue-200"
+                                                            : project.status === "da_dong"
+                                                                ? "bg-gray-200 text-gray-700 border border-gray-300"
+                                                                : "bg-yellow-100 text-yellow-700 border border-yellow-200"
+                                                        }`}
+                                                >
+                                                    {project.status === "da_hoan_thanh"
+                                                        ? "Đã hoàn thành"
+                                                        : project.status === "dang_chay"
+                                                            ? "Đang chạy"
+                                                            : project.status === "da_dong"
+                                                                ? "Đã đóng"
+                                                                : "Chưa bắt đầu"}
+                                                </span>
+
+                                            </div>
+                                            <h3 className="text-2xl font-bold text-foreground mb-2">{project.tenduan}</h3>
+                                            <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                                                <User size={14} />
+                                                Quản lý:{" "}
+                                                <span className="font-medium text-foreground">
+                                                    {project.nguoiDamNhan?.hoten || "Chưa phân công"}
+                                                </span>
+                                            </p>
+                                            <div className="mt-3 flex items-center gap-4 text-sm text-muted-foreground">
+                                                <div className="flex items-center gap-2">
+                                                    <Clock size={14} />
+                                                    <span>Bắt đầu: <span className="font-medium text-foreground">{formatDate(project.ngaybatdau)}</span></span>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <Clock size={14} />
+                                                    <span>Kết thúc: <span className="font-medium text-foreground">{formatDate(project.ngayketthuc)}</span></span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="p-2 rounded-lg bg-secondary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                                            <ArrowRight size={20} />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-3">
+                                        <p className="text-sm text-muted-foreground">{project.mota}</p>
+                                    </div>
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                        <div className="mt-6 p-4 bg-card border border-border rounded-2xl">
+                            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                                <p className="text-sm text-muted-foreground">
+                                    Hiển thị {startIndex + 1} - {Math.min(endIndex, filteredProjects.length)} trong tổng số {filteredProjects.length} dự án
+                                </p>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                        disabled={currentPage === 1}
+                                        className="px-3 py-1.5 text-sm bg-secondary text-foreground rounded-lg hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                    >
+                                        Trước
+                                    </button>
+                                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                        let pageNum;
+                                        if (totalPages <= 5) {
+                                            pageNum = i + 1;
+                                        } else if (currentPage <= 3) {
+                                            pageNum = i + 1;
+                                        } else if (currentPage >= totalPages - 2) {
+                                            pageNum = totalPages - 4 + i;
+                                        } else {
+                                            pageNum = currentPage - 2 + i;
+                                        }
+                                        return (
+                                            <button
+                                                key={pageNum}
+                                                onClick={() => setCurrentPage(pageNum)}
+                                                className={`px-3 py-1.5 text-sm rounded-lg transition-all ${currentPage === pageNum
+                                                    ? 'bg-primary text-primary-foreground font-semibold'
+                                                    : 'bg-secondary text-foreground hover:bg-secondary/80'
                                                     }`}
                                             >
-                                                {project.status === "da_hoan_thanh"
-                                                    ? "Đã hoàn thành"
-                                                    : project.status === "dang_chay"
-                                                        ? "Đang chạy"
-                                                        : project.status === "da_dong"
-                                                            ? "Đã đóng"
-                                                            : "Chưa bắt đầu"}
-                                            </span>
-
-                                        </div>
-                                        <h3 className="text-2xl font-bold text-foreground mb-2">{project.tenduan}</h3>
-                                        <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                                            <User size={14} />
-                                            Quản lý:{" "}
-                                            <span className="font-medium text-foreground">
-                                                {project.nguoiDamNhan?.hoten || "Chưa phân công"}
-                                            </span>
-                                        </p>
-                                        <div className="mt-3 flex items-center gap-4 text-sm text-muted-foreground">
-                                            <div className="flex items-center gap-2">
-                                                <Clock size={14} />
-                                                <span>Bắt đầu: <span className="font-medium text-foreground">{formatDate(project.ngaybatdau)}</span></span>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <Clock size={14} />
-                                                <span>Kết thúc: <span className="font-medium text-foreground">{formatDate(project.ngayketthuc)}</span></span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="p-2 rounded-lg bg-secondary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                                        <ArrowRight size={20} />
-                                    </div>
-                                </div>
-                                <div className="space-y-3">
-                                    <p className="text-sm text-muted-foreground">{project.mota}</p>
+                                                {pageNum}
+                                            </button>
+                                        );
+                                    })}
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                        disabled={currentPage === totalPages}
+                                        className="px-3 py-1.5 text-sm bg-secondary text-foreground rounded-lg hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                                    >
+                                        Sau
+                                    </button>
                                 </div>
                             </div>
-                        </Link>
-                    ))}
-                </div>
+                        </div>
+                    )}
+                </>
             )}
 
             <Modal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} title="Tạo dự án mới">
