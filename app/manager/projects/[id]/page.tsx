@@ -1,6 +1,6 @@
 "use client"
 import type React from "react"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import {
@@ -198,6 +198,17 @@ export default function ProjectDetailPage() {
     const [uploadDesc, setUploadDesc] = useState('');
     const [expandedWorklogTaskId, setExpandedWorklogTaskId] = useState<number | null>(null);
 
+    const isProjectCompleted = useMemo(() => {
+        const rawStatus = (project?.status ?? project?.trangThai ?? project?.trangthai ?? "").toString().trim().toLowerCase();
+        if (!rawStatus) return false;
+        const normalized = rawStatus
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/đ/g, "d")
+            .replace(/[\s-]+/g, "_");
+        return normalized === "da_hoan_thanh" || normalized === "hoan_thanh" || normalized === "completed";
+    }, [project?.status, project?.trangThai, project?.trangthai]);
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const f = e.target.files?.[0] || null;
         setUploadFile(f);
@@ -308,6 +319,7 @@ export default function ProjectDetailPage() {
         priority: "medium",
         dueDate: "",
         startDate: "",
+        status: "Chưa bắt đầu",
     });
 
     // Effect to populate edit subtask form when a subtask is selected for editing
@@ -333,6 +345,7 @@ export default function ProjectDetailPage() {
                 priority: editTask.mucDoUuTien || "medium",
                 startDate: editTask.ngayBatDau ? new Date(editTask.ngayBatDau).toISOString().slice(0, 10) : "",
                 dueDate: editTask.ngayKetThuc ? new Date(editTask.ngayKetThuc).toISOString().slice(0, 10) : "",
+                status: editTask.trangThai || "Chưa bắt đầu",
             });
         }
     }, [editTask]);
@@ -351,11 +364,6 @@ export default function ProjectDetailPage() {
             showError('Lỗi khi xóa công việc!');
         }
     };
-
-
-
-
-
 
 
     useEffect(() => {
@@ -577,7 +585,39 @@ export default function ProjectDetailPage() {
     }
 
     const handleAddTask = async (e: React.FormEvent) => {
-        e.preventDefault()
+        e.preventDefault();
+        if (isProjectCompleted) {
+            showWarning('Dự án đã hoàn thành, không thể tạo công việc mới.');
+            return;
+        }
+
+        // Kiểm tra ngày bắt đầu và kết thúc của task phải nằm trong khoảng ngày của dự án
+        const projectStart = project?.ngaybatdau ? new Date(project.ngaybatdau) : null;
+        const projectEnd = project?.ngayketthuc ? new Date(project.ngayketthuc) : null;
+        const taskStart = taskFormData.startDate ? new Date(taskFormData.startDate) : null;
+        const taskEnd = taskFormData.dueDate ? new Date(taskFormData.dueDate) : null;
+
+        if (projectStart && taskStart && taskStart < projectStart) {
+            showWarning('Ngày bắt đầu của công việc phải lớn hơn hoặc bằng ngày bắt đầu của dự án!');
+            return;
+        }
+        if (projectEnd && taskStart && taskStart > projectEnd) {
+            showWarning('Ngày bắt đầu của công việc không được lớn hơn ngày kết thúc của dự án!');
+            return;
+        }
+        if (projectStart && taskEnd && taskEnd < projectStart) {
+            showWarning('Ngày kết thúc của công việc không được nhỏ hơn ngày bắt đầu của dự án!');
+            return;
+        }
+        if (projectEnd && taskEnd && taskEnd > projectEnd) {
+            showWarning('Ngày kết thúc của công việc phải nhỏ hơn hoặc bằng ngày kết thúc của dự án!');
+            return;
+        }
+        if (taskStart && taskEnd && taskStart > taskEnd) {
+            showWarning('Ngày bắt đầu của công việc phải nhỏ hơn hoặc bằng ngày kết thúc!');
+            return;
+        }
+
         try {
             const payload: any = {
                 tentask: taskFormData.name,
@@ -758,12 +798,14 @@ export default function ProjectDetailPage() {
                                 {project?.nguoiDamNhan?.hoten || "Chưa phân công"}
                             </span>
                         </p>
+                        
+                       <div className="text-muted-foreground flex items-center gap-2">
+                            <Calendar size={16} />
+                            <span>{formatDate(project?.ngaybatdau)} - {formatDate(project?.ngayketthuc)}</span>
+                        </div>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Calendar size={16} />
-                        <span>
-                            {formatDate(project?.ngaybatdau)} - {formatDate(project?.ngayketthuc)}
-                        </span>
+                        
                         <div className="flex flex-wrap gap-2">
                             <button
                                 onClick={() => setIsEditModalOpen(true)}
@@ -784,8 +826,6 @@ export default function ProjectDetailPage() {
                                 Xoá dự án
                             </button>
                         </div>
-
-
                     </div>
                 </div>
 
@@ -857,8 +897,14 @@ export default function ProjectDetailPage() {
                             <div className="flex items-center justify-between mb-4">
                                 <h2 className="text-2xl font-bold text-foreground">Danh sách công việc</h2>
                                 <button
-                                    onClick={() => setIsAddTaskModalOpen(true)}
-                                    className="px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all flex items-center gap-2"
+                                    onClick={() => {
+                                        if (isProjectCompleted) {
+                                            showWarning('Dự án đã hoàn thành, không thể tạo thêm công việc.');
+                                            return;
+                                        }
+                                        setIsAddTaskModalOpen(true);
+                                    }}
+                                    className={`px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg font-semibold transition-all flex items-center gap-2 ${isProjectCompleted ? 'opacity-60 cursor-not-allowed hover:shadow-none' : 'hover:shadow-lg hover:shadow-blue-500/30'}`}
                                 >
                                     <Plus size={18} />
                                     Thêm công việc
@@ -1767,6 +1813,7 @@ export default function ProjectDetailPage() {
                                 ngayBatDau: editTaskForm.startDate,
                                 ngayKetThuc: editTaskForm.dueDate,
                                 nguoiDuocGiaoId: Number(editTaskForm.assigneeId),
+                                trangThai: editTaskForm.status,
                             });
                             const tasksData = await getTasksByProject(id as string);
                             setTasks(tasksData.tasks || []);
@@ -1840,18 +1887,34 @@ export default function ProjectDetailPage() {
                         </div>
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-semibold text-foreground mb-2">Độ ưu tiên *</label>
-                        <select
-                            required
-                            value={editTaskForm.priority}
-                            onChange={(e) => setEditTaskForm({ ...editTaskForm, priority: e.target.value })}
-                            className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                        >
-                            <option value="low">Thấp</option>
-                            <option value="medium">Trung bình</option>
-                            <option value="high">Cao</option>
-                        </select>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-semibold text-foreground mb-2">Độ ưu tiên *</label>
+                            <select
+                                required
+                                value={editTaskForm.priority}
+                                onChange={(e) => setEditTaskForm({ ...editTaskForm, priority: e.target.value })}
+                                className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                            >
+                                <option value="low">Thấp</option>
+                                <option value="medium">Trung bình</option>
+                                <option value="high">Cao</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-semibold text-foreground mb-2">Trạng thái *</label>
+                            <select
+                                required
+                                value={editTaskForm.status || editTask?.trangThai || 'Chưa bắt đầu'}
+                                onChange={(e) => setEditTaskForm({ ...editTaskForm, status: e.target.value })}
+                                className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                            >
+                                <option value="Chưa bắt đầu">Chưa bắt đầu</option>
+                                <option value="Đang chạy">Đang chạy</option>
+                                <option value="Hoàn thành">Hoàn thành</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div className="flex gap-3 pt-4">

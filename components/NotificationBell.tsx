@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Bell, X, Circle, AlertCircle, Info, CheckCircle2 } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { Bell, X, Circle, AlertCircle, Info, CheckCircle2, AtSign } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { notificationUserAPI, type Notification } from '@/axios/notificationAPI'
@@ -23,6 +24,8 @@ const getNotificationIcon = (type: string) => {
             return <AlertCircle className="w-4 h-4 text-red-500" />
         case 'announcement':
             return <Bell className="w-4 h-4 text-purple-500" />
+        case 'mention':
+            return <AtSign className="w-4 h-4 text-sky-500" />
         default:
             return <Circle className="w-4 h-4 text-gray-500" />
     }
@@ -40,6 +43,8 @@ const getTypeColor = (type: string) => {
             return 'border-l-red-500 bg-red-50'
         case 'announcement':
             return 'border-l-purple-500 bg-purple-50'
+        case 'mention':
+            return 'border-l-sky-500 bg-sky-50'
         default:
             return 'border-l-gray-500 bg-gray-50'
     }
@@ -57,15 +62,39 @@ const getTypeLabel = (type: string) => {
             return 'Nhắc deadline'
         case 'announcement':
             return 'Thông báo'
+        case 'mention':
+            return 'Nhắc tới bạn'
         default:
             return 'Khác'
     }
+}
+
+const extractNotificationMeta = (notification: Notification) => {
+    let meta = notification.userMeta ?? notification.meta ?? {}
+    
+    // If meta is a string, parse it as JSON
+    if (typeof meta === 'string') {
+        try {
+            meta = JSON.parse(meta)
+        } catch (e) {
+            console.warn('Failed to parse notification meta:', e)
+            meta = {}
+        }
+    }
+    
+    return meta
+}
+
+const isMentionNotification = (notification: Notification) => {
+    const meta = extractNotificationMeta(notification) as any
+    return meta?.eventType === 'mention' || meta?.type === 'mention'
 }
 
 export default function NotificationBell({ userRole }: NotificationBellProps) {
     const [isOpen, setIsOpen] = useState(false)
     const [notifications, setNotifications] = useState<Notification[]>([])
     const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null)
+    const [isClient, setIsClient] = useState(false)
     const [declineReason, setDeclineReason] = useState('')
     const [processingAction, setProcessingAction] = useState(false)
     const [loading, setLoading] = useState(false)
@@ -73,12 +102,32 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
     const [assignmentStatus, setAssignmentStatus] = useState<string | null>(null)
     const [assignmentAssigneeName, setAssignmentAssigneeName] = useState<string | null>(null)
 
+    const handleCloseModal = () => {
+        setSelectedNotification(null)
+        setAssignmentStatus(null)
+        setAssignmentAssigneeName(null)
+        setDeclineReason('')
+    }
+
+    useEffect(() => {
+        setIsClient(true)
+    }, [])
+
     const fetchNotifications = async () => {
         try {
             setLoading(true)
             const response = await notificationUserAPI.getMyNotifications({ limit: 20 })
+            console.log('📬 Fetched notifications:', response)
             if (response.success) {
                 setNotifications(response.data)
+                console.log('✅ Total notifications:', response.data.length)
+                console.log('Notifications data:', response.data.map((n: any) => ({
+                    id: n.id,
+                    title: n.title,
+                    type: n.type,
+                    meta: n.userMeta || n.meta,
+                    isRead: n.isRead
+                })))
             }
 
             // no task-specific fetch — we keep only general and assignment notifications
@@ -142,6 +191,10 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                 // Exclude notifications for manager approvals
                 if (!title.includes('yêu cầu') && !content.includes('yêu cầu')) return true;
             }
+            // Also detect rejected claim requests - teamlead should see these
+            if (title.includes('yêu cầu nhận công việc bị từ chối') || content.includes('yêu cầu nhận công việc') && content.includes('từ chối')) {
+                return true;
+            }
         } catch (err) {
             // ignore
         }
@@ -149,22 +202,36 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
     }
 
     // Separate notifications into general and assignments using the robust detector
-    // Filter out request-to-join notifications from assignments tab (those are for manager approvals)
+    // Filter out regular request-to-join notifications from assignments tab (those are for manager approvals page)
+    // BUT keep claim requests (requestToJoin with action: 'claim_request') - these are actionable in the bell
     const assignmentNotifications = notifications.filter(n => {
+        if (isMentionNotification(n)) return false;
+        
+        // Include all 'task' type notifications in assignments tab
+        if (n.type === 'task' || n.type === 'deadline_reminder')  return true;
+        
         const isAssignment = isAssignmentNotification(n) || looksLikeAssignmentByText(n);
         if (!isAssignment) return false;
 
-        // Exclude request-to-join notifications (requestToJoin metadata)
+        // Check for request-to-join metadata
         const meta = n.userMeta || n.meta || {};
-        if (meta.requestToJoin) return false;
+        if (meta.requestToJoin) {
+            // Keep claim requests (have action: 'claim_request') - these should appear in bell
+            if (meta.action === 'claim_request') return true;
+            // Exclude regular join requests (no action field) - these go to approvals page only
+            return false;
+        }
 
+        // Keep all other assignment notifications including:
+        // - Direct assignments (meta.assignmentId without requestToJoin)
+        // - Rejected claim requests (meta.action === 'rejected')
+        // - Accepted assignments, etc.
         return true;
     })
-    // General notifications: only show announcement and system types
+    // General notifications: only show announcement and system types (task notifications go to assignments tab)
     const generalNotifications = notifications.filter(n => {
-        const isAssignment = isAssignmentNotification(n) || looksLikeAssignmentByText(n);
-        if (isAssignment) return false;
-        // Only include announcement and system types
+        if (isMentionNotification(n)) return true;
+        // Only include announcement and system types (task type goes to assignments tab)
         return n.type === 'announcement' || n.type === 'system';
     })
     const activeNotifications = activeTab === 'assignments' ? assignmentNotifications : generalNotifications
@@ -211,15 +278,30 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
             markAsRead(notification.id)
         }
 
+        // Extract and parse meta (handles string JSON)
+        const meta = extractNotificationMeta(notification) as any
+        const assignmentId = meta?.assignmentId
+        
+        console.log('🔍 Notification clicked:', {
+            title: notification.title,
+            type: notification.type,
+            assignmentId,
+            parsedMeta: meta,
+            rawUserMeta: notification.userMeta,
+            rawMeta: notification.meta
+        })
+        
         // If this is an assignment notification, fetch assignment status and show modal
-        if (notification.userMeta?.assignmentId) {
+        if (assignmentId) {
             try {
-                const assignmentResponse = await notificationUserAPI.getAssignment(String(notification.userMeta.assignmentId))
+                const assignmentResponse = await notificationUserAPI.getAssignment(String(assignmentId))
+                console.log('📋 Assignment response:', assignmentResponse)
                 if (assignmentResponse.success) {
                     setAssignmentStatus(assignmentResponse.data.status)
                     const assignee = assignmentResponse.data.assignee
                     const assigneeName = assignee?.hoten || assignee?.manv || null
                     setAssignmentAssigneeName(assigneeName)
+                    console.log('✅ Assignment status set:', assignmentResponse.data.status)
                 }
             } catch (error) {
                 console.error('Error fetching assignment status:', error)
@@ -256,7 +338,8 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
 
     const handleAccept = async () => {
         if (!selectedNotification) return
-        const assignmentId = selectedNotification.userMeta?.assignmentId
+        const meta = extractNotificationMeta(selectedNotification) as any
+        const assignmentId = meta?.assignmentId
         if (!assignmentId) return
         try {
             setProcessingAction(true)
@@ -276,7 +359,8 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
 
     const handleDecline = async () => {
         if (!selectedNotification) return
-        const assignmentId = selectedNotification.userMeta?.assignmentId
+        const meta = extractNotificationMeta(selectedNotification) as any
+        const assignmentId = meta?.assignmentId
         if (!assignmentId) return
         if (!declineReason.trim()) {
             alert('Vui lòng nhập lý do từ chối')
@@ -366,18 +450,18 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                 </button>
 
                 {isOpen && (
-                    <div className="fixed right-4 top-16 w-96 bg-white rounded-xl shadow-2xl border z-[9999] max-h-[70vh] overflow-hidden ring-1 ring-black/5">
-                        <div className="p-3.5 border-b bg-white/60 backdrop-blur-sm">
+                    <div className="fixed right-4 top-16 w-96 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-[9999] max-h-[70vh] overflow-hidden ring-1 ring-black/5 dark:ring-white/5">
+                        <div className="p-3.5 border-b border-gray-200 dark:border-gray-700 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
-                                    <h3 className="font-semibold text-gray-900">Thông báo</h3>
-                                    <span className="text-xs text-gray-500">{unreadCount} chưa đọc</span>
+                                    <h3 className="font-semibold text-gray-900 dark:text-white">Thông báo</h3>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">{unreadCount} chưa đọc</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     {((activeTab === 'general' ? generalUnreadCount : assignmentUnreadCount)) > 0 && (
                                         <button
                                             onClick={markAllAsRead}
-                                            className="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded-md border border-blue-100 hover:bg-blue-100"
+                                            className="px-2 py-1 text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-md border border-blue-100 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/50"
                                             disabled={loading}
                                         >
                                             Đánh dấu đã đọc
@@ -386,7 +470,7 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                                     <button
                                         onClick={() => setIsOpen(false)}
                                         aria-label="Đóng thông báo"
-                                        className="text-gray-400 hover:text-gray-600 p-1 rounded"
+                                        className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded"
                                     >
                                         <X className="w-4 h-4" />
                                     </button>
@@ -394,12 +478,12 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                             </div>
 
                             {/* Tab Navigation */}
-                            <div className="mt-3 flex rounded-md overflow-hidden bg-gray-50">
+                            <div className="mt-3 flex rounded-md overflow-hidden bg-gray-50 dark:bg-gray-700">
                                 <button
                                     onClick={() => setActiveTab('general')}
                                     className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'general'
-                                        ? 'bg-white text-blue-600'
-                                        : 'text-gray-600 hover:bg-gray-100'
+                                        ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400'
+                                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
                                         }`}
                                 >
                                     Thông báo chung
@@ -412,8 +496,8 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                                 <button
                                     onClick={() => setActiveTab('assignments')}
                                     className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${activeTab === 'assignments'
-                                        ? 'bg-white text-blue-600'
-                                        : 'text-gray-600 hover:bg-gray-100'
+                                        ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400'
+                                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600'
                                         }`}
                                 >
                                     Công việc
@@ -427,40 +511,51 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                             </div>
                         </div>
 
-                        <div className="max-h-[55vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200">
+                        <div className="max-h-[55vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-600">
                             {loading ? (
-                                <div className="p-6 text-center text-gray-500">
+                                <div className="p-6 text-center text-gray-500 dark:text-gray-400">
                                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-3"></div>
                                     <p>Đang tải thông báo...</p>
                                 </div>
                             ) : activeNotifications.length === 0 ? (
-                                <div className="p-8 text-center text-gray-500">
-                                    <Bell className="w-10 h-10 mx-auto mb-3 text-gray-300" />
-                                    <p className="font-medium text-gray-700">Không có thông báo</p>
-                                    <p className="text-sm text-gray-500 mt-1">Bạn sẽ nhận được thông báo khi có hoạt động liên quan.</p>
+                                <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                                    <Bell className="w-10 h-10 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+                                    <p className="font-medium text-gray-700 dark:text-gray-300">Không có thông báo</p>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Bạn sẽ nhận được thông báo khi có hoạt động liên quan.</p>
                                 </div>
                             ) : (
-                                <div className="divide-y">
+                                <div className="divide-y divide-gray-200 dark:divide-gray-700">
                                     {activeNotifications.map((notification) => {
                                         const isRead = notification.isRead
-                                        const displayType = notification.type
+                                        const displayType = isMentionNotification(notification) ? 'mention' : notification.type
+                                        const iconWrapperClass = displayType === 'system'
+                                            ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                                            : displayType === 'project'
+                                                ? 'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                                                : displayType === 'task'
+                                                    ? 'bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'
+                                                    : displayType === 'announcement'
+                                                        ? 'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
+                                                        : displayType === 'mention'
+                                                            ? 'bg-sky-50 dark:bg-sky-900/30 text-sky-600 dark:text-sky-400'
+                                                            : 'bg-gray-50 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                                         return (
                                             <div
                                                 key={notification.id}
                                                 onClick={() => handleNotificationClick(notification)}
-                                                className={`flex gap-3 px-4 py-3 items-start hover:bg-gray-50 cursor-pointer transition-colors ${!isRead ? 'bg-blue-50' : 'bg-white'}`}
+                                                className={`flex gap-3 px-4 py-3 items-start hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors ${!isRead ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-white dark:bg-gray-800'}`}
                                             >
                                                 <div className="flex-shrink-0">
-                                                    <div className={`w-10 h-10 rounded-md flex items-center justify-center ${displayType === 'system' ? 'bg-blue-50 text-blue-600' : displayType === 'project' ? 'bg-green-50 text-green-600' : displayType === 'task' ? 'bg-orange-50 text-orange-600' : 'bg-purple-50 text-purple-600'}`}>
-                                                        {getNotificationIcon(notification.type)}
+                                                    <div className={`w-10 h-10 rounded-md flex items-center justify-center ${iconWrapperClass}`}>
+                                                        {getNotificationIcon(displayType)}
                                                     </div>
                                                 </div>
 
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-start justify-between gap-3">
                                                         <div className="min-w-0">
-                                                            <p className="text-sm font-medium text-gray-900 truncate">{notification.title}</p>
-                                                            <p className="text-xs text-gray-600 mt-1 line-clamp-2">{notification.content}</p>
+                                                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{notification.title}</p>
+                                                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">{notification.content}</p>
                                                         </div>
                                                         <div className="text-right flex-shrink-0">
                                                             <div className="text-xs text-gray-400">{formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true, locale: vi })}</div>
@@ -493,50 +588,46 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
             </div>
 
             {/* Notification Detail Modal */}
-            {selectedNotification && (
-                <div className="fixed inset-0 bg-black/10 flex items-center justify-center z-[9999] p-4">
-                    <div className="bg-white rounded-lg max-w-md w-full max-h-[80vh] overflow-y-auto shadow-2xl ring-1 ring-black/10">
+            {isClient && selectedNotification && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/50" onClick={handleCloseModal} />
+                    <div className="relative bg-white dark:bg-gray-800 rounded-2xl max-w-xl w-full max-h-[85vh] overflow-y-auto shadow-2xl">
                         <div className="p-6">
                             <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-2">
-                                    {getNotificationIcon(selectedNotification.type)}
-                                    <span className="text-sm px-2 py-1 bg-gray-100 text-gray-600 rounded-full">
-                                        {getTypeLabel(selectedNotification.type)}
+                                    {getNotificationIcon(isMentionNotification(selectedNotification) ? 'mention' : selectedNotification.type)}
+                                    <span className="text-sm px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full">
+                                        {getTypeLabel(isMentionNotification(selectedNotification) ? 'mention' : selectedNotification.type)}
                                     </span>
                                 </div>
-                                <button
-                                    onClick={() => {
-                                        setSelectedNotification(null)
-                                        setAssignmentStatus(null)
-                                        setAssignmentAssigneeName(null)
-                                        setDeclineReason('')
-                                    }}
-                                    className="text-gray-400 hover:text-gray-600"
-                                >
+                                    <button
+                                    onClick={handleCloseModal}
+                                    className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                                    >
                                     <X className="w-5 h-5" />
                                 </button>
                             </div>
 
-                            <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
                                 {selectedNotification.title}
                             </h2>
 
-                            <div className="prose prose-sm max-w-none mb-4">
-                                <p className="text-gray-700 whitespace-pre-wrap">
+                            <div className="prose prose-sm max-w-none mb-4 dark:prose-invert">
+                                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                                     {selectedNotification.content}
                                 </p>
                             </div>
 
-                            <div className="border-t pt-4 space-y-2">
+                            <div className="border-t border-gray-200 dark:border-gray-700 pt-4 space-y-2">
                                 <div className="flex justify-between text-sm">
-                                    <span className="text-gray-500">Người gửi:</span>
-                                    <span className="text-gray-900">
+                                    <span className="text-gray-500 dark:text-gray-400">Người gửi:</span>
+                                    <span className="text-gray-900 dark:text-white">
                                         {selectedNotification.author?.hoten || selectedNotification.author?.manv || 'System'}
                                     </span>
                                 </div>
                                 <div className="flex justify-between text-sm">
-                                    <span className="text-gray-500">Thời gian:</span>
-                                    <span className="text-gray-900">
+                                    <span className="text-gray-500 dark:text-gray-400">Thời gian:</span>
+                                    <span className="text-gray-900 dark:text-white">
                                         {formatDistanceToNow(new Date(selectedNotification.createdAt), {
                                             addSuffix: true,
                                             locale: vi
@@ -544,16 +635,19 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                                     </span>
                                 </div>
                                 <div className="flex justify-between text-sm">
-                                    <span className="text-gray-500">Loại:</span>
-                                    <span className="text-gray-900">
-                                        {getTypeLabel(selectedNotification.userMeta && selectedNotification.userMeta.relatedType === 'comment' ? 'announcement' : selectedNotification.type)}
+                                    <span className="text-gray-500 dark:text-gray-400">Loại:</span>
+                                    <span className="text-gray-900 dark:text-white">
+                                        {getTypeLabel(isMentionNotification(selectedNotification) ? 'mention' : selectedNotification.type)}
                                     </span>
                                 </div>
                             </div>
 
                             {/* Assignment actions (if notification has assignment meta and status is pending) */}
-                            {selectedNotification.userMeta?.assignmentId && (
-                                <div className="p-4 border-t space-y-3">
+                            {(() => {
+                                const meta = extractNotificationMeta(selectedNotification) as any
+                                const hasAssignmentId = !!meta?.assignmentId
+                                return hasAssignmentId && (
+                                <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
                                     {assignmentStatus === 'pending' ? (
                                         <>
                                             <div className="text-sm text-gray-700">Bạn có muốn nhận công việc này?</div>
@@ -608,13 +702,15 @@ export default function NotificationBell({ userRole }: NotificationBellProps) {
                                         </div>
                                     )}
                                 </div>
-                            )}
+                                )
+                            })()}
 
                             {/* Request-to-join actions (if a member requested to join this task/subtask) */}
                             {/* Removed for manager and teamleader - they should use the approvals page */}
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Click outside to close */}

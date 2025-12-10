@@ -17,6 +17,7 @@ export function LoginForm() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState("")
+  const [messageType, setMessageType] = useState<"success" | "error" | "">("")
   const [showPassword, setShowPassword] = useState(false)
   const router = useRouter()
 
@@ -24,12 +25,14 @@ export function LoginForm() {
     e.preventDefault()
     setLoading(true)
     setMessage("")
+    setMessageType("")
     try {
       // Clear any existing auth data before login
       clearAllAuthData()
       
       const res = await loginUser({ manv, password })
       setMessage(res.message || "Đăng nhập thành công!")
+      setMessageType("success")
 
       localStorage.setItem("accessToken", res.accessToken || res.token)
       localStorage.setItem("refreshToken", res.refreshToken || "")
@@ -68,7 +71,9 @@ export function LoginForm() {
         router.push("/")
       }
     } catch (err: any) {
-      setMessage(err.message || "Đăng nhập thất bại")
+      const errorMessage = err?.response?.data?.message || err.message || "Đăng nhập thất bại"
+      setMessage(errorMessage)
+      setMessageType("error")
     } finally {
       setLoading(false)
     }
@@ -185,19 +190,19 @@ export function LoginForm() {
         {message && (
           <div
             className={`mt-5 p-4 rounded-xl flex items-center gap-3 animate-in fade-in slide-in-from-top-2 duration-300 ${
-              message.includes("thất bại") || message.includes("thất bai")
+              messageType === "error"
                 ? "bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
                 : "bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800"
             }`}
           >
-            {message.includes("thất bại") || message.includes("thất bai") ? (
+            {messageType === "error" ? (
               <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0" />
             ) : (
               <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
             )}
             <p
               className={`text-sm font-medium ${
-                message.includes("thất bại") || message.includes("thất bai")
+                messageType === "error"
                   ? "text-red-800 dark:text-red-300"
                   : "text-green-800 dark:text-green-300"
               }`}

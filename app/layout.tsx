@@ -3,6 +3,8 @@ import { Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { ToastProvider } from '@/components/providers/toast-provider'
 import { GlobalConfirmProvider } from '@/components/GlobalConfirmProvider'
+import { ThemeProvider } from '@/lib/theme/ThemeContext'
+import { I18nProvider } from '@/lib/i18n/I18nContext'
 import './globals.css'
 
 const inter = Inter({ 
@@ -26,14 +28,19 @@ export default function RootLayout({
     <html lang="vi">
       <head>
         <meta charSet="utf-8" />
+        <link rel="icon" type="image/png" href="/cropped_circle_image.png" />
       </head>
       <body className={`${inter.variable} font-sans antialiased`}>
-        <ToastProvider>
-          <GlobalConfirmProvider>
-            {children}
-            <Analytics />
-          </GlobalConfirmProvider>
-        </ToastProvider>
+        <ThemeProvider>
+          <I18nProvider>
+            <ToastProvider>
+              <GlobalConfirmProvider>
+                {children}
+                <Analytics />
+              </GlobalConfirmProvider>
+            </ToastProvider>
+          </I18nProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

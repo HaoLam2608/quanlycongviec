@@ -66,6 +66,7 @@ const STATUS_ICONS = {
   'reviewed': Eye,
   'approved': CheckCircle
 }
+const API_URL = "https://taskhadflow-api.nibies.space"
 
 export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'member' }: ProjectReportsAdvancedProps) {
   const [reports, setReports] = useState<Report[]>([])
@@ -383,11 +384,11 @@ export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'm
       {/* Header with Actions */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
             <FileText className="w-8 h-8 text-blue-600" />
             Báo cáo dự án
           </h2>
-          <p className="text-gray-600 mt-1">{duanName}</p>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">{duanName}</p>
         </div>
         <div className="flex gap-3">
           <button
@@ -414,46 +415,46 @@ export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'm
       {/* Quick Stats */}
       {statistics && (
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Tổng</p>
-                <p className="text-2xl font-bold text-gray-900">{statistics.totalReports || 0}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Tổng</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{statistics.totalReports || 0}</p>
               </div>
               <FileText className="w-8 h-8 text-blue-600" />
             </div>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Nháp</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Nháp</p>
                 <p className="text-2xl font-bold text-gray-600">{statistics.draft || 0}</p>
               </div>
-              <Clock className="w-8 h-8 text-gray-600" />
+              <Clock className="w-8 h-8 text-gray-600 dark:text-gray-400" />
             </div>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Đã gửi</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Đã gửi</p>
                 <p className="text-2xl font-bold text-blue-600">{statistics.submitted || 0}</p>
               </div>
               <Send className="w-8 h-8 text-blue-600" />
             </div>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Đã xem</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Đã xem</p>
                 <p className="text-2xl font-bold text-yellow-600">{statistics.reviewed || 0}</p>
               </div>
               <Eye className="w-8 h-8 text-yellow-600" />
             </div>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Đã duyệt</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Đã duyệt</p>
                 <p className="text-2xl font-bold text-green-600">{statistics.approved || 0}</p>
               </div>
               <CheckCircle className="w-8 h-8 text-green-600" />
@@ -463,12 +464,12 @@ export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'm
       )}
 
       {/* Advanced Filters */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-3 mb-4">
-          <Filter className="w-5 h-5 text-gray-600" />
-          <h3 className="font-semibold text-gray-900">Bộ lọc</h3>
+          <Filter className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+          <h3 className="font-semibold text-gray-900 dark:text-white">Bộ lọc</h3>
           {activeFiltersCount > 0 && (
-            <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
+            <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 text-xs rounded-full font-medium">
               {activeFiltersCount} đang áp dụng
             </span>
           )}
@@ -572,12 +573,12 @@ export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'm
             return (
               <div
                 key={report.id}
-                className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow overflow-hidden"
+                className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow overflow-hidden"
               >
                 {/* Card Header */}
-                <div className="p-6 border-b border-gray-200">
+                <div className="p-6 border-b border-gray-200 dark:border-gray-700">
                   <div className="flex items-start justify-between mb-3">
-                    <h3 className="font-semibold text-gray-900 text-lg line-clamp-2 flex-1">
+                    <h3 className="font-semibold text-gray-900 dark:text-white text-lg line-clamp-2 flex-1">
                       {report.title}
                     </h3>
                     <span className={`inline-flex px-2 py-1 text-xs font-medium rounded border ${REPORT_TYPE_COLORS[report.reportType]}`}>
@@ -585,7 +586,7 @@ export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'm
                     </span>
                   </div>
 
-                  <p className="text-sm text-gray-600 line-clamp-3 mb-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-3 mb-4">
                     {report.content}
                   </p>
 
@@ -602,9 +603,9 @@ export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'm
                 </div>
 
                 {/* Card Footer */}
-                <div className="p-4 bg-gray-50 flex items-center justify-between">
+                <div className="p-4 bg-gray-50 dark:bg-gray-700/50 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <StatusIcon className="w-4 h-4 text-gray-600" />
+                    <StatusIcon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
                     <span className={`inline-flex px-2 py-1 text-xs font-medium rounded ${STATUS_COLORS[report.status]}`}>
                       {STATUS_LABELS[report.status]}
                     </span>
@@ -750,11 +751,11 @@ export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'm
               {Array.isArray(uploadedFiles) && uploadedFiles.length > 0 && (
                 <div className="mt-3 space-y-2">
                   {uploadedFiles.map((file, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                       <div className="flex items-center gap-2 flex-1">
                         <FileText className="w-4 h-4 text-blue-600" />
-                        <span className="text-sm text-gray-700 truncate">{file.originalname || file.name}</span>
-                        <span className="text-xs text-gray-500">({((file.size || 0) / 1024).toFixed(1)} KB)</span>
+                        <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{file.originalname || file.name}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">({((file.size || 0) / 1024).toFixed(1)} KB)</span>
                       </div>
                       <button
                         onClick={() => handleRemoveFile(file.filename)}
@@ -831,16 +832,16 @@ export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'm
               </div>
 
               <div>
-                <h4 className="font-medium text-gray-900 mb-2">Nội dung:</h4>
-                <div className="bg-gray-50 rounded-lg p-4 whitespace-pre-wrap text-gray-700 max-h-96 overflow-y-auto">
+                <h4 className="font-medium text-gray-900 dark:text-white mb-2">Nội dung:</h4>
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 whitespace-pre-wrap text-gray-700 dark:text-gray-300 max-h-96 overflow-y-auto">
                   {selectedReport.content}
                 </div>
               </div>
 
               {selectedReport.reviewNote && (
                 <div>
-                  <h4 className="font-medium text-gray-900 mb-2">Ghi chú từ người duyệt:</h4>
-                  <div className="bg-yellow-50 rounded-lg p-4 text-gray-700">
+                  <h4 className="font-medium text-gray-900 dark:text-white mb-2">Ghi chú từ người duyệt:</h4>
+                  <div className="bg-yellow-50 dark:bg-yellow-900/30 rounded-lg p-4 text-gray-700 dark:text-gray-300">
                     {selectedReport.reviewNote}
                   </div>
                 </div>
@@ -849,17 +850,17 @@ export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'm
               {/* Attachments Section */}
               {Array.isArray(selectedReport.attachments) && selectedReport.attachments.length > 0 && (
                 <div>
-                  <h4 className="font-medium text-gray-900 mb-2">File đính kèm:</h4>
+                  <h4 className="font-medium text-gray-900 dark:text-white mb-2">File đính kèm:</h4>
                   <div className="space-y-2">
                     {selectedReport.attachments.map((file: any, index: number) => (
-                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100">
+                      <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600">
                         <div className="flex items-center gap-2">
                           <FileText className="w-4 h-4 text-blue-600" />
-                          <span className="text-sm text-gray-700">{file.originalname || 'File'}</span>
-                          <span className="text-xs text-gray-500">({((file.size || 0) / 1024).toFixed(1)} KB)</span>
+                          <span className="text-sm text-gray-700 dark:text-gray-300">{file.originalname || 'File'}</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">({((file.size || 0) / 1024).toFixed(1)} KB)</span>
                         </div>
                         <a
-                          href={`http://localhost:5000${file.url || `/uploads/reports/${file.filename}`}`}
+                          href={`${API_URL}${file.url || `/uploads/reports/${file.filename}`}`}
                           download
                           target="_blank"
                           rel="noopener noreferrer"
@@ -987,22 +988,22 @@ export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'm
               </div>
 
               <div>
-                <h4 className="font-medium text-gray-900 mb-3">Phân bổ theo loại</h4>
+                <h4 className="font-medium text-gray-900 dark:text-white mb-3">Phân bổ theo loại</h4>
                 <div className="space-y-2">
                   {Object.entries(REPORT_TYPE_LABELS).map(([key, label]) => {
                     const count = reports.filter(r => r.reportType === key).length
                     const percentage = reports.length > 0 ? (count / reports.length) * 100 : 0
                     return (
                       <div key={key} className="flex items-center justify-between">
-                        <span className="text-sm text-gray-700">{label}</span>
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
                         <div className="flex items-center gap-3 flex-1 max-w-xs">
-                          <div className="flex-1 bg-gray-200 rounded-full h-2">
+                          <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                             <div
                               className="bg-blue-600 h-2 rounded-full"
                               style={{ width: `${percentage}%` }}
                             ></div>
                           </div>
-                          <span className="text-sm font-medium text-gray-900 w-12 text-right">
+                          <span className="text-sm font-medium text-gray-900 dark:text-white w-12 text-right">
                             {count}
                           </span>
                         </div>
@@ -1013,7 +1014,7 @@ export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'm
               </div>
 
               <div>
-                <h4 className="font-medium text-gray-900 mb-3">Phân bổ theo trạng thái</h4>
+                <h4 className="font-medium text-gray-900 dark:text-white mb-3">Phân bổ theo trạng thái</h4>
                 <div className="space-y-2">
                   {Object.entries(STATUS_LABELS).map(([key, label]) => {
                     const count = statistics[key] || 0
@@ -1022,13 +1023,13 @@ export default function ProjectReportsAdvanced({ duanId, duanName, userRole = 'm
                       <div key={key} className="flex items-center justify-between">
                         <span className="text-sm text-gray-700">{label}</span>
                         <div className="flex items-center gap-3 flex-1 max-w-xs">
-                          <div className="flex-1 bg-gray-200 rounded-full h-2">
+                          <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                             <div
                               className="bg-green-600 h-2 rounded-full"
                               style={{ width: `${percentage}%` }}
                             ></div>
                           </div>
-                          <span className="text-sm font-medium text-gray-900 w-12 text-right">
+                          <span className="text-sm font-medium text-gray-900 dark:text-white w-12 text-right">
                             {count}
                           </span>
                         </div>

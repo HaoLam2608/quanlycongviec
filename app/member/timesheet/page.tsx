@@ -928,45 +928,43 @@ export default function TimesheetPage() {
     }
 
     return (
-        <div className="p-6 bg-gradient-to-br from-slate-50 via-blue-50/20 to-slate-50 min-h-screen">
+        <div className="p-3 sm:p-6 bg-gradient-to-br from-slate-50 via-blue-50/20 to-slate-50 min-h-screen">
             <div className="max-w-6xl mx-auto">
                 {/* Header */}
-                <div className="mb-8 animate-fade-in">
-                    <div className="flex items-center gap-3 mb-2">
-                        <div className="h-3 w-3 rounded-full bg-blue-500 animate-pulse" />
-                        <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">Thời gian làm việc</h1>
+                <div className="mb-6 sm:mb-8 animate-fade-in">
+                    <div className="flex items-center gap-2 sm:gap-3 mb-2">
+                        <div className="h-2 w-2 sm:h-3 sm:w-3 rounded-full bg-blue-500 animate-pulse" />
+                        <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent">Thời gian làm việc</h1>
                     </div>
-                    <p className="text-slate-600 ml-6">Theo dõi và ghi nhận thời gian làm việc hàng ngày</p>
+                    <p className="text-sm sm:text-base text-slate-600 ml-5 sm:ml-6">Theo dõi và ghi nhận thời gian làm việc hàng ngày</p>
                 </div>
 
                 {/* Timer Section */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-blue-100 mb-8 hover:shadow-xl transition-all duration-300">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-                            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-                                <Timer className="w-5 h-5 text-blue-600" />
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 sm:p-6 shadow-lg border border-blue-100 mb-6 sm:mb-8 hover:shadow-xl transition-all duration-300">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0 mb-4">
+                        <h2 className="text-lg sm:text-xl font-semibold text-slate-900 flex items-center gap-2">
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                                <Timer className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                             </div>
                             Đếm giờ làm việc
                         </h2>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 w-full sm:w-auto">
                             <button
                                 onClick={() => setIsMultiTimerMode(false)}
-                                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${!isMultiTimerMode
+                                className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 ${!isMultiTimerMode
                                     ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md hover:shadow-lg'
                                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                                     }`}
                             >
-                                Đếm giờ đơn
                                 Đếm giờ đơn
                             </button>
                             <button
                                 onClick={() => setIsMultiTimerMode(true)}
-                                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${isMultiTimerMode
+                                className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 ${isMultiTimerMode
                                     ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md hover:shadow-lg'
                                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                                     }`}
                             >
-                                Đếm giờ đa năng
                                 Đếm giờ đa năng
                                 {multiTimers.length > 0 && (
                                     <span className="ml-2 bg-red-500 text-white rounded-full px-2 py-0.5 text-xs">
@@ -979,11 +977,11 @@ export default function TimesheetPage() {
 
                     {!isMultiTimerMode ? (
                         // Single Timer Mode
-                        <div className="flex items-center justify-between">
-                            <div className="flex-1">
+                        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+                            <div className="flex-1 w-full">
                                 {timer.isRunning ? (
                                     <div>
-                                        <div className="text-4xl font-mono font-bold text-blue-600 mb-2">
+                                        <div className="text-3xl sm:text-4xl font-mono font-bold text-blue-600 mb-2">
                                             {formatTime(timer.elapsedSeconds)}
                                         </div>
                                         <p className="text-gray-600">
@@ -996,18 +994,17 @@ export default function TimesheetPage() {
                                             00:00:00
                                         </div>
                                         <p className="text-gray-500">Dừng hẹn giờ</p>
-                                        <p className="text-gray-500">Dừng hẹn giờ</p>
                                     </div>
                                 )}
                             </div>
 
-                            <div className="flex items-center gap-3">
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full lg:w-auto">
                                 {!timer.isRunning && timer.startTime === null && (
-                                    <div className="flex gap-2">
+                                    <div className="flex flex-col sm:flex-row gap-2 w-full">
                                         <select
                                             value={timer.selectedSubtaskId || ""}
                                             onChange={(e) => handleTimerSubtaskSelection(e.target.value ? Number(e.target.value) : null)}
-                                            className="px-3 py-2 border border-gray-300 rounded-lg min-w-[200px]"
+                                            className="px-3 py-2 border border-gray-300 rounded-lg w-full sm:min-w-[200px] text-sm sm:text-base"
                                             disabled={loadingSubtasks}
                                         >
                                             <option value="">
@@ -1024,13 +1021,13 @@ export default function TimesheetPage() {
                                             placeholder="Dự án"
                                             value={timer.currentProject}
                                             onChange={(e) => setTimer(prev => ({ ...prev, currentProject: e.target.value }))}
-                                            className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-100"
+                                            className="px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm sm:text-base w-full sm:w-auto"
                                             readOnly
                                         />
                                         <button
                                             onClick={() => startTimer(timer.currentTask, timer.currentProject, timer.selectedSubtaskId)}
                                             disabled={!timer.currentTask || !timer.currentProject}
-                                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                            className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm sm:text-base"
                                         >
                                             <Play className="w-4 h-4" />
                                             Bắt đầu
@@ -1039,17 +1036,17 @@ export default function TimesheetPage() {
                                 )}
 
                                 {timer.isRunning && (
-                                    <div className="flex gap-2">
+                                    <div className="flex gap-2 w-full">
                                         <button
                                             onClick={pauseTimer}
-                                            className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 flex items-center gap-2"
+                                            className="flex-1 sm:flex-none px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 flex items-center justify-center gap-2 text-sm sm:text-base"
                                         >
                                             <Pause className="w-4 h-4" />
                                             Tạm dừng
                                         </button>
                                         <button
                                             onClick={stopTimer}
-                                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+                                            className="flex-1 sm:flex-none px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center justify-center gap-2 text-sm sm:text-base"
                                         >
                                             <Square className="w-4 h-4" />
                                             Dừng
@@ -1058,17 +1055,17 @@ export default function TimesheetPage() {
                                 )}
 
                                 {!timer.isRunning && timer.startTime !== null && (
-                                    <div className="flex gap-2">
+                                    <div className="flex gap-2 w-full">
                                         <button
                                             onClick={() => setTimer(prev => ({ ...prev, isRunning: true }))}
-                                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+                                            className="flex-1 sm:flex-none px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 text-sm sm:text-base"
                                         >
                                             <Play className="w-4 h-4" />
                                             Tiếp tục
                                         </button>
                                         <button
                                             onClick={stopTimer}
-                                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+                                            className="flex-1 sm:flex-none px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center justify-center gap-2 text-sm sm:text-base"
                                         >
                                             <Square className="w-4 h-4" />
                                             Dừng
@@ -1081,7 +1078,7 @@ export default function TimesheetPage() {
                         // Multi-Timer Mode
                         <div>
                             <div className="mb-4">
-                                <div className="flex items-center gap-3">
+                                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                                     <select
                                         onChange={(e) => {
                                             if (e.target.value) {
@@ -1089,7 +1086,7 @@ export default function TimesheetPage() {
                                                 e.target.value = "" // Reset selection
                                             }
                                         }}
-                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
+                                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm sm:text-base"
                                         disabled={loadingSubtasks}
                                     >
                                         <option value="">
@@ -1106,7 +1103,7 @@ export default function TimesheetPage() {
                                     {multiTimers.length > 0 && (
                                         <button
                                             onClick={stopAllMultiTimers}
-                                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 whitespace-nowrap"
+                                            className="w-full sm:w-auto px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center justify-center gap-2 whitespace-nowrap text-sm sm:text-base"
                                         >
                                             <Square className="w-4 h-4" />
                                             Dừng tất cả
@@ -1120,17 +1117,15 @@ export default function TimesheetPage() {
                                     <Timer className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                                     <p className="text-gray-600 font-medium mb-1">Chưa có bộ đếm giờ nào</p>
                                     <p className="text-gray-500 text-sm">Chọn công việc ở trên để bắt đầu đếm giờ mới</p>
-                                    <p className="text-gray-600 font-medium mb-1">Chưa có bộ đếm giờ nào</p>
-                                    <p className="text-gray-500 text-sm">Chọn công việc ở trên để bắt đầu đếm giờ mới</p>
                                 </div>
                             ) : (
                                 <div className="space-y-3">
                                     {multiTimers.map((mt) => (
-                                        <div key={mt.id} className="border border-gray-200 rounded-lg p-4 bg-gradient-to-r from-blue-50 to-purple-50">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex-1">
-                                                    <div className="flex items-center gap-3 mb-2">
-                                                        <div className="text-3xl font-mono font-bold text-blue-600">
+                                        <div key={mt.id} className="border border-gray-200 rounded-lg p-3 sm:p-4 bg-gradient-to-r from-blue-50 to-purple-50">
+                                            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 sm:gap-4">
+                                                <div className="flex-1 w-full">
+                                                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mb-2">
+                                                        <div className="text-2xl sm:text-3xl font-mono font-bold text-blue-600">
                                                             {formatTime(mt.elapsedSeconds + mt.pausedTime)}
                                                         </div>
                                                         {mt.isPaused && (
@@ -1214,9 +1209,9 @@ export default function TimesheetPage() {
                 </div>
 
                 {/* Date Navigation */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-blue-100 mb-6 hover:shadow-xl transition-all duration-300">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
+                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-4 sm:p-6 shadow-lg border border-blue-100 mb-4 sm:mb-6 hover:shadow-xl transition-all duration-300">
+                    <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 w-full lg:w-auto">
                             <button
                                 onClick={() => navigateDate('prev')}
                                 className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-200 hover:scale-110"
@@ -1224,11 +1219,11 @@ export default function TimesheetPage() {
                                 <ChevronLeft className="w-5 h-5" />
                             </button>
 
-                            <div className="flex items-center gap-2">
-                                <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
-                                    <Calendar className="w-5 h-5 text-blue-600" />
+                            <div className="flex items-center gap-2 sm:gap-2">
+                                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                                    <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                                 </div>
-                                <span className="text-xl font-semibold text-slate-900">
+                                <span className="text-base sm:text-xl font-semibold text-slate-900 line-clamp-2">
                                     {selectedDate ? selectedDate.toLocaleDateString('vi-VN', {
                                         weekday: 'long',
                                         year: 'numeric',
@@ -1245,7 +1240,7 @@ export default function TimesheetPage() {
                                 <ChevronRight className="w-5 h-5" />
                             </button>
 
-                            <div className="flex items-center gap-2 ml-4">
+                            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:ml-4">
                                 <button
                                     onClick={() => setSelectedDate(null)}
                                     className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${selectedDate === null
@@ -1275,15 +1270,15 @@ export default function TimesheetPage() {
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-4">
-                            <div className="text-right">
-                                <p className="text-sm text-gray-600">Tổng thời gian hôm nay</p>
-                                <p className="text-xl font-bold text-blue-600">{calculateTotalTimeHMS()}</p>
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 w-full lg:w-auto">
+                            <div className="text-left sm:text-right">
+                                <p className="text-xs sm:text-sm text-gray-600">Tổng thời gian hôm nay</p>
+                                <p className="text-lg sm:text-xl font-bold text-blue-600">{calculateTotalTimeHMS()}</p>
                             </div>
 
                             <button
                                 onClick={() => setIsAddModalOpen(true)}
-                                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 hover:scale-105 hover:shadow-md flex items-center gap-2 font-medium"
+                                className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 hover:scale-105 hover:shadow-md flex items-center justify-center gap-2 font-medium text-sm sm:text-base"
                             >
                                 <Plus className="w-4 h-4" />
                                 Thêm nhật ký
@@ -1295,17 +1290,17 @@ export default function TimesheetPage() {
 
                 {/* Worklogs Table */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div className="p-6 border-b border-gray-200">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                                <Clock className="w-6 h-6 text-blue-600" />
+                    <div className="p-4 sm:p-6 border-b border-gray-200">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+                            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
+                                <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
                                 Nhật ký làm việc
                             </h2>
                             {worklogs.length > 0 && (
                                 <div className="flex items-center gap-2">
                                     <button
                                         onClick={() => setExpandedTasks(new Set(groupWorklogsByTask().map(g => g.key)))}
-                                        className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
+                                        className="px-2 sm:px-3 py-1 text-xs sm:text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
                                     >
                                         Mở rộng tất cả
                                     </button>

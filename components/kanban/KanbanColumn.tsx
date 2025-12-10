@@ -46,12 +46,12 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
 }) => {
   return (
     <div className="flex flex-col h-full">
-      <Card className="h-full flex flex-col bg-white/60 border border-gray-100 shadow-sm p-2">
+      <Card className="h-full flex flex-col bg-white/60 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-700 shadow-sm p-2">
         <CardHeader className="pb-2 pt-1">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span
-                className={`w-3 h-3 rounded-full ${statusColors[status] || color || 'bg-gray-400'}`}
+                className={`w-3 h-3 rounded-full ${statusColors[status] || color || 'bg-gray-400 dark:bg-gray-600'}`}
                 aria-hidden
               />
               <CardTitle className="text-sm font-semibold">{title}</CardTitle>
@@ -76,7 +76,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
           onDrop={(e) => onDrop(e, status)}
         >
           {!tasks || (Array.isArray(tasks) && tasks.length === 0) ? (
-            <div className="flex items-center justify-center h-20 text-gray-400 text-xs">Không có công việc</div>
+            <div className="flex items-center justify-center h-20 text-gray-400 dark:text-gray-500 text-xs">Không có công việc</div>
           ) : (
             tasks.map((task: any) => (
               <KanbanCard

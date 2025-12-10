@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from 'next/navigation'
 import {
-    CheckSquare, Clock, Calendar, User, Plus, Filter, Search, Eye, Edit3,
+    CheckSquare, Clock, Calendar, User, Filter, Search, Eye, Edit3,
     Trash2, AlertCircle, CheckCircle, XCircle, PlayCircle, FolderOpen,
-    Users, LayoutGrid, List, Download, Upload, MoreVertical, Tag,
+    Users, Download, Upload, MoreVertical, Tag,
     TrendingUp, MessageSquare, Paperclip, ChevronDown, X as CloseIcon
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -13,11 +14,12 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import Modal from '@/components/admin/Modal'
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useToastContext } from "@/components/providers/toast-provider"
 import { showConfirm, showSuccess, showError } from "@/lib/notifications"
-import { fetchProjectsByManager, getTasksByProject, createTask, updateTask, deleteTask } from "@/axios/api"
+import { fetchProjectsByManager, getTasksByProject, createTask, updateTask, deleteTask, getSubtasksByTask, getProjectById } from "@/axios/api"
 import { getUsers } from "@/axios/adminApi"
 
 interface Task {
@@ -59,7 +61,9 @@ export default function ManagerTasksPage() {
     const [users, setUsers] = useState<UserType[]>([])
     const [loading, setLoading] = useState(true)
     const [viewMode, setViewMode] = useState<"list" | "kanban">("list")
+    const [isMobile, setIsMobile] = useState(false)
     const { showError, showSuccess } = useToastContext()
+    const router = useRouter()
 
     // Filters
     const [searchTerm, setSearchTerm] = useState("")
@@ -85,6 +89,9 @@ export default function ManagerTasksPage() {
     // Detail modal
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
     const [detailTask, setDetailTask] = useState<Task | null>(null)
+    const [detailSubtasks, setDetailSubtasks] = useState<any[]>([])
+    const [apiErrorMessage, setApiErrorMessage] = useState<string | null>(null)
+    const [projectDateBounds, setProjectDateBounds] = useState<{ start?: string | null; end?: string | null }>({ start: null, end: null })
 
     // Bulk actions
     const [selectedTasks, setSelectedTasks] = useState<number[]>([])
@@ -92,6 +99,19 @@ export default function ManagerTasksPage() {
     useEffect(() => {
         loadData()
     }, [])
+
+    useEffect(() => {
+        const updateIsMobile = () => setIsMobile(window.innerWidth <= 1024)
+        updateIsMobile()
+        window.addEventListener('resize', updateIsMobile)
+        return () => window.removeEventListener('resize', updateIsMobile)
+    }, [])
+
+    useEffect(() => {
+        if (isMobile && viewMode === 'kanban') {
+            setViewMode('list')
+        }
+    }, [isMobile, viewMode])
 
     const loadData = async () => {
         try {
@@ -138,40 +158,78 @@ export default function ManagerTasksPage() {
         }
     }
 
-    const openCreateModal = () => {
-        setIsEditMode(false)
-        setSelectedTask(null)
-        setTaskForm({
-            tentask: "",
-            mota: "",
-            duanId: "",
-            nguoiDuocGiaoId: "",
-            mucDoUuTien: "trung_binh",
-            ngayBatDau: "",
-            ngayKetThuc: ""
-        })
-        setIsTaskModalOpen(true)
-    }
+    // Create modal is opened from edit buttons; explicit create button removed per request
 
     const openEditModal = (task: Task) => {
-        setIsEditMode(true)
-        setSelectedTask(task)
-        setTaskForm({
-            tentask: task.tentask,
-            mota: task.mota || "",
-            duanId: task.duanId.toString(),
-            nguoiDuocGiaoId: task.nguoiDuocGiaoId.toString(),
-            mucDoUuTien: task.mucDoUuTien || "trung_binh",
-            ngayBatDau: task.ngayBatDau || "",
-            ngayKetThuc: task.ngayKetThuc || ""
-        })
-        setIsTaskModalOpen(true)
+        try {
+            setApiErrorMessage(null)
+            setIsEditMode(true)
+            setSelectedTask(task)
+            const duanIdStr = task.duanId !== undefined && task.duanId !== null ? String(task.duanId) : (task.duan?.id ? String(task.duan.id) : "")
+            const nguoiIdStr = task.nguoiDuocGiaoId !== undefined && task.nguoiDuocGiaoId !== null ? String(task.nguoiDuocGiaoId) : (task.nguoiDuocGiao?.id ? String(task.nguoiDuocGiao.id) : "")
+            setTaskForm({
+                tentask: task.tentask,
+                mota: task.mota || "",
+                duanId: duanIdStr,
+                nguoiDuocGiaoId: nguoiIdStr,
+                mucDoUuTien: task.mucDoUuTien || "trung_binh",
+                ngayBatDau: task.ngayBatDau || "",
+                ngayKetThuc: task.ngayKetThuc || ""
+            })
+            setIsTaskModalOpen(true)
+        } catch (err) {
+            console.error('openEditModal error', err)
+            setApiErrorMessage(String(err))
+            showError('Có lỗi khi mở form chỉnh sửa')
+        }
     }
+
+    // Load project date bounds whenever selected project changes in the form
+    useEffect(() => {
+        let mounted = true
+        const loadBounds = async () => {
+            try {
+                if (!taskForm.duanId) {
+                    setProjectDateBounds({ start: null, end: null })
+                    return
+                }
+                const projId = parseInt(taskForm.duanId)
+                if (isNaN(projId)) return
+                const res = await getProjectById(String(projId))
+                // API may return project or { project }
+                const proj = res?.project || res
+                if (!mounted) return
+                setProjectDateBounds({ start: proj?.ngaybatdau || null, end: proj?.ngayketthuc || null })
+            } catch (err) {
+                console.error('Failed to load project bounds', err)
+                setProjectDateBounds({ start: null, end: null })
+            }
+        }
+
+        loadBounds()
+
+        return () => { mounted = false }
+    }, [taskForm.duanId])
 
     const handleSaveTask = async () => {
         try {
             if (!taskForm.tentask || !taskForm.duanId || !taskForm.ngayKetThuc) {
                 showError('Vui lòng điền đầy đủ thông tin bắt buộc')
+                return
+            }
+
+            // Validate dates against project bounds if available
+            const projStart = projectDateBounds.start ? new Date(projectDateBounds.start) : null
+            const projEnd = projectDateBounds.end ? new Date(projectDateBounds.end) : null
+            const tStart = taskForm.ngayBatDau ? new Date(taskForm.ngayBatDau) : null
+            const tEnd = taskForm.ngayKetThuc ? new Date(taskForm.ngayKetThuc) : null
+
+            if (projStart && tStart && tStart < projStart) {
+                showError('Ngày bắt đầu phải lớn hơn hoặc bằng ngày bắt đầu của dự án')
+                return
+            }
+            if (projEnd && tEnd && tEnd > projEnd) {
+                showError('Ngày kết thúc phải nhỏ hơn hoặc bằng ngày kết thúc của dự án')
                 return
             }
 
@@ -184,16 +242,23 @@ export default function ManagerTasksPage() {
                 ngayKetThuc: taskForm.ngayKetThuc
             }
 
-            // Người được giao là optional - nếu không chọn, member tự nhận
-            if (taskForm.nguoiDuocGiaoId) {
-                payload.nguoiDuocGiaoId = parseInt(taskForm.nguoiDuocGiaoId)
+            // Người được giao là optional - nếu chọn 'none' hoặc blank, send null so backend treats as not assigned
+            if (taskForm.nguoiDuocGiaoId && taskForm.nguoiDuocGiaoId !== 'none') {
+                const parsed = parseInt(taskForm.nguoiDuocGiaoId)
+                if (!isNaN(parsed)) payload.nguoiDuocGiaoId = parsed
+            } else {
+                payload.nguoiDuocGiaoId = null
             }
 
             if (isEditMode && selectedTask) {
-                await updateTask(selectedTask.id, payload)
+                console.debug('Updating task', selectedTask.id, payload)
+                const res = await updateTask(selectedTask.id, payload)
+                console.debug('Update response', res)
                 showSuccess('Cập nhật nhiệm vụ thành công')
             } else {
-                await createTask(payload)
+                console.debug('Creating task', payload)
+                const res = await createTask(payload)
+                console.debug('Create response', res)
                 showSuccess('Tạo nhiệm vụ thành công')
             }
 
@@ -201,7 +266,9 @@ export default function ManagerTasksPage() {
             loadData()
         } catch (err: any) {
             console.error('Save task error', err)
-            showError(err?.message || 'Không thể lưu nhiệm vụ')
+            const msg = err?.message || err?.response?.data?.message || (typeof err === 'string' ? err : JSON.stringify(err))
+            setApiErrorMessage(msg || 'Không thể lưu nhiệm vụ')
+            showError(msg || 'Không thể lưu nhiệm vụ')
         }
     }
 
@@ -210,18 +277,31 @@ export default function ManagerTasksPage() {
         if (!confirmed) return
 
         try {
-            await deleteTask(taskId)
+            console.debug('Deleting task', taskId)
+            const res = await deleteTask(taskId)
+            console.debug('Delete response', res)
             showSuccess('Xóa nhiệm vụ thành công')
             loadData()
         } catch (err: any) {
             console.error('Delete task error', err)
-            showError(err?.message || 'Không thể xóa nhiệm vụ')
+            const msg = err?.message || err?.response?.data?.message || (typeof err === 'string' ? err : JSON.stringify(err))
+            setApiErrorMessage(msg || 'Không thể xóa nhiệm vụ')
+            showError(msg || 'Không thể xóa nhiệm vụ')
         }
     }
 
-    const openDetailModal = (task: Task) => {
+    const openDetailModal = async (task: Task) => {
         setDetailTask(task)
         setIsDetailModalOpen(true)
+        try {
+            const res = await getSubtasksByTask(task.id)
+            // API may return { subtasks: [...] } or an array
+            const list = res?.subtasks || res || []
+            setDetailSubtasks(list)
+        } catch (err) {
+            console.error('Failed to load subtasks', err)
+            setDetailSubtasks([])
+        }
     }
 
     const getStatusColor = (status: string) => {
@@ -399,78 +479,88 @@ export default function ManagerTasksPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 p-6">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 p-3 sm:p-6">
             <div className="max-w-7xl mx-auto">
                 {/* Header */}
-                <div className="mb-8 flex items-center justify-between">
+                <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-4xl font-bold text-slate-900 flex items-center gap-3">
-                            <CheckSquare className="w-10 h-10 text-[#003D82]" />
+                        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 flex items-center gap-2 sm:gap-3">
+                            <CheckSquare className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 text-[#003D82]" />
                             Quản lý nhiệm vụ
                         </h1>
-                        <p className="text-slate-600 mt-2">Theo dõi và quản lý tất cả nhiệm vụ trong các dự án</p>
+                        <p className="text-sm sm:text-base text-slate-600 mt-1 sm:mt-2">Theo dõi và quản lý tất cả nhiệm vụ trong các dự án</p>
                     </div>
-                    <div className="flex gap-3">
-                        <Button
-                            variant="outline"
-                            onClick={() => setViewMode(viewMode === "list" ? "kanban" : "list")}
-                            className="gap-2"
-                        >
-                            {viewMode === "list" ? <LayoutGrid className="w-4 h-4" /> : <List className="w-4 h-4" />}
-                            {viewMode === "list" ? "Kanban" : "Danh sách"}
-                        </Button>
-                        <Button onClick={openCreateModal} className="bg-[#003D82] hover:bg-[#0052A3] gap-2">
-                            <Plus className="w-4 h-4" />
-                            Tạo nhiệm vụ
-                        </Button>
-                    </div>
+                    {!isMobile && (
+                        <div className="flex items-center gap-3">
+                            <div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+                                <Button
+                                    type="button"
+                                    onClick={() => setViewMode('list')}
+                                    variant="ghost"
+                                    size="default"
+                                    className={`${viewMode === 'list' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900'}`}
+                                >
+                                    Danh sách
+                                </Button>
+                                <Button
+                                    type="button"
+                                    onClick={() => setViewMode('kanban')}
+                                    variant="ghost"
+                                    size="default"
+                                    className={`${viewMode === 'kanban' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'text-slate-600 hover:text-slate-900'}`}
+                                >
+                                    Kanban
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                    <Card className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
+                    <Card className="p-4 sm:p-6 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-slate-600">Tổng nhiệm vụ</p>
-                                <p className="text-3xl font-bold text-blue-700">{taskStats.total}</p>
+                                <p className="text-xs sm:text-sm font-medium text-slate-600">Tổng nhiệm vụ</p>
+                                <p className="text-2xl sm:text-3xl font-bold text-blue-700">{taskStats.total}</p>
                             </div>
-                            <CheckSquare className="w-10 h-10 text-blue-600" />
+                            <CheckSquare className="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" />
                         </div>
                     </Card>
 
-                    <Card className="p-6 bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+                    <Card className="p-4 sm:p-6 bg-gradient-to-br from-green-50 to-green-100 border-green-200">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-slate-600">Hoàn thành</p>
-                                <p className="text-3xl font-bold text-green-700">{taskStats.completed}</p>
+                                <p className="text-xs sm:text-sm font-medium text-slate-600">Hoàn thành</p>
+                                <p className="text-2xl sm:text-3xl font-bold text-green-700">{taskStats.completed}</p>
                             </div>
-                            <CheckCircle className="w-10 h-10 text-green-600" />
+                            <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10 text-green-600" />
                         </div>
                     </Card>
 
-                    <Card className="p-6 bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+                    <Card className="p-4 sm:p-6 bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-slate-600">Đang thực hiện</p>
-                                <p className="text-3xl font-bold text-purple-700">{taskStats.inProgress}</p>
+                                <p className="text-xs sm:text-sm font-medium text-slate-600">Đang thực hiện</p>
+                                <p className="text-2xl sm:text-3xl font-bold text-purple-700">{taskStats.inProgress}</p>
                             </div>
-                            <PlayCircle className="w-10 h-10 text-purple-600" />
+                            <PlayCircle className="w-8 h-8 sm:w-10 sm:h-10 text-purple-600" />
                         </div>
                     </Card>
 
-                    <Card className="p-6 bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200">
+                    <Card className="p-4 sm:p-6 bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm font-medium text-slate-600">Chưa bắt đầu</p>
-                                <p className="text-3xl font-bold text-gray-700">{taskStats.pending}</p>
+                                <p className="text-xs sm:text-sm font-medium text-slate-600">Chưa bắt đầu</p>
+                                <p className="text-2xl sm:text-3xl font-bold text-gray-700">{taskStats.pending}</p>
                             </div>
-                            <XCircle className="w-10 h-10 text-gray-600" />
+                            <XCircle className="w-8 h-8 sm:w-10 sm:h-10 text-gray-600" />
                         </div>
                     </Card>
                 </div>
 
                 {/* Filters */}
-                <Card className="p-6 mb-8 bg-white shadow-lg border-slate-200">
+                <Card className="p-3 sm:p-4 lg:p-6 mb-6 sm:mb-8 bg-white shadow-lg border-slate-200">
                     <div className="flex flex-col lg:flex-row gap-4">
                         {/* Search */}
                         <div className="flex-1">
@@ -487,7 +577,7 @@ export default function ManagerTasksPage() {
 
                         {/* Project Filter */}
                         <Select value={projectFilter} onValueChange={setProjectFilter}>
-                            <SelectTrigger className="w-[200px]">
+                            <SelectTrigger className="w-full lg:w-[200px]">
                                 <SelectValue placeholder="Dự án" />
                             </SelectTrigger>
                             <SelectContent>
@@ -502,7 +592,7 @@ export default function ManagerTasksPage() {
 
                         {/* Status Filter */}
                         <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger className="w-[180px]">
+                            <SelectTrigger className="w-full lg:w-[180px]">
                                 <SelectValue placeholder="Trạng thái" />
                             </SelectTrigger>
                             <SelectContent>
@@ -515,7 +605,7 @@ export default function ManagerTasksPage() {
 
                         {/* Priority Filter */}
                         <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                            <SelectTrigger className="w-[180px]">
+                            <SelectTrigger className="w-full lg:w-[180px]">
                                 <SelectValue placeholder="Ưu tiên" />
                             </SelectTrigger>
                             <SelectContent>
@@ -528,7 +618,7 @@ export default function ManagerTasksPage() {
 
                         {/* Assignee Filter */}
                         <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-                            <SelectTrigger className="w-[200px]">
+                            <SelectTrigger className="w-full lg:w-[200px]">
                                 <SelectValue placeholder="Người thực hiện" />
                             </SelectTrigger>
                             <SelectContent>
@@ -544,7 +634,7 @@ export default function ManagerTasksPage() {
 
                     {/* Bulk Actions */}
                     {selectedTasks.length > 0 && (
-                        <div className="mt-4 flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+                        <div className="mt-4 flex flex-wrap items-center gap-3 p-3 bg-blue-50 rounded-lg">
                             <span className="text-sm font-medium text-blue-700">
                                 Đã chọn {selectedTasks.length} nhiệm vụ
                             </span>
@@ -570,151 +660,271 @@ export default function ManagerTasksPage() {
 
                 {/* Task List */}
                 {viewMode === "list" ? (
-                    <Card className="bg-white shadow-lg border-slate-200 overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead className="bg-slate-50 border-b border-slate-200">
-                                    <tr>
-                                        <th className="p-4 text-left">
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedTasks.length === filteredTasks.length && filteredTasks.length > 0}
-                                                onChange={toggleSelectAll}
-                                                className="rounded border-gray-300"
-                                            />
-                                        </th>
-                                        <th className="p-4 text-left text-sm font-semibold text-slate-700">Nhiệm vụ</th>
-                                        <th className="p-4 text-left text-sm font-semibold text-slate-700">Dự án</th>
-                                        <th className="p-4 text-left text-sm font-semibold text-slate-700">Người thực hiện</th>
-                                        <th className="p-4 text-left text-sm font-semibold text-slate-700">Trạng thái</th>
-                                        <th className="p-4 text-left text-sm font-semibold text-slate-700">Ưu tiên</th>
-                                        <th className="p-4 text-left text-sm font-semibold text-slate-700">Hạn</th>
-                                        <th className="p-4 text-center text-sm font-semibold text-slate-700">Thao tác</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-100">
-                                    {filteredTasks.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={8} className="p-12 text-center">
-                                                <CheckSquare className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                                                <p className="text-slate-500 text-lg">Không tìm thấy nhiệm vụ nào</p>
-                                                <p className="text-slate-400 text-sm mt-2">Thử thay đổi bộ lọc hoặc tạo nhiệm vụ mới</p>
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        filteredTasks.map((task) => (
-                                            <tr key={task.id} className="hover:bg-slate-50 transition-colors">
-                                                <td className="p-4">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={selectedTasks.includes(task.id)}
-                                                        onChange={() => toggleTaskSelection(task.id)}
-                                                        className="rounded border-gray-300"
-                                                    />
-                                                </td>
-                                                <td className="p-4">
-                                                    <div className="flex items-center gap-3">
+                    isMobile ? (
+                        <div className="space-y-4">
+                            {filteredTasks.length === 0 ? (
+                                <Card className="bg-white shadow-lg border-slate-200 p-6 text-center">
+                                    <CheckSquare className="w-14 h-14 mx-auto mb-4 text-slate-300" />
+                                    <p className="text-slate-500 text-lg">Không tìm thấy nhiệm vụ nào</p>
+                                    <p className="text-slate-400 text-sm mt-2">Thử thay đổi bộ lọc để xem các nhiệm vụ khác</p>
+                                </Card>
+                            ) : (
+                                filteredTasks.map((task) => (
+                                    <Card key={task.id} className="bg-white shadow-md border-slate-200 p-4">
+                                        <div className="flex flex-col gap-4">
+                                            <div className="flex items-start gap-3">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedTasks.includes(task.id)}
+                                                    onChange={() => toggleTaskSelection(task.id)}
+                                                    className="mt-1 rounded border-gray-300"
+                                                />
+                                                <div className="flex-1">
+                                                    <div className="flex items-start justify-between gap-3">
                                                         <div>
-                                                            <p className="font-medium text-slate-900">{task.tentask}</p>
+                                                            <p className="font-semibold text-slate-900 text-base">{task.tentask}</p>
                                                             {task.mota && (
-                                                                <p className="text-sm text-slate-500 line-clamp-1">{task.mota}</p>
+                                                                <p className="text-sm text-slate-500 mt-1">{task.mota}</p>
                                                             )}
                                                         </div>
-                                                    </div>
-                                                </td>
-                                                <td className="p-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <FolderOpen className="w-4 h-4 text-blue-600" />
-                                                        <span className="text-sm text-slate-700 font-medium">
-                                                            {task.duan?.tenduan || projects.find(p => p.id === task.duanId)?.tenduan || 'Chưa xác định'}
-                                                        </span>
-                                                    </div>
-                                                </td>
-                                                <td className="p-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                                                            <User className="w-4 h-4 text-blue-600" />
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-sm font-medium text-slate-900">
-                                                                {task.nguoiDuocGiao?.hoten || 'N/A'}
-                                                            </p>
-                                                            {task.nguoiDuocGiao?.email && (
-                                                                <p className="text-xs text-slate-500">{task.nguoiDuocGiao.email}</p>
-                                                            )}
+                                                        <div className="flex flex-col items-end gap-2">
+                                                            <Badge className={getStatusColor(task.trangThai)}>
+                                                                {getStatusText(task.trangThai)}
+                                                            </Badge>
+                                                            <Badge className={getPriorityColor(task.mucDoUuTien)}>
+                                                                {getPriorityText(task.mucDoUuTien)}
+                                                            </Badge>
                                                         </div>
                                                     </div>
-                                                </td>
-                                                <td className="p-4">
-                                                    <Badge className={getStatusColor(task.trangThai)}>
-                                                        {getStatusText(task.trangThai)}
-                                                    </Badge>
-                                                </td>
-                                                <td className="p-4">
-                                                    <Badge className={getPriorityColor(task.mucDoUuTien)}>
-                                                        {getPriorityText(task.mucDoUuTien)}
-                                                    </Badge>
-                                                </td>
-                                                <td className="p-4">
-                                                    {task.ngayKetThuc ? (
-                                                        <div className="flex flex-col gap-1">
-                                                            <div className="flex items-center gap-2 text-sm text-slate-600">
-                                                                <Calendar className="w-4 h-4" />
-                                                                <span className="font-medium">
-                                                                    {new Date(task.ngayKetThuc).toLocaleDateString('vi-VN', {
-                                                                        day: '2-digit',
-                                                                        month: '2-digit',
-                                                                        year: 'numeric'
-                                                                    })}
-                                                                </span>
+
+                                                    <div className="mt-4 space-y-3 text-sm text-slate-600">
+                                                        <div className="flex items-center gap-2">
+                                                            <FolderOpen className="w-4 h-4 text-blue-600" />
+                                                            <span className="font-medium">
+                                                                {task.duan?.tenduan || projects.find(p => p.id === task.duanId)?.tenduan || 'Chưa xác định'}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                                                <User className="w-4 h-4 text-blue-600" />
                                                             </div>
-                                                            {task.ngayBatDau && (
-                                                                <div className="text-xs text-slate-400">
-                                                                    Bắt đầu: {new Date(task.ngayBatDau).toLocaleDateString('vi-VN', {
-                                                                        day: '2-digit',
-                                                                        month: '2-digit',
-                                                                        year: 'numeric'
-                                                                    })}
-                                                                </div>
-                                                            )}
+                                                            <div>
+                                                                <p className="font-medium text-slate-900">{task.nguoiDuocGiao?.hoten || 'N/A'}</p>
+                                                                {task.nguoiDuocGiao?.email && (
+                                                                    <p className="text-xs text-slate-500">{task.nguoiDuocGiao.email}</p>
+                                                                )}
+                                                            </div>
                                                         </div>
-                                                    ) : (
-                                                        <span className="text-sm text-slate-400 italic">Chưa có hạn</span>
-                                                    )}
-                                                </td>
-                                                <td className="p-4">
-                                                    <div className="flex items-center justify-center gap-2">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => openDetailModal(task)}
-                                                        >
-                                                            <Eye className="w-4 h-4" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => openEditModal(task)}
-                                                        >
-                                                            <Edit3 className="w-4 h-4" />
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => handleDeleteTask(task.id)}
-                                                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </Button>
+                                                        <div className="flex items-start gap-2">
+                                                            <Calendar className="w-4 h-4 text-slate-600 mt-1" />
+                                                            <div>
+                                                                {task.ngayKetThuc ? (
+                                                                    <p className="font-medium text-slate-900">
+                                                                        Hạn: {new Date(task.ngayKetThuc).toLocaleDateString('vi-VN', {
+                                                                            day: '2-digit',
+                                                                            month: '2-digit',
+                                                                            year: 'numeric'
+                                                                        })}
+                                                                    </p>
+                                                                ) : (
+                                                                    <p className="text-slate-500 italic">Chưa có hạn</p>
+                                                                )}
+                                                                {task.ngayBatDau && (
+                                                                    <p className="text-xs text-slate-400 mt-1">
+                                                                        Bắt đầu: {new Date(task.ngayBatDau).toLocaleDateString('vi-VN', {
+                                                                            day: '2-digit',
+                                                                            month: '2-digit',
+                                                                            year: 'numeric'
+                                                                        })}
+                                                                    </p>
+                                                                )}
+                                                            </div>
+                                                        </div>
                                                     </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex flex-wrap items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => openDetailModal(task)}
+                                                    className="flex items-center gap-1"
+                                                >
+                                                    <Eye className="w-4 h-4" />
+                                                    Chi tiết
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => openEditModal(task)}
+                                                    className="flex items-center gap-1"
+                                                >
+                                                    <Edit3 className="w-4 h-4" />
+                                                    Chỉnh sửa
+                                                </Button>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => handleDeleteTask(task.id)}
+                                                    className="flex items-center gap-1 text-red-600 border-red-200 hover:bg-red-50"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                    Xóa
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </Card>
+                                ))
+                            )}
+                        </div>
+                    ) : (
+                        <Card className="bg-white shadow-lg border-slate-200 overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full">
+                                    <thead className="bg-slate-50 border-b border-slate-200">
+                                        <tr>
+                                            <th className="p-4 text-left">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedTasks.length === filteredTasks.length && filteredTasks.length > 0}
+                                                    onChange={toggleSelectAll}
+                                                    className="rounded border-gray-300"
+                                                />
+                                            </th>
+                                            <th className="p-4 text-left text-sm font-semibold text-slate-700">Nhiệm vụ</th>
+                                            <th className="p-4 text-left text-sm font-semibold text-slate-700">Dự án</th>
+                                            <th className="p-4 text-left text-sm font-semibold text-slate-700">Người thực hiện</th>
+                                            <th className="p-4 text-left text-sm font-semibold text-slate-700">Trạng thái</th>
+                                            <th className="p-4 text-left text-sm font-semibold text-slate-700">Ưu tiên</th>
+                                            <th className="p-4 text-left text-sm font-semibold text-slate-700">Hạn</th>
+                                            <th className="p-4 text-center text-sm font-semibold text-slate-700">Thao tác</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100">
+                                        {filteredTasks.length === 0 ? (
+                                            <tr>
+                                                <td colSpan={8} className="p-12 text-center">
+                                                    <CheckSquare className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+                                                    <p className="text-slate-500 text-lg">Không tìm thấy nhiệm vụ nào</p>
+                                                    <p className="text-slate-400 text-sm mt-2">Thử thay đổi bộ lọc để xem các nhiệm vụ khác</p>
                                                 </td>
                                             </tr>
-                                        ))
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </Card>
+                                        ) : (
+                                            filteredTasks.map((task) => (
+                                                <tr key={task.id} className="hover:bg-slate-50 transition-colors">
+                                                    <td className="p-4">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedTasks.includes(task.id)}
+                                                            onChange={() => toggleTaskSelection(task.id)}
+                                                            className="rounded border-gray-300"
+                                                        />
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div>
+                                                                <p className="font-medium text-slate-900">{task.tentask}</p>
+                                                                {task.mota && (
+                                                                    <p className="text-sm text-slate-500 line-clamp-1">{task.mota}</p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <FolderOpen className="w-4 h-4 text-blue-600" />
+                                                            <span className="text-sm text-slate-700 font-medium">
+                                                                {task.duan?.tenduan || projects.find(p => p.id === task.duanId)?.tenduan || 'Chưa xác định'}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                                                <User className="w-4 h-4 text-blue-600" />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-sm font-medium text-slate-900">
+                                                                    {task.nguoiDuocGiao?.hoten || 'N/A'}
+                                                                </p>
+                                                                {task.nguoiDuocGiao?.email && (
+                                                                    <p className="text-xs text-slate-500">{task.nguoiDuocGiao.email}</p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <Badge className={getStatusColor(task.trangThai)}>
+                                                            {getStatusText(task.trangThai)}
+                                                        </Badge>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <Badge className={getPriorityColor(task.mucDoUuTien)}>
+                                                            {getPriorityText(task.mucDoUuTien)}
+                                                        </Badge>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        {task.ngayKetThuc ? (
+                                                            <div className="flex flex-col gap-1">
+                                                                <div className="flex items-center gap-2 text-sm text-slate-600">
+                                                                    <Calendar className="w-4 h-4" />
+                                                                    <span className="font-medium">
+                                                                        {new Date(task.ngayKetThuc).toLocaleDateString('vi-VN', {
+                                                                            day: '2-digit',
+                                                                            month: '2-digit',
+                                                                            year: 'numeric'
+                                                                        })}
+                                                                    </span>
+                                                                </div>
+                                                                {task.ngayBatDau && (
+                                                                    <div className="text-xs text-slate-400">
+                                                                        Bắt đầu: {new Date(task.ngayBatDau).toLocaleDateString('vi-VN', {
+                                                                            day: '2-digit',
+                                                                            month: '2-digit',
+                                                                            year: 'numeric'
+                                                                        })}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-sm text-slate-400 italic">Chưa có hạn</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => openDetailModal(task)}
+                                                            >
+                                                                <Eye className="w-4 h-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => openEditModal(task)}
+                                                            >
+                                                                <Edit3 className="w-4 h-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                onClick={() => handleDeleteTask(task.id)}
+                                                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </Card>
+                    )
                 ) : (
                     // Kanban View
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -781,115 +991,139 @@ export default function ManagerTasksPage() {
                 )}
             </div>
 
-            {/* Create/Edit Task Modal */}
-            <Dialog open={isTaskModalOpen} onOpenChange={setIsTaskModalOpen}>
-                <DialogContent className="sm:max-w-[600px]">
-                    <DialogHeader>
-                        <DialogTitle>{isEditMode ? 'Chỉnh sửa nhiệm vụ' : 'Tạo nhiệm vụ mới'}</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="tentask">Tên nhiệm vụ *</Label>
-                            <Input
-                                id="tentask"
+            {/* Create/Edit Task Modal (copied from project detail page) */}
+            <Modal isOpen={isTaskModalOpen} onClose={() => setIsTaskModalOpen(false)} title={isEditMode ? 'Chỉnh sửa công việc' : 'Tạo công việc mới'}>
+                <form
+                    onSubmit={async (e) => {
+                        e.preventDefault();
+                        await handleSaveTask();
+                    }}
+                    className="space-y-5"
+                >
+                    {apiErrorMessage && (
+                        <div className="mb-3 p-3 bg-red-50 border border-red-100 rounded text-sm text-red-700">
+                            <strong>Lỗi từ server:</strong> {apiErrorMessage}
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-3">
+                            <label className="block text-sm font-semibold text-foreground mb-2">Tên công việc *</label>
+                            <input
+                                type="text"
+                                required
                                 value={taskForm.tentask}
                                 onChange={(e) => setTaskForm(prev => ({ ...prev, tentask: e.target.value }))}
-                                placeholder="Nhập tên nhiệm vụ"
+                                className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                                placeholder="Nhập tên công việc"
                             />
-                        </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="mota">Mô tả</Label>
-                            <Textarea
-                                id="mota"
-                                value={taskForm.mota}
-                                onChange={(e) => setTaskForm(prev => ({ ...prev, mota: e.target.value }))}
-                                placeholder="Mô tả chi tiết nhiệm vụ"
-                                rows={3}
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="duanId">Dự án *</Label>
-                                <Select value={taskForm.duanId} onValueChange={(value) => setTaskForm(prev => ({ ...prev, duanId: value }))}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Chọn dự án" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {projects.map(project => (
-                                            <SelectItem key={project.id} value={project.id.toString()}>
-                                                {project.tenduan}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="nguoiDuocGiaoId">Người thực hiện (Tùy chọn - để trống cho member tự nhận)</Label>
-                                <Select value={taskForm.nguoiDuocGiaoId} onValueChange={(value) => setTaskForm(prev => ({ ...prev, nguoiDuocGiaoId: value }))}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Chọn người hoặc để trống" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="">-- Không giao ai (để member tự nhận) --</SelectItem>
-                                        {users.map(user => (
-                                            <SelectItem key={user.id} value={user.id.toString()}>
-                                                {user.hoten} ({user.manv})
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="ngayBatDau">Ngày bắt đầu</Label>
-                                <Input
-                                    id="ngayBatDau"
-                                    type="date"
-                                    value={taskForm.ngayBatDau}
-                                    onChange={(e) => setTaskForm(prev => ({ ...prev, ngayBatDau: e.target.value }))}
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="ngayKetThuc">Hạn hoàn thành *</Label>
-                                <Input
-                                    id="ngayKetThuc"
-                                    type="date"
-                                    value={taskForm.ngayKetThuc}
-                                    onChange={(e) => setTaskForm(prev => ({ ...prev, ngayKetThuc: e.target.value }))}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="mucDoUuTien">Mức độ ưu tiên</Label>
-                            <Select value={taskForm.mucDoUuTien} onValueChange={(value) => setTaskForm(prev => ({ ...prev, mucDoUuTien: value }))}>
-                                <SelectTrigger>
-                                    <SelectValue />
+                            <label className="block text-sm font-semibold text-foreground mb-2">Dự án *</label>
+                            <Select value={taskForm.duanId} onValueChange={(value) => setTaskForm(prev => ({ ...prev, duanId: value }))}>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Chọn dự án" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="cao">Cao</SelectItem>
-                                    <SelectItem value="trung_binh">Trung bình</SelectItem>
-                                    <SelectItem value="thap">Thấp</SelectItem>
+                                    {projects.map(project => (
+                                        <SelectItem key={project.id} value={project.id.toString()}>
+                                            {project.tenduan}
+                                        </SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
+
+                            <label className="block text-sm font-semibold text-foreground mb-2">Ngày bắt đầu</label>
+                            <input
+                                type="date"
+                                value={taskForm.ngayBatDau}
+                                onChange={(e) => setTaskForm(prev => ({ ...prev, ngayBatDau: e.target.value }))}
+                                min={projectDateBounds.start ? projectDateBounds.start.slice(0, 10) : undefined}
+                                max={projectDateBounds.end ? projectDateBounds.end.slice(0, 10) : undefined}
+                                className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                            />
+                        </div>
+
+                        <div className="space-y-3">
+                            <label className="block text-sm font-semibold text-foreground mb-2">Mô tả</label>
+                            <textarea
+                                value={taskForm.mota}
+                                onChange={(e) => setTaskForm(prev => ({ ...prev, mota: e.target.value }))}
+                                className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all resize-none"
+                                placeholder="Mô tả công việc"
+                                rows={4}
+                            />
+
+                            <label className="block text-sm font-semibold text-foreground mb-2">Người phụ trách *</label>
+                            <Select value={taskForm.nguoiDuocGiaoId} onValueChange={(value) => setTaskForm(prev => ({ ...prev, nguoiDuocGiaoId: value }))}>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Chọn người hoặc để trống" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">-- Không giao ai (để member tự nhận) --</SelectItem>
+                                    {users.map(user => (
+                                        <SelectItem key={user.id} value={user.id.toString()}>
+                                            {user.hoten} ({user.manv})
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="block text-sm font-semibold text-foreground mb-2">Hạn chót</label>
+                                    <input
+                                        type="date"
+                                        value={taskForm.ngayKetThuc}
+                                        onChange={(e) => setTaskForm(prev => ({ ...prev, ngayKetThuc: e.target.value }))}
+                                        min={projectDateBounds.start ? projectDateBounds.start.slice(0, 10) : undefined}
+                                        max={projectDateBounds.end ? projectDateBounds.end.slice(0, 10) : undefined}
+                                        className="w-full px-4 py-3 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-semibold text-foreground mb-2">Mức độ ưu tiên</label>
+                                    <Select value={taskForm.mucDoUuTien} onValueChange={(value) => setTaskForm(prev => ({ ...prev, mucDoUuTien: value }))}>
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="cao">Cao</SelectItem>
+                                            <SelectItem value="trung_binh">Trung bình</SelectItem>
+                                            <SelectItem value="thap">Thấp</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsTaskModalOpen(false)}>
+
+                    <div className="flex gap-3 pt-4 justify-end">
+                        <button
+                            type="button"
+                            onClick={() => setIsTaskModalOpen(false)}
+                            className="px-6 py-3 bg-secondary text-foreground rounded-xl font-semibold hover:bg-secondary/80 transition-all"
+                        >
                             Hủy
-                        </Button>
-                        <Button onClick={handleSaveTask} className="bg-[#003D82] hover:bg-[#0052A3]">
-                            {isEditMode ? 'Cập nhật' : 'Tạo nhiệm vụ'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                        </button>
+
+                        <button
+                            type="submit"
+                            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all"
+                        >
+                            Lưu thay đổi
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => selectedTask && handleDeleteTask(selectedTask.id)}
+                            className="px-6 py-3 bg-red-500 text-white rounded-xl font-semibold hover:bg-red-600 transition-all"
+                        >
+                            Xóa công việc
+                        </button>
+                    </div>
+                </form>
+            </Modal>
 
             {/* Task Detail Modal */}
             <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
@@ -897,6 +1131,11 @@ export default function ManagerTasksPage() {
                     <DialogHeader>
                         <DialogTitle>Chi tiết nhiệm vụ</DialogTitle>
                     </DialogHeader>
+                    {apiErrorMessage && (
+                        <div className="mb-2 p-3 bg-red-50 border border-red-100 rounded text-sm text-red-700">
+                            Lỗi từ server: {apiErrorMessage}
+                        </div>
+                    )}
                     {detailTask && (
                         <div className="space-y-6 py-4">
                             <div>
@@ -945,6 +1184,35 @@ export default function ManagerTasksPage() {
                                 </div>
                             </div>
 
+                            {/* Subtasks list */}
+                            {detailSubtasks && detailSubtasks.length > 0 && (
+                                <div>
+                                    <h4 className="font-semibold text-slate-900 mb-3">Công việc con</h4>
+                                    <div className="space-y-2">
+                                        {detailSubtasks.map((st: any) => (
+                                            <div key={st.id} className="flex items-center justify-between p-3 border rounded">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                                                        <User className="w-4 h-4 text-blue-600" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium text-slate-900">{st.tenSubtask || st.name || `ST-${st.id}`}</p>
+                                                        {st.nguoiThucHien && (
+                                                            <p className="text-sm text-slate-500">{st.nguoiThucHien.hoten || st.nguoiThucHien.name}</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="ml-4">
+                                                    <Badge className={getStatusColor(st.trangThai || st.status || '')}>
+                                                        {getStatusText(st.trangThai || st.status || '')}
+                                                    </Badge>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <div>
                                 <h4 className="font-semibold text-slate-900 mb-3">Thời gian</h4>
                                 <div className="grid grid-cols-2 gap-4">
@@ -979,13 +1247,18 @@ export default function ManagerTasksPage() {
                             Đóng
                         </Button>
                         {detailTask && (
-                            <Button onClick={() => {
-                                setIsDetailModalOpen(false)
-                                openEditModal(detailTask)
-                            }} className="bg-blue-600 hover:bg-blue-700">
-                                <Edit3 className="w-4 h-4 mr-2" />
-                                Chỉnh sửa
-                            </Button>
+                            <>
+                                <Button variant="outline" onClick={() => router.push(`/manager/projects/${detailTask.duan?.id || detailTask.duanId}`)}>
+                                    Xem dự án
+                                </Button>
+                                <Button onClick={() => {
+                                    setIsDetailModalOpen(false)
+                                    openEditModal(detailTask)
+                                }} className="bg-blue-600 hover:bg-blue-700">
+                                    <Edit3 className="w-4 h-4 mr-2" />
+                                    Chỉnh sửa
+                                </Button>
+                            </>
                         )}
                     </DialogFooter>
                 </DialogContent>

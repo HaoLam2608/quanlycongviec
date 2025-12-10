@@ -481,7 +481,7 @@ export default function MyProjectsPage() {
                                     >
                                         Xem Timeline
                                     </button>
-                                    <button
+                                    {/* <button
                                         onClick={() => {
                                             setShowMyTasks(!showMyTasks);
                                             setShowTimeline(false);
@@ -494,7 +494,7 @@ export default function MyProjectsPage() {
                                             }`}
                                     >
                                         Công việc của tôi
-                                    </button>
+                                    </button> */}
                                     {/* Tất cả công việc button removed as requested */}
                                     <button
                                         onClick={() => {

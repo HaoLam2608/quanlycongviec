@@ -24,7 +24,6 @@ const roles = [
     description: "Quản lý dự án",
     color: "from-blue-500 to-cyan-600",
     bgColor: "bg-blue-50 dark:bg-blue-900/20",
-    popular: true,
     features: [
       "Quản lý dự án được giao",
       "Tạo và phân công tasks",
@@ -33,6 +32,22 @@ const roles = [
       "Xuất báo cáo dự án",
       "Quản lý tài liệu dự án",
       "Dashboard thống kê",
+    ],
+  },
+  {
+    name: "Teamlead",
+    icon: Users,
+    description: "Trưởng nhóm",
+    color: "from-purple-500 to-indigo-600",
+    bgColor: "bg-purple-50 dark:bg-purple-900/20",
+    features: [
+      "Quản lý nhóm và thành viên",
+      "Phân công công việc nhóm",
+      "Theo dõi tiến độ nhóm",
+      "Kiểm tra và duyệt worklog",
+      "Báo cáo tiến độ nhóm",
+      "Quản lý tài liệu nhóm",
+      "Tương tác với quản lý dự án",
     ],
   },
   {
@@ -66,23 +81,14 @@ export function UserRoles() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 max-w-6xl mx-auto">
           {roles.map((role, index) => {
             const Icon = role.icon
             return (
               <Card
                 key={index}
-                className={`border-border bg-card relative hover:shadow-xl transition-all duration-300 ${
-                  role.popular ? "ring-2 ring-blue-500 scale-105" : ""
-                }`}
+                className="border-border bg-card relative hover:shadow-xl transition-all duration-300"
               >
-                {role.popular && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                    <span className="inline-flex items-center rounded-full bg-gradient-to-r from-blue-500 to-cyan-600 px-4 py-1 text-sm font-semibold text-white shadow-lg">
-                      Phổ biến nhất
-                    </span>
-                  </div>
-                )}
                 <CardHeader className="p-8 pb-6">
                   <div
                     className={`mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${role.color} shadow-lg`}

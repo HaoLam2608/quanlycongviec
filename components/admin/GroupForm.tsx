@@ -1,4 +1,3 @@
-
 // MultiSelect component cho dự án
 function MultiSelectProject({ options, value, onChange, max }: { options: ProjectSelectOption[]; value: number[]; onChange: (v: number[]) => void; max: number }) {
     const [open, setOpen] = useState(false);
@@ -19,36 +18,36 @@ function MultiSelectProject({ options, value, onChange, max }: { options: Projec
                     const p = options.find(p => p.id === id);
                     if (!p) return null;
                     return (
-                        <span key={id} className="inline-flex items-center px-2 py-1 rounded bg-indigo-100 text-indigo-800 text-xs font-medium border border-indigo-200">
+                        <span key={id} className="inline-flex items-center px-2 py-1 rounded bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-300 text-xs font-medium border border-indigo-200 dark:border-indigo-800">
                             {p.tenduan}
-                            <button type="button" className="ml-1 text-gray-400 hover:text-red-500" onClick={() => onChange(value.filter(i => i !== id))}>&times;</button>
+                            <button type="button" className="ml-1 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400" onClick={() => onChange(value.filter(i => i !== id))}>&times;</button>
                         </span>
                     );
                 })}
             </div>
-            <button type="button" className="w-full px-3 py-2 border rounded-lg bg-white text-left focus:ring-2 focus:ring-blue-500 flex items-center justify-between" onClick={() => setOpen(o => !o)}>
-                <span className={value.length ? 'text-gray-900' : 'text-gray-500'}>
+            <button type="button" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-left focus:ring-2 focus:ring-blue-500 flex items-center justify-between" onClick={() => setOpen(o => !o)}>
+                <span className={value.length ? 'text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'}>
                     {value.length ? `Đã chọn ${value.length} dự án` : 'Chọn dự án (tối đa 2)'}
                 </span>
-                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
             {open && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
-                    <div className="p-2 border-b">
-                        <input type="text" placeholder="Tìm kiếm..." value={search} onChange={e => setSearch(e.target.value)} className="w-full px-2 py-1 border rounded text-sm" />
+                <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-auto">
+                    <div className="p-2 border-b border-gray-200 dark:border-gray-700">
+                        <input type="text" placeholder="Tìm kiếm..." value={search} onChange={e => setSearch(e.target.value)} className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded text-sm focus:ring-2 focus:ring-blue-500" />
                     </div>
-                    {filtered.length === 0 && <div className="px-3 py-2 text-sm text-gray-500">Không có dự án</div>}
+                    {filtered.length === 0 && <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">Không có dự án</div>}
                     {filtered.map(p => (
                         <button key={p.id} type="button" disabled={value.length >= max && !value.includes(p.id)}
                             onClick={() => {
                                 if (value.includes(p.id)) onChange(value.filter(i => i !== p.id));
                                 else if (value.length < max) onChange([...value, p.id]);
                             }}
-                            className={`w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-blue-50 text-sm ${value.includes(p.id) ? 'bg-blue-100 text-blue-800' : ''} ${value.length >= max && !value.includes(p.id) ? 'opacity-50 pointer-events-none' : ''}`}
+                            className={`w-full px-3 py-2 text-left flex items-center gap-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-sm ${value.includes(p.id) ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300' : 'text-gray-900 dark:text-gray-100'} ${value.length >= max && !value.includes(p.id) ? 'opacity-50 pointer-events-none' : ''}`}
                         >
                             {p.tenduan}
-                            <span className={`ml-2 px-2 py-0.5 rounded text-xs font-semibold ${p.status === 'chua_bat_dau' ? 'bg-yellow-100 text-yellow-700 border border-yellow-200' : 'bg-green-100 text-green-700 border border-green-200'}`}>{p.status === 'chua_bat_dau' ? 'Chuẩn bị' : 'Đang chạy'}</span>
-                            {value.includes(p.id) && <span className="ml-auto text-blue-600">✓</span>}
+                            <span className={`ml-2 px-2 py-0.5 rounded text-xs font-semibold ${p.status === 'chua_bat_dau' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800' : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800'}`}>{p.status === 'chua_bat_dau' ? 'Chuẩn bị' : 'Đang chạy'}</span>
+                            {value.includes(p.id) && <span className="ml-auto text-blue-600 dark:text-blue-400">✓</span>}
                         </button>
                     ))}
                 </div>
@@ -127,25 +126,25 @@ function SearchableSelect({ options, value, onChange, placeholder, displayKey, v
                 type="button"
                 disabled={disabled}
                 onClick={() => !disabled && setIsOpen(!isOpen)}
-                className="w-full px-3 py-2 text-left border rounded-lg bg-white focus:ring-2 focus:ring-blue-500 flex items-center justify-between disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full px-3 py-2 text-left border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 flex items-center justify-between disabled:bg-gray-100 dark:disabled:bg-gray-800 disabled:cursor-not-allowed"
             >
-                <span className={selectedOption ? 'text-gray-900' : 'text-gray-500'}>
+                <span className={selectedOption ? 'text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'}>
                     {selectedOption ? selectedOption[displayKey] : placeholder}
                 </span>
-                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {isOpen && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-hidden">
-                    <div className="p-2 border-b">
+                <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-hidden">
+                    <div className="p-2 border-b border-gray-200 dark:border-gray-700">
                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
                             <input
                                 type="text"
                                 placeholder="Tìm kiếm..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 autoFocus
                             />
                         </div>
@@ -159,13 +158,13 @@ function SearchableSelect({ options, value, onChange, placeholder, displayKey, v
                                     setIsOpen(false);
                                     setSearchTerm('');
                                 }}
-                                className="w-full px-3 py-2 text-left text-gray-500 hover:bg-gray-50 text-sm"
+                                className="w-full px-3 py-2 text-left text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm"
                             >
                                 {placeholder}
                             </button>
                         )}
                         {filteredOptions.length === 0 ? (
-                            <div className="px-3 py-2 text-sm text-gray-500">Không tìm thấy kết quả</div>
+                            <div className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400">Không tìm thấy kết quả</div>
                         ) : (
                             filteredOptions.map(option => (
                                 <button
@@ -176,7 +175,7 @@ function SearchableSelect({ options, value, onChange, placeholder, displayKey, v
                                         setIsOpen(false);
                                         setSearchTerm('');
                                     }}
-                                    className="w-full px-3 py-2 text-left hover:bg-blue-50 text-sm"
+                                    className="w-full px-3 py-2 text-left text-gray-900 dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-sm"
                                 >
                                     {option[displayKey]}
                                 </button>
@@ -265,7 +264,9 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
             setUnavailableMembers(membersData.unavailableUsers || []);
             
             // Lọc chỉ dự án chua_bat_dau hoặc dang_chay
-            setProjects((projectRes.data || []).filter((p: any) => p.status === 'chua_bat_dau' || p.status === 'dang_chay'));
+            // Backend returns { success, data: [...], pagination: {...} }
+            const projectsData = projectRes.data?.data && Array.isArray(projectRes.data.data) ? projectRes.data.data : (Array.isArray(projectRes.data) ? projectRes.data : []);
+            setProjects(projectsData.filter((p: any) => p.status === 'chua_bat_dau' || p.status === 'dang_chay'));
             
             // Đếm số nhóm mỗi user đang tham gia (thành viên) - CHỈ ĐẾM NHÓM ACTIVE
             const groupCounts: { [userId: number]: number } = {};
@@ -356,43 +357,43 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[92vh] overflow-y-auto shadow-xl">
-                <div className="flex items-center justify-between p-6 border-b">
-                    <h3 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-3xl max-h-[92vh] overflow-y-auto shadow-xl">
+                <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                         <Users className="w-5 h-5" /> {editGroup ? 'Sửa nhóm' : 'Thêm nhóm mới'}
                     </h3>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                        <X className="w-5 h-5" />
+                    <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                        <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                     </button>
                 </div>
                 <form onSubmit={handleSubmit} className="p-6 space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label className="block text-sm font-medium mb-2">Dự án tham gia (tối đa 2, không bắt buộc)</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Dự án tham gia (tối đa 2, không bắt buộc)</label>
                             <MultiSelectProject options={projects} value={selectedProjectIds} onChange={setSelectedProjectIds} max={2} />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium mb-2">Tên nhóm *</label>
-                            <input name="name" value={formData.name} onChange={handleChange} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Nhập tên nhóm" required disabled={isClosed} />
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tên nhóm *</label>
+                            <input name="name" value={formData.name} onChange={handleChange} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Nhập tên nhóm" required disabled={isClosed} />
                         </div>
                         {/* Đã bỏ chọn dự án khi tạo nhóm, chỉ tạo nhóm thuần */}
                         <div>
-                            <label className="block text-sm font-medium mb-2">Trưởng nhóm (Team Leader) *</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Trưởng nhóm (Team Leader) *</label>
                             {/* Custom select để disable leader đã làm trưởng nhóm */}
                             <div className="relative w-full">
                                 <button
                                     type="button"
-                                    className="w-full px-3 py-2 text-left border rounded-lg bg-white focus:ring-2 focus:ring-blue-500 flex items-center justify-between"
+                                    className="w-full px-3 py-2 text-left border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:ring-2 focus:ring-blue-500 flex items-center justify-between disabled:bg-gray-100 dark:disabled:bg-gray-800"
                                     onClick={() => setShowLeaderDropdown((v: any) => !v)}
                                     disabled={isClosed}
                                 >
-                                    <span className={formData.leaderId ? 'text-gray-900' : 'text-gray-500'}>
+                                    <span className={formData.leaderId ? 'text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'}>
                                         {teamLeaders.find(l => String(l.id) === formData.leaderId)?.hoten || '-- Chọn trưởng nhóm --'}
                                     </span>
-                                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                                    <ChevronDown className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                                 </button>
                                 {showLeaderDropdown && (
-                                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                    <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                                         {teamLeaders.map(l => {
                                             const leaderCount = leaderGroupCounts[l.id] || 0;
                                             const isOver = leaderCount >= 1;
@@ -409,56 +410,56 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
                                                         }
                                                         setShowLeaderDropdown(false);
                                                     }}
-                                                    className={`w-full px-4 py-2 text-left text-sm ${isOver ? 'opacity-60 cursor-not-allowed bg-gray-100' : 'hover:bg-blue-50'}`}
+                                                    className={`w-full px-4 py-2 text-left text-sm text-gray-900 dark:text-gray-100 ${isOver ? 'opacity-60 cursor-not-allowed bg-gray-100 dark:bg-gray-700' : 'hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}
                                                 >
-                                                    {l.hoten} ({leaderCount} nhóm) {isOver && <span className="text-xs text-red-500 ml-2">❌ Đã là trưởng nhóm</span>}
+                                                    {l.hoten} ({leaderCount} nhóm) {isOver && <span className="text-xs text-red-500 dark:text-red-400 ml-2">❌ Đã là trưởng nhóm</span>}
                                                 </button>
                                             );
                                         })}
                                     </div>
                                 )}
                             </div>
-                            <p className="text-xs text-yellow-600 mt-1">
+                            <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
                                 ⚠️ Chỉ hiện nhân viên có vai trò trưởng nhóm (teamleader). Nhóm trưởng không thể tham gia nhóm khác.
                             </p>
                         </div>
                         <div className="md:col-span-2">
-                            <label className="block text-sm font-medium mb-2">Mô tả</label>
-                            <textarea name="description" value={formData.description} onChange={handleChange} rows={3} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Mô tả ngắn về nhóm" disabled={isClosed} />
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Mô tả</label>
+                            <textarea name="description" value={formData.description} onChange={handleChange} rows={3} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Mô tả ngắn về nhóm" disabled={isClosed} />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium mb-3">Thành viên (Nhân viên thường)</label>
-                        <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                            <p className="text-sm text-blue-800">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Thành viên (Nhân viên thường)</label>
+                        <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                            <p className="text-sm text-blue-800 dark:text-blue-300">
                                 📋 <strong>Quy tắc nhóm:</strong>
                             </p>
-                            <ul className="text-xs text-blue-700 mt-1 space-y-1">
+                            <ul className="text-xs text-blue-700 dark:text-blue-400 mt-1 space-y-1">
                                 <li>• Nhân viên tối đa tham gia 2 nhóm</li>
                                 <li>• Nhóm trưởng không thể là thành viên nhóm khác</li>
                                 <li>• Một người chỉ có thể làm nhóm trưởng 1 nhóm</li>
                             </ul>
                         </div>
-                        <div className="border rounded-lg">
-                            <div className="p-3 border-b bg-gray-50">
+                        <div className="border border-gray-300 dark:border-gray-600 rounded-lg">
+                            <div className="p-3 border-b border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700">
                                 <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
                                     <input
                                         type="text"
                                         placeholder="Tìm kiếm thành viên..."
                                         value={memberSearchTerm}
                                         onChange={(e) => setMemberSearchTerm(e.target.value)}
-                                        className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                     />
                                 </div>
                             </div>
-                            <div className="p-3 max-h-60 overflow-y-auto space-y-2">
+                            <div className="p-3 max-h-60 overflow-y-auto space-y-2 bg-white dark:bg-gray-800">
                                 {/* Available Members */}
                                 {filteredAvailableMembers.length === 0 && filteredUnavailableMembers.length === 0 && memberSearchTerm && (
-                                    <div className="text-sm text-gray-500 text-center py-4">Không tìm thấy thành viên nào</div>
+                                    <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">Không tìm thấy thành viên nào</div>
                                 )}
                                 {filteredAvailableMembers.length === 0 && filteredUnavailableMembers.length === 0 && !memberSearchTerm && (
-                                    <div className="text-sm text-gray-500 text-center py-4">Không có nhân viên</div>
+                                    <div className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">Không có nhân viên</div>
                                 )}
                                 
                                 {/* Available Members - có thể chọn */}
@@ -466,7 +467,7 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
                                     const isCurrentMember = u.isCurrentMember;
                                     const checked = memberIds.includes(u.id) || isCurrentMember;
                                     return (
-                                        <label key={u.id} className="flex items-center gap-3 text-sm cursor-pointer p-2 rounded-md hover:bg-green-50 border border-green-200 bg-green-50/30">
+                                        <label key={u.id} className="flex items-center gap-3 text-sm cursor-pointer p-2 rounded-md hover:bg-green-50 dark:hover:bg-green-900/20 border border-green-200 dark:border-green-800 bg-green-50/30 dark:bg-green-900/10">
                                             <input
                                                 type="checkbox"
                                                 disabled={isClosed}
@@ -475,17 +476,17 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
                                                 className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-green-500"
                                             />
                                             <div className="flex items-center gap-2 flex-1">
-                                                <div className="w-8 h-8 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                                    <span className="text-xs font-semibold text-green-700">
+                                                <div className="w-8 h-8 bg-gradient-to-br from-green-100 to-emerald-100 dark:from-green-900 dark:to-emerald-900 rounded-full flex items-center justify-center flex-shrink-0">
+                                                    <span className="text-xs font-semibold text-green-700 dark:text-green-300">
                                                         {mounted ? u.hoten.charAt(0).toUpperCase() : ''}
                                                     </span>
                                                 </div>
                                                 <div className="flex-1">
-                                                    <div className="font-medium text-gray-900">{u.hoten}</div>
-                                                    <div className="text-xs text-gray-500">{u.manv}</div>
-                                                    {isCurrentMember && <div className="text-xs text-blue-600">✓ Thành viên hiện tại</div>}
+                                                    <div className="font-medium text-gray-900 dark:text-gray-100">{u.hoten}</div>
+                                                    <div className="text-xs text-gray-500 dark:text-gray-400">{u.manv}</div>
+                                                    {isCurrentMember && <div className="text-xs text-blue-600 dark:text-blue-400">✓ Thành viên hiện tại</div>}
                                                 </div>
-                                                <span className="text-xs px-2 py-1 bg-green-500 text-white rounded-full font-medium">Khả dụng</span>
+                                                <span className="text-xs px-2 py-1 bg-green-500 dark:bg-green-600 text-white rounded-full font-medium">Khả dụng</span>
                                             </div>
                                         </label>
                                     );
@@ -493,7 +494,7 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
                                 
                                 {/* Unavailable Members - không thể chọn */}
                                 {filteredUnavailableMembers.map((u: any) => (
-                                    <label key={u.id} className="flex items-center gap-3 text-sm p-2 rounded-md bg-gray-100 border border-gray-300 opacity-60 cursor-not-allowed">
+                                    <label key={u.id} className="flex items-center gap-3 text-sm p-2 rounded-md bg-gray-100 dark:bg-gray-700/50 border border-gray-300 dark:border-gray-600 opacity-60 cursor-not-allowed">
                                         <input
                                             type="checkbox"
                                             disabled={true}
@@ -501,36 +502,36 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
                                             className="w-4 h-4 text-gray-400 border-gray-300 rounded"
                                         />
                                         <div className="flex items-center gap-2 flex-1">
-                                            <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
-                                                <span className="text-xs font-semibold text-gray-500">
+                                            <div className="w-8 h-8 bg-gray-200 dark:bg-gray-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
                                                     {mounted ? u.hoten.charAt(0).toUpperCase() : ''}
                                                 </span>
                                             </div>
                                             <div className="flex-1">
-                                                <div className="font-medium text-gray-700">{u.hoten}</div>
-                                                <div className="text-xs text-gray-500">{u.manv}</div>
-                                                <div className="text-xs text-red-600">{u.reason}</div>
+                                                <div className="font-medium text-gray-700 dark:text-gray-300">{u.hoten}</div>
+                                                <div className="text-xs text-gray-500 dark:text-gray-400">{u.manv}</div>
+                                                <div className="text-xs text-red-600 dark:text-red-400">{u.reason}</div>
                                             </div>
-                                            <span className="text-xs px-2 py-1 bg-red-500 text-white rounded-full font-medium">Không khả dụng</span>
+                                            <span className="text-xs px-2 py-1 bg-red-500 dark:bg-red-600 text-white rounded-full font-medium">Không khả dụng</span>
                                         </div>
                                     </label>
                                 ))}
                             </div>
                             {memberIds.length > 0 && (
-                                <div className="p-3 border-t bg-gray-50">
-                                    <div className="text-sm font-medium text-gray-700 mb-2">
+                                <div className="p-3 border-t border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700">
+                                    <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         Đã chọn {memberIds.length} thành viên
                                     </div>
                                     <div className="flex flex-wrap gap-1">
                                         {memberIds.map(id => {
                                             const user = users.find(u => u.id === id);
                                             return user ? (
-                                                <span key={id} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                                                <span key={id} className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs rounded-full border border-blue-200 dark:border-blue-800">
                                                     {user.hoten}
                                                     <button
                                                         type="button"
                                                         onClick={() => toggleMember(id)}
-                                                        className="hover:bg-blue-200 rounded-full p-0.5"
+                                                        className="hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full p-0.5"
                                                     >
                                                         <X className="w-3 h-3" />
                                                     </button>
@@ -543,10 +544,10 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
                         </div>
                     </div>
                     {message && (
-                        <div className={`p-3 rounded-lg text-sm ${message.includes('thành công') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{message}</div>
+                        <div className={`p-3 rounded-lg text-sm ${message.includes('thành công') ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'}`}>{message}</div>
                     )}
                     <div className="flex gap-3 pt-2">
-                        <button type="button" onClick={onClose} className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50">Hủy</button>
+                        <button type="button" onClick={onClose} className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600">Hủy</button>
                         <button type="submit" disabled={loading || isClosed} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 disabled:opacity-50">
                             <Save className="w-4 h-4" /> {loading ? 'Đang lưu...' : isClosed ? 'Đã đóng nhóm' : 'Lưu'}
                         </button>
@@ -573,7 +574,7 @@ export default function GroupForm({ isOpen, onClose, onSuccess, editGroup }: Gro
                             </button>
                         )}
                     </div>
-                    {isClosed && <div className="p-3 mt-2 rounded bg-yellow-100 text-yellow-800 text-sm">Nhóm đã đóng, không thể chỉnh sửa!</div>}
+                    {isClosed && <div className="p-3 mt-2 rounded bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 text-sm">Nhóm đã đóng, không thể chỉnh sửa!</div>}
                 </form>
             </div>
         </div>

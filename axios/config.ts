@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://localhost:5000", // URL backend của bạn
+  baseURL: "https://taskhadflow.nibies.space", // URL backend của bạn
   headers: {
     "Content-Type": "application/json",
   },
@@ -37,7 +37,7 @@ api.interceptors.response.use(
         } catch (e) { /* ignore debug errors */ }
         if (!refreshToken) throw new Error('Missing refresh token');
         // Use env var if provided, otherwise fall back to the api instance baseURL
-        const refreshBase = process.env.NEXT_PUBLIC_API_URL || api.defaults.baseURL || 'http://localhost:5000';
+        const refreshBase = api.defaults.baseURL;
         const response = await axios.post(`${refreshBase}/auth/refresh`, { refreshToken });
         const newAccessToken = response.data.accessToken;
         // store new access token under the canonical key used by the app

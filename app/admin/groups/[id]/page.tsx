@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { groupAPI } from "@/axios/adminApi";
+import { useRouter } from "next/navigation";
+import { groupAPI, deleteGroup } from "@/axios/adminApi";
 import { fetchProjects } from "@/axios/api";
-import { Users, User, FolderKanban, ArrowLeft, Mail, Calendar, CheckCircle2, Clock, TrendingUp, BarChart3, Activity } from "lucide-react";
+import { Users, User, FolderKanban, ArrowLeft, Mail, Calendar, CheckCircle2, Clock, TrendingUp, BarChart3, Activity, Trash2 } from "lucide-react";
+import { useToastContext } from "@/components/providers/toast-provider";
+import { showConfirm } from "@/lib/notifications";
 
 interface GroupStatistics {
     tasks: {
@@ -28,10 +31,13 @@ interface GroupStatistics {
 }
 
 export default function GroupDetailPage({ params }: { params: { id: string } }) {
+    const router = useRouter();
+    const { showSuccess, showError } = useToastContext();
     const groupId = params.id;
     const [group, setGroup] = useState<any>(null);
     const [statistics, setStatistics] = useState<GroupStatistics | null>(null);
     const [loading, setLoading] = useState(true);
+    const [deleting, setDeleting] = useState(false);
     const [error, setError] = useState("");
     const [projects, setProjects] = useState<any[]>([]);
 
@@ -56,12 +62,28 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
         fetchData();
     }, [groupId]);
 
+    const handleDeleteGroup = async () => {
+        const confirmed = await showConfirm(`Bạn có chắc chắn muốn xóa nhóm "${group?.name}"? Hành động này không thể hoàn tác.`);
+        if (!confirmed) return;
+
+        try {
+            setDeleting(true);
+            await deleteGroup(Number(groupId));
+            showSuccess('Đã xóa nhóm thành công');
+            router.push('/admin/groups');
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.message || error?.message || 'Lỗi khi xóa nhóm';
+            showError(errorMessage);
+            setDeleting(false);
+        }
+    };
+
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 flex items-center justify-center">
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-6 flex items-center justify-center">
                 <div className="text-center space-y-4">
                     <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                    <p className="text-lg font-medium text-gray-600">Đang tải thông tin nhóm...</p>
+                    <p className="text-lg font-medium text-gray-600 dark:text-gray-300">Đang tải thông tin nhóm...</p>
                 </div>
             </div>
         );
@@ -69,13 +91,13 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
 
     if (error || !group) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 flex items-center justify-center">
-                <div className="bg-white rounded-2xl shadow-xl border border-red-100 p-12 max-w-md text-center">
-                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Users className="w-8 h-8 text-red-500" />
+            <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-6 flex items-center justify-center">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-red-100 dark:border-red-900 p-12 max-w-md text-center">
+                    <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Users className="w-8 h-8 text-red-500 dark:text-red-400" />
                     </div>
-                    <h2 className="text-xl font-bold text-red-600 mb-2">Lỗi</h2>
-                    <p className="text-gray-600 mb-6">{error || "Không tìm thấy nhóm"}</p>
+                    <h2 className="text-xl font-bold text-red-600 dark:text-red-400 mb-2">Lỗi</h2>
+                    <p className="text-gray-600 dark:text-gray-400 mb-6">{error || "Không tìm thấy nhóm"}</p>
                     <Link
                         href="/admin/groups"
                         className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl font-medium hover:from-blue-600 hover:to-blue-700 transition-all"
@@ -92,19 +114,29 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
     const completedProjects = group.projects?.filter((p: any) => p.groupProjectStatus === 'completed') || [];
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-6">
             <div className="max-w-6xl mx-auto space-y-6">
-                {/* Back Button */}
-                <Link
-                    href="/admin/groups"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-all shadow-md border border-gray-100"
-                >
-                    <ArrowLeft className="w-4 h-4" />
-                    Quay lại danh sách nhóm
-                </Link>
+                {/* Back Button & Delete Button */}
+                <div className="flex items-center justify-between gap-4">
+                    <Link
+                        href="/admin/groups"
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-xl font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-md border border-gray-100 dark:border-gray-700"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                        Quay lại danh sách nhóm
+                    </Link>
+                    <button
+                        onClick={handleDeleteGroup}
+                        disabled={deleting || loading}
+                        className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:from-red-600 hover:to-red-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                        {deleting ? 'Đang xóa...' : 'Xóa nhóm'}
+                    </button>
+                </div>
 
                 {/* Group Header Card */}
-                <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
                     <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-500 p-8">
                         <div className="flex items-start gap-6">
                             <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-lg">
@@ -114,7 +146,7 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
                                 <div className="flex items-center gap-3 mb-2">
                                     <h1 className="text-4xl font-extrabold text-white">{group.name}</h1>
                                     {group.status === 'closed' && (
-                                        <span className="px-4 py-1.5 bg-gray-700 text-white rounded-xl text-sm font-semibold">
+                                        <span className="px-4 py-1.5 bg-gray-700 dark:bg-gray-600 text-white rounded-xl text-sm font-semibold">
                                             Đã đóng
                                         </span>
                                     )}
@@ -139,41 +171,41 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
                 {statistics && (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {/* Tasks Stats */}
-                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
                             <div className="flex items-center gap-2 mb-4">
                                 <Activity className="w-5 h-5 text-blue-500" />
-                                <h3 className="font-bold text-gray-900">Tasks</h3>
+                                <h3 className="font-bold text-gray-900 dark:text-white">Tasks</h3>
                             </div>
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm text-gray-600">Tổng số</span>
-                                    <span className="font-bold text-gray-900">{statistics.tasks.total}</span>
+                                    <span className="text-sm text-gray-600 dark:text-gray-400">Tổng số</span>
+                                    <span className="font-bold text-gray-900 dark:text-white">{statistics.tasks.total}</span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm text-green-600">Hoàn thành</span>
-                                    <span className="font-bold text-green-600">{statistics.tasks.completed}</span>
+                                    <span className="text-sm text-green-600 dark:text-green-400">Hoàn thành</span>
+                                    <span className="font-bold text-green-600 dark:text-green-400">{statistics.tasks.completed}</span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm text-blue-600">Đang chạy</span>
-                                    <span className="font-bold text-blue-600">{statistics.tasks.inProgress}</span>
+                                    <span className="text-sm text-blue-600 dark:text-blue-400">Đang chạy</span>
+                                    <span className="font-bold text-blue-600 dark:text-blue-400">{statistics.tasks.inProgress}</span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm text-gray-600">Chưa bắt đầu</span>
-                                    <span className="font-bold text-gray-600">{statistics.tasks.pending}</span>
+                                    <span className="text-sm text-gray-600 dark:text-gray-400">Chưa bắt đầu</span>
+                                    <span className="font-bold text-gray-600 dark:text-gray-400">{statistics.tasks.pending}</span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm text-red-600">Quá hạn</span>
-                                    <span className="font-bold text-red-600">{statistics.tasks.overdue}</span>
+                                    <span className="text-sm text-red-600 dark:text-red-400">Quá hạn</span>
+                                    <span className="font-bold text-red-600 dark:text-red-400">{statistics.tasks.overdue}</span>
                                 </div>
                                 {statistics.tasks.total > 0 && (
-                                    <div className="pt-2 border-t border-gray-200">
+                                    <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
                                         <div className="flex items-center justify-between mb-1">
-                                            <span className="text-xs text-gray-500">Tiến độ</span>
-                                            <span className="text-xs font-bold text-blue-600">
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">Tiến độ</span>
+                                            <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
                                                 {Math.round((statistics.tasks.completed / statistics.tasks.total) * 100)}%
                                             </span>
                                         </div>
-                                        <div className="w-full bg-gray-200 rounded-full h-2">
+                                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                                             <div 
                                                 className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all"
                                                 style={{ width: `${(statistics.tasks.completed / statistics.tasks.total) * 100}%` }}
@@ -185,37 +217,37 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
                         </div>
 
                         {/* Subtasks Stats */}
-                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
                             <div className="flex items-center gap-2 mb-4">
                                 <BarChart3 className="w-5 h-5 text-purple-500" />
-                                <h3 className="font-bold text-gray-900">Subtasks</h3>
+                                <h3 className="font-bold text-gray-900 dark:text-white">Subtasks</h3>
                             </div>
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm text-gray-600">Tổng số</span>
-                                    <span className="font-bold text-gray-900">{statistics.subtasks.total}</span>
+                                    <span className="text-sm text-gray-600 dark:text-gray-400">Tổng số</span>
+                                    <span className="font-bold text-gray-900 dark:text-white">{statistics.subtasks.total}</span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm text-green-600">Hoàn thành</span>
-                                    <span className="font-bold text-green-600">{statistics.subtasks.completed}</span>
+                                    <span className="text-sm text-green-600 dark:text-green-400">Hoàn thành</span>
+                                    <span className="font-bold text-green-600 dark:text-green-400">{statistics.subtasks.completed}</span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm text-blue-600">Đang chạy</span>
-                                    <span className="font-bold text-blue-600">{statistics.subtasks.inProgress}</span>
+                                    <span className="text-sm text-blue-600 dark:text-blue-400">Đang chạy</span>
+                                    <span className="font-bold text-blue-600 dark:text-blue-400">{statistics.subtasks.inProgress}</span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm text-gray-600">Chưa bắt đầu</span>
-                                    <span className="font-bold text-gray-600">{statistics.subtasks.pending}</span>
+                                    <span className="text-sm text-gray-600 dark:text-gray-400">Chưa bắt đầu</span>
+                                    <span className="font-bold text-gray-600 dark:text-gray-400">{statistics.subtasks.pending}</span>
                                 </div>
                                 {statistics.subtasks.total > 0 && (
-                                    <div className="pt-2 border-t border-gray-200">
+                                    <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
                                         <div className="flex items-center justify-between mb-1">
-                                            <span className="text-xs text-gray-500">Tiến độ</span>
-                                            <span className="text-xs font-bold text-purple-600">
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">Tiến độ</span>
+                                            <span className="text-xs font-bold text-purple-600 dark:text-purple-400">
                                                 {Math.round((statistics.subtasks.completed / statistics.subtasks.total) * 100)}%
                                             </span>
                                         </div>
-                                        <div className="w-full bg-gray-200 rounded-full h-2">
+                                        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                                             <div 
                                                 className="bg-gradient-to-r from-purple-500 to-purple-600 h-2 rounded-full transition-all"
                                                 style={{ width: `${(statistics.subtasks.completed / statistics.subtasks.total) * 100}%` }}
@@ -227,23 +259,23 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
                         </div>
 
                         {/* Projects Stats */}
-                        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
                             <div className="flex items-center gap-2 mb-4">
                                 <TrendingUp className="w-5 h-5 text-green-500" />
-                                <h3 className="font-bold text-gray-900">Dự án</h3>
+                                <h3 className="font-bold text-gray-900 dark:text-white">Dự án</h3>
                             </div>
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm text-gray-600">Tổng số</span>
-                                    <span className="font-bold text-gray-900">{statistics.projects.total}</span>
+                                    <span className="text-sm text-gray-600 dark:text-gray-400">Tổng số</span>
+                                    <span className="font-bold text-gray-900 dark:text-white">{statistics.projects.total}</span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm text-green-600">Đang hoạt động</span>
-                                    <span className="font-bold text-green-600">{statistics.projects.active}</span>
+                                    <span className="text-sm text-green-600 dark:text-green-400">Đang hoạt động</span>
+                                    <span className="font-bold text-green-600 dark:text-green-400">{statistics.projects.active}</span>
                                 </div>
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm text-gray-600">Đã hoàn thành</span>
-                                    <span className="font-bold text-gray-600">{statistics.projects.completed}</span>
+                                    <span className="text-sm text-gray-600 dark:text-gray-400">Đã hoàn thành</span>
+                                    <span className="font-bold text-gray-600 dark:text-gray-400">{statistics.projects.completed}</span>
                                 </div>
                             </div>
                         </div>
@@ -252,23 +284,23 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                     {/* Leader Section */}
-                    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
                         <div className="flex items-center gap-2 mb-4">
                             <User className="w-5 h-5 text-blue-500" />
-                            <h2 className="text-lg font-bold text-gray-900">Leader</h2>
+                            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Leader</h2>
                         </div>
                         {group.leader ? (
-                            <div className="flex items-center gap-4 p-4 bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl border border-blue-100">
+                            <div className="flex items-center gap-4 p-4 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
                                 <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-md">
                                     <span className="text-xl font-bold text-white">
                                         {group.leader.hoten.charAt(0).toUpperCase()}
                                     </span>
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <div className="font-semibold text-gray-900 truncate">{group.leader.hoten}</div>
-                                    <div className="text-sm text-gray-500 truncate">{group.leader.manv}</div>
+                                    <div className="font-semibold text-gray-900 dark:text-white truncate">{group.leader.hoten}</div>
+                                    <div className="text-sm text-gray-500 dark:text-gray-400 truncate">{group.leader.manv}</div>
                                     {group.leader.email && (
-                                        <div className="flex items-center gap-1 mt-1 text-xs text-gray-600">
+                                        <div className="flex items-center gap-1 mt-1 text-xs text-gray-600 dark:text-gray-400">
                                             <Mail className="w-3 h-3" />
                                             <span className="truncate">{group.leader.email}</span>
                                         </div>
@@ -276,74 +308,74 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
                                 </div>
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-xl border border-gray-200">
-                                <User className="w-12 h-12 text-gray-300 mb-2" />
-                                <p className="text-sm text-gray-400 italic">Chưa có leader</p>
+                            <div className="flex flex-col items-center justify-center p-8 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
+                                <User className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-2" />
+                                <p className="text-sm text-gray-400 dark:text-gray-500 italic">Chưa có leader</p>
                             </div>
                         )}
                     </div>
 
                     {/* Members Section */}
-                    <div className="lg:col-span-2 bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                    <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
                         <div className="flex items-center gap-2 mb-4">
                             <Users className="w-5 h-5 text-blue-500" />
-                            <h2 className="text-lg font-bold text-gray-900">Thành viên</h2>
-                            <span className="ml-auto px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold">
+                            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Thành viên</h2>
+                            <span className="ml-auto px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm font-semibold border border-blue-200 dark:border-blue-800">
                                 {group.members?.length || 0}
                             </span>
                         </div>
                         {group.members && group.members.length > 0 ? (
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-64 overflow-y-auto pr-2">
                                 {group.members.map((m: any) => (
-                                    <div key={m.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-all border border-gray-200">
+                                    <div key={m.id} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all border border-gray-200 dark:border-gray-600">
                                         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-cyan-500 flex items-center justify-center flex-shrink-0 shadow-md">
                                             <span className="text-sm font-bold text-white">
                                                 {m.hoten.charAt(0).toUpperCase()}
                                             </span>
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <div className="font-medium text-gray-900 text-sm truncate">{m.hoten}</div>
-                                            <div className="text-xs text-gray-500 truncate">{m.manv}</div>
+                                            <div className="font-medium text-gray-900 dark:text-white text-sm truncate">{m.hoten}</div>
+                                            <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{m.manv}</div>
                                         </div>
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center justify-center p-12 bg-gray-50 rounded-xl border border-gray-200">
-                                <Users className="w-12 h-12 text-gray-300 mb-2" />
-                                <p className="text-sm text-gray-400 italic">Chưa có thành viên</p>
+                            <div className="flex flex-col items-center justify-center p-12 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
+                                <Users className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-2" />
+                                <p className="text-sm text-gray-400 dark:text-gray-500 italic">Chưa có thành viên</p>
                             </div>
                         )}
                     </div>
                 </div>
 
                 {/* Projects Section */}
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
                     <div className="flex items-center gap-2 mb-6">
                         <FolderKanban className="w-5 h-5 text-green-500" />
-                        <h2 className="text-lg font-bold text-gray-900">Dự án</h2>
+                        <h2 className="text-lg font-bold text-gray-900 dark:text-white">Dự án</h2>
                     </div>
 
                     {/* Active Projects */}
                     {activeProjects.length > 0 && (
                         <div className="mb-6">
                             <div className="flex items-center gap-2 mb-3">
-                                <Clock className="w-4 h-4 text-green-600" />
-                                <h3 className="text-sm font-semibold text-gray-700">Đang tham gia ({activeProjects.length})</h3>
+                                <Clock className="w-4 h-4 text-green-600 dark:text-green-400" />
+                                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Đang tham gia ({activeProjects.length})</h3>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {activeProjects.map((project: any) => (
-                                    <div key={project.id} className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200 hover:shadow-md transition-all">
+                                    <div key={project.id} className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-4 border border-green-200 dark:border-green-800 hover:shadow-md transition-all">
                                         <div className="flex items-start gap-3">
                                             <div className="w-10 h-10 rounded-lg bg-green-500 flex items-center justify-center flex-shrink-0 shadow-md">
                                                 <FolderKanban className="w-5 h-5 text-white" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <h4 className="font-semibold text-gray-900 text-sm line-clamp-1" title={project.tenduan}>
+                                                <h4 className="font-semibold text-gray-900 dark:text-white text-sm line-clamp-1" title={project.tenduan}>
                                                     {project.tenduan}
                                                 </h4>
                                                 {project.mota && (
-                                                    <p className="text-xs text-gray-600 mt-1 line-clamp-2">{project.mota}</p>
+                                                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">{project.mota}</p>
                                                 )}
                                                 <div className="flex items-center gap-2 mt-2">
                                                     <span className="px-2 py-0.5 bg-green-500 text-white rounded text-xs font-semibold flex items-center gap-1">
@@ -363,22 +395,22 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
                     {completedProjects.length > 0 && (
                         <div>
                             <div className="flex items-center gap-2 mb-3">
-                                <CheckCircle2 className="w-4 h-4 text-gray-600" />
-                                <h3 className="text-sm font-semibold text-gray-700">Đã hoàn thành ({completedProjects.length})</h3>
+                                <CheckCircle2 className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Đã hoàn thành ({completedProjects.length})</h3>
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {completedProjects.map((project: any) => (
-                                    <div key={project.id} className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:shadow-md transition-all">
+                                    <div key={project.id} className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 border border-gray-200 dark:border-gray-600 hover:shadow-md transition-all">
                                         <div className="flex items-start gap-3">
                                             <div className="w-10 h-10 rounded-lg bg-gray-400 flex items-center justify-center flex-shrink-0 shadow-md">
                                                 <FolderKanban className="w-5 h-5 text-white" />
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <h4 className="font-semibold text-gray-900 text-sm line-clamp-1" title={project.tenduan}>
+                                                <h4 className="font-semibold text-gray-900 dark:text-white text-sm line-clamp-1" title={project.tenduan}>
                                                     {project.tenduan}
                                                 </h4>
                                                 {project.mota && (
-                                                    <p className="text-xs text-gray-600 mt-1 line-clamp-2">{project.mota}</p>
+                                                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">{project.mota}</p>
                                                 )}
                                                 <div className="flex items-center gap-2 mt-2">
                                                     <span className="px-2 py-0.5 bg-gray-500 text-white rounded text-xs font-semibold flex items-center gap-1">
@@ -396,9 +428,9 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
 
                     {/* No Projects */}
                     {activeProjects.length === 0 && completedProjects.length === 0 && (
-                        <div className="flex flex-col items-center justify-center p-12 bg-gray-50 rounded-xl border border-gray-200">
-                            <FolderKanban className="w-12 h-12 text-gray-300 mb-2" />
-                            <p className="text-sm text-gray-400 italic">Nhóm chưa tham gia dự án nào</p>
+                        <div className="flex flex-col items-center justify-center p-12 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-200 dark:border-gray-600">
+                            <FolderKanban className="w-12 h-12 text-gray-300 dark:text-gray-600 mb-2" />
+                            <p className="text-sm text-gray-400 dark:text-gray-500 italic">Nhóm chưa tham gia dự án nào</p>
                         </div>
                     )}
                 </div>

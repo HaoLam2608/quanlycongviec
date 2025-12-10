@@ -3,9 +3,10 @@ import { useEffect, useState } from "react"
 import type React from "react"
 
 import Link from "next/link"
-import { FolderKanban, ArrowRight, Clock, CheckCircle2, Plus, User } from "lucide-react"
+import { FolderKanban, ArrowRight, Clock, CheckCircle2, Plus, User, Search, Filter } from "lucide-react"
 import Modal from "@/components/admin/Modal"
 import { createProject, fetchProjects, fetchUsers } from "@/axios/api"
+import api from "@/axios/config"
 
 export default function ProjectsPage() {
     const formatDate = (value: any) => {
@@ -35,6 +36,14 @@ export default function ProjectsPage() {
     const [submitting, setSubmitting] = useState(false)
     const [isClient, setIsClient] = useState(false);
 
+    // Pagination and filter state
+    const [currentPage, setCurrentPage] = useState(1)
+    const [totalPages, setTotalPages] = useState(1)
+    const [totalItems, setTotalItems] = useState(0)
+    const [itemsPerPage] = useState(6)
+    const [searchTerm, setSearchTerm] = useState("")
+    const [statusFilter, setStatusFilter] = useState("all")
+
     useEffect(() => {
         setIsClient(true);
     }, []);
@@ -43,11 +52,29 @@ export default function ProjectsPage() {
         if (!isClient) return;
         const loadData = async () => {
             try {
-                const [projectsData, usersData] = await Promise.all([
-                    fetchProjects(), // Admin xem tất cả dự án
+                setLoading(true)
+                const [projectsResponse, usersData] = await Promise.all([
+                    api.get("/duan/getAll", {
+                        params: {
+                            page: currentPage,
+                            limit: itemsPerPage,
+                            search: searchTerm || undefined,
+                            status: statusFilter === 'all' ? undefined : statusFilter
+                        }
+                    }),
                     fetchUsers()
                 ])
-                setProjects(projectsData)
+
+                if (projectsResponse.data.success) {
+                    setProjects(projectsResponse.data.data)
+                    if (projectsResponse.data.pagination) {
+                        setTotalPages(projectsResponse.data.pagination.totalPages)
+                        setTotalItems(projectsResponse.data.pagination.total)
+                    }
+                } else {
+                    // Fallback for old API format
+                    setProjects(projectsResponse.data)
+                }
                 setUsers(usersData)
             } catch (err) {
                 console.error("Lỗi tải dữ liệu:", err)
@@ -56,7 +83,44 @@ export default function ProjectsPage() {
             }
         }
         loadData()
-    }, [isClient])
+    }, [isClient, currentPage, statusFilter])
+
+    // Reset to page 1 when search term changes
+    useEffect(() => {
+        if (!isClient) return;
+        if (currentPage !== 1) {
+            setCurrentPage(1)
+        } else {
+            const loadData = async () => {
+                try {
+                    setLoading(true)
+                    const projectsResponse = await api.get("/duan/getAll", {
+                        params: {
+                            page: 1,
+                            limit: itemsPerPage,
+                            search: searchTerm || undefined,
+                            status: statusFilter === 'all' ? undefined : statusFilter
+                        }
+                    })
+
+                    if (projectsResponse.data.success) {
+                        setProjects(projectsResponse.data.data)
+                        if (projectsResponse.data.pagination) {
+                            setTotalPages(projectsResponse.data.pagination.totalPages)
+                            setTotalItems(projectsResponse.data.pagination.total)
+                        }
+                    } else {
+                        setProjects(projectsResponse.data)
+                    }
+                } catch (err) {
+                    console.error("Lỗi tải dữ liệu:", err)
+                } finally {
+                    setLoading(false)
+                }
+            }
+            loadData()
+        }
+    }, [searchTerm])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -69,9 +133,23 @@ export default function ProjectsPage() {
                 status: formData.status,
                 userId: formData.managerId
             })
-            // Reload tất cả dự án
-            const data = await fetchProjects()
-            setProjects(data)
+            // Reload với phân trang
+            const projectsResponse = await api.get("/duan/getAll", {
+                params: {
+                    page: currentPage,
+                    limit: itemsPerPage,
+                    search: searchTerm || undefined,
+                    status: statusFilter === 'all' ? undefined : statusFilter
+                }
+            })
+
+            if (projectsResponse.data.success) {
+                setProjects(projectsResponse.data.data)
+                if (projectsResponse.data.pagination) {
+                    setTotalPages(projectsResponse.data.pagination.totalPages)
+                    setTotalItems(projectsResponse.data.pagination.total)
+                }
+            }
             setIsCreateModalOpen(false)
             setFormData({ name: "", description: "", managerId: "", startDate: "", endDate: "", status: "Chưa bắt đầu" })
         } catch (err) {
@@ -99,6 +177,38 @@ export default function ProjectsPage() {
                     <Plus size={20} />
                     Tạo dự án mới
                 </button>
+            </div>
+
+            {/* Search and Filter */}
+            <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+                <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                        <input
+                            type="text"
+                            placeholder="Tìm kiếm dự án..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2.5 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                        />
+                    </div>
+                    <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="px-4 py-2.5 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                    >
+                        <option value="all">Tất cả trạng thái</option>
+                        <option value="chua_bat_dau">Chưa bắt đầu</option>
+                        <option value="dang_chay">Đang chạy</option>
+                        <option value="da_hoan_thanh">Đã hoàn thành</option>
+                        <option value="da_dong">Đã đóng</option>
+                    </select>
+                </div>
+                {totalItems > 0 && (
+                    <div className="mt-3 text-sm text-muted-foreground">
+                        Hiển thị <span className="font-medium text-foreground">{projects.length}</span> / <span className="font-medium text-foreground">{totalItems}</span> dự án
+                    </div>
+                )}
             </div>
 
             {/* Projects Grid */}
@@ -182,6 +292,84 @@ export default function ProjectsPage() {
                             </div>
                         </Link>
                     ))}
+                </div>
+            )}
+
+            {/* Empty State */}
+            {!loading && projects.length === 0 && (
+                <div className="bg-card border border-border rounded-xl p-12 text-center shadow-sm">
+                    <FolderKanban className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+                    <h3 className="text-lg font-semibold text-foreground mb-2">Không có dự án nào</h3>
+                    <p className="text-muted-foreground mb-4">
+                        {searchTerm || statusFilter !== 'all'
+                            ? 'Không tìm thấy dự án phù hợp với bộ lọc'
+                            : 'Tạo dự án đầu tiên để bắt đầu'}
+                    </p>
+                    {!searchTerm && statusFilter === 'all' && (
+                        <button
+                            onClick={() => setIsCreateModalOpen(true)}
+                            className="px-6 py-3 bg-gradient-to-r from-orange-500 to-red-600 text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-orange-500/30 transition-all inline-flex items-center gap-2"
+                        >
+                            <Plus size={20} />
+                            Tạo dự án mới
+                        </button>
+                    )}
+                </div>
+            )}
+
+            {/* Pagination */}
+            {!loading && totalPages > 1 && (
+                <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                        <div className="text-sm text-muted-foreground">
+                            Trang <span className="font-medium text-foreground">{currentPage}</span> / <span className="font-medium text-foreground">{totalPages}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                disabled={currentPage === 1}
+                                className="px-4 py-2 bg-background border border-border rounded-lg hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
+                            >
+                                Trước
+                            </button>
+
+                            <div className="flex items-center gap-1">
+                                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                    let pageNum;
+                                    if (totalPages <= 5) {
+                                        pageNum = i + 1;
+                                    } else if (currentPage <= 3) {
+                                        pageNum = i + 1;
+                                    } else if (currentPage >= totalPages - 2) {
+                                        pageNum = totalPages - 4 + i;
+                                    } else {
+                                        pageNum = currentPage - 2 + i;
+                                    }
+
+                                    return (
+                                        <button
+                                            key={pageNum}
+                                            onClick={() => setCurrentPage(pageNum)}
+                                            className={`px-4 py-2 rounded-lg transition-all font-medium ${currentPage === pageNum
+                                                    ? 'bg-gradient-to-r from-orange-500 to-red-600 text-white shadow-md'
+                                                    : 'bg-background border border-border hover:bg-secondary'
+                                                }`}
+                                        >
+                                            {pageNum}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                disabled={currentPage === totalPages}
+                                className="px-4 py-2 bg-background border border-border rounded-lg hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
+                            >
+                                Sau
+                            </button>
+                        </div>
+                    </div>
                 </div>
             )}
 

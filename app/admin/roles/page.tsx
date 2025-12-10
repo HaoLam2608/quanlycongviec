@@ -80,96 +80,98 @@ export default function RolesPage() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6 p-4 md:p-0">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 md:gap-4">
                 <div>
-                    <h1 className="text-4xl font-bold text-foreground mb-2 flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-500/20">
-                            <Shield className="w-6 h-6 text-white" />
+                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground mb-2 flex items-center gap-2 md:gap-3">
+                        <div className="w-10 h-10 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-500/20">
+                            <Shield className="w-5 h-5 sm:w-5.5 sm:h-5.5 md:w-6 md:h-6 text-white" />
                         </div>
                         Quản lý phân quyền
                     </h1>
-                    <p className="text-muted-foreground">Cấu hình vai trò và quyền truy cập trong hệ thống</p>
+                    <p className="text-sm md:text-base text-muted-foreground">Cấu hình vai trò và quyền truy cập trong hệ thống</p>
                 </div>
-                <button
-                    onClick={() => setOpenModal(true)}
-                    className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-xl font-medium shadow-lg shadow-purple-500/20 hover:shadow-xl hover:shadow-purple-500/30 transition-all duration-200 flex items-center gap-2 hover:scale-105"
-                >
-                    <Plus size={20} />
-                    Thêm vai trò
-                </button>
-                <button
-                    onClick={() => setOpenPermModal(true)}
-                    className="ml-3 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg border border-gray-200 hover:bg-gray-200 transition-all"
-                >
-                    Thêm quyền
-                </button>
+                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                    <button
+                        onClick={() => setOpenModal(true)}
+                        className="flex-1 sm:flex-none px-4 md:px-6 py-2.5 md:py-3 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg md:rounded-xl text-sm md:text-base font-medium shadow-lg shadow-purple-500/20 hover:shadow-xl hover:shadow-purple-500/30 transition-all duration-200 flex items-center justify-center gap-2 hover:scale-105"
+                    >
+                        <Plus size={18} className="md:w-5 md:h-5" />
+                        <span>Thêm vai trò</span>
+                    </button>
+                    <button
+                        onClick={() => setOpenPermModal(true)}
+                        className="flex-1 sm:flex-none px-3 md:px-4 py-2.5 md:py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg md:rounded-xl border border-gray-200 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 text-sm md:text-base font-medium transition-all"
+                    >
+                        Thêm quyền
+                    </button>
+                </div>
             </div>
 
             {/* Roles Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                 {loading ? (
                     <>
                         {[1, 2, 3, 4, 5, 6].map(i => (
-                            <div key={i} className="bg-card border border-border rounded-2xl p-6 shadow-sm animate-pulse">
-                                <div className="flex items-start justify-between mb-4">
-                                    <div className="w-12 h-12 rounded-xl bg-secondary"></div>
-                                    <div className="flex gap-2">
-                                        <div className="w-8 h-8 rounded-lg bg-secondary"></div>
-                                        <div className="w-8 h-8 rounded-lg bg-secondary"></div>
+                            <div key={i} className="bg-card border border-border rounded-lg md:rounded-2xl p-4 md:p-6 shadow-sm animate-pulse">
+                                <div className="flex items-start justify-between mb-3 md:mb-4">
+                                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-secondary"></div>
+                                    <div className="flex gap-1 md:gap-2">
+                                        <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-secondary"></div>
+                                        <div className="w-7 h-7 md:w-8 md:h-8 rounded-lg bg-secondary"></div>
                                     </div>
                                 </div>
-                                <div className="h-6 w-32 bg-secondary rounded mb-2"></div>
-                                <div className="h-4 w-full bg-secondary rounded mb-4"></div>
-                                <div className="flex items-center justify-between pt-4 border-t border-border">
-                                    <div className="h-4 w-24 bg-secondary rounded"></div>
-                                    <div className="h-8 w-12 bg-secondary rounded-full"></div>
+                                <div className="h-5 md:h-6 w-28 md:w-32 bg-secondary rounded mb-2"></div>
+                                <div className="h-3 md:h-4 w-full bg-secondary rounded mb-3 md:mb-4"></div>
+                                <div className="flex items-center justify-between pt-3 md:pt-4 border-t border-border">
+                                    <div className="h-3 md:h-4 w-24 bg-secondary rounded"></div>
+                                    <div className="h-6 md:h-8 w-10 md:w-12 bg-secondary rounded-full"></div>
                                 </div>
                             </div>
                         ))}
                     </>
                 ) : roles.length === 0 ? (
-                    <div className="col-span-full text-center py-8 text-muted-foreground">
+                    <div className="col-span-full text-center py-8 text-muted-foreground text-sm md:text-base">
                         Chưa có vai trò nào
                     </div>
                 ) : (
                     roles.map((role, index) => (
                         <div
                             key={role.id}
-                            className="relative group bg-card border border-border rounded-2xl p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 overflow-hidden shadow-sm"
+                            className="relative group bg-card border border-border rounded-lg md:rounded-2xl p-4 md:p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 overflow-hidden shadow-sm"
                         >
                             <div className="relative">
-                                <div className="flex items-start justify-between mb-4">
+                                <div className="flex items-start justify-between mb-3 md:mb-4">
                                     <div
-                                        className={`w-12 h-12 rounded-xl bg-gradient-to-br ${getRoleColor(index)} flex items-center justify-center shadow-md`}
+                                        className={`w-10 h-10 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-gradient-to-br ${getRoleColor(index)} flex items-center justify-center shadow-md`}
                                     >
-                                        <Shield className="w-6 h-6 text-white" />
+                                        <Shield className="w-5 h-5 md:w-6 md:h-6 text-white" />
                                     </div>
                                     <div className="flex items-center gap-1">
                                         <button
                                             onClick={() => handleEdit(role)}
-                                            className="p-2 hover:bg-secondary rounded-lg transition-colors text-muted-foreground hover:text-foreground"
+                                            className="p-1.5 md:p-2 hover:bg-secondary rounded-lg transition-colors text-muted-foreground hover:text-foreground"
                                         >
-                                            <Edit size={16} />
+                                            <Edit size={14} className="md:w-4 md:h-4" />
                                         </button>
                                         <button
                                             onClick={() => handleDelete(role.id)}
-                                            className="p-2 hover:bg-destructive/10 rounded-lg transition-colors text-muted-foreground hover:text-destructive"
+                                            className="p-1.5 md:p-2 hover:bg-destructive/10 rounded-lg transition-colors text-muted-foreground hover:text-destructive"
                                         >
-                                            <Trash2 size={16} />
+                                            <Trash2 size={14} className="md:w-4 md:h-4" />
                                         </button>
                                     </div>
                                 </div>
 
-                                <h3 className="text-xl font-bold text-foreground mb-2">{role.name}</h3>
-                                <p className="text-sm text-muted-foreground mb-4 leading-relaxed">{role.description}</p>
+                                <h3 className="text-lg md:text-xl font-bold text-foreground mb-2">{role.name}</h3>
+                                <p className="text-xs md:text-sm text-muted-foreground mb-3 md:mb-4 leading-relaxed line-clamp-2">{role.description}</p>
 
-                                <div className="flex items-center justify-between text-sm">
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs md:text-sm">
                                     <div className="flex items-center gap-1 text-muted-foreground">
-                                        <Users size={16} />
+                                        <Users size={14} className="md:w-4 md:h-4" />
                                         <span className="font-medium">{role.userCount}</span>
-                                        <span>người dùng</span>
+                                        <span className="hidden sm:inline">người dùng</span>
                                     </div>
                                     <div className="text-xs text-muted-foreground">
                                         {role.permissions.length} quyền

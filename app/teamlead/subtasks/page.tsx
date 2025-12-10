@@ -226,7 +226,7 @@ export default function TeamLeadSubtasksPage() {
             <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                 <div className="flex items-center justify-between flex-wrap gap-4">
                     <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
+                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
                             <CheckSquare className="w-7 h-7 text-white" />
                         </div>
                         <div>
@@ -237,7 +237,7 @@ export default function TeamLeadSubtasksPage() {
                     <button
                         onClick={loadSubtasks}
                         disabled={loading}
-                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-purple-600 text-white font-medium text-sm flex items-center gap-2 hover:from-purple-600 hover:to-purple-700 transition-all disabled:opacity-50"
+                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium text-sm flex items-center gap-2 hover:from-blue-600 hover:to-blue-700 transition-all disabled:opacity-50"
                     >
                         <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                         <span>Làm mới</span>
@@ -292,7 +292,7 @@ export default function TeamLeadSubtasksPage() {
                     </div>
                 </div>
                 <div className="mt-4 flex items-center gap-4 text-sm text-gray-600">
-                    <span className="font-medium">Tổng số: <span className="text-purple-600 font-bold">{filteredSubtasks.length}</span> công việc</span>
+                    <span className="font-medium">Tổng số: <span className="text-blue-600 font-bold">{filteredSubtasks.length}</span> công việc</span>
                 </div>
             </div>
 

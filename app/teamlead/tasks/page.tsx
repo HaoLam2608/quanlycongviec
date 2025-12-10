@@ -305,22 +305,79 @@ export default function TeamLeadTasksPage() {
         console.log('Loading group members for task', task?.id, 'project', task?.duanId)
         try {
             const res = await api.get('/groups/my-group')
-            let allMembers = res.data.groups?.flatMap((g: any) => g.members || []) || []
-
-            if (fallbackMember?.id) {
-                const exists = allMembers.some((m: any) => m.id === fallbackMember.id)
-                if (!exists) {
-                    allMembers = [...allMembers, {
-                        id: fallbackMember.id,
-                        hoten: fallbackMember.hoten,
-                        manv: fallbackMember.manv,
-                        email: fallbackMember.email
-                    }]
+            const allGroups = res.data.groups || []
+            
+            console.log('All groups data:', allGroups)
+            
+            // Nếu task có duanId, cần lọc members thuộc nhóm tham gia dự án
+            if (task?.duanId) {
+                console.log('Task has project ID:', task.duanId)
+                
+                // Kiểm tra cả projects (belongsToMany) và groupProjects (hasMany)
+                const projectGroups = allGroups.filter((g: any) => {
+                    // Cách 1: Kiểm tra qua projects (belongsToMany association)
+                    const hasProjectInProjects = g.projects?.some((p: any) => p.id === task.duanId)
+                    
+                    // Cách 2: Kiểm tra qua groupProjects (hasMany association)
+                    const hasProjectInGroupProjects = g.groupProjects?.some((gp: any) => 
+                        gp.projectId === task.duanId && gp.status === 'active'
+                    )
+                    
+                    console.log(`Group ${g.name} (ID: ${g.id}):`, {
+                        hasProjectInProjects,
+                        hasProjectInGroupProjects,
+                        projects: g.projects,
+                        groupProjects: g.groupProjects
+                    })
+                    
+                    return hasProjectInProjects || hasProjectInGroupProjects
+                })
+                
+                console.log('Filtered groups for project:', projectGroups)
+                
+                let projectMembers = projectGroups.flatMap((g: any) => g.members || [])
+                
+                // Loại bỏ duplicate members
+                const uniqueMembers = projectMembers.reduce((acc: any[], member: any) => {
+                    if (!acc.some(m => m.id === member.id)) {
+                        acc.push(member)
+                    }
+                    return acc
+                }, [])
+                
+                if (fallbackMember?.id) {
+                    const exists = uniqueMembers.some((m: any) => m.id === fallbackMember.id)
+                    if (!exists) {
+                        uniqueMembers.push({
+                            id: fallbackMember.id,
+                            hoten: fallbackMember.hoten,
+                            manv: fallbackMember.manv,
+                            email: fallbackMember.email
+                        })
+                    }
                 }
-            }
+                
+                console.log('Final filtered members for project:', uniqueMembers)
+                setGroupMembers(uniqueMembers)
+            } else {
+                // Nếu task không có duanId, lấy tất cả members
+                let allMembers = allGroups.flatMap((g: any) => g.members || [])
 
-            console.log('Group members loaded:', allMembers)
-            setGroupMembers(allMembers)
+                if (fallbackMember?.id) {
+                    const exists = allMembers.some((m: any) => m.id === fallbackMember.id)
+                    if (!exists) {
+                        allMembers = [...allMembers, {
+                            id: fallbackMember.id,
+                            hoten: fallbackMember.hoten,
+                            manv: fallbackMember.manv,
+                            email: fallbackMember.email
+                        }]
+                    }
+                }
+
+                console.log('All group members loaded:', allMembers)
+                setGroupMembers(allMembers)
+            }
         } catch (error) {
             console.error('Load members error:', error)
         }
@@ -639,11 +696,12 @@ export default function TeamLeadTasksPage() {
     }
 
     const getStatusColor = (status: string) => {
+        // Unified blue/white theme for status badges
         switch (status) {
-            case 'Hoàn thành': return 'bg-green-100 text-green-800 border-green-200'
+            case 'Hoàn thành': return 'bg-blue-50 text-blue-800 border-blue-200'
             case 'Đang chạy': return 'bg-blue-100 text-blue-800 border-blue-200'
-            case 'Chưa bắt đầu': return 'bg-gray-100 text-gray-800 border-gray-200'
-            default: return 'bg-gray-100 text-gray-800 border-gray-200'
+            case 'Chưa bắt đầu': return 'bg-white text-blue-700 border-blue-100'
+            default: return 'bg-white text-blue-700 border-blue-100'
         }
     }
 
@@ -680,15 +738,16 @@ export default function TeamLeadTasksPage() {
     }
 
     const getPriorityColor = (priority?: string) => {
+        // Use blue/white tones for priority to match theme
         switch (normalizePriority(priority)) {
             case 'high':
-                return 'text-red-600 bg-red-50'
+                return 'text-blue-800 bg-blue-50 border border-blue-100'
             case 'medium':
-                return 'text-yellow-600 bg-yellow-50'
+                return 'text-blue-700 bg-blue-50 border border-blue-100'
             case 'low':
-                return 'text-green-600 bg-green-50'
+                return 'text-blue-600 bg-white border border-blue-50'
             default:
-                return 'text-gray-600 bg-gray-50'
+                return 'text-blue-600 bg-white border border-blue-50'
         }
     }
 
@@ -1072,13 +1131,7 @@ export default function TeamLeadTasksPage() {
                                         >
                                             <Eye size={18} />
                                         </button>
-                                        <button
-                                            onClick={() => openEditTaskModal(task)}
-                                            className="p-2 hover:bg-yellow-100 text-yellow-600 rounded-lg transition-all"
-                                            title="Chỉnh sửa"
-                                        >
-                                            <Edit size={18} />
-                                        </button>
+                                        {/* Edit button removed for teamlead (no permission to edit main tasks) */}
                                     </div>
                                 </div>
                             </div>
@@ -1110,7 +1163,7 @@ export default function TeamLeadTasksPage() {
                             {selectedTask && (
                                 <div className="space-y-5">
                                     {/* Task Name */}
-                                    <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-xl border border-blue-200">
+                                    <div className="bg-white p-4 rounded-xl border border-blue-200">
                                         <label className="text-sm font-medium text-gray-500 flex items-center gap-2">
                                             <Folder className="w-4 h-4" />
                                             Tên công việc
@@ -1119,7 +1172,7 @@ export default function TeamLeadTasksPage() {
                                     </div>
 
                                     {/* Description */}
-                                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                                    <div className="bg-white p-4 rounded-xl border border-blue-100">
                                         <label className="text-sm font-medium text-gray-500 flex items-center gap-2 mb-2">
                                             <AlertCircle className="w-4 h-4" />
                                             Mô tả chi tiết
@@ -1131,13 +1184,13 @@ export default function TeamLeadTasksPage() {
 
                                     {/* Status Cards */}
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div className="bg-white p-4 rounded-xl border-2 border-gray-200 shadow-sm">
+                                        <div className="bg-white p-4 rounded-xl border-2 border-blue-100 shadow-sm">
                                             <label className="text-sm font-medium text-gray-500 mb-2 block">Trạng thái</label>
                                             <div className={`px-3 py-2 rounded-lg font-semibold text-center ${getStatusColor(selectedTask.trangThai)}`}>
                                                 {selectedTask.trangThai}
                                             </div>
                                         </div>
-                                        <div className="bg-white p-4 rounded-xl border-2 border-gray-200 shadow-sm">
+                                        <div className="bg-white p-4 rounded-xl border-2 border-blue-100 shadow-sm">
                                             <label className="text-sm font-medium text-gray-500 mb-2 block">Độ ưu tiên</label>
                                             <div className={`px-3 py-2 rounded-lg font-semibold text-center ${getPriorityColor(selectedTask.mucDoUuTien)}`}>
                                                 {getPriorityLabel(selectedTask.mucDoUuTien)}
@@ -1147,13 +1200,13 @@ export default function TeamLeadTasksPage() {
 
                                     {/* Project Info */}
                                     {selectedTask.duan && (
-                                        <div className="bg-purple-50 p-4 rounded-xl border border-purple-200">
+                                        <div className="bg-white p-4 rounded-xl border border-blue-100">
                                             <label className="text-sm font-medium text-gray-500 mb-2 block flex items-center gap-2">
                                                 <Building2 className="w-4 h-4" />
                                                 Dự án
                                             </label>
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center">
+                                                <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
                                                     <Building2 className="w-5 h-5 text-white" />
                                                 </div>
                                                 <div>
@@ -1166,7 +1219,7 @@ export default function TeamLeadTasksPage() {
 
                                     {/* Dates */}
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div className="bg-green-50 p-4 rounded-xl border border-green-200">
+                                        <div className="bg-white p-4 rounded-xl border border-blue-100">
                                             <label className="text-sm font-medium text-gray-500 mb-2 block flex items-center gap-2">
                                                 <Calendar className="w-4 h-4" />
                                                 Ngày bắt đầu
@@ -1180,7 +1233,7 @@ export default function TeamLeadTasksPage() {
                                                 }) : 'Chưa xác định'}
                                             </p>
                                         </div>
-                                        <div className="bg-orange-50 p-4 rounded-xl border border-orange-200">
+                                        <div className="bg-white p-4 rounded-xl border border-blue-100">
                                             <label className="text-sm font-medium text-gray-500 mb-2 block flex items-center gap-2">
                                                 <Calendar className="w-4 h-4" />
                                                 Ngày kết thúc
@@ -1198,12 +1251,12 @@ export default function TeamLeadTasksPage() {
 
                                     {/* Completion Date */}
                                     {selectedTask.ngayHoanThanh && (
-                                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-4 rounded-xl border-2 border-green-300">
+                                        <div className="bg-green-50 p-4 rounded-xl border border-green-100">
                                             <label className="text-sm font-medium text-gray-500 mb-2 block flex items-center gap-2">
-                                                <CheckCircle2 className="w-4 h-4 text-green-600" />
+                                                <CheckCircle2 className="w-4 h-4 text-green-500" />
                                                 Ngày hoàn thành
                                             </label>
-                                            <p className="text-green-700 font-bold text-lg">
+                                            <p className="text-green-600 font-semibold text-lg">
                                                 {new Date(selectedTask.ngayHoanThanh).toLocaleDateString('vi-VN', {
                                                     weekday: 'short',
                                                     year: 'numeric',
@@ -1331,15 +1384,15 @@ export default function TeamLeadTasksPage() {
                             <div className="flex gap-3">
                                 {selectedTask && (
                                     <button
-                                        onClick={() => {
-                                            closeModal()
-                                            openSubtaskListModal(selectedTask)
-                                        }}
-                                        className="px-6 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-lg hover:from-indigo-600 hover:to-purple-700 transition-all font-medium flex items-center gap-2 shadow-lg"
-                                    >
-                                        <Eye className="w-5 h-5" />
-                                        Xem danh sách subtask ({selectedTask.subtasks?.length || 0})
-                                    </button>
+                                            onClick={() => {
+                                                closeModal()
+                                                openSubtaskListModal(selectedTask)
+                                            }}
+                                            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-medium flex items-center gap-2 shadow"
+                                        >
+                                            <Eye className="w-5 h-5" />
+                                            Xem công việc con ({selectedTask.subtasks?.length || 0})
+                                        </button>
                                 )}
                             </div>
                             <div className="flex gap-3">
@@ -1360,14 +1413,14 @@ export default function TeamLeadTasksPage() {
                 <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
                         {/* Modal Header */}
-                        <div className="border-b border-gray-200 p-6 bg-gradient-to-r from-green-50 to-emerald-50">
+                        <div className="border-b border-blue-200 p-6 bg-blue-600">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                                        <Plus className="w-6 h-6 text-green-600" />
+                                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                                        <Plus className="w-6 h-6 text-white" />
                                         Tạo công việc con
                                     </h2>
-                                    <p className="text-sm text-gray-600 mt-1">Cho task: {selectedTask.tentask}</p>
+                                    <p className="text-sm text-blue-100 mt-1">Cho task: {selectedTask.tentask}</p>
                                 </div>
                                 <button onClick={closeSubtaskModal} className="text-gray-400 hover:text-gray-600">
                                     <X className="w-6 h-6" />
@@ -1385,7 +1438,7 @@ export default function TeamLeadTasksPage() {
                                     type="text"
                                     value={subtaskFormData.tenSubtask}
                                     onChange={(e) => setSubtaskFormData({ ...subtaskFormData, tenSubtask: e.target.value })}
-                                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none transition-all"
+                                    className="w-full px-4 py-2.5 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
                                     placeholder="Nhập tên công việc con..."
                                 />
                             </div>
@@ -1483,7 +1536,7 @@ export default function TeamLeadTasksPage() {
                                 </button>
                                 <button
                                     onClick={handleCreateSubtask}
-                                    className="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all font-medium"
+                                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-medium"
                                 >
                                     Tạo công việc con
                                 </button>
@@ -1497,43 +1550,43 @@ export default function TeamLeadTasksPage() {
             {showSubtaskListModal && selectedTask ? (
                 <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-                        {/* Modal Header */}
-                        <div className="border-b border-gray-200 p-6 bg-gradient-to-r from-indigo-50 to-purple-50">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                                        <CheckCircle2 className="w-6 h-6 text-indigo-600" />
-                                        Danh sách công việc con
-                                    </h2>
-                                    <p className="text-sm text-gray-600 mt-1">Task: {selectedTask.tentask}</p>
+                            {/* Modal Header */}
+                            <div className="border-b border-blue-200 p-6 bg-blue-600">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                                            <CheckCircle2 className="w-6 h-6 text-white" />
+                                            Danh sách công việc con
+                                        </h2>
+                                        <p className="text-sm text-blue-100 mt-1">Task: {selectedTask.tentask}</p>
+                                    </div>
+                                    <button onClick={closeSubtaskListModal} className="text-blue-100 hover:text-white">
+                                        <X className="w-6 h-6" />
+                                    </button>
                                 </div>
-                                <button onClick={closeSubtaskListModal} className="text-gray-400 hover:text-gray-600">
-                                    <X className="w-6 h-6" />
-                                </button>
                             </div>
-                        </div>
 
-                        {/* Modal Body */}
-                        <div className="flex-1 overflow-y-auto p-6 bg-gradient-to-br from-gray-50 to-blue-50">
+                            {/* Modal Body */}
+                            <div className="flex-1 overflow-y-auto p-6 bg-white">
                             {selectedTask.subtasks && selectedTask.subtasks.length > 0 ? (
                                 <div className="space-y-4">
                                     {selectedTask.subtasks.map((subtask: any, index: number) => (
                                         <div
                                             key={subtask.id}
-                                            className="group bg-white border-2 border-gray-200 rounded-2xl p-5 hover:border-indigo-400 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+                                                className="group bg-white border border-blue-50 rounded-2xl p-5 hover:border-blue-200 hover:shadow-lg transition-all duration-200"
                                         >
                                             <div className="flex items-start gap-4">
                                                 {/* Number Badge */}
                                                 <div className="flex-shrink-0">
-                                                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                                                        <span className="text-white font-bold text-lg">#{index + 1}</span>
-                                                    </div>
+                                                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow group-hover:scale-105 transition-transform">
+                                                            <span className="text-white font-bold text-lg">#{index + 1}</span>
+                                                        </div>
                                                 </div>
 
                                                 {/* Content */}
                                                 <div className="flex-1 min-w-0">
                                                     {/* Title */}
-                                                    <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-indigo-600 transition-colors">
+                                                    <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
                                                         {subtask.tenSubtask}
                                                     </h3>
 
@@ -1547,10 +1600,10 @@ export default function TeamLeadTasksPage() {
                                                     {/* Info Tags */}
                                                     <div className="flex items-center gap-3 flex-wrap">
                                                         {/* Status Badge */}
-                                                        <div className={`px-4 py-1.5 rounded-full text-xs font-bold shadow-sm ${subtask.trangThai === 'Hoàn thành' ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white' :
-                                                            subtask.trangThai === 'Đang chạy' ? 'bg-gradient-to-r from-blue-400 to-cyan-500 text-white' :
-                                                                subtask.trangThai === 'Chờ xác nhận hoàn thành' ? 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white' :
-                                                                    'bg-gradient-to-r from-gray-300 to-gray-400 text-gray-700'
+                                                        <div className={`px-4 py-1.5 rounded-full text-xs font-semibold ${subtask.trangThai === 'Hoàn thành' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
+                                                            subtask.trangThai === 'Đang chạy' ? 'bg-blue-100 text-blue-800 border border-blue-100' :
+                                                                subtask.trangThai === 'Chờ xác nhận hoàn thành' ? 'bg-yellow-50 text-yellow-700 border border-yellow-100' :
+                                                                    'bg-white text-blue-700 border border-blue-50'
                                                             }`}>
                                                             {subtask.trangThai}
                                                         </div>
@@ -1563,17 +1616,17 @@ export default function TeamLeadTasksPage() {
 
                                                             if (hasPendingAssignment) {
                                                                 return (
-                                                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-full border border-orange-200">
-                                                                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center">
+                                                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-50 rounded-full border border-yellow-100">
+                                                                        <div className="w-6 h-6 rounded-full bg-yellow-400 flex items-center justify-center">
                                                                             <Clock className="w-3 h-3 text-white" />
                                                                         </div>
-                                                                        <span className="text-xs font-semibold text-orange-700">Đang chờ xác nhận</span>
+                                                                        <span className="text-xs font-semibold text-yellow-700">Đang chờ xác nhận</span>
                                                                     </div>
                                                                 )
                                                             } else if (subtask.nguoiThucHien) {
                                                                 return (
-                                                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-full border border-blue-200">
-                                                                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                                                                    <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-full border border-blue-100">
+                                                                        <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
                                                                             <Users className="w-3 h-3 text-white" />
                                                                         </div>
                                                                         <span className="text-xs font-semibold text-blue-700">{subtask.nguoiThucHien.hoten}</span>
@@ -1585,9 +1638,9 @@ export default function TeamLeadTasksPage() {
 
                                                         {/* Due Date */}
                                                         {subtask.ngayKetThuc && (
-                                                            <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-full border border-orange-200">
-                                                                <Calendar className="w-3 h-3 text-orange-600" />
-                                                                <span className="text-xs font-semibold text-orange-700">
+                                                            <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-full border border-blue-100">
+                                                                <Calendar className="w-3 h-3 text-blue-600" />
+                                                                <span className="text-xs font-semibold text-blue-700">
                                                                     {new Date(subtask.ngayKetThuc).toLocaleDateString('vi-VN', {
                                                                         day: '2-digit',
                                                                         month: '2-digit',
@@ -1607,10 +1660,10 @@ export default function TeamLeadTasksPage() {
                                                             closeSubtaskListModal()
                                                             openEditSubtaskModal(subtask)
                                                         }}
-                                                        className="w-10 h-10 rounded-lg bg-yellow-50 flex items-center justify-center hover:bg-yellow-100 transition-colors group/edit"
+                                                        className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center hover:bg-blue-100 transition-colors group/edit"
                                                         title="Chỉnh sửa"
                                                     >
-                                                        <Edit className="w-5 h-5 text-yellow-600 group-hover/edit:scale-110 transition-transform" />
+                                                        <Edit className="w-5 h-5 text-blue-600 group-hover/edit:scale-110 transition-transform" />
                                                     </button>
                                                     <button
                                                         onClick={(e) => {
@@ -1627,9 +1680,9 @@ export default function TeamLeadTasksPage() {
                                                             e.stopPropagation()
                                                             openSubtaskDetailModal(subtask)
                                                         }}
-                                                        className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center hover:bg-indigo-100 transition-colors group/view"
+                                                        className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center hover:bg-blue-100 transition-colors group/view"
                                                     >
-                                                        <Eye className="w-5 h-5 text-indigo-500 group-hover/view:scale-110 transition-transform" />
+                                                        <Eye className="w-5 h-5 text-blue-600 group-hover/view:scale-110 transition-transform" />
                                                     </button>
                                                     <button
                                                         onClick={(e) => {
@@ -1646,10 +1699,10 @@ export default function TeamLeadTasksPage() {
                                                             e.stopPropagation()
                                                             setExpandedCommentSubtaskId(expandedCommentSubtaskId === subtask.id ? null : subtask.id)
                                                         }}
-                                                        className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center hover:bg-purple-100 transition-colors group/comment"
+                                                        className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center hover:bg-blue-100 transition-colors group/comment"
                                                         title="Bình luận"
                                                     >
-                                                        <MessageSquare className="w-5 h-5 text-purple-600 group-hover/comment:scale-110 transition-transform" />
+                                                        <MessageSquare className="w-5 h-5 text-blue-600 group-hover/comment:scale-110 transition-transform" />
                                                     </button>
                                                 </div>
                                             </div>
@@ -1698,7 +1751,7 @@ export default function TeamLeadTasksPage() {
                                             closeSubtaskListModal()
                                             openSubtaskModal(selectedTask)
                                         }}
-                                        className="px-6 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all font-medium flex items-center gap-2 shadow-lg"
+                                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-medium flex items-center gap-2 shadow"
                                     >
                                         <Plus className="w-5 h-5" />
                                         Tạo công việc con
@@ -2122,7 +2175,7 @@ export default function TeamLeadTasksPage() {
 
             {/* Claim Task Modal */}
             {showClaimModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-transparent">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
                         <div className="flex items-center gap-3 mb-4">
                             <Hand className="w-6 h-6 text-blue-600" />

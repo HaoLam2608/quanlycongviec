@@ -110,12 +110,12 @@ export function Footer() {
             <a href="#" className="text-muted-foreground hover:text-primary transition-colors" aria-label="Facebook">
               <Facebook className="h-6 w-6" />
             </a>
-            <a href="#" className="text-muted-foreground hover:text-primary transition-colors" aria-label="Twitter">
+            {/* <a href="#" className="text-muted-foreground hover:text-primary transition-colors" aria-label="Twitter">
               <Twitter className="h-6 w-6" />
             </a>
             <a href="#" className="text-muted-foreground hover:text-primary transition-colors" aria-label="LinkedIn">
               <Linkedin className="h-6 w-6" />
-            </a>
+            </a> */}
             <a href="#" className="text-muted-foreground hover:text-primary transition-colors" aria-label="Instagram">
               <Instagram className="h-6 w-6" />
             </a>

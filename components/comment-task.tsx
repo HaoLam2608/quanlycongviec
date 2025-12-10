@@ -20,6 +20,7 @@ export default function CommentTask({ taskId, taskStatus }: CommentTaskProps) {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [content, setContent] = useState("");
+  const [mentions, setMentions] = useState<number[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { id: userId } = useAuth();
@@ -103,8 +104,10 @@ export default function CommentTask({ taskId, taskStatus }: CommentTaskProps) {
         taskId,
         content: content.trim(),
         files: selectedFiles,
+        mentions: mentions.length > 0 ? mentions : undefined,
       });
       setContent("");
+      setMentions([]);
       setSelectedFiles([]);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -223,6 +226,7 @@ export default function CommentTask({ taskId, taskStatus }: CommentTaskProps) {
           <MentionTextarea
             value={content}
             onChange={setContent}
+            onMentionsChange={setMentions}
             placeholder="Viết bình luận... (Gõ @ để tag người dùng)"
             taskId={taskId}
             className="border rounded px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"

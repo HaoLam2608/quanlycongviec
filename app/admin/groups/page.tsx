@@ -64,7 +64,15 @@ export default function GroupsPage() {
     };
 
     const loadProjects = async () => {
-        try { const r = await api.get('/duan/getAll'); setProjects(r.data.duans || r.data || []); } catch { }
+        try {
+            const r = await api.get('/duan/getAll');
+            // Backend returns { success, data: [...], pagination: {...} }
+            const projectsData = r.data?.data && Array.isArray(r.data.data) ? r.data.data : (Array.isArray(r.data) ? r.data : []);
+            setProjects(projectsData);
+        } catch (error) {
+            console.error('Error loading projects:', error);
+            setProjects([]);
+        }
     };
 
     useEffect(() => { loadProjects(); }, []);
@@ -80,32 +88,32 @@ export default function GroupsPage() {
     const handleEdit = (g: Group) => { setEditGroup(g); setOpenModal(true); };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6">
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-6">
             <div className="max-w-7xl mx-auto space-y-6">
                 {/* Header Section */}
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
                     <div className="flex items-center justify-between flex-wrap gap-4">
                         <div className="flex items-center gap-4">
                             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/30">
                                 <Users className="w-7 h-7 text-white" />
                             </div>
                             <div>
-                                <h1 className="text-3xl font-bold text-gray-900">Quản lý nhóm</h1>
-                                <p className="text-sm text-gray-500 mt-0.5">Tổ chức và quản lý các nhóm theo dự án</p>
+                                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Quản lý nhóm</h1>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Tổ chức và quản lý các nhóm theo dự án</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={() => loadGroups()}
                                 disabled={loading}
-                                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium text-sm flex items-center gap-2 transition-all hover:from-blue-600 hover:to-blue-700 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 text-white font-medium text-sm flex items-center gap-2 transition-all hover:from-blue-600 hover:to-blue-700 dark:hover:from-blue-700 dark:hover:to-blue-800 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
                                 <span>Làm mới</span>
                             </button>
                             <button
                                 onClick={() => { setEditGroup(null); setOpenModal(true); }}
-                                className="px-6 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-semibold shadow-lg shadow-green-500/25 hover:shadow-xl hover:from-green-600 hover:to-emerald-700 transition-all flex items-center gap-2 text-sm"
+                                className="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 dark:from-blue-600 dark:to-indigo-700 text-white rounded-xl font-semibold shadow-lg shadow-blue-500/25 hover:shadow-xl hover:from-blue-600 hover:to-indigo-700 dark:hover:from-blue-700 dark:hover:to-indigo-800 transition-all flex items-center gap-2 text-sm"
                             >
                                 <Plus size={16} />
                                 <span>Thêm nhóm</span>
@@ -115,30 +123,30 @@ export default function GroupsPage() {
                 </div>
 
                 {/* Filters and Search */}
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6">
                     <div className="flex flex-col md:flex-row gap-4">
                         <div className="flex-1 relative">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
                             <input
                                 type="text"
                                 placeholder="Tìm kiếm nhóm theo tên, mô tả hoặc leader..."
                                 value={searchQuery}
                                 onChange={e => setSearchQuery(e.target.value)}
-                                className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl bg-gray-50 text-sm font-medium text-gray-700 placeholder:text-gray-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all outline-none"
+                                className="w-full pl-10 pr-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:bg-white dark:focus:bg-gray-600 transition-all outline-none"
                             />
                         </div>
                         <div className="relative min-w-[200px]">
-                            <FolderKanban className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                            <FolderKanban className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
                             <select
                                 value={duanFilter}
                                 onChange={e => setDuanFilter(e.target.value)}
-                                className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl bg-gray-50 text-sm font-medium text-gray-700 hover:border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all appearance-none cursor-pointer outline-none"
+                                className="w-full pl-10 pr-10 py-3 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-gray-300 dark:hover:border-gray-500 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:bg-white dark:focus:bg-gray-600 transition-all appearance-none cursor-pointer outline-none"
                             >
                                 <option value="">Tất cả dự án</option>
-                                {projects.map(p => <option key={p.id} value={p.id}>{p.tenduan}</option>)}
+                                {Array.isArray(projects) && projects.map(p => <option key={p.id} value={p.id}>{p.tenduan}</option>)}
                             </select>
                             <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-4 h-4 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                 </svg>
                             </div>
@@ -155,37 +163,37 @@ export default function GroupsPage() {
                 {loading ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {[1, 2, 3, 4, 5, 6].map(i => (
-                            <div key={i} className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 animate-pulse">
+                            <div key={i} className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-6 animate-pulse">
                                 <div className="flex items-center gap-3 mb-4">
-                                    <div className="w-12 h-12 rounded-xl bg-gray-200"></div>
+                                    <div className="w-12 h-12 rounded-xl bg-gray-200 dark:bg-gray-700"></div>
                                     <div className="flex-1">
-                                        <div className="h-5 bg-gray-200 rounded w-32 mb-2"></div>
-                                        <div className="h-3 bg-gray-200 rounded w-24"></div>
+                                        <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-32 mb-2"></div>
+                                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
                                     </div>
                                 </div>
                                 <div className="space-y-3">
-                                    <div className="h-4 bg-gray-200 rounded"></div>
-                                    <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+                                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
                                 </div>
                             </div>
                         ))}
                     </div>
                 ) : filteredGroups.length === 0 ? (
-                    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-12">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 p-12">
                         <div className="flex flex-col items-center justify-center space-y-4">
-                            <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center">
-                                <Users className="w-10 h-10 text-gray-400" />
+                            <div className="w-20 h-20 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-full flex items-center justify-center">
+                                <Users className="w-10 h-10 text-gray-400 dark:text-gray-500" />
                             </div>
                             <div className="text-center">
-                                <h3 className="text-lg font-semibold text-gray-900 mb-1">Không tìm thấy nhóm</h3>
-                                <p className="text-sm text-gray-500">
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Không tìm thấy nhóm</h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">
                                     {searchQuery ? 'Thử tìm kiếm với từ khóa khác' : 'Không có nhóm nào phù hợp với bộ lọc hiện tại'}
                                 </p>
                             </div>
                             {!searchQuery && !duanFilter && (
                                 <button
                                     onClick={() => { setEditGroup(null); setOpenModal(true); }}
-                                    className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl hover:from-green-600 hover:to-emerald-700 transition-all flex items-center gap-2 text-sm mt-2"
+                                    className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 dark:from-green-600 dark:to-emerald-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl hover:from-green-600 hover:to-emerald-700 dark:hover:from-green-700 dark:hover:to-emerald-800 transition-all flex items-center gap-2 text-sm mt-2"
                                 >
                                     <Plus size={18} />
                                     <span>Tạo nhóm đầu tiên</span>
@@ -198,7 +206,7 @@ export default function GroupsPage() {
                         {filteredGroups.map(g => {
                             const activeProjects = Array.isArray(g.groupProjects) ? g.groupProjects.filter((gp: any) => gp.status === 'active') : []
                             return (
-                                <div key={g.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 hover:shadow-xl hover:border-blue-200 transition-all duration-300 overflow-hidden group flex flex-col">
+                                <div key={g.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 hover:shadow-xl hover:border-blue-200 dark:hover:border-blue-700 transition-all duration-300 overflow-hidden group flex flex-col">
                                     <div className="bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-500 p-6 pb-4">
                                         <div className="flex items-start justify-between mb-2">
                                             <div className="flex items-center gap-3 flex-1">
@@ -220,26 +228,26 @@ export default function GroupsPage() {
                                     
                                     <div className="p-6 space-y-4 flex-1 flex flex-col">
                                         {/* Leader */}
-                                        <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl">
+                                        <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-xl">
                                             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-md">
                                                 <span className="text-sm font-bold text-white">
                                                     {g.leader?.hoten ? g.leader.hoten.charAt(0).toUpperCase() : '?'}
                                                 </span>
                                             </div>
                                             <div className="flex-1 min-w-0">
-                                                <div className="text-xs text-gray-500 font-medium">Leader</div>
-                                                <div className="text-sm font-semibold text-gray-900 truncate">
-                                                    {g.leader?.hoten || <span className="text-gray-400 italic">Chưa có leader</span>}
+                                                <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">Leader</div>
+                                                <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                                                    {g.leader?.hoten || <span className="text-gray-400 dark:text-gray-500 italic">Chưa có leader</span>}
                                                 </div>
                                             </div>
-                                            <UserCheck className="w-5 h-5 text-blue-500" />
+                                            <UserCheck className="w-5 h-5 text-blue-500 dark:text-blue-400" />
                                         </div>
 
                                         {/* Members Count */}
-                                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+                                        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
                                             <div className="flex items-center gap-2">
-                                                <Users className="w-5 h-5 text-gray-600" />
-                                                <span className="text-sm font-medium text-gray-700">Thành viên</span>
+                                                <Users className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Thành viên</span>
                                             </div>
                                             <span className="px-3 py-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full text-xs font-bold">
                                                 {g.members?.length || 0}
@@ -248,8 +256,8 @@ export default function GroupsPage() {
 
                                         {/* Active Projects */}
                                         <div className="space-y-2 flex-1">
-                                            <div className="flex items-center gap-2 text-xs font-semibold text-gray-700">
-                                                <FolderKanban className="w-4 h-4 text-green-600" />
+                                            <div className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-300">
+                                                <FolderKanban className="w-4 h-4 text-green-600 dark:text-green-400" />
                                                 <span>Dự án đang tham gia</span>
                                             </div>
                                             {activeProjects.length > 0 ? (
@@ -257,9 +265,9 @@ export default function GroupsPage() {
                                                     {activeProjects.map((gp: any) => {
                                                         const project = projects.find((p: any) => p.id === gp.projectId)
                                                         return (
-                                                            <div key={gp.id} className="flex items-center gap-2 p-2 bg-green-50 rounded-lg border border-green-100">
-                                                                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                                                <span className="text-xs font-medium text-green-800 truncate flex-1" title={project?.tenduan}>
+                                                            <div key={gp.id} className="flex items-center gap-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-100 dark:border-green-800">
+                                                                <div className="w-2 h-2 bg-green-500 dark:bg-green-400 rounded-full animate-pulse"></div>
+                                                                <span className="text-xs font-medium text-green-800 dark:text-green-300 truncate flex-1" title={project?.tenduan}>
                                                                     {project?.tenduan || `Dự án #${gp.projectId}`}
                                                                 </span>
                                                             </div>
@@ -267,7 +275,7 @@ export default function GroupsPage() {
                                                     })}
                                                 </div>
                                             ) : (
-                                                <div className="text-xs text-gray-400 italic p-2 bg-gray-50 rounded-lg">Chưa gán dự án</div>
+                                                <div className="text-xs text-gray-400 dark:text-gray-500 italic p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">Chưa gán dự án</div>
                                             )}
                                         </div>
 
@@ -275,7 +283,7 @@ export default function GroupsPage() {
                                         <div className="grid grid-cols-2 gap-2 pt-2 mt-auto">
                                             <Link 
                                                 href={`/admin/groups/${g.id}`}
-                                                className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl text-sm font-semibold hover:from-blue-600 hover:to-blue-700 transition-all shadow-md hover:shadow-lg"
+                                                className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 text-white rounded-xl text-sm font-semibold hover:from-blue-600 hover:to-blue-700 dark:hover:from-blue-700 dark:hover:to-blue-800 transition-all shadow-md hover:shadow-lg"
                                             >
                                                 <span>Xem chi tiết</span>
                                                 <ChevronRight className="w-4 h-4" />
@@ -283,7 +291,7 @@ export default function GroupsPage() {
                                             <button
                                                 onClick={() => handleEdit(g)}
                                                 disabled={g.status === 'closed'}
-                                                className="flex items-center justify-center gap-2 px-4 py-3 bg-white border-2 border-blue-200 text-blue-600 rounded-xl font-semibold text-sm hover:bg-blue-50 hover:border-blue-300 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
+                                                className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-gray-700 border-2 border-blue-200 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-xl font-semibold text-sm hover:bg-blue-50 dark:hover:bg-gray-600 hover:border-blue-300 dark:hover:border-blue-600 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white dark:disabled:hover:bg-gray-700"
                                                 title={g.status === 'closed' ? 'Không thể chỉnh sửa nhóm đã đóng' : 'Chỉnh sửa nhóm'}
                                             >
                                                 <Edit size={16} />

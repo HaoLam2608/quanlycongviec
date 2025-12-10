@@ -1,16 +1,19 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { User, Lock, Bell, Shield, Palette, Database, Save, Eye, EyeOff, Clock } from "lucide-react"
+import { User, Lock, Bell, Shield, Palette, Database, Save, Eye, EyeOff, Clock, HardDrive } from "lucide-react"
 import { userAPI, getUsers } from "@/axios/adminApi"
 import { adminUploadAvatar } from "@/axios/adminUserApi"
 import api from "@/axios/config"
+import BackupSettings from "@/components/BackupSettings"
+import AppearanceSettings from "@/components/AppearanceSettings"
 
 const tabs = [
   { key: "profile", label: "Thông tin cá nhân", icon: User },
   { key: "security", label: "Bảo mật", icon: Lock },
   { key: "notifications", label: "Thông báo", icon: Bell },
   { key: "deadlineReminder", label: "Nhắc deadline", icon: Clock },
+  { key: "backup", label: "Sao lưu & Khôi phục", icon: HardDrive },
   { key: "system", label: "Hệ thống", icon: Database },
   { key: "appearance", label: "Giao diện", icon: Palette },
 ]
@@ -517,7 +520,7 @@ export default function AdminSettingsPage() {
                           }
                           className="sr-only peer"
                         />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:after:bg-gray-300 after:border-gray-300 dark:after:border-gray-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 dark:peer-checked:bg-blue-500"></div>
                       </label>
                     </div>
                   ))}
@@ -704,6 +707,9 @@ export default function AdminSettingsPage() {
               </form>
             )}
 
+            {/* Backup Tab */}
+            {activeTab === "backup" && <BackupSettings />}
+
             {/* System Tab */}
             {activeTab === "system" && (
               <form onSubmit={handleSystemSubmit} className="space-y-6">
@@ -778,63 +784,7 @@ export default function AdminSettingsPage() {
             )}
 
             {/* Appearance Tab */}
-            {activeTab === "appearance" && (
-              <form onSubmit={handleAppearanceSubmit} className="space-y-6">
-                <div>
-                  <h2 className="text-2xl font-bold text-foreground mb-1">Giao diện</h2>
-                  <p className="text-sm text-muted-foreground">Tùy chỉnh giao diện hệ thống</p>
-                </div>
-
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Chủ đề</label>
-                    <select
-                      value={appearanceSettings.theme}
-                      onChange={(e) => setAppearanceSettings({ ...appearanceSettings, theme: e.target.value })}
-                      className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="light">Sáng</option>
-                      <option value="dark">Tối</option>
-                      <option value="auto">Tự động</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Ngôn ngữ</label>
-                    <select
-                      value={appearanceSettings.language}
-                      onChange={(e) => setAppearanceSettings({ ...appearanceSettings, language: e.target.value })}
-                      className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="vi">Tiếng Việt</option>
-                      <option value="en">English</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Định dạng ngày</label>
-                    <select
-                      value={appearanceSettings.dateFormat}
-                      onChange={(e) => setAppearanceSettings({ ...appearanceSettings, dateFormat: e.target.value })}
-                      className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                      <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                      <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                    </select>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-medium shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all disabled:opacity-50 flex items-center gap-2"
-                >
-                  <Save className="w-4 h-4" />
-                  {loading ? "Đang lưu..." : "Lưu cài đặt"}
-                </button>
-              </form>
-            )}
+            {activeTab === "appearance" && <AppearanceSettings />}
           </div>
         </div>
       </div>

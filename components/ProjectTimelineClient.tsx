@@ -135,8 +135,10 @@ export default function ProjectTimelineClient({ projectId }: { projectId: string
         </div>
     )
 
-    const basePxPerDay = Math.max(4, Math.floor((containerWidth - 250) / Math.max(1, timeline.totalDays)))
-    const pxPerDay = Math.max(10, Math.round(basePxPerDay * zoom))
+    // Adjust for mobile: use smaller column width
+    const labelColumnWidth = containerWidth < 640 ? 20 : (containerWidth < 768 ? 80 : 180)
+    const basePxPerDay = Math.max(2, Math.floor((containerWidth - labelColumnWidth) / Math.max(1, timeline.totalDays)))
+    const pxPerDay = Math.max(containerWidth < 640 ? 4 : 10, Math.round(basePxPerDay * zoom))
     const totalPx = pxPerDay * timeline.totalDays
 
     const dateToX = (d: Date) => {
@@ -149,51 +151,51 @@ export default function ProjectTimelineClient({ projectId }: { projectId: string
     const isTodayVisible = today >= timeline.minDate && today <= timeline.maxDate
 
     return (
-        <div className="flex flex-col h-[calc(100vh-100px)] bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="flex flex-col h-[calc(100vh-120px)] md:h-[calc(100vh-100px)] bg-white dark:bg-gray-800 rounded-lg md:rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
             {/* Header Toolbar */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white z-20">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                        <Calendar className="w-6 h-6 text-blue-600" />
-                        Timeline: {project.tenduan}
+            <div className="flex flex-col gap-2 md:gap-3 px-3 md:px-6 py-3 md:py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 z-20">
+                <div className="min-w-0">
+                    <h1 className="text-sm md:text-lg lg:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-1">
+                        <Calendar className="w-4 h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-blue-600 flex-shrink-0" />
+                        <span className="truncate">Timeline: {project.tenduan}</span>
                     </h1>
-                    <p className="text-sm text-gray-500 mt-1 flex items-center gap-2">
-                        <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">
+                    <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 md:gap-2 flex-wrap">
+                        <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-1.5 md:px-2 py-0.5 rounded text-[10px] md:text-xs font-medium whitespace-nowrap">
                             {timeline.minDate.toLocaleDateString('vi-VN')}
                         </span>
-                        <ChevronRight className="w-3 h-3" />
-                        <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">
+                        <ChevronRight className="w-3 h-3 flex-shrink-0" />
+                        <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-1.5 md:px-2 py-0.5 rounded text-[10px] md:text-xs font-medium whitespace-nowrap">
                             {timeline.maxDate.toLocaleDateString('vi-VN')}
                         </span>
-                        <span className="text-gray-400">|</span>
-                        <span>{timeline.totalDays} ngày</span>
+                        <span className="text-gray-400 dark:text-gray-500 hidden sm:inline">|</span>
+                        <span className="text-gray-500 dark:text-gray-400 text-xs">{timeline.totalDays} ngày</span>
                     </p>
                 </div>
-                <div className="flex items-center gap-3 bg-gray-100 p-1 rounded-lg">
+                <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg self-start">
                     <button
                         onClick={() => setZoom(z => Math.max(0.1, z - 0.1))}
-                        className="p-2 hover:bg-white hover:shadow-sm rounded-md transition-all text-gray-600 hover:text-blue-600"
+                        className="p-1.5 md:p-2 hover:bg-white dark:hover:bg-gray-600 hover:shadow-sm rounded-md transition-all text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
                         title="Thu nhỏ"
                     >
-                        <ZoomOut size={18} />
+                        <ZoomOut size={14} className="md:w-4 md:h-4" />
                     </button>
-                    <span className="text-xs font-medium text-gray-500 w-12 text-center">{Math.round(zoom * 100)}%</span>
+                    <span className="text-[10px] md:text-xs font-medium text-gray-500 dark:text-gray-400 w-10 md:w-12 text-center">{Math.round(zoom * 100)}%</span>
                     <button
                         onClick={() => setZoom(z => Math.min(10, z + 0.1))}
-                        className="p-2 hover:bg-white hover:shadow-sm rounded-md transition-all text-gray-600 hover:text-blue-600"
+                        className="p-1.5 md:p-2 hover:bg-white dark:hover:bg-gray-600 hover:shadow-sm rounded-md transition-all text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
                         title="Phóng to"
                     >
-                        <ZoomIn size={18} />
+                        <ZoomIn size={14} className="md:w-4 md:h-4" />
                     </button>
                 </div>
             </div>
 
             {/* Timeline Content */}
             <div className="flex-1 overflow-auto relative custom-scrollbar" ref={containerRef}>
-                <div style={{ width: Math.max(totalPx + 250, containerWidth), minHeight: '100%' }} className="relative">
+                <div style={{ width: Math.max(totalPx + labelColumnWidth, containerWidth), minHeight: '100%' }} className="relative">
 
                     {/* Grid Background */}
-                    <div className="absolute inset-0 pointer-events-none" style={{ left: 250 }}>
+                    <div className="absolute inset-0 pointer-events-none" style={{ left: labelColumnWidth }}>
                         {buildHeaderDays(timeline.minDate, timeline.totalDays).map((d, i) => (
                             <div
                                 key={i}
@@ -224,14 +226,14 @@ export default function ProjectTimelineClient({ projectId }: { projectId: string
                     </div>
 
                     {/* Sticky Header */}
-                    <div className="sticky top-0 z-10 bg-white border-b border-gray-200 shadow-sm">
-                        <div className="flex">
-                            <div className="w-[250px] flex-shrink-0 bg-gray-50 border-r border-gray-200 p-3 font-semibold text-gray-700 flex items-end pb-2 z-20 sticky left-0">
-                                Công việc
+                    <div className="sticky top-0 z-10 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                        <div className="flex min-w-full">
+                            <div style={{ width: labelColumnWidth }} className="flex-shrink-0 bg-gray-50 dark:bg-gray-700 border-r border-gray-200 dark:border-gray-600 p-1 md:p-2 font-semibold text-gray-700 dark:text-gray-300 flex items-end pb-1 md:pb-2 z-20 sticky left-0 text-[9px] md:text-xs">
+                                <span className="truncate">Công việc</span>
                             </div>
-                            <div className="flex-1 relative h-14">
+                            <div className="flex-1 relative h-12 md:h-14">
                                 {/* Months */}
-                                <div className="absolute top-0 left-0 right-0 h-7 border-b border-gray-100">
+                                <div className="absolute top-0 left-0 right-0 h-6 md:h-7 border-b border-gray-100">
                                     {(() => {
                                         const days = buildHeaderDays(timeline.minDate, timeline.totalDays)
                                         const monthGroups: Array<{ startIndex: number; length: number; label: string }> = []
@@ -244,7 +246,7 @@ export default function ProjectTimelineClient({ projectId }: { projectId: string
                                             monthGroups.push({
                                                 startIndex: cursor,
                                                 length: end - cursor,
-                                                label: new Date(y, m).toLocaleDateString('vi-VN', { month: 'long', year: 'numeric' })
+                                                label: new Date(y, m).toLocaleDateString('vi-VN', { month: 'short', year: 'numeric' })
                                             })
                                             cursor = end
                                         }
@@ -256,7 +258,7 @@ export default function ProjectTimelineClient({ projectId }: { projectId: string
                                                     left: mg.startIndex * pxPerDay,
                                                     width: mg.length * pxPerDay,
                                                 }}
-                                                className="h-full flex items-center px-2 text-xs font-bold text-gray-600 bg-gray-50/50 border-r border-gray-200 truncate"
+                                                className="h-full flex items-center px-1 md:px-2 text-[9px] md:text-xs font-bold text-gray-600 dark:text-gray-300 bg-gray-50/50 dark:bg-gray-700/50 border-r border-gray-200 dark:border-gray-600 truncate"
                                             >
                                                 {mg.label}
                                             </div>
@@ -264,7 +266,7 @@ export default function ProjectTimelineClient({ projectId }: { projectId: string
                                     })()}
                                 </div>
                                 {/* Days */}
-                                <div className="absolute bottom-0 left-0 right-0 h-7">
+                                <div className="absolute bottom-0 left-0 right-0 h-6 md:h-7 top-6 md:top-7">
                                     {buildHeaderDays(timeline.minDate, timeline.totalDays).map((d, i) => {
                                         const isWeekend = d.getDay() === 0 || d.getDay() === 6
                                         return (
@@ -275,10 +277,10 @@ export default function ProjectTimelineClient({ projectId }: { projectId: string
                                                     left: i * pxPerDay,
                                                     width: pxPerDay,
                                                 }}
-                                                className={`h-full flex flex-col items-center justify-center text-[10px] border-r border-gray-100 ${isWeekend ? 'bg-gray-50 text-gray-500' : 'text-gray-700'}`}
+                                                className={`h-full flex flex-col items-center justify-center text-[8px] md:text-[10px] border-r border-gray-100 dark:border-gray-700 ${isWeekend ? 'bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400' : 'text-gray-700 dark:text-gray-300'}`}
                                             >
                                                 <span className="font-bold">{d.getDate()}</span>
-                                                <span className="text-[9px] uppercase">{d.toLocaleDateString('vi-VN', { weekday: 'short' })}</span>
+                                                <span className="text-[7px] md:text-[9px] uppercase">{d.toLocaleDateString('vi-VN', { weekday: 'short' })}</span>
                                             </div>
                                         )
                                     })}
@@ -297,18 +299,17 @@ export default function ProjectTimelineClient({ projectId }: { projectId: string
                             const tw = hasTaskDates ? Math.max(24, dateToX(tEnd) - tx) : 0
 
                             // Use solid background colors to prevent content showing through sticky columns
-                            const rowBgClass = index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                            const rowBgClass = index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-700/50'
 
                             return (
                                 <div key={task.id} className={`group ${rowBgClass}`}>
                                     {/* Main Task Row */}
-                                    <div className="flex items-center h-10 hover:bg-blue-50 transition-colors">
-                                        <div className={`w-[250px] flex-shrink-0 border-r border-gray-200 px-4 py-2 flex items-center gap-2 sticky left-0 z-10 ${rowBgClass} group-hover:bg-blue-50 transition-colors`}>
-                                            <div className={`w-2 h-2 rounded-full ${hasTaskDates ? 'bg-blue-500' : 'bg-gray-300'}`}></div>
-                                            <span className="text-sm font-medium text-gray-700 truncate flex-1" title={task.tentask}>
+                                    <div className="flex items-center h-7 md:h-10 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors">
+                                        <div style={{ width: labelColumnWidth }} className={`flex-shrink-0 border-r border-gray-200 dark:border-gray-600 px-1 md:px-2 py-1 flex items-center gap-0.5 md:gap-1 sticky left-0 z-10 ${rowBgClass} group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 transition-colors overflow-hidden`}>
+                                            <div className={`w-1 h-1 md:w-1.5 md:h-1.5 rounded-full flex-shrink-0 ${hasTaskDates ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'}`}></div>
+                                            <span className="text-[9px] md:text-xs font-medium text-gray-700 dark:text-gray-300 truncate flex-1" title={task.tentask}>
                                                 {task.tentask}
                                             </span>
-                                            <span className="text-xs text-gray-400 font-mono">#{task.id}</span>
                                         </div>
                                         <div className="flex-1 relative h-full">
                                             {hasTaskDates && (
@@ -317,23 +318,23 @@ export default function ProjectTimelineClient({ projectId }: { projectId: string
                                                         position: 'absolute',
                                                         left: tx,
                                                         width: tw,
-                                                        top: 6,
-                                                        height: 28
+                                                        top: 4,
+                                                        height: 20
                                                     }}
                                                     className="group/bar relative"
                                                 >
-                                                    <div className="w-full h-full rounded-md bg-gradient-to-r from-blue-500 to-blue-400 shadow-sm border border-blue-600/20 cursor-pointer hover:brightness-110 transition-all flex items-center px-2 overflow-hidden">
-                                                        <span className="text-xs font-medium text-white whitespace-nowrap drop-shadow-md">{task.tentask}</span>
+                                                    <div className="w-full h-full rounded bg-gradient-to-r from-blue-500 to-blue-400 shadow-sm border border-blue-600/20 cursor-pointer hover:brightness-110 transition-all flex items-center px-1 overflow-hidden">
+                                                        <span className="text-[9px] md:text-xs font-medium text-white whitespace-nowrap drop-shadow-md hidden md:inline">{task.tentask}</span>
                                                     </div>
 
                                                     {/* Tooltip */}
-                                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/bar:block z-50 w-max max-w-xs">
-                                                        <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl">
-                                                            <p className="font-bold mb-1">{task.tentask}</p>
-                                                            <p className="text-gray-300">
+                                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/bar:block z-50 w-max max-w-[250px] md:max-w-xs">
+                                                        <div className="bg-gray-900 text-white text-xs rounded-lg py-1.5 md:py-2 px-2 md:px-3 shadow-xl">
+                                                            <p className="font-bold mb-1 text-xs md:text-sm break-words">{task.tentask}</p>
+                                                            <p className="text-gray-300 text-[10px] md:text-xs">
                                                                 {tStart.toLocaleDateString('vi-VN')} - {tEnd.toLocaleDateString('vi-VN')}
                                                             </p>
-                                                            <p className="text-gray-400 mt-1">
+                                                            <p className="text-gray-400 mt-1 text-[10px] md:text-xs">
                                                                 {Math.ceil((tEnd.getTime() - tStart.getTime()) / (1000 * 60 * 60 * 24)) + 1} ngày
                                                             </p>
                                                         </div>
@@ -353,10 +354,10 @@ export default function ProjectTimelineClient({ projectId }: { projectId: string
                                         const sw = hasStDates ? Math.max(20, dateToX(sEnd) - sx) : 0
 
                                         return (
-                                            <div key={st.id} className="flex items-center h-8 hover:bg-orange-50 transition-colors">
-                                                <div className={`w-[250px] flex-shrink-0 border-r border-gray-200 pl-8 pr-4 py-1 flex items-center gap-2 sticky left-0 z-10 ${rowBgClass} group-hover:bg-orange-50 transition-colors`}>
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-gray-300"></div>
-                                                    <span className="text-xs text-gray-600 truncate flex-1" title={st.tenSubtask || st.name}>
+                                            <div key={st.id} className="flex items-center h-6 md:h-8 hover:bg-orange-50 dark:hover:bg-orange-900/30 transition-colors">
+                                                <div style={{ width: labelColumnWidth }} className={`flex-shrink-0 border-r border-gray-200 dark:border-gray-600 pl-2 sm:pl-3 md:pl-6 pr-1 md:pr-2 py-1 flex items-center gap-0.5 md:gap-1 sticky left-0 z-10 ${rowBgClass} group-hover:bg-orange-50 dark:group-hover:bg-orange-900/30 transition-colors overflow-hidden`}>
+                                                    <div className="w-0.5 md:w-1 h-0.5 md:h-1 rounded-full bg-gray-300 dark:bg-gray-600 flex-shrink-0"></div>
+                                                    <span className="text-[8px] md:text-xs text-gray-600 dark:text-gray-400 truncate flex-1" title={st.tenSubtask || st.name}>
                                                         {st.tenSubtask || st.name}
                                                     </span>
                                                 </div>
@@ -367,18 +368,18 @@ export default function ProjectTimelineClient({ projectId }: { projectId: string
                                                                 position: 'absolute',
                                                                 left: sx,
                                                                 width: sw,
-                                                                top: 6,
-                                                                height: 20
+                                                                top: 5,
+                                                                height: 14
                                                             }}
                                                             className="group/subbar relative"
                                                         >
                                                             <div className="w-full h-full rounded bg-orange-400/80 hover:bg-orange-500 transition-colors cursor-pointer shadow-sm"></div>
 
                                                             {/* Subtask Tooltip */}
-                                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/subbar:block z-50 w-max max-w-xs">
-                                                                <div className="bg-gray-900 text-white text-xs rounded-lg py-2 px-3 shadow-xl">
-                                                                    <p className="font-bold mb-1">{st.tenSubtask || st.name}</p>
-                                                                    <p className="text-gray-300">
+                                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/subbar:block z-50 w-max max-w-[200px] md:max-w-xs">
+                                                                <div className="bg-gray-900 text-white text-xs rounded-lg py-1.5 md:py-2 px-2 md:px-3 shadow-xl">
+                                                                    <p className="font-bold mb-1 text-[10px] md:text-sm break-words">{st.tenSubtask || st.name}</p>
+                                                                    <p className="text-gray-300 text-[9px] md:text-xs">
                                                                         {sStart.toLocaleDateString('vi-VN')} - {sEnd.toLocaleDateString('vi-VN')}
                                                                     </p>
                                                                 </div>

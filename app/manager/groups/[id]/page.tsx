@@ -2,14 +2,20 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { groupAPI } from "@/axios/adminApi";
+import { useRouter } from "next/navigation";
+import { groupAPI, deleteGroup } from "@/axios/adminApi";
 import { fetchProjects } from "@/axios/api";
-import { Users, User, FolderKanban, ArrowLeft, Mail, Calendar, CheckCircle2, Clock } from "lucide-react";
+import { Users, User, FolderKanban, ArrowLeft, Mail, Calendar, CheckCircle2, Clock, Trash2 } from "lucide-react";
+import { useToastContext } from "@/components/providers/toast-provider";
+import { showConfirm } from "@/lib/notifications";
 
 export default function GroupDetailPage({ params }: { params: { id: string } }) {
+    const router = useRouter();
+    const { showSuccess, showError } = useToastContext();
     const groupId = params.id;
     const [group, setGroup] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [deleting, setDeleting] = useState(false);
     const [error, setError] = useState("");
     const [projects, setProjects] = useState<any[]>([]);
 
@@ -21,15 +27,42 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
                     fetchProjects()
                 ]);
                 setGroup(groupRes.data.group);
-                setProjects(projectsRes.duans || projectsRes.projects || projectsRes || []);
+                
+                // Handle different response structures from backend
+                const projectsData = projectsRes?.data && Array.isArray(projectsRes.data)
+                    ? projectsRes.data
+                    : (projectsRes?.duans && Array.isArray(projectsRes.duans)
+                        ? projectsRes.duans
+                        : (projectsRes?.projects && Array.isArray(projectsRes.projects)
+                            ? projectsRes.projects
+                            : (Array.isArray(projectsRes) ? projectsRes : [])))
+                
+                setProjects(projectsData);
             } catch (err: any) {
                 setError("Không tìm thấy nhóm hoặc không có quyền xem");
+                setProjects([]);
             } finally {
                 setLoading(false);
             }
         };
         fetchData();
     }, [groupId]);
+
+    const handleDeleteGroup = async () => {
+        const confirmed = await showConfirm(`Bạn có chắc chắn muốn xóa nhóm "${group?.name}"? Hành động này không thể hoàn tác.`);
+        if (!confirmed) return;
+
+        try {
+            setDeleting(true);
+            await deleteGroup(Number(groupId));
+            showSuccess('Đã xóa nhóm thành công');
+            router.push('/manager/groups');
+        } catch (error: any) {
+            const errorMessage = error?.response?.data?.message || error?.message || 'Lỗi khi xóa nhóm';
+            showError(errorMessage);
+            setDeleting(false);
+        }
+    };
 
     if (loading) {
         return (
@@ -69,14 +102,24 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6">
             <div className="max-w-6xl mx-auto space-y-6">
-                {/* Back Button */}
-                <Link
-                    href="/manager/groups"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-all shadow-md border border-gray-100"
-                >
-                    <ArrowLeft className="w-4 h-4" />
-                    Quay lại danh sách nhóm
-                </Link>
+                {/* Back Button & Delete Button */}
+                <div className="flex items-center justify-between gap-4">
+                    <Link
+                        href="/manager/groups"
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-all shadow-md border border-gray-100"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                        Quay lại danh sách nhóm
+                    </Link>
+                    <button
+                        onClick={handleDeleteGroup}
+                        disabled={deleting || loading}
+                        className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl font-semibold hover:from-red-600 hover:to-red-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                        {deleting ? 'Đang xóa...' : 'Xóa nhóm'}
+                    </button>
+                </div>
 
                 {/* Group Header Card */}
                 <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
@@ -193,7 +236,7 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {activeProjects.map((gp: any) => {
-                                    const project = projects.find((p: any) => p.id === gp.projectId);
+                                    const project = Array.isArray(projects) ? projects.find((p: any) => p.id === gp.projectId) : null;
                                     return (
                                         <div key={gp.id} className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200 hover:shadow-md transition-all">
                                             <div className="flex items-start gap-3">
@@ -231,7 +274,7 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
                             </div>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {completedProjects.map((gp: any) => {
-                                    const project = projects.find((p: any) => p.id === gp.projectId);
+                                    const project = Array.isArray(projects) ? projects.find((p: any) => p.id === gp.projectId) : null;
                                     return (
                                         <div key={gp.id} className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:shadow-md transition-all">
                                             <div className="flex items-start gap-3">

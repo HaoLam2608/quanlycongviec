@@ -122,7 +122,7 @@ export default function TeamLeadDashboard() {
     return (
         <div className="p-6 space-y-6">
             {/* Header */}
-            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl p-6 text-white shadow-lg">
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white shadow-lg">
                 <h1 className="text-3xl font-bold mb-2">Chào mừng, Nhóm trưởng!</h1>
                 {/* <p className="text-purple-100">Tổng quan nhóm: <span className="font-semibold">{stats.groupName}</span></p>
                 {stats.groupDescription && (

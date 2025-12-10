@@ -50,7 +50,19 @@ export default function ManagerGroupsPage() {
     }
 
     const loadProjects = async () => {
-        try { const r = await api.get('/duan/getAll'); setProjects(r.data.duans || r.data || []) } catch { }
+        try { 
+            const r = await api.get('/duan/getAll')
+            // Handle different response structures
+            const projectsData = r.data?.data && Array.isArray(r.data.data) 
+                ? r.data.data 
+                : (r.data?.duans && Array.isArray(r.data.duans) 
+                    ? r.data.duans 
+                    : (Array.isArray(r.data) ? r.data : []))
+            setProjects(projectsData)
+        } catch (error) {
+            console.error('Error loading projects:', error)
+            setProjects([])
+        }
     }
 
     useEffect(() => { loadProjects() }, [])
@@ -94,7 +106,7 @@ export default function ManagerGroupsPage() {
                             </button>
                             <button
                                 onClick={() => { setEditGroup(null); setOpenModal(true); }}
-                                className="px-6 py-2.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-semibold shadow-lg shadow-green-500/25 hover:shadow-xl hover:from-green-600 hover:to-emerald-700 transition-all flex items-center gap-2 text-sm"
+                                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold shadow-lg shadow-blue-500/20 transition-all flex items-center gap-2 text-sm"
                             >
                                 <Plus size={16} />
                                 <span>Thêm nhóm</span>
@@ -124,7 +136,7 @@ export default function ManagerGroupsPage() {
                                 className="w-full pl-10 pr-10 py-3 border border-gray-200 rounded-xl bg-gray-50 text-sm font-medium text-gray-700 hover:border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all appearance-none cursor-pointer outline-none"
                             >
                                 <option value="">Tất cả dự án</option>
-                                {projects.map(p => <option key={p.id} value={p.id}>{p.tenduan}</option>)}
+                                {Array.isArray(projects) && projects.map(p => <option key={p.id} value={p.id}>{p.tenduan}</option>)}
                             </select>
                             <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
                                 <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -174,7 +186,7 @@ export default function ManagerGroupsPage() {
                             {!searchQuery && !duanFilter && (
                                 <button
                                     onClick={() => { setEditGroup(null); setOpenModal(true); }}
-                                    className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl hover:from-green-600 hover:to-emerald-700 transition-all flex items-center gap-2 text-sm mt-2"
+                                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center gap-2 text-sm mt-2"
                                 >
                                     <Plus size={18} />
                                     <span>Tạo nhóm đầu tiên</span>
