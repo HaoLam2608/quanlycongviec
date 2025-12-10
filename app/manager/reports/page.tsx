@@ -137,7 +137,7 @@ export default function ManagerReportsPage() {
     const [projects, setProjects] = useState<Project[]>([])
     const [tasks, setTasks] = useState<Task[]>([])
     const [users, setUsers] = useState<UserType[]>([])
-    const { showError } = useToastContext()
+    const { showSuccess, showError } = useToastContext()
 
     // Helper function to create full URL for images
     const makeFullUrl = (path?: string) => {
@@ -321,7 +321,7 @@ export default function ManagerReportsPage() {
             const time = new Date().toTimeString().slice(0, 5).replace(':', '')
             XLSX.writeFile(wb, `Bao_cao_quan_ly_${date}_${time}.xlsx`)
 
-            showError('Xuất file Excel thành công!')
+            showSuccess('Xuất file Excel thành công!')
         } catch (error) {
             console.error('Export Excel error:', error)
             showError('Có lỗi khi xuất file Excel')
@@ -502,7 +502,7 @@ export default function ManagerReportsPage() {
             const time = new Date().toTimeString().slice(0, 5).replace(':', '')
             doc.save(`Bao_cao_quan_ly_${date}_${time}.pdf`)
             
-            showError('Xuất file PDF thành công!')
+            showSuccess('Xuất file PDF thành công!')
         } catch (error) {
             console.error('Export PDF error:', error)
             showError('Có lỗi khi xuất file PDF')
