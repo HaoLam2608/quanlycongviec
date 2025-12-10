@@ -75,6 +75,8 @@ export default function ProjectsPage() {
                     // Fallback for old API format
                     setProjects(projectsResponse.data)
                 }
+                console.log('📊 Users loaded:', usersData)
+                console.log('📊 Manager users:', usersData.filter((u: any) => u.role?.name === 'manager'))
                 setUsers(usersData)
             } catch (err) {
                 console.error("Lỗi tải dữ liệu:", err)
@@ -412,7 +414,8 @@ export default function ProjectsPage() {
                             ) : Array.isArray(users) && users.length > 0 ? (
                                 users
                                     .filter((u: any) => {
-                                        return u.role?.name === 'admin' || u.role?.name === 'manager';
+                                        console.log('User:', u.hoten, 'Role:', u.role?.name, 'RoleId:', u.roleId);
+                                        return u.role?.name === 'manager';
                                     })
                                     .map((u: any) => (
                                         <option key={u.id} value={u.id}>
