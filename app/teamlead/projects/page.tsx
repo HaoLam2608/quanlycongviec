@@ -67,7 +67,7 @@ interface ProjectDetail {
 export default function TeamLeadProjectsPage() {
     const { showError } = useToastContext()
     const [loading, setLoading] = useState(true)
-    const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active')
+    const [activeTab, setActiveTab] = useState<'active' | 'completed' | 'paused'>('active')
     const [projects, setProjects] = useState<Project[]>([])
     const [groups, setGroups] = useState<Group[]>([])
     const [selectedProject, setSelectedProject] = useState<Project | null>(null)
@@ -165,9 +165,10 @@ export default function TeamLeadProjectsPage() {
         return date.toLocaleDateString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit' })
     }
 
-    const activeProjects = projects.filter(p => p.status === 'active')
-    const completedProjects = projects.filter(p => p.status === 'completed')
-    const currentProjects = activeTab === 'active' ? activeProjects : completedProjects
+    const activeProjects = projects.filter(p => p.status === 'active' && p.project.status !== 'da_dong')
+    const completedProjects = projects.filter(p => p.status === 'completed' && p.project.status !== 'da_dong')
+    const pausedProjects = projects.filter(p => p.project.status === 'da_dong')
+    const currentProjects = activeTab === 'active' ? activeProjects : activeTab === 'completed' ? completedProjects : pausedProjects
 
     if (loading) {
         return (
@@ -221,12 +222,12 @@ export default function TeamLeadProjectsPage() {
                     <div className="text-sm text-purple-700">Đã hoàn thành</div>
                 </div>
 
-                <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-5 border border-orange-200">
+                <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl p-5 border border-yellow-200">
                     <div className="flex items-center justify-between mb-2">
-                        <Users className="w-8 h-8 text-orange-600" />
+                        <AlertCircle className="w-8 h-8 text-yellow-600" />
                     </div>
-                    <div className="text-2xl font-bold text-orange-900">{groups.length}</div>
-                    <div className="text-sm text-orange-700">Số nhóm</div>
+                    <div className="text-2xl font-bold text-yellow-900">{pausedProjects.length}</div>
+                    <div className="text-sm text-yellow-700">Đang tạm dừng</div>
                 </div>
             </div>
 
@@ -248,6 +249,22 @@ export default function TeamLeadProjectsPage() {
                                 activeTab === 'active' ? 'bg-white text-blue-500' : 'bg-gray-200 text-gray-700'
                             }`}>
                                 {activeProjects.length}
+                            </span>
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('paused')}
+                            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+                                activeTab === 'paused'
+                                    ? 'bg-yellow-500 text-white shadow-md'
+                                    : 'text-gray-600 hover:bg-gray-50'
+                            }`}
+                        >
+                            <AlertCircle className="w-4 h-4" />
+                            Đang tạm dừng
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                                activeTab === 'paused' ? 'bg-white text-yellow-500' : 'bg-gray-200 text-gray-700'
+                            }`}>
+                                {pausedProjects.length}
                             </span>
                         </button>
                         <button
@@ -275,7 +292,7 @@ export default function TeamLeadProjectsPage() {
                         <div className="text-center py-12">
                             <FolderOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                             <p className="text-gray-500 text-lg font-medium">
-                                {activeTab === 'active' ? 'Chưa có dự án đang tham gia' : 'Chưa có dự án đã hoàn thành'}
+                                {activeTab === 'active' ? 'Chưa có dự án đang tham gia' : activeTab === 'paused' ? 'Chưa có dự án đang tạm dừng' : 'Chưa có dự án đã hoàn thành'}
                             </p>
                             <p className="text-gray-400 text-sm mt-1">
                                 Các dự án được gán sẽ hiển thị tại đây
@@ -355,12 +372,14 @@ export default function TeamLeadProjectsPage() {
                                             <div className="flex items-center justify-between">
                                                 <span className="text-xs text-gray-500">Trạng thái tham gia:</span>
                                                 <span className={`px-2 py-1 rounded-md text-xs font-semibold flex items-center gap-1 ${
-                                                    projectItem.status === 'active' 
+                                                    projectItem.project.status === 'da_dong' 
+                                                        ? 'bg-yellow-100 text-yellow-700'
+                                                        : projectItem.status === 'active' 
                                                         ? 'bg-green-100 text-green-700' 
                                                         : 'bg-gray-100 text-gray-600'
                                                 }`}>
                                                     <CheckCircle2 className="w-3 h-3" />
-                                                    {projectItem.status === 'active' ? 'Đang tham gia' : 'Đã hoàn thành'}
+                                                    {projectItem.project.status === 'da_dong' ? 'Đang tạm dừng' : projectItem.status === 'active' ? 'Đang tham gia' : 'Đã hoàn thành'}
                                                 </span>
                                             </div>
                                         </div>
@@ -438,11 +457,13 @@ export default function TeamLeadProjectsPage() {
                                                 <label className="text-sm text-gray-500 font-medium">Trạng thái tham gia</label>
                                                 <div className="mt-1">
                                                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                                        projectDetail.participationStatus === 'active' 
+                                                        selectedProject.project.status === 'da_dong'
+                                                            ? 'bg-yellow-100 text-yellow-700'
+                                                            : projectDetail.participationStatus === 'active' 
                                                             ? 'bg-green-100 text-green-700' 
                                                             : 'bg-gray-100 text-gray-600'
                                                     }`}>
-                                                        {projectDetail.participationStatus === 'active' ? 'Đang tham gia' : 'Đã hoàn thành'}
+                                                        {selectedProject.project.status === 'da_dong' ? 'Đang tạm dừng' : projectDetail.participationStatus === 'active' ? 'Đang tham gia' : 'Đã hoàn thành'}
                                                     </span>
                                                 </div>
                                             </div>

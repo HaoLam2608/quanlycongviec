@@ -74,6 +74,7 @@ interface MySubtask {
         duan?: {
             id: number
             tenduan: string
+            status?: string
         } | null
     } | null
 }
@@ -1010,11 +1011,19 @@ export default function TimesheetPage() {
                                             <option value="">
                                                 {loadingSubtasks ? "Đang tải..." : "Chọn công việc"}
                                             </option>
-                                            {mySubtasks.map(subtask => (
-                                                <option key={subtask.id} value={subtask.id}>
-                                                    {subtask.tenSubtask} - {subtask.task?.tentask || 'N/A'}
-                                                </option>
-                                            ))}
+                                            {mySubtasks.map(subtask => {
+                                                const isPaused = subtask.task?.duan?.status === 'da_dong'
+                                                return (
+                                                    <option
+                                                        key={subtask.id}
+                                                        value={subtask.id}
+                                                        disabled={isPaused}
+                                                        className={isPaused ? 'text-gray-400 bg-gray-100' : ''}
+                                                    >
+                                                        {isPaused ? '🔒 ' : ''}{subtask.tenSubtask} - {subtask.task?.tentask || 'N/A'}{isPaused ? ' (Dự án tạm dừng)' : ''}
+                                                    </option>
+                                                )
+                                            })}
                                         </select>
                                         <input
                                             type="text"
@@ -1094,11 +1103,19 @@ export default function TimesheetPage() {
                                         </option>
                                         {mySubtasks
                                             .filter(subtask => !multiTimers.find(t => t.subtaskId === subtask.id))
-                                            .map(subtask => (
-                                                <option key={subtask.id} value={subtask.id}>
-                                                    {subtask.tenSubtask} - {subtask.task?.tentask || 'N/A'}
-                                                </option>
-                                            ))}
+                                            .map(subtask => {
+                                                const isPaused = subtask.task?.duan?.status === 'da_dong'
+                                                return (
+                                                    <option
+                                                        key={subtask.id}
+                                                        value={subtask.id}
+                                                        disabled={isPaused}
+                                                        className={isPaused ? 'text-gray-400 bg-gray-100' : ''}
+                                                    >
+                                                        {isPaused ? '🔒 ' : ''}{subtask.tenSubtask} - {subtask.task?.tentask || 'N/A'}{isPaused ? ' (Dự án tạm dừng)' : ''}
+                                                    </option>
+                                                )
+                                            })}
                                     </select>
                                     {multiTimers.length > 0 && (
                                         <button
@@ -1319,13 +1336,11 @@ export default function TimesheetPage() {
                         <div className="p-12 text-center">
                             <Clock className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                             <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa có nhật ký</h3>
-                            <h3 className="text-lg font-medium text-gray-900 mb-2">Chưa có nhật ký</h3>
                             <p className="text-gray-500 mb-4">Bắt đầu ghi nhận thời gian làm việc của bạn</p>
                             <button
                                 onClick={() => setIsAddModalOpen(true)}
                                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                             >
-                                Thêm nhật ký đầu tiên
                                 Thêm nhật ký đầu tiên
                             </button>
                         </div>
@@ -1428,7 +1443,6 @@ export default function TimesheetPage() {
                                                 <td className="px-6 py-4 whitespace-nowrap text-right">
                                                     <div className="text-sm text-gray-500">
                                                         {group.worklogs.length} nhật ký
-                                                        {group.worklogs.length} nhật ký
                                                     </div>
                                                 </td>
                                             </tr>
@@ -1445,7 +1459,6 @@ export default function TimesheetPage() {
                                                     )}
                                                     <td className="px-6 py-4 pl-16">
                                                         <div className="text-sm text-gray-600">
-                                                            <span className="text-gray-400">↳</span> nhật ký chi tiết
                                                             <span className="text-gray-400">↳</span> nhật ký chi tiết
                                                         </div>
                                                     </td>
@@ -1584,11 +1597,19 @@ export default function TimesheetPage() {
                                                 <option value="">
                                                     {loadingSubtasks ? "Đang tải..." : "Chọn công việc"}
                                                 </option>
-                                                {mySubtasks.map(subtask => (
-                                                    <option key={subtask.id} value={subtask.id}>
-                                                        {subtask.tenSubtask} - {subtask.task?.tentask || 'N/A'}
-                                                    </option>
-                                                ))}
+                                                {mySubtasks.map(subtask => {
+                                                    const isPaused = subtask.task?.duan?.status === 'da_dong'
+                                                    return (
+                                                        <option
+                                                            key={subtask.id}
+                                                            value={subtask.id}
+                                                            disabled={isPaused}
+                                                            className={isPaused ? 'text-gray-400 bg-gray-100' : ''}
+                                                        >
+                                                            {isPaused ? '🔒 ' : ''}{subtask.tenSubtask} - {subtask.task?.tentask || 'N/A'}{isPaused ? ' (Dự án tạm dừng)' : ''}
+                                                        </option>
+                                                    )
+                                                })}
                                             </select>
                                             {mySubtasks.length === 0 && !loadingSubtasks && (
                                                 <p className="text-sm text-red-600 mt-1">
@@ -1713,11 +1734,19 @@ export default function TimesheetPage() {
                                                                     <option value="">
                                                                         {loadingSubtasks ? "Đang tải..." : "Chọn công việc"}
                                                                     </option>
-                                                                    {mySubtasks.map(subtask => (
-                                                                        <option key={subtask.id} value={subtask.id}>
-                                                                            {subtask.tenSubtask} - {subtask.task?.tentask || 'N/A'}
-                                                                        </option>
-                                                                    ))}
+                                                                    {mySubtasks.map(subtask => {
+                                                                        const isPaused = subtask.task?.duan?.status === 'da_dong'
+                                                                        return (
+                                                                            <option
+                                                                                key={subtask.id}
+                                                                                value={subtask.id}
+                                                                                disabled={isPaused}
+                                                                                className={isPaused ? 'text-gray-400 bg-gray-100' : ''}
+                                                                            >
+                                                                                {isPaused ? '🔒 ' : ''}{subtask.tenSubtask} - {subtask.task?.tentask || 'N/A'}{isPaused ? ' (Dự án tạm dừng)' : ''}
+                                                                            </option>
+                                                                        )
+                                                                    })}
                                                                 </select>
                                                             </div>
 

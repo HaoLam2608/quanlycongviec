@@ -22,7 +22,7 @@ interface Task {
     ghiChu?: string
     nguoiThucHienId?: number
     nguoiThucHien?: { id: number; hoten: string; manv: string }
-    duan?: { id: number; tenduan: string }
+    duan?: { id: number; tenduan: string; status?: string }
     duanId?: number
     subtasks?: any[]
     assignments?: any[]  // Thêm field để kiểm tra trạng thái chấp nhận
@@ -141,6 +141,7 @@ export default function TeamLeadTasksPage() {
             const res = await api.get('/tasks/my-tasks')
             const tasks = res.data.tasks || res.data || []
 
+
             // Load subtasks for each task
             const tasksWithSubtasks = await Promise.all(
                 tasks.map(async (task: Task) => {
@@ -148,10 +149,6 @@ export default function TeamLeadTasksPage() {
                         const subtaskRes = await api.get(`/tasks/${task.id}/subtasks`)
                         const subtasks = subtaskRes.data.subtasks || subtaskRes.data || []
 
-                        // Debug: Log để kiểm tra subtasks có assignments không
-                        if (subtasks.length > 0) {
-                            console.log(`Task ${task.id} subtasks:`, subtasks)
-                        }
 
                         return {
                             ...task,
@@ -223,7 +220,6 @@ export default function TeamLeadTasksPage() {
     const loadUnassignedTasks = async () => {
         try {
             const res = await getUnassignedTasks()
-            console.log('Unassigned tasks loaded:', res)
             setUnassignedTasks(res || [])
         } catch (error: any) {
             console.error('Load unassigned tasks error:', error)
@@ -302,41 +298,30 @@ export default function TeamLeadTasksPage() {
     }
 
     const loadGroupMembersForTask = async (task: Task | null | undefined, fallbackMember?: any) => {
-        console.log('Loading group members for task', task?.id, 'project', task?.duanId)
         try {
             const res = await api.get('/groups/my-group')
             const allGroups = res.data.groups || []
-            
-            console.log('All groups data:', allGroups)
-            
+
+
             // Nếu task có duanId, cần lọc members thuộc nhóm tham gia dự án
             if (task?.duanId) {
-                console.log('Task has project ID:', task.duanId)
-                
+
                 // Kiểm tra cả projects (belongsToMany) và groupProjects (hasMany)
                 const projectGroups = allGroups.filter((g: any) => {
                     // Cách 1: Kiểm tra qua projects (belongsToMany association)
                     const hasProjectInProjects = g.projects?.some((p: any) => p.id === task.duanId)
-                    
+
                     // Cách 2: Kiểm tra qua groupProjects (hasMany association)
-                    const hasProjectInGroupProjects = g.groupProjects?.some((gp: any) => 
+                    const hasProjectInGroupProjects = g.groupProjects?.some((gp: any) =>
                         gp.projectId === task.duanId && gp.status === 'active'
                     )
-                    
-                    console.log(`Group ${g.name} (ID: ${g.id}):`, {
-                        hasProjectInProjects,
-                        hasProjectInGroupProjects,
-                        projects: g.projects,
-                        groupProjects: g.groupProjects
-                    })
-                    
+
+
                     return hasProjectInProjects || hasProjectInGroupProjects
                 })
-                
-                console.log('Filtered groups for project:', projectGroups)
-                
+
                 let projectMembers = projectGroups.flatMap((g: any) => g.members || [])
-                
+
                 // Loại bỏ duplicate members
                 const uniqueMembers = projectMembers.reduce((acc: any[], member: any) => {
                     if (!acc.some(m => m.id === member.id)) {
@@ -344,7 +329,7 @@ export default function TeamLeadTasksPage() {
                     }
                     return acc
                 }, [])
-                
+
                 if (fallbackMember?.id) {
                     const exists = uniqueMembers.some((m: any) => m.id === fallbackMember.id)
                     if (!exists) {
@@ -356,8 +341,7 @@ export default function TeamLeadTasksPage() {
                         })
                     }
                 }
-                
-                console.log('Final filtered members for project:', uniqueMembers)
+
                 setGroupMembers(uniqueMembers)
             } else {
                 // Nếu task không có duanId, lấy tất cả members
@@ -375,7 +359,6 @@ export default function TeamLeadTasksPage() {
                     }
                 }
 
-                console.log('All group members loaded:', allMembers)
                 setGroupMembers(allMembers)
             }
         } catch (error) {
@@ -384,6 +367,7 @@ export default function TeamLeadTasksPage() {
     }
 
     const openSubtaskModal = (task: Task) => {
+
         setSelectedTask(task)
         setSubtaskFormData({
             tenSubtask: '',
@@ -416,7 +400,6 @@ export default function TeamLeadTasksPage() {
     }
 
     const openSubtaskListModal = (task: Task) => {
-        console.log('Open subtask list for task', task.id, task.subtasks)
         setSelectedTask(task)
         loadGroupMembersForTask(task)
         setShowSubtaskListModal(true)
@@ -437,6 +420,12 @@ export default function TeamLeadTasksPage() {
     }
 
     const handleCreateSubtask = async () => {
+        // Kiểm tra dự án có bị tạm dừng không
+        if (selectedTask?.duan?.status === 'da_dong') {
+            showWarning('Dự án đang tạm dừng, không thể tạo công việc con mới.');
+            return;
+        }
+
         if (!subtaskFormData.tenSubtask.trim()) {
             showError('Vui lòng nhập tên công việc con')
             return
@@ -519,7 +508,6 @@ export default function TeamLeadTasksPage() {
             console.error('Create subtask error:', error)
             const errData: any = error.response?.data
             if (errData && (errData.details || errData.error || errData.message || errData.sequelizeErrors)) {
-                console.error('Backend error details:', errData)
                 const details = errData.details || errData.error || errData.message || (Array.isArray(errData.sequelizeErrors) ? errData.sequelizeErrors.join('; ') : undefined)
                 showError('Lỗi khi tạo công việc con: ' + (details || 'Xem console để biết thêm chi tiết'))
             } else {
@@ -598,7 +586,6 @@ export default function TeamLeadTasksPage() {
     const openEditSubtaskModal = (subtask: any) => {
         loadGroupMembersForTask(selectedTask, subtask?.nguoiThucHien)
         const assigneeId = subtask?.nguoiThucHienId ?? subtask?.nguoiThucHien?.id ?? ''
-        console.log('Open edit subtask modal assigneeId:', assigneeId, 'subtask:', subtask)
 
         setEditingSubtask(subtask)
         setEditSubtaskForm({
@@ -1384,15 +1371,15 @@ export default function TeamLeadTasksPage() {
                             <div className="flex gap-3">
                                 {selectedTask && (
                                     <button
-                                            onClick={() => {
-                                                closeModal()
-                                                openSubtaskListModal(selectedTask)
-                                            }}
-                                            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-medium flex items-center gap-2 shadow"
-                                        >
-                                            <Eye className="w-5 h-5" />
-                                            Xem công việc con ({selectedTask.subtasks?.length || 0})
-                                        </button>
+                                        onClick={() => {
+                                            closeModal()
+                                            openSubtaskListModal(selectedTask)
+                                        }}
+                                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-medium flex items-center gap-2 shadow"
+                                    >
+                                        <Eye className="w-5 h-5" />
+                                        Xem công việc con ({selectedTask.subtasks?.length || 0})
+                                    </button>
                                 )}
                             </div>
                             <div className="flex gap-3">
@@ -1536,7 +1523,12 @@ export default function TeamLeadTasksPage() {
                                 </button>
                                 <button
                                     onClick={handleCreateSubtask}
-                                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-medium"
+                                    disabled={selectedTask?.duan?.status === 'da_dong'}
+                                    className={`px-6 py-2 rounded-lg transition-all font-medium ${selectedTask?.duan?.status === 'da_dong'
+                                        ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                                        }`}
+                                    title={selectedTask?.duan?.status === 'da_dong' ? 'Dự án đang tạm dừng' : ''}
                                 >
                                     Tạo công việc con
                                 </button>
@@ -1550,37 +1542,37 @@ export default function TeamLeadTasksPage() {
             {showSubtaskListModal && selectedTask ? (
                 <div className="fixed inset-0 bg-transparent z-50 flex items-center justify-center p-4">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-                            {/* Modal Header */}
-                            <div className="border-b border-blue-200 p-6 bg-blue-600">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                                            <CheckCircle2 className="w-6 h-6 text-white" />
-                                            Danh sách công việc con
-                                        </h2>
-                                        <p className="text-sm text-blue-100 mt-1">Task: {selectedTask.tentask}</p>
-                                    </div>
-                                    <button onClick={closeSubtaskListModal} className="text-blue-100 hover:text-white">
-                                        <X className="w-6 h-6" />
-                                    </button>
+                        {/* Modal Header */}
+                        <div className="border-b border-blue-200 p-6 bg-blue-600">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                                        <CheckCircle2 className="w-6 h-6 text-white" />
+                                        Danh sách công việc con
+                                    </h2>
+                                    <p className="text-sm text-blue-100 mt-1">Task: {selectedTask.tentask}</p>
                                 </div>
+                                <button onClick={closeSubtaskListModal} className="text-blue-100 hover:text-white">
+                                    <X className="w-6 h-6" />
+                                </button>
                             </div>
+                        </div>
 
-                            {/* Modal Body */}
-                            <div className="flex-1 overflow-y-auto p-6 bg-white">
+                        {/* Modal Body */}
+                        <div className="flex-1 overflow-y-auto p-6 bg-white">
                             {selectedTask.subtasks && selectedTask.subtasks.length > 0 ? (
                                 <div className="space-y-4">
                                     {selectedTask.subtasks.map((subtask: any, index: number) => (
                                         <div
                                             key={subtask.id}
-                                                className="group bg-white border border-blue-50 rounded-2xl p-5 hover:border-blue-200 hover:shadow-lg transition-all duration-200"
+                                            className="group bg-white border border-blue-50 rounded-2xl p-5 hover:border-blue-200 hover:shadow-lg transition-all duration-200"
                                         >
                                             <div className="flex items-start gap-4">
                                                 {/* Number Badge */}
                                                 <div className="flex-shrink-0">
-                                                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow group-hover:scale-105 transition-transform">
-                                                            <span className="text-white font-bold text-lg">#{index + 1}</span>
-                                                        </div>
+                                                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow group-hover:scale-105 transition-transform">
+                                                        <span className="text-white font-bold text-lg">#{index + 1}</span>
+                                                    </div>
                                                 </div>
 
                                                 {/* Content */}
@@ -1748,10 +1740,19 @@ export default function TeamLeadTasksPage() {
                                 {selectedTask && (
                                     <button
                                         onClick={() => {
+                                            if (selectedTask?.duan?.status === 'da_dong') {
+                                                showWarning('Dự án đang tạm dừng, không thể tạo công việc con mới.');
+                                                return;
+                                            }
                                             closeSubtaskListModal()
                                             openSubtaskModal(selectedTask)
                                         }}
-                                        className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all font-medium flex items-center gap-2 shadow"
+                                        disabled={selectedTask?.duan?.status === 'da_dong'}
+                                        className={`px-6 py-2 rounded-lg transition-all font-medium flex items-center gap-2 shadow ${selectedTask?.duan?.status === 'da_dong'
+                                            ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                                            }`}
+                                        title={selectedTask?.duan?.status === 'da_dong' ? 'Dự án đang tạm dừng' : ''}
                                     >
                                         <Plus className="w-5 h-5" />
                                         Tạo công việc con

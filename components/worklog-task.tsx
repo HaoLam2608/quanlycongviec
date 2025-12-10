@@ -15,9 +15,10 @@ interface Worklog {
 interface WorklogTaskProps {
     taskId: number;
     taskStatus?: string;
+    projectStatus?: string;
 }
 
-export default function WorklogTask({ taskId, taskStatus }: WorklogTaskProps) {
+export default function WorklogTask({ taskId, taskStatus, projectStatus }: WorklogTaskProps) {
     const [worklogs, setWorklogs] = useState<Worklog[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -25,6 +26,8 @@ export default function WorklogTask({ taskId, taskStatus }: WorklogTaskProps) {
     const { id: userId } = useAuth();
     const [error, setError] = useState("");
     const isCompleted = taskStatus === 'Hoàn thành';
+    const isPaused = projectStatus === 'da_dong';
+    const isDisabled = isCompleted || isPaused;
 
     useEffect(() => {
         if (taskId) {
@@ -85,15 +88,14 @@ export default function WorklogTask({ taskId, taskStatus }: WorklogTaskProps) {
                     <ListChecks size={20} className="text-primary" />
                     Tổng hợp Nhật ký công việc
                 </h4>
-                <button 
-                    className={`text-xs hover:underline font-semibold ${
-                        isCompleted 
-                            ? 'text-gray-400 cursor-not-allowed' 
-                            : 'text-blue-600'
-                    }`} 
-                    onClick={() => !isCompleted && setShowForm((v) => !v)}
-                    disabled={isCompleted}
-                    title={isCompleted ? 'Không thể thêm nhật ký cho công việc đã hoàn thành' : ''}
+                <button
+                    className={`text-xs hover:underline font-semibold ${isDisabled
+                        ? 'text-gray-400 cursor-not-allowed'
+                        : 'text-blue-600'
+                        }`}
+                    onClick={() => !isDisabled && setShowForm((v) => !v)}
+                    disabled={isDisabled}
+                    title={isCompleted ? 'Không thể thêm nhật ký cho công việc đã hoàn thành' : isPaused ? 'Dự án đang tạm dừng' : ''}
                 >
                     {showForm ? "Đóng" : "Thêm nhật ký cho công việc này"}
                 </button>

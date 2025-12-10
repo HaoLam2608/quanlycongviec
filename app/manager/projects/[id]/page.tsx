@@ -209,6 +209,17 @@ export default function ProjectDetailPage() {
         return normalized === "da_hoan_thanh" || normalized === "hoan_thanh" || normalized === "completed";
     }, [project?.status, project?.trangThai, project?.trangthai]);
 
+    const isProjectPaused = useMemo(() => {
+        const rawStatus = (project?.status ?? project?.trangThai ?? project?.trangthai ?? "").toString().trim().toLowerCase();
+        if (!rawStatus) return false;
+        const normalized = rawStatus
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/đ/g, "d")
+            .replace(/[\s-]+/g, "_");
+        return normalized === "da_dong";
+    }, [project?.status, project?.trangThai, project?.trangthai]);
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const f = e.target.files?.[0] || null;
         setUploadFile(f);
@@ -405,7 +416,20 @@ export default function ProjectDetailPage() {
                 setLoadingTasks(true);
                 const tasksData = await getTasksByProject(id as string);
                 console.log("Tasks data:", tasksData);
-                setTasks(tasksData.tasks || []);
+
+                // Sắp xếp theo độ ưu tiên: high > medium > low
+                const sortedTasks = (tasksData.tasks || []).sort((a: any, b: any) => {
+                    const priorityOrder: { [key: string]: number } = {
+                        'high': 3,
+                        'medium': 2,
+                        'low': 1
+                    };
+                    const priorityA = priorityOrder[a.mucDoUuTien] || 0;
+                    const priorityB = priorityOrder[b.mucDoUuTien] || 0;
+                    return priorityB - priorityA; // Sắp xếp giảm dần (high trước)
+                });
+
+                setTasks(sortedTasks);
             } catch (err) {
                 console.error("Lỗi load tasks:", err);
                 setTasks([]);
@@ -798,14 +822,14 @@ export default function ProjectDetailPage() {
                                 {project?.nguoiDamNhan?.hoten || "Chưa phân công"}
                             </span>
                         </p>
-                        
-                       <div className="text-muted-foreground flex items-center gap-2">
+
+                        <div className="text-muted-foreground flex items-center gap-2">
                             <Calendar size={16} />
                             <span>{formatDate(project?.ngaybatdau)} - {formatDate(project?.ngayketthuc)}</span>
                         </div>
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        
+
                         <div className="flex flex-wrap gap-2">
                             <button
                                 onClick={() => setIsEditModalOpen(true)}

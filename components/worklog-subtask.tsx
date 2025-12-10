@@ -14,9 +14,10 @@ interface Worklog {
 interface WorklogListProps {
     subtaskId: number;
     subtaskStatus?: string;
+    projectStatus?: string;
 }
 
-export default function WorklogList({ subtaskId, subtaskStatus }: WorklogListProps) {
+export default function WorklogList({ subtaskId, subtaskStatus, projectStatus }: WorklogListProps) {
     const [worklogs, setWorklogs] = useState<Worklog[]>([]);
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -24,6 +25,8 @@ export default function WorklogList({ subtaskId, subtaskStatus }: WorklogListPro
     const { id: userId } = useAuth();
     const [error, setError] = useState("");
     const isCompleted = subtaskStatus === 'Hoàn thành';
+    const isPaused = projectStatus === 'da_dong';
+    const isDisabled = isCompleted || isPaused;
 
     useEffect(() => {
         if (!loading) {
@@ -84,15 +87,14 @@ export default function WorklogList({ subtaskId, subtaskStatus }: WorklogListPro
         <div className="border rounded-lg p-3 mt-2 bg-muted/30">
             <div className="flex items-center justify-between mb-2">
                 <div className="font-semibold text-sm text-primary">Nhật ký công việc</div>
-                <button 
-                    className={`text-xs hover:underline ${
-                        isCompleted 
-                            ? 'text-gray-400 cursor-not-allowed' 
-                            : 'text-blue-600'
-                    }`} 
-                    onClick={() => !isCompleted && setShowForm((v) => !v)}
-                    disabled={isCompleted}
-                    title={isCompleted ? 'Không thể thêm nhật ký cho công việc đã hoàn thành' : ''}
+                <button
+                    className={`text-xs hover:underline ${isDisabled
+                        ? 'text-gray-400 cursor-not-allowed'
+                        : 'text-blue-600'
+                        }`}
+                    onClick={() => !isDisabled && setShowForm((v) => !v)}
+                    disabled={isDisabled}
+                    title={isCompleted ? 'Không thể thêm nhật ký cho công việc đã hoàn thành' : isPaused ? 'Dự án đang tạm dừng' : ''}
                 >
                     {showForm ? "Đóng" : "Thêm nhật ký"}
                 </button>

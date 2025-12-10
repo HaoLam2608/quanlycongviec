@@ -12,9 +12,10 @@ import MentionText from "./MentionText";
 interface CommentSubtaskProps {
   subtaskId: number;
   subtaskStatus?: string;
+  projectStatus?: string;
 }
 
-export default function CommentSubtask({ subtaskId, subtaskStatus }: CommentSubtaskProps) {
+export default function CommentSubtask({ subtaskId, subtaskStatus, projectStatus }: CommentSubtaskProps) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -26,6 +27,8 @@ export default function CommentSubtask({ subtaskId, subtaskStatus }: CommentSubt
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const isCompleted = subtaskStatus === 'Hoàn thành';
+  const isPaused = projectStatus === 'da_dong';
+  const isDisabled = isCompleted || isPaused;
 
   useEffect(() => {
     if (subtaskId) {
@@ -65,7 +68,7 @@ export default function CommentSubtask({ subtaskId, subtaskStatus }: CommentSubt
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    
+
     if (!content.trim() && selectedFiles.length === 0) {
       setError("Vui lòng nhập nội dung hoặc đính kèm file");
       return;
@@ -96,7 +99,7 @@ export default function CommentSubtask({ subtaskId, subtaskStatus }: CommentSubt
 
   const handleDelete = async (commentId: number) => {
     if (!confirm("Bạn có chắc muốn xóa bình luận này?")) return;
-    
+
     try {
       await deleteComment(commentId);
       fetchComments();
@@ -131,14 +134,13 @@ export default function CommentSubtask({ subtaskId, subtaskStatus }: CommentSubt
           Bình luận ({comments.length})
         </h4>
         <button
-          className={`text-xs hover:underline font-semibold ${
-            isCompleted 
-              ? 'text-gray-400 cursor-not-allowed' 
-              : 'text-blue-600'
-          }`}
-          onClick={() => !isCompleted && setShowForm((v) => !v)}
-          disabled={isCompleted}
-          title={isCompleted ? 'Không thể thêm bình luận cho công việc đã hoàn thành' : ''}
+          className={`text-xs hover:underline font-semibold ${isDisabled
+            ? 'text-gray-400 cursor-not-allowed'
+            : 'text-blue-600'
+            }`}
+          onClick={() => !isDisabled && setShowForm((v) => !v)}
+          disabled={isDisabled}
+          title={isCompleted ? 'Không thể thêm bình luận cho công việc đã hoàn thành' : isPaused ? 'Dự án đang tạm dừng' : ''}
         >
           {showForm ? "Đóng" : "Thêm bình luận"}
         </button>
@@ -155,7 +157,7 @@ export default function CommentSubtask({ subtaskId, subtaskStatus }: CommentSubt
             className="border rounded px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
             rows={3}
           />
-          
+
           {/* File input */}
           <div>
             <input
@@ -256,17 +258,17 @@ export default function CommentSubtask({ subtaskId, subtaskStatus }: CommentSubt
                   </button>
                 )}
               </div>
-              <MentionText 
-                text={comment.content} 
+              <MentionText
+                text={comment.content}
                 className="text-sm text-gray-700 whitespace-pre-wrap mb-2"
               />
-              
+
               {/* Attachments */}
               {comment.attachments && Array.isArray(comment.attachments) && comment.attachments.length > 0 && (
                 <div className="mt-2 space-y-2">
                   {comment.attachments.map((attachment, idx) => {
                     const dataUrl = getBase64DataUrl(attachment.mimetype, attachment.data);
-                    
+
                     if (isImage(attachment.mimetype)) {
                       return (
                         <div key={idx} className="relative">

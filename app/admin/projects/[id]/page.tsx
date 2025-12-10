@@ -245,6 +245,17 @@ export default function ProjectDetailPage() {
         return normalized === "da_hoan_thanh" || normalized === "hoan_thanh" || normalized === "completed";
     }, [project?.status, project?.trangThai, project?.trangthai]);
 
+    const isProjectPaused = useMemo(() => {
+        const rawStatus = (project?.status ?? project?.trangThai ?? project?.trangthai ?? "").toString().trim().toLowerCase();
+        if (!rawStatus) return false;
+        const normalized = rawStatus
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/đ/g, "d")
+            .replace(/[\s-]+/g, "_");
+        return normalized === "da_dong";
+    }, [project?.status, project?.trangThai, project?.trangthai]);
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const f = e.target.files?.[0] || null;
         setUploadFile(f);
@@ -415,15 +426,32 @@ export default function ProjectDetailPage() {
                 });
                 console.log("Tasks response:", response.data);
 
+                // Sắp xếp theo độ ưu tiên: high > medium > low
+                const priorityOrder: { [key: string]: number } = {
+                    'high': 3,
+                    'medium': 2,
+                    'low': 1
+                };
+
                 if (response.data.tasks) {
-                    setTasks(response.data.tasks);
+                    const sortedTasks = [...response.data.tasks].sort((a: any, b: any) => {
+                        const priorityA = priorityOrder[a.mucDoUuTien] || 0;
+                        const priorityB = priorityOrder[b.mucDoUuTien] || 0;
+                        return priorityB - priorityA; // Sắp xếp giảm dần (high trước)
+                    });
+                    setTasks(sortedTasks);
                     if (response.data.pagination) {
                         setTaskTotalPages(response.data.pagination.pages);
                         setTaskTotalItems(response.data.pagination.total);
                     }
                 } else {
                     // Fallback for old API format
-                    setTasks(response.data);
+                    const sortedTasks = [...response.data].sort((a: any, b: any) => {
+                        const priorityA = priorityOrder[a.mucDoUuTien] || 0;
+                        const priorityB = priorityOrder[b.mucDoUuTien] || 0;
+                        return priorityB - priorityA;
+                    });
+                    setTasks(sortedTasks);
                 }
             } catch (err) {
                 console.error("Lỗi load tasks:", err);
@@ -464,14 +492,31 @@ export default function ProjectDetailPage() {
                         }
                     });
 
+                    // Sắp xếp theo độ ưu tiên: high > medium > low
+                    const priorityOrder: { [key: string]: number } = {
+                        'high': 3,
+                        'medium': 2,
+                        'low': 1
+                    };
+
                     if (response.data.tasks) {
-                        setTasks(response.data.tasks);
+                        const sortedTasks = [...response.data.tasks].sort((a: any, b: any) => {
+                            const priorityA = priorityOrder[a.mucDoUuTien] || 0;
+                            const priorityB = priorityOrder[b.mucDoUuTien] || 0;
+                            return priorityB - priorityA;
+                        });
+                        setTasks(sortedTasks);
                         if (response.data.pagination) {
                             setTaskTotalPages(response.data.pagination.pages);
                             setTaskTotalItems(response.data.pagination.total);
                         }
                     } else {
-                        setTasks(response.data);
+                        const sortedTasks = [...response.data].sort((a: any, b: any) => {
+                            const priorityA = priorityOrder[a.mucDoUuTien] || 0;
+                            const priorityB = priorityOrder[b.mucDoUuTien] || 0;
+                            return priorityB - priorityA;
+                        });
+                        setTasks(sortedTasks);
                     }
                 } catch (err) {
                     console.error("Lỗi reload tasks:", err);
@@ -784,6 +829,10 @@ export default function ProjectDetailPage() {
             showWarning('Dự án đã hoàn thành, không thể tạo công việc mới.');
             return;
         }
+        if (isProjectPaused) {
+            showWarning('Dự án đang tạm dừng, không thể tạo công việc mới.');
+            return;
+        }
         // Kiểm tra ngày bắt đầu và kết thúc của task phải nằm trong khoảng ngày của dự án
         const projectStart = project?.ngaybatdau ? new Date(project.ngaybatdau) : null;
         const projectEnd = project?.ngayketthuc ? new Date(project.ngayketthuc) : null;
@@ -1009,15 +1058,20 @@ export default function ProjectDetailPage() {
                             </button>
                             <button
                                 onClick={async () => {
-                                    const confirmed = await showConfirm("Bạn có chắc muốn xoá dự án này?");
+                                    const newStatus = isProjectPaused ? 'dang_chay' : 'da_dong';
+                                    const action = isProjectPaused ? 'tiếp tục' : 'tạm dừng';
+                                    const confirmed = await showConfirm(`Bạn có chắc muốn ${action} dự án này?`);
                                     if (confirmed) {
-                                        await deleteProject(Number(id));
-                                        router.push("/admin/projects");
+                                        await updateProject(Number(id), { ...editForm, status: newStatus });
+                                        const updated = await getProjectById(id as string);
+                                        setProject(updated);
+                                        showSuccess(`Đã ${action} dự án thành công!`);
                                     }
                                 }}
-                                className="px-4 py-2 bg-red-600 text-white rounded-lg"
+                                className={`px-4 py-2 text-white rounded-lg ${isProjectPaused ? 'bg-green-600 hover:bg-green-700' : 'bg-orange-600 hover:bg-orange-700'
+                                    }`}
                             >
-                                Xoá dự án
+                                {isProjectPaused ? '▶ Tiếp tục dự án' : '⏸ Tạm dừng dự án'}
                             </button>
                         </div>
                     </div>
@@ -1093,9 +1147,13 @@ export default function ProjectDetailPage() {
                                             showWarning('Dự án đã hoàn thành, không thể tạo thêm công việc.');
                                             return;
                                         }
+                                        if (isProjectPaused) {
+                                            showWarning('Dự án đang tạm dừng, không thể tạo thêm công việc.');
+                                            return;
+                                        }
                                         setIsAddTaskModalOpen(true);
                                     }}
-                                    className={`w-full sm:w-auto px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg md:rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${isProjectCompleted ? 'opacity-60 cursor-not-allowed hover:shadow-none' : 'hover:shadow-lg hover:shadow-blue-500/30'}`}
+                                    className={`w-full sm:w-auto px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg md:rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${(isProjectCompleted || isProjectPaused) ? 'opacity-60 cursor-not-allowed hover:shadow-none' : 'hover:shadow-lg hover:shadow-blue-500/30'}`}
                                 >
                                     <Plus size={16} className="md:w-5 md:h-5" />
                                     <span>Thêm công việc</span>
@@ -1131,16 +1189,6 @@ export default function ProjectDetailPage() {
                                                         <span className="inline-block px-2 py-1 bg-blue-100 text-blue-800 rounded-md font-mono text-xs font-semibold">
                                                             T-{task.id}
                                                         </span>
-                                                    </td>
-                                                    <td className="p-2 md:p-3">
-                                                        <div className="font-medium text-xs md:text-sm text-foreground truncate" title={task.tentask}>
-                                                            {task.tentask}
-                                                        </div>
-                                                        {task.mota && (
-                                                            <div className="text-xs text-muted-foreground mt-1 truncate" title={task.mota}>
-                                                                {task.mota}
-                                                            </div>
-                                                        )}
                                                     </td>
                                                     <td className="p-2 md:p-3 hidden md:table-cell">
                                                         <div className="font-medium text-xs md:text-sm text-foreground truncate" title={task.tentask}>
