@@ -141,7 +141,7 @@ async function checkAndSendDeadlineNotifications() {
  */
 function startDeadlineScheduler() {
     // Chạy mỗi ngày lúc 9:00 sáng
-    cron.schedule('48 11 * * *', async () => {
+    cron.schedule('0 9 * * *', async () => {
         console.log('🕐 [Deadline Scheduler] Running daily check at 9:00 AM');
         await checkAndSendDeadlineNotifications();
     }, {

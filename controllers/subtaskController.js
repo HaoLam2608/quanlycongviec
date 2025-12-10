@@ -631,7 +631,7 @@ exports.getMySubtasks = async (req, res) => {
                         {
                             model: DuAn,
                             as: 'duan',
-                            attributes: ['id', 'tenduan']
+                            attributes: ['id', 'tenduan', 'status']
                         }
                     ]
                 }
@@ -660,7 +660,8 @@ exports.getMySubtasks = async (req, res) => {
                     tentask: subtaskData.task.tentask,
                     duan: subtaskData.task.duan ? {
                         id: subtaskData.task.duan.id,
-                        tenduan: subtaskData.task.duan.tenduan
+                        tenduan: subtaskData.task.duan.tenduan,
+                        status: subtaskData.task.duan.status
                     } : null
                 } : null
             };
