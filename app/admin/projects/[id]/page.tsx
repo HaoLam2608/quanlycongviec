@@ -498,9 +498,9 @@ export default function ProjectDetailPage() {
                 }
 
                 const groupProjects = Array.isArray(g.groupProjects) ? g.groupProjects : [];
-                
+
                 // 2. Kiểm tra nhóm đã tham gia dự án này chưa
-                const isInThisProject = groupProjects.some((gp: any) => 
+                const isInThisProject = groupProjects.some((gp: any) =>
                     gp.projectId === Number(id) && gp.status === 'active'
                 );
                 if (isInThisProject) {
@@ -511,14 +511,14 @@ export default function ProjectDetailPage() {
                 // 3. Đếm số dự án chưa hoàn thành mà nhóm đang tham gia
                 // Sử dụng thông tin từ g.projects (belongsToMany association)
                 const projects = Array.isArray(g.projects) ? g.projects : [];
-                
+
                 // Lọc các dự án chưa hoàn thành từ danh sách projects
                 // Giả sử status của project được map từ backend (nếu có)
                 // Nếu không có status trong projects, ta phải dựa vào groupProjects đang active
                 const activeProjectIds = groupProjects
                     .filter((gp: any) => gp.status === 'active')
                     .map((gp: any) => gp.projectId);
-                
+
                 // Đếm số dự án đang active (chưa hoàn thành)
                 // Vì backend không trả về status của project trong include, 
                 // ta giả định các project trong groupProjects có status='active' là chưa hoàn thành
@@ -533,7 +533,7 @@ export default function ProjectDetailPage() {
                 console.log(`Nhóm ${g.name} (ID: ${g.id}) khả dụng (${incompleteProjectCount} dự án chưa hoàn thành)`);
                 return true;
             });
-            
+
             console.log('Available groups after filtering:', availableGroups.map((g: any) => ({
                 id: g.id,
                 name: g.name,
@@ -1093,8 +1093,9 @@ export default function ProjectDetailPage() {
                                     <table className="w-full table-fixed text-xs md:text-sm">
                                         <thead>
                                             <tr className="border-b-2 border-border bg-secondary/20">
+                                                <th className="text-left p-4 text-sm font-semibold text-foreground w-20">Mã</th>
                                                 <th className="text-left p-2 md:p-4 text-xs md:text-sm font-semibold text-foreground w-24 md:w-64">Tên</th>
-                                                <th className="text-left p-2 md:p-4 text-xs md:text-sm font-semibold text-foreground w-20 md:w-40 hidden md:table-cell">Người PH</th>
+                                                <th className="text-left p-2 md:p-4 text-xs md:text-sm font-semibold text-foreground w-20 md:w-40 hidden md:table-cell">Người phụ trách</th>
                                                 <th className="text-left p-2 md:p-4 text-xs md:text-sm font-semibold text-foreground w-16 md:w-28 hidden lg:table-cell">Ưu tiên</th>
                                                 <th className="text-left p-2 md:p-4 text-xs md:text-sm font-semibold text-foreground w-16 md:w-32 hidden lg:table-cell">Tiến độ</th>
                                                 <th className="text-left p-2 md:p-4 text-xs md:text-sm font-semibold text-foreground w-16 md:w-28 hidden md:table-cell">Hạn chót</th>
@@ -1108,6 +1109,11 @@ export default function ProjectDetailPage() {
                                                     key={task.id}
                                                     className="border-b border-border last:border-0 hover:bg-secondary/50 transition-colors"
                                                 >
+                                                    <td className="p-3">
+                                                        <span className="inline-block px-2 py-1 bg-blue-100 text-blue-800 rounded-md font-mono text-xs font-semibold">
+                                                            T-{task.id}
+                                                        </span>
+                                                    </td>
                                                     <td className="p-2 md:p-3">
                                                         <div className="font-medium text-xs md:text-sm text-foreground truncate" title={task.tentask}>
                                                             {task.tentask}
