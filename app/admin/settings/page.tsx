@@ -1,14 +1,19 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { User, Lock, Bell, Shield, Palette, Database, Save, Eye, EyeOff } from "lucide-react"
+import { User, Lock, Bell, Shield, Palette, Database, Save, Eye, EyeOff, Clock, HardDrive } from "lucide-react"
 import { userAPI, getUsers } from "@/axios/adminApi"
 import { adminUploadAvatar } from "@/axios/adminUserApi"
+import api from "@/axios/config"
+import BackupSettings from "@/components/BackupSettings"
+import AppearanceSettings from "@/components/AppearanceSettings"
 
 const tabs = [
   { key: "profile", label: "Thông tin cá nhân", icon: User },
   { key: "security", label: "Bảo mật", icon: Lock },
   { key: "notifications", label: "Thông báo", icon: Bell },
+  { key: "deadlineReminder", label: "Nhắc deadline", icon: Clock },
+  { key: "backup", label: "Sao lưu & Khôi phục", icon: HardDrive },
   { key: "system", label: "Hệ thống", icon: Database },
   { key: "appearance", label: "Giao diện", icon: Palette },
 ]
@@ -64,8 +69,19 @@ export default function AdminSettingsPage() {
     dateFormat: "DD/MM/YYYY",
   })
 
+  // Deadline reminder settings
+  const [deadlineReminderSettings, setDeadlineReminderSettings] = useState({
+    enabled: true,
+    reminderTime: "08:00",
+    reminderDays: [1, 3, 7],
+    notifyAssignee: true,
+    notifyManager: true,
+  })
+  const [cronStatus, setCronStatus] = useState({ isRunning: false, lastRun: null })
+
   useEffect(() => {
     loadProfile()
+    loadDeadlineSettings()
   }, [])
 
   const loadProfile = async () => {
@@ -88,6 +104,20 @@ export default function AdminSettingsPage() {
       }
     } catch (error) {
       console.error("Load profile error:", error)
+    }
+  }
+
+  const loadDeadlineSettings = async () => {
+    try {
+      const res = await api.get('/settings/deadline-reminder')
+      if (res.data.settings) {
+        setDeadlineReminderSettings(res.data.settings)
+      }
+      if (res.data.status) {
+        setCronStatus(res.data.status)
+      }
+    } catch (error) {
+      console.error("Load deadline settings error:", error)
     }
   }
 
@@ -169,6 +199,35 @@ export default function AdminSettingsPage() {
       setMessage("Lưu cài đặt thông báo thành công!")
     } catch (error: any) {
       setMessage(error.message || "Lưu thất bại!")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleDeadlineReminderSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setMessage("")
+    try {
+      await api.put('/settings/deadline-reminder', deadlineReminderSettings)
+      setMessage("Lưu cài đặt nhắc deadline thành công!")
+      await loadDeadlineSettings()
+    } catch (error: any) {
+      setMessage(error.response?.data?.message || error.message || "Lưu thất bại!")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleRunDeadlineCheckNow = async () => {
+    setLoading(true)
+    setMessage("")
+    try {
+      const res = await api.post('/settings/deadline-reminder/run-now', {})
+      setMessage(res.data.message || "Đã chạy kiểm tra deadline!")
+      await loadDeadlineSettings()
+    } catch (error: any) {
+      setMessage(error.response?.data?.message || error.message || "Chạy thất bại!")
     } finally {
       setLoading(false)
     }
@@ -461,7 +520,7 @@ export default function AdminSettingsPage() {
                           }
                           className="sr-only peer"
                         />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                        <div className="w-11 h-6 bg-gray-200 dark:bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white dark:after:bg-gray-300 after:border-gray-300 dark:after:border-gray-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 dark:peer-checked:bg-blue-500"></div>
                       </label>
                     </div>
                   ))}
@@ -477,6 +536,179 @@ export default function AdminSettingsPage() {
                 </button>
               </form>
             )}
+
+            {/* Deadline Reminder Tab */}
+            {activeTab === "deadlineReminder" && (
+              <form onSubmit={handleDeadlineReminderSubmit} className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-foreground mb-1">Nhắc deadline tự động</h2>
+                  <p className="text-sm text-muted-foreground">Cấu hình nhắc nhở deadline cho nhân viên</p>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Enable/Disable */}
+                  <div className="flex items-center justify-between p-4 border border-border rounded-lg bg-secondary/50">
+                    <div>
+                      <h3 className="font-medium text-foreground">Bật nhắc deadline</h3>
+                      <p className="text-sm text-muted-foreground">Tự động gửi thông báo nhắc deadline</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={deadlineReminderSettings.enabled}
+                        onChange={(e) =>
+                          setDeadlineReminderSettings({ ...deadlineReminderSettings, enabled: e.target.checked })
+                        }
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+
+                  {/* Reminder Time */}
+                  <div className="p-4 border border-border rounded-lg">
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Giờ chạy kiểm tra hàng ngày
+                    </label>
+                    <input
+                      type="time"
+                      value={deadlineReminderSettings.reminderTime}
+                      onChange={(e) =>
+                        setDeadlineReminderSettings({ ...deadlineReminderSettings, reminderTime: e.target.value })
+                      }
+                      className="w-full px-4 py-2 border border-border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Hệ thống sẽ tự động kiểm tra và gửi thông báo vào giờ này mỗi ngày
+                    </p>
+                  </div>
+
+                  {/* Reminder Days */}
+                  <div className="p-4 border border-border rounded-lg">
+                    <label className="block text-sm font-medium text-foreground mb-3">
+                      Nhắc trước bao nhiêu ngày
+                    </label>
+                    <div className="flex flex-wrap gap-3">
+                      {[1, 2, 3, 5, 7, 14].map((day) => (
+                        <label
+                          key={day}
+                          className={`px-4 py-2 rounded-lg border-2 cursor-pointer transition-all ${
+                            deadlineReminderSettings.reminderDays.includes(day)
+                              ? "border-blue-500 bg-blue-50 text-blue-700"
+                              : "border-border bg-background text-foreground hover:border-blue-300"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={deadlineReminderSettings.reminderDays.includes(day)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setDeadlineReminderSettings({
+                                  ...deadlineReminderSettings,
+                                  reminderDays: [...deadlineReminderSettings.reminderDays, day].sort((a, b) => a - b),
+                                })
+                              } else {
+                                setDeadlineReminderSettings({
+                                  ...deadlineReminderSettings,
+                                  reminderDays: deadlineReminderSettings.reminderDays.filter((d) => d !== day),
+                                })
+                              }
+                            }}
+                            className="sr-only"
+                          />
+                          <span className="font-medium">{day} ngày</span>
+                        </label>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Chọn các mốc thời gian để nhắc nhở trước deadline
+                    </p>
+                  </div>
+
+                  {/* Notify Options */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 border border-border rounded-lg">
+                      <div>
+                        <h3 className="font-medium text-foreground">Thông báo cho người được giao</h3>
+                        <p className="text-sm text-muted-foreground">Gửi thông báo cho assignee của task</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={deadlineReminderSettings.notifyAssignee}
+                          onChange={(e) =>
+                            setDeadlineReminderSettings({ ...deadlineReminderSettings, notifyAssignee: e.target.checked })
+                          }
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+
+                    <div className="flex items-center justify-between p-4 border border-border rounded-lg">
+                      <div>
+                        <h3 className="font-medium text-foreground">Thông báo cho quản lý</h3>
+                        <p className="text-sm text-muted-foreground">Gửi thông báo cho manager của dự án</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={deadlineReminderSettings.notifyManager}
+                          onChange={(e) =>
+                            setDeadlineReminderSettings({ ...deadlineReminderSettings, notifyManager: e.target.checked })
+                          }
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Status Info */}
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h3 className="font-medium text-blue-900 mb-2">Trạng thái cron job</h3>
+                    <div className="space-y-1 text-sm">
+                      <p className="text-blue-700">
+                        <span className="font-medium">Tình trạng:</span>{" "}
+                        {cronStatus.isRunning ? (
+                          <span className="text-green-600 font-semibold">✓ Đang chạy</span>
+                        ) : (
+                          <span className="text-red-600 font-semibold">✗ Đã dừng</span>
+                        )}
+                      </p>
+                      {cronStatus.lastRun && (
+                        <p className="text-blue-700">
+                          <span className="font-medium">Chạy lần cuối:</span> {new Date(cronStatus.lastRun).toLocaleString('vi-VN')}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-medium shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <Save className="w-4 h-4" />
+                    {loading ? "Đang lưu..." : "Lưu cài đặt"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRunDeadlineCheckNow}
+                    disabled={loading}
+                    className="px-6 py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition-all disabled:opacity-50 flex items-center gap-2"
+                  >
+                    <Clock className="w-4 h-4" />
+                    Chạy ngay
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Backup Tab */}
+            {activeTab === "backup" && <BackupSettings />}
 
             {/* System Tab */}
             {activeTab === "system" && (
@@ -552,63 +784,7 @@ export default function AdminSettingsPage() {
             )}
 
             {/* Appearance Tab */}
-            {activeTab === "appearance" && (
-              <form onSubmit={handleAppearanceSubmit} className="space-y-6">
-                <div>
-                  <h2 className="text-2xl font-bold text-foreground mb-1">Giao diện</h2>
-                  <p className="text-sm text-muted-foreground">Tùy chỉnh giao diện hệ thống</p>
-                </div>
-
-                <div className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Chủ đề</label>
-                    <select
-                      value={appearanceSettings.theme}
-                      onChange={(e) => setAppearanceSettings({ ...appearanceSettings, theme: e.target.value })}
-                      className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="light">Sáng</option>
-                      <option value="dark">Tối</option>
-                      <option value="auto">Tự động</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Ngôn ngữ</label>
-                    <select
-                      value={appearanceSettings.language}
-                      onChange={(e) => setAppearanceSettings({ ...appearanceSettings, language: e.target.value })}
-                      className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="vi">Tiếng Việt</option>
-                      <option value="en">English</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Định dạng ngày</label>
-                    <select
-                      value={appearanceSettings.dateFormat}
-                      onChange={(e) => setAppearanceSettings({ ...appearanceSettings, dateFormat: e.target.value })}
-                      className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                      <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                      <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                    </select>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-medium shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all disabled:opacity-50 flex items-center gap-2"
-                >
-                  <Save className="w-4 h-4" />
-                  {loading ? "Đang lưu..." : "Lưu cài đặt"}
-                </button>
-              </form>
-            )}
+            {activeTab === "appearance" && <AppearanceSettings />}
           </div>
         </div>
       </div>

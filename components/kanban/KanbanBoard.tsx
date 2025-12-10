@@ -247,12 +247,12 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, onTaskClick
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Kanban Board</h2>
         <div className="flex items-center gap-3">
-          <div className="flex items-center bg-white border border-border rounded-md px-2 py-1 shadow-sm">
+          <div className="flex items-center bg-white dark:bg-gray-800 border border-border rounded-md px-2 py-1 shadow-sm">
             <input
               value={newColumnTitle}
               onChange={(e) => setNewColumnTitle(e.target.value)}
               placeholder="Tên cột mới"
-              className="outline-none text-sm w-48 px-2 py-1"
+              className="outline-none text-sm w-48 px-2 py-1 bg-transparent dark:text-white dark:placeholder:text-gray-400"
             />
             <Button size="sm" onClick={handleAddColumn} className="ml-2">Thêm</Button>
           </div>
@@ -323,16 +323,16 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, onTaskClick
         )}
       </div>
 
-      <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+      <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
         <div className="grid grid-cols-4 gap-4 text-center">
           <div>
-            <div className="text-2xl font-bold text-gray-700">
+            <div className="text-2xl font-bold text-gray-700 dark:text-gray-300">
               {kanbanData['Chưa bắt đầu'].length + kanbanData['Đang chạy'].length + kanbanData['Hoàn thành'].length}
             </div>
-            <div className="text-sm text-gray-500">Tổng công việc</div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">Tổng công việc</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-gray-600">
+            <div className="text-2xl font-bold text-gray-600 dark:text-gray-400">
               {kanbanData['Chưa bắt đầu'].length}
             </div>
             <div className="text-sm text-gray-500">Chưa bắt đầu</div>

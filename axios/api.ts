@@ -94,7 +94,11 @@ export const createProject = async (data: {
 };
 export const fetchUsers = async () => {
   try {
-    const res = await api.get("/users");
+    const res = await api.get("/users", {
+      params: {
+        limit: 1000 // Lấy tất cả users
+      }
+    });
 
     const usersData = res.data.users || res.data;
 

@@ -34,12 +34,13 @@ export default function PMProjectsPage() {
     const [loading, setLoading] = useState(true)
     const [submitting, setSubmitting] = useState(false)
     const [isClient, setIsClient] = useState(false);
+    const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest")
+    const [searchTerm, setSearchTerm] = useState("")
+    const [statusFilter, setStatusFilter] = useState<string>("all")
 
     // Pagination state
-    const [currentPage, setCurrentPage] = useState(1);
-    const itemsPerPage = 6; // 6 projects per page (2 columns x 3 rows)
-    const [searchTerm, setSearchTerm] = useState("");
-    const [statusFilter, setStatusFilter] = useState("all");
+    const [currentPage, setCurrentPage] = useState(1)
+    const itemsPerPage = 6 // 6 projects per page (2 columns x 3 rows)
 
     useEffect(() => {
         setIsClient(true);
@@ -72,17 +73,22 @@ export default function PMProjectsPage() {
         load()
     }, [isClient])
 
-    // Filter projects by search and status
-    const filteredProjects = projects.filter(project => {
-        const matchesSearch = searchTerm === "" ||
-            project.tenduan?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            project.mota?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            project.nguoiDamNhan?.hoten?.toLowerCase().includes(searchTerm.toLowerCase());
+    const filteredProjects = projects
+        .filter(project => {
+            const matchesSearch = searchTerm === "" ||
+                project.tenduan?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                project.mota?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                project.nguoiDamNhan?.hoten?.toLowerCase().includes(searchTerm.toLowerCase());
 
-        const matchesStatus = statusFilter === "all" || project.status === statusFilter;
+            const matchesStatus = statusFilter === "all" || project.status === statusFilter;
 
-        return matchesSearch && matchesStatus;
-    });
+            return matchesSearch && matchesStatus;
+        })
+        .sort((a, b) => {
+            const dateA = new Date(a.ngaybatdau || a.createdAt || 0).getTime();
+            const dateB = new Date(b.ngaybatdau || b.createdAt || 0).getTime();
+            return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
+        });
 
     // Calculate pagination
     const totalPages = Math.ceil(filteredProjects.length / itemsPerPage);
@@ -130,65 +136,72 @@ export default function PMProjectsPage() {
                     </h1>
                     <p className="text-muted-foreground">Theo dõi tiến độ và quản lý các dự án của bạn</p>
                 </div>
-
+                <button
+                    onClick={() => setIsCreateModalOpen(true)}
+                    className="px-6 py-3 bg-gradient-to-r from-[#003D82] to-[#0052A3] text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-300 hover:-translate-y-0.5 flex items-center gap-2"
+                >
+                    <Plus size={18} />
+                    Tạo dự án mới
+                </button>
             </div>
 
-            {/* Search and Filter */}
-            <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
-                <div className="flex flex-col sm:flex-row gap-3">
-                    <div className="relative flex-1">
+            {/* Search and Filter Section */}
+            <div className="bg-card border border-border rounded-2xl p-4 shadow-sm">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Search */}
+                    <div className="relative md:col-span-1">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                         <input
                             type="text"
                             placeholder="Tìm kiếm dự án..."
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2.5 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                            onChange={(e) => {
+                                setSearchTerm(e.target.value)
+                                setCurrentPage(1)
+                            }}
+                            className="w-full pl-10 pr-4 py-2 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
                         />
                     </div>
-                    <select
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
-                        className="px-4 py-2.5 bg-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
-                    >
-                        <option value="all">Tất cả trạng thái</option>
-                        <option value="chua_bat_dau">Chưa bắt đầu</option>
-                        <option value="dang_chay">Đang chạy</option>
-                        <option value="da_hoan_thanh">Đã hoàn thành</option>
-                        <option value="da_dong">Đã đóng</option>
-                    </select>
-                </div>
-                {filteredProjects.length > 0 && (
-                    <div className="mt-3 text-sm text-muted-foreground">
-                        Hiển thị <span className="font-medium text-foreground">{currentProjects.length}</span> / <span className="font-medium text-foreground">{filteredProjects.length}</span> dự án
-                        {(searchTerm || statusFilter !== "all") && (
-                            <span> (từ tổng số {projects.length} dự án)</span>
-                        )}
+
+                    {/* Status Filter */}
+                    <div className="relative">
+                        <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4 pointer-events-none" />
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => {
+                                setStatusFilter(e.target.value)
+                                setCurrentPage(1)
+                            }}
+                            className="w-full pl-10 pr-4 py-2 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all appearance-none cursor-pointer"
+                        >
+                            <option value="all">Tất cả trạng thái</option>
+                            <option value="chua_bat_dau">Chưa bắt đầu</option>
+                            <option value="dang_chay">Đang chạy</option>
+                            <option value="da_hoan_thanh">Đã hoàn thành</option>
+                            <option value="da_dong">Đã đóng</option>
+                        </select>
                     </div>
-                )}
+
+                    {/* Sort Order */}
+                    <div className="relative">
+                        <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4 pointer-events-none" />
+                        <select
+                            value={sortOrder}
+                            onChange={(e) => {
+                                setSortOrder(e.target.value as "newest" | "oldest")
+                                setCurrentPage(1)
+                            }}
+                            className="w-full pl-10 pr-4 py-2 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all appearance-none cursor-pointer"
+                        >
+                            <option value="newest">Ngày bắt đầu mới nhất</option>
+                            <option value="oldest">Ngày bắt đầu cũ nhất</option>
+                        </select>
+                    </div>
+                </div>
             </div>
 
-            {/* Projects Grid */}
-            {(!isClient || loading) ? (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {[1, 2, 3, 4].map(i => (
-                        <div key={i} className="bg-card border border-border rounded-2xl p-6 shadow-sm">
-                            <div className="flex items-start justify-between mb-4">
-                                <div className="flex-1">
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <div className="h-5 bg-gray-200 rounded w-16 animate-pulse"></div>
-                                        <div className="h-5 bg-gray-200 rounded-full w-24 animate-pulse"></div>
-                                    </div>
-                                    <div className="h-7 bg-gray-200 rounded w-3/4 mb-2 animate-pulse"></div>
-                                    <div className="h-4 bg-gray-200 rounded w-48 animate-pulse"></div>
-                                </div>
-                                <div className="w-10 h-10 bg-gray-200 rounded-lg animate-pulse"></div>
-                            </div>
-                            <div className="h-4 bg-gray-200 rounded w-full mb-2 animate-pulse"></div>
-                            <div className="h-4 bg-gray-200 rounded w-2/3 animate-pulse"></div>
-                        </div>
-                    ))}
-                </div>
+            {loading ? (
+                <div className="p-6 bg-card border border-border rounded-2xl">Đang tải dữ liệu dự án...</div>
             ) : projects.length === 0 ? (
                 <div className="p-6 bg-card border border-border rounded-2xl">Chưa có dự án được phân công cho bạn.</div>
             ) : filteredProjects.length === 0 ? (
@@ -197,8 +210,9 @@ export default function PMProjectsPage() {
                     {(searchTerm || statusFilter !== "all") && (
                         <button
                             onClick={() => {
-                                setSearchTerm("");
-                                setStatusFilter("all");
+                                setSearchTerm("")
+                                setStatusFilter("all")
+                                setCurrentPage(1)
                             }}
                             className="ml-2 text-primary hover:underline"
                         >
@@ -226,7 +240,7 @@ export default function PMProjectsPage() {
                                                             : project.status === "da_dong"
                                                                 ? "bg-gray-200 text-gray-700 border border-gray-300"
                                                                 : "bg-yellow-100 text-yellow-700 border border-yellow-200"
-                                                        }`}
+                                                    }`}
                                                 >
                                                     {project.status === "da_hoan_thanh"
                                                         ? "Đã hoàn thành"
@@ -236,7 +250,6 @@ export default function PMProjectsPage() {
                                                                 ? "Đã đóng"
                                                                 : "Chưa bắt đầu"}
                                                 </span>
-
                                             </div>
                                             <h3 className="text-2xl font-bold text-foreground mb-2">{project.tenduan}</h3>
                                             <p className="text-sm text-muted-foreground flex items-center gap-1.5">
@@ -249,11 +262,15 @@ export default function PMProjectsPage() {
                                             <div className="mt-3 flex items-center gap-4 text-sm text-muted-foreground">
                                                 <div className="flex items-center gap-2">
                                                     <Clock size={14} />
-                                                    <span>Bắt đầu: <span className="font-medium text-foreground">{formatDate(project.ngaybatdau)}</span></span>
+                                                    <span>
+                                                        Bắt đầu: <span className="font-medium text-foreground">{formatDate(project.ngaybatdau)}</span>
+                                                    </span>
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <Clock size={14} />
-                                                    <span>Kết thúc: <span className="font-medium text-foreground">{formatDate(project.ngayketthuc)}</span></span>
+                                                    <span>
+                                                        Kết thúc: <span className="font-medium text-foreground">{formatDate(project.ngayketthuc)}</span>
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>
@@ -285,28 +302,28 @@ export default function PMProjectsPage() {
                                         Trước
                                     </button>
                                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                        let pageNum;
+                                        let pageNum
                                         if (totalPages <= 5) {
-                                            pageNum = i + 1;
+                                            pageNum = i + 1
                                         } else if (currentPage <= 3) {
-                                            pageNum = i + 1;
+                                            pageNum = i + 1
                                         } else if (currentPage >= totalPages - 2) {
-                                            pageNum = totalPages - 4 + i;
+                                            pageNum = totalPages - 4 + i
                                         } else {
-                                            pageNum = currentPage - 2 + i;
+                                            pageNum = currentPage - 2 + i
                                         }
                                         return (
                                             <button
                                                 key={pageNum}
                                                 onClick={() => setCurrentPage(pageNum)}
                                                 className={`px-3 py-1.5 text-sm rounded-lg transition-all ${currentPage === pageNum
-                                                    ? 'bg-primary text-primary-foreground font-semibold'
-                                                    : 'bg-secondary text-foreground hover:bg-secondary/80'
-                                                    }`}
+                                                    ? "bg-primary text-primary-foreground font-semibold"
+                                                    : "bg-secondary text-foreground hover:bg-secondary/80"
+                                                }`}
                                             >
                                                 {pageNum}
                                             </button>
-                                        );
+                                        )
                                     })}
                                     <button
                                         onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}

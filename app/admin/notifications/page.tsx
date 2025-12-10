@@ -202,10 +202,10 @@ export default function AdminNotificationsPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Đang tải thông báo...</p>
+                    <p className="text-gray-600 dark:text-gray-400">Đang tải thông báo...</p>
                 </div>
             </div>
         )
@@ -216,60 +216,60 @@ export default function AdminNotificationsPage() {
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 md:gap-4 mb-4 md:mb-8">
                 <div>
-                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-2 flex items-center gap-2 md:gap-3">
+                    <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-2 md:gap-3">
                         <div className="w-10 h-10 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-blue-600 flex items-center justify-center">
                             <Bell className="w-5 h-5 sm:w-5.5 sm:h-5.5 md:w-6 md:h-6 text-white" />
                         </div>
                         Quản lý thông báo
                     </h1>
-                    <p className="text-sm md:text-base text-gray-600">Tạo và quản lý thông báo cho toàn bộ hệ thống</p>
+                    <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">Tạo và quản lý thông báo cho toàn bộ hệ thống</p>
                 </div>
             </div>
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 mb-4 md:mb-8">
-                <div className="bg-white rounded-lg md:rounded-xl p-4 md:p-6 shadow-sm border border-gray-200">
+                <div className="bg-white dark:bg-gray-800 rounded-lg md:rounded-xl p-4 md:p-6 shadow-sm border border-gray-200 dark:border-gray-700">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-xs md:text-sm font-medium text-gray-600">Tổng thông báo</p>
-                            <p className="text-xl md:text-2xl font-bold text-gray-900 mt-1">{stats.total}</p>
+                            <p className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Tổng thông báo</p>
+                            <p className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mt-1">{stats.total}</p>
                         </div>
-                        <Bell className="w-6 h-6 md:w-8 md:h-8 text-blue-600" />
+                        <Bell className="w-6 h-6 md:w-8 md:h-8 text-blue-600 dark:text-blue-400" />
                     </div>
                 </div>
 
-                <div className="bg-white rounded-lg md:rounded-xl p-4 md:p-6 shadow-sm border border-gray-200">
+                <div className="bg-white dark:bg-gray-800 rounded-lg md:rounded-xl p-4 md:p-6 shadow-sm border border-gray-200 dark:border-gray-700">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-xs md:text-sm font-medium text-gray-600">Đã xuất bản</p>
-                            <p className="text-xl md:text-2xl font-bold text-green-600 mt-1">{stats.published}</p>
+                            <p className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Đã xuất bản</p>
+                            <p className="text-xl md:text-2xl font-bold text-green-600 dark:text-green-400 mt-1">{stats.published}</p>
                         </div>
-                        <CheckCircle className="w-6 h-6 md:w-8 md:h-8 text-green-600" />
+                        <CheckCircle className="w-6 h-6 md:w-8 md:h-8 text-green-600 dark:text-green-400" />
                     </div>
                 </div>
 
-                <div className="bg-white rounded-lg md:rounded-xl p-4 md:p-6 shadow-sm border border-gray-200">
+                <div className="bg-white dark:bg-gray-800 rounded-lg md:rounded-xl p-4 md:p-6 shadow-sm border border-gray-200 dark:border-gray-700">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-xs md:text-sm font-medium text-gray-600">Bản nháp</p>
-                            <p className="text-xl md:text-2xl font-bold text-yellow-600 mt-1">{stats.draft}</p>
+                            <p className="text-xs md:text-sm font-medium text-gray-600 dark:text-gray-400">Bản nháp</p>
+                            <p className="text-xl md:text-2xl font-bold text-yellow-600 dark:text-yellow-400 mt-1">{stats.draft}</p>
                         </div>
-                        <Edit3 className="w-6 h-6 md:w-8 md:h-8 text-yellow-600" />
+                        <Edit3 className="w-6 h-6 md:w-8 md:h-8 text-yellow-600 dark:text-yellow-400" />
                     </div>
                 </div>
             </div>
 
             {/* Filters and Create Button */}
-            <div className="bg-white rounded-lg md:rounded-xl p-4 md:p-6 shadow-sm border border-gray-200 mb-4 md:mb-8">
+            <div className="bg-white dark:bg-gray-800 rounded-lg md:rounded-xl p-4 md:p-6 shadow-sm border border-gray-200 dark:border-gray-700 mb-4 md:mb-8">
                 <div className="flex flex-col gap-3 md:gap-4">
                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 md:w-5 md:h-5" />
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4 md:w-5 md:h-5" />
                         <input
                             type="text"
                             placeholder="Tìm kiếm thông báo..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-3 md:pr-4 py-2.5 md:py-3 border border-gray-300 rounded-lg text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full pl-10 pr-3 md:pr-4 py-2.5 md:py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400"
                         />
                     </div>
 
@@ -277,7 +277,7 @@ export default function AdminNotificationsPage() {
                         <select
                             value={typeFilter}
                             onChange={(e) => setTypeFilter(e.target.value)}
-                            className="flex-1 px-3 md:px-4 py-2.5 md:py-3 border border-gray-300 rounded-lg text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="flex-1 px-3 md:px-4 py-2.5 md:py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         >
                             <option value="all">Tất cả loại</option>
                             <option value="system">Hệ thống</option>
@@ -288,7 +288,7 @@ export default function AdminNotificationsPage() {
                         <select
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
-                            className="flex-1 px-3 md:px-4 py-2.5 md:py-3 border border-gray-300 rounded-lg text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="flex-1 px-3 md:px-4 py-2.5 md:py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         >
                             <option value="all">Tất cả trạng thái</option>
                             <option value="published">Đã xuất bản</option>
@@ -297,7 +297,7 @@ export default function AdminNotificationsPage() {
 
                         <button
                             onClick={() => setIsCreateModalOpen(true)}
-                            className="px-4 md:px-6 py-2.5 md:py-3 bg-blue-600 text-white rounded-lg text-sm md:text-base hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 font-medium"
+                            className="px-4 md:px-6 py-2.5 md:py-3 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-lg text-sm md:text-base transition-colors flex items-center justify-center gap-2 font-medium"
                         >
                             <Plus className="w-4 h-4 md:w-5 md:h-5" />
                             <span>Tạo thông báo</span>
@@ -307,41 +307,41 @@ export default function AdminNotificationsPage() {
             </div>
 
             {/* Notifications Table */}
-            <div className="bg-white rounded-lg md:rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="bg-white dark:bg-gray-800 rounded-lg md:rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full">
-                        <thead className="bg-gray-50 border-b border-gray-200">
+                        <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
                             <tr>
-                                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                     Thông báo
                                 </th>
-                                <th className="hidden sm:table-cell px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th className="hidden sm:table-cell px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                     Loại
                                 </th>
-                                <th className="hidden md:table-cell px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th className="hidden md:table-cell px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                     Độ ưu tiên
                                 </th>
-                                <th className="hidden lg:table-cell px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th className="hidden lg:table-cell px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                     Đối tượng
                                 </th>
-                                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th className="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                     Trạng thái
                                 </th>
-                                <th className="hidden sm:table-cell px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th className="hidden sm:table-cell px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                     Ngày tạo
                                 </th>
-                                <th className="px-3 md:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <th className="px-3 md:px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                     Thao tác
                                 </th>
                             </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                             {notifications.map((notification) => (
-                                <tr key={notification.id} className="hover:bg-gray-50">
+                                <tr key={notification.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                                     <td className="px-3 md:px-6 py-3 md:py-4">
                                         <div>
-                                            <div className="font-medium text-sm md:text-base text-gray-900 line-clamp-1">{notification.title}</div>
-                                            <div className="text-xs md:text-sm text-gray-500 mt-1 max-w-xs line-clamp-1">
+                                            <div className="font-medium text-sm md:text-base text-gray-900 dark:text-white line-clamp-1">{notification.title}</div>
+                                            <div className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mt-1 max-w-xs line-clamp-1">
                                                 {notification.content}
                                             </div>
                                         </div>
@@ -358,7 +358,7 @@ export default function AdminNotificationsPage() {
                                         </span>
                                     </td>
                                     <td className="hidden lg:table-cell px-3 md:px-6 py-3 md:py-4 whitespace-nowrap">
-                                        <span className="text-sm text-gray-900 capitalize">{notification.targetAudience}</span>
+                                        <span className="text-sm text-gray-900 dark:text-white capitalize">{notification.targetAudience}</span>
                                     </td>
                                     <td className="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap">
                                         <div className="flex items-center gap-1">
@@ -366,8 +366,8 @@ export default function AdminNotificationsPage() {
                                                 onClick={() => togglePublishStatus(notification.id)}
                                                 disabled={actionLoading === notification.id}
                                                 className={`inline-flex items-center gap-1 px-2 md:px-2.5 py-1 md:py-0.5 rounded-full text-xs font-medium transition-colors ${isPublished(notification)
-                                                    ? "bg-green-100 text-green-800 hover:bg-green-200"
-                                                    : "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+                                                    ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/50"
+                                                    : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-900/50"
                                                     } ${actionLoading === notification.id ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                 title={isPublished(notification) ? "Click để chuyển về bản nháp" : "Click để xuất bản"}
                                             >
@@ -392,8 +392,8 @@ export default function AdminNotificationsPage() {
                                     </td>
 
                                     <td className="hidden sm:table-cell px-3 md:px-6 py-3 md:py-4 whitespace-nowrap">
-                                        <div className="flex items-center text-xs md:text-sm text-gray-900">
-                                            <Calendar className="w-3 h-3 md:w-4 md:h-4 text-gray-400 mr-1" />
+                                        <div className="flex items-center text-xs md:text-sm text-gray-900 dark:text-white">
+                                            <Calendar className="w-3 h-3 md:w-4 md:h-4 text-gray-400 dark:text-gray-500 mr-1" />
                                             {new Date(notification.createdAt).toLocaleDateString('vi-VN')}
                                         </div>
                                     </td>
@@ -401,21 +401,21 @@ export default function AdminNotificationsPage() {
                                         <div className="flex items-center justify-end gap-1 md:gap-2">
                                             <button
                                                 onClick={() => setViewingNotification(notification)}
-                                                className="p-1 md:p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded text-xs md:text-sm"
+                                                className="p-1 md:p-1.5 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded text-xs md:text-sm"
                                                 title="Xem chi tiết"
                                             >
                                                 <Eye className="w-4 h-4" />
                                             </button>
                                             <button
                                                 onClick={() => setEditingNotification(notification)}
-                                                className="p-1 md:p-1.5 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded text-xs md:text-sm"
+                                                className="p-1 md:p-1.5 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-xs md:text-sm"
                                                 title="Chỉnh sửa"
                                             >
                                                 <Edit3 className="w-4 h-4" />
                                             </button>
                                             <button
                                                 onClick={() => deleteNotification(notification.id)}
-                                                className="p-1 md:p-1.5 text-red-600 hover:text-red-800 hover:bg-red-100 rounded text-xs md:text-sm"
+                                                className="p-1 md:p-1.5 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-xs md:text-sm"
                                                 title="Xóa thông báo"
                                             >
                                                 <Trash2 className="w-4 h-4" />
@@ -430,12 +430,12 @@ export default function AdminNotificationsPage() {
 
                 {notifications.length === 0 && (
                     <div className="p-6 md:p-12 text-center">
-                        <Bell className="w-12 h-12 md:w-16 md:h-16 text-gray-300 mx-auto mb-3 md:mb-4" />
-                        <h3 className="text-base md:text-lg font-medium text-gray-900 mb-2">Không có thông báo</h3>
-                        <p className="text-sm md:text-base text-gray-500 mb-3 md:mb-4">Tạo thông báo đầu tiên để bắt đầu</p>
+                        <Bell className="w-12 h-12 md:w-16 md:h-16 text-gray-300 dark:text-gray-600 mx-auto mb-3 md:mb-4" />
+                        <h3 className="text-base md:text-lg font-medium text-gray-900 dark:text-white mb-2">Không có thông báo</h3>
+                        <p className="text-sm md:text-base text-gray-500 dark:text-gray-400 mb-3 md:mb-4">Tạo thông báo đầu tiên để bắt đầu</p>
                         <button
                             onClick={() => setIsCreateModalOpen(true)}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm md:text-base hover:bg-blue-700 transition-colors"
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-lg text-sm md:text-base transition-colors"
                         >
                             Tạo thông báo
                         </button>
@@ -444,15 +444,15 @@ export default function AdminNotificationsPage() {
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                    <div className="px-4 py-3 flex flex-col sm:flex-row items-center justify-between border-t border-gray-200 gap-3">
-                        <div className="text-xs md:text-sm text-gray-700">
+                    <div className="px-4 py-3 flex flex-col sm:flex-row items-center justify-between border-t border-gray-200 dark:border-gray-700 gap-3">
+                        <div className="text-xs md:text-sm text-gray-700 dark:text-gray-300">
                             Hiển thị <span className="font-medium">{notifications.length}</span> / <span className="font-medium">{totalItems}</span> thông báo
                         </div>
                         <div className="flex items-center gap-2">
                             <button
                                 onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                                 disabled={currentPage === 1}
-                                className="px-3 py-1.5 text-xs md:text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                className="px-3 py-1.5 text-xs md:text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-gray-900 dark:text-white"
                             >
                                 Trước
                             </button>
@@ -476,7 +476,7 @@ export default function AdminNotificationsPage() {
                                             onClick={() => setCurrentPage(pageNum)}
                                             className={`px-3 py-1.5 text-xs md:text-sm rounded-lg transition-colors ${currentPage === pageNum
                                                     ? 'bg-blue-600 text-white font-medium'
-                                                    : 'border border-gray-300 hover:bg-gray-50'
+                                                    : 'border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-white'
                                                 }`}
                                         >
                                             {pageNum}
@@ -488,7 +488,7 @@ export default function AdminNotificationsPage() {
                             <button
                                 onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                                 disabled={currentPage === totalPages}
-                                className="px-3 py-1.5 text-xs md:text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                className="px-3 py-1.5 text-xs md:text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-gray-900 dark:text-white"
                             >
                                 Sau
                             </button>
@@ -500,10 +500,10 @@ export default function AdminNotificationsPage() {
             {/* Create/Edit Modal */}
             {(isCreateModalOpen || editingNotification) && (
                 <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 p-3 md:p-2">
-                    <div className="bg-white rounded-lg md:rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl border border-gray-200">
-                        <div className="p-3 md:p-4 border-b border-gray-200 sticky top-0 bg-white">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg md:rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl border border-gray-200 dark:border-gray-700">
+                        <div className="p-3 md:p-4 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800">
                             <div className="flex items-center justify-between">
-                                <h2 className="text-lg md:text-xl font-bold text-gray-900">
+                                <h2 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">
                                     {editingNotification ? "Chỉnh sửa thông báo" : "Tạo thông báo mới"}
                                 </h2>
                                 <button
@@ -511,7 +511,7 @@ export default function AdminNotificationsPage() {
                                         setIsCreateModalOpen(false)
                                         setEditingNotification(null)
                                     }}
-                                    className="text-gray-400 hover:text-gray-600"
+                                    className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                                 >
                                     <X className="w-5 h-5 md:w-6 md:h-6" />
                                 </button>
@@ -521,38 +521,38 @@ export default function AdminNotificationsPage() {
                         <div className="p-4 md:p-6">
                             <div className="space-y-3 md:space-y-4">
                                 <div>
-                                    <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2">
+                                    <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 md:mb-2">
                                         Tiêu đề *
                                     </label>
                                     <input
                                         type="text"
                                         value={newNotification.title}
                                         onChange={(e) => setNewNotification({ ...newNotification, title: e.target.value })}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400"
                                         placeholder="Nhập tiêu đề thông báo"
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2">
+                                    <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 md:mb-2">
                                         Nội dung *
                                     </label>
                                     <textarea
                                         value={newNotification.content}
                                         onChange={(e) => setNewNotification({ ...newNotification, content: e.target.value })}
                                         rows={4}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder:text-gray-500 dark:placeholder:text-gray-400"
                                         placeholder="Nhập nội dung thông báo"
                                     />
                                 </div>
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                                     <div>
-                                        <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2">Loại thông báo</label>
+                                        <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 md:mb-2">Loại thông báo</label>
                                         <select
                                             value={newNotification.type}
                                             onChange={(e) => setNewNotification({ ...newNotification, type: e.target.value as any })}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                                         >
                                             <option value="system">Hệ thống</option>
                                             <option value="project">Dự án</option>
@@ -562,11 +562,11 @@ export default function AdminNotificationsPage() {
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2">Trạng thái</label>
+                                        <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 md:mb-2">Trạng thái</label>
                                         <select
                                             value={newNotification.status}
                                             onChange={(e) => setNewNotification({ ...newNotification, status: e.target.value as any })}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                                         >
                                             <option value="draft">Bản nháp</option>
                                             <option value="published">Xuất bản</option>
@@ -576,13 +576,13 @@ export default function AdminNotificationsPage() {
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                                     <div>
-                                        <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2">
+                                        <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 md:mb-2">
                                             Đối tượng
                                         </label>
                                         <select
                                             value={newNotification.targetRole}
                                             onChange={(e) => setNewNotification({ ...newNotification, targetRole: e.target.value })}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                                         >
                                             <option value="all">Tất cả</option>
                                             <option value="admin">Admin</option>
@@ -594,20 +594,20 @@ export default function AdminNotificationsPage() {
                             </div>
                         </div>
 
-                        <div className="p-4 md:p-6 border-t border-gray-200 flex flex-col sm:flex-row gap-2 md:gap-3">
+                        <div className="p-4 md:p-6 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row gap-2 md:gap-3">
                             <button
                                 onClick={() => {
                                     setIsCreateModalOpen(false)
                                     setEditingNotification(null)
                                 }}
-                                className="flex-1 px-4 py-2.5 md:py-2 border border-gray-300 text-gray-700 rounded-lg text-sm md:text-base hover:bg-gray-50 transition-colors"
+                                className="flex-1 px-4 py-2.5 md:py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg text-sm md:text-base hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                             >
                                 Hủy
                             </button>
                             <button
                                 onClick={createNotification}
                                 disabled={!newNotification.title || !newNotification.content}
-                                className="flex-1 px-4 py-2.5 md:py-2 bg-blue-600 text-white rounded-lg text-sm md:text-base hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 font-medium"
+                                className="flex-1 px-4 py-2.5 md:py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-lg text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 font-medium"
                             >
                                 <Save className="w-4 h-4" />
                                 {editingNotification ? "Cập nhật" : "Tạo thông báo"}
@@ -619,14 +619,14 @@ export default function AdminNotificationsPage() {
 
             {/* View Modal */}
             {viewingNotification && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 md:p-4">
-                    <div className="bg-white rounded-lg md:rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                        <div className="p-3 md:p-6 border-b border-gray-200 sticky top-0 bg-white">
+                <div className="fixed inset-0 bg-slate-900/0 flex items-center justify-center z-50 p-3 md:p-4 transition-opacity">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg md:rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-200 dark:border-gray-700">
+                        <div className="p-3 md:p-6 border-b border-gray-200 dark:border-gray-700 sticky top-0 bg-white dark:bg-gray-800">
                             <div className="flex items-center justify-between">
-                                <h2 className="text-lg md:text-xl font-bold text-gray-900">Chi tiết thông báo</h2>
+                                <h2 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white">Chi tiết thông báo</h2>
                                 <button
                                     onClick={() => setViewingNotification(null)}
-                                    className="text-gray-400 hover:text-gray-600"
+                                    className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
                                 >
                                     <X className="w-5 h-5 md:w-6 md:h-6" />
                                 </button>
@@ -636,13 +636,13 @@ export default function AdminNotificationsPage() {
                         <div className="p-4 md:p-6">
                             <div className="space-y-4 md:space-y-6">
                                 <div>
-                                    <h3 className="text-lg md:text-xl font-semibold text-gray-900 mb-2">{viewingNotification.title}</h3>
-                                    <p className="text-sm md:text-base text-gray-600 leading-relaxed">{viewingNotification.content}</p>
+                                    <h3 className="text-lg md:text-xl font-semibold text-gray-900 dark:text-white mb-2">{viewingNotification.title}</h3>
+                                    <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 leading-relaxed">{viewingNotification.content}</p>
                                 </div>
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                                     <div>
-                                        <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2">Loại</label>
+                                        <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 md:mb-2">Loại</label>
                                         <span className={`inline-flex items-center gap-1 px-2 md:px-2.5 py-1 md:py-0.5 rounded-full text-xs font-medium ${getTypeColor(viewingNotification.type)}`}>
                                             {getTypeIcon(viewingNotification.type)}
                                             {viewingNotification.type}
@@ -650,20 +650,20 @@ export default function AdminNotificationsPage() {
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2">Độ ưu tiên</label>
+                                        <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 md:mb-2">Độ ưu tiên</label>
                                         <span className={`inline-flex px-2 md:px-2.5 py-1 md:py-0.5 rounded-full text-xs font-medium ${getPriorityColor(viewingNotification.priority)}`}>
                                             {viewingNotification.priority}
                                         </span>
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2">Đối tượng</label>
-                                        <span className="text-sm capitalize">{viewingNotification.targetAudience}</span>
+                                        <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 md:mb-2">Đối tượng</label>
+                                        <span className="text-sm text-gray-900 dark:text-white capitalize">{viewingNotification.targetAudience}</span>
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2">Trạng thái</label>
-                                        <span className={`inline-flex items-center gap-1 px-2 md:px-2.5 py-1 md:py-0.5 rounded-full text-xs font-medium ${isPublished(viewingNotification) ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
+                                        <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 md:mb-2">Trạng thái</label>
+                                        <span className={`inline-flex items-center gap-1 px-2 md:px-2.5 py-1 md:py-0.5 rounded-full text-xs font-medium ${isPublished(viewingNotification) ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300" : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300"
                                             }`}>
                                             {isPublished(viewingNotification) ? <CheckCircle className="w-3 h-3" /> : <Edit3 className="w-3 h-3" />}
                                             {isPublished(viewingNotification) ? "Đã xuất bản" : "Bản nháp"}
@@ -671,22 +671,22 @@ export default function AdminNotificationsPage() {
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2">Ngày tạo</label>
-                                        <span className="text-sm">{formatDistanceToNow(new Date(viewingNotification.createdAt), { addSuffix: true, locale: vi })}</span>
+                                        <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 md:mb-2">Ngày tạo</label>
+                                        <span className="text-sm text-gray-900 dark:text-white">{formatDistanceToNow(new Date(viewingNotification.createdAt), { addSuffix: true, locale: vi })}</span>
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs md:text-sm font-medium text-gray-700 mb-1.5 md:mb-2">Tác giả</label>
-                                        <span className="text-sm">{viewingNotification.author?.hoten || viewingNotification.author?.manv || 'System'}</span>
+                                        <label className="block text-xs md:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5 md:mb-2">Tác giả</label>
+                                        <span className="text-sm text-gray-900 dark:text-white">{viewingNotification.author?.hoten || viewingNotification.author?.manv || 'System'}</span>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="p-4 md:p-6 border-t border-gray-200">
+                        <div className="p-4 md:p-6 border-t border-gray-200 dark:border-gray-700">
                             <button
                                 onClick={() => setViewingNotification(null)}
-                                className="w-full px-4 py-2.5 md:py-2 bg-gray-100 text-gray-700 rounded-lg text-sm md:text-base hover:bg-gray-200 transition-colors font-medium"
+                                className="w-full px-4 py-2.5 md:py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg text-sm md:text-base hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium"
                             >
                                 Đóng
                             </button>

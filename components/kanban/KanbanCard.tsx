@@ -69,7 +69,7 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ task, onDragStart, onDra
 
   return (
     <Card 
-      className="cursor-move hover:shadow sm:shadow-sm transition-shadow bg-white mb-2 p-2"
+      className="cursor-move hover:shadow sm:shadow-sm transition-shadow bg-white dark:bg-gray-800 mb-2 p-2"
       draggable
       onDragStart={(e) => onDragStart(e, task)}
       onDragEnd={onDragEnd}
@@ -100,19 +100,19 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ task, onDragStart, onDra
         {/* Progress bar */}
         {task.subtasks && task.subtasks.length > 0 && (
           <div className="space-y-1">
-            <div className="flex justify-between text-xs text-gray-600">
+            <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400">
               <span>Tiến độ</span>
               <span>{task.progress || 0}%</span>
             </div>
             <Progress value={task.progress || 0} className="h-1" />
-            <div className="text-xs text-gray-500">
+            <div className="text-xs text-gray-500 dark:text-gray-400">
               {task.subtasks.filter(st => st.trangThai === 'Hoàn thành').length}/{task.subtasks.length} subtasks
             </div>
           </div>
         )}
 
         {/* Deadline */}
-        <div className="flex items-center gap-2 text-xs text-gray-600">
+        <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
           <Calendar className="w-4 h-4" />
           <span className={isOverdue ? 'text-red-600 font-semibold' : ''}>
             {formatDate(task.ngayKetThuc)}
@@ -127,7 +127,7 @@ export const KanbanCard: React.FC<KanbanCardProps> = ({ task, onDragStart, onDra
                 {task.nguoiDuocGiao.hoten.substring(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <span className="text-xs text-gray-700">{task.nguoiDuocGiao.hoten}</span>
+            <span className="text-xs text-gray-700 dark:text-gray-300">{task.nguoiDuocGiao.hoten}</span>
           </div>
         )}
       </CardContent>

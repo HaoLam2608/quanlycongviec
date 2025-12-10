@@ -7,6 +7,7 @@ import {
     CheckCircle2, Timer, Flame
 } from "lucide-react"
 import { fetchProjects, getTasksByProject, fetchProjectsByManager } from "@/axios/api"
+import { getGroups } from "@/axios/adminApi"
 
 // Loading Skeleton Components
 const StatCardSkeleton = () => (
@@ -41,7 +42,7 @@ export default function PMDashboard() {
             textColor: "text-blue-600",
         },
         {
-            title: "Nhiệm vụ hoạt động",
+            title: "Công việc",
             value: "0",
             change: "0%",
             icon: CheckSquare,
@@ -50,7 +51,7 @@ export default function PMDashboard() {
             textColor: "text-cyan-600",
         },
         {
-            title: "Thành viên nhóm",
+            title: "Tổng nhóm",
             value: "0",
             change: "0%",
             icon: Users,
@@ -113,7 +114,7 @@ export default function PMDashboard() {
         }
     }
     
-    const updateStatsFromData = (projectsList: any[], tasksList: any[]) => {
+    const updateStatsFromData = (projectsList: any[], tasksList: any[], groupsList: any[]) => {
         // Calculate real stats from projects and tasks
         const projectCount = projectsList.length
         
@@ -122,13 +123,7 @@ export default function PMDashboard() {
             return status === 'Đang chạy' || status === 'Chưa bắt đầu'
         }).length
         
-        // Get unique team members from tasks
-        const uniqueUserIds = new Set<string>()
-        tasksList.forEach((t: any) => {
-            const userId = t.nguoiDuocGiaoId || t.nguoiThucHienId || t.userId
-            if (userId) uniqueUserIds.add(String(userId))
-        })
-        const teamMembersCount = uniqueUserIds.size
+        const groupsCount = Array.isArray(groupsList) ? groupsList.length : 0
         
         // Calculate average progress from projects
         let totalProgress = 0
@@ -145,7 +140,7 @@ export default function PMDashboard() {
         })
         const progressAverage = projectsList.length > 0 ? Math.round(totalProgress / projectsList.length) : 0
         
-        console.log('📊 Calculated Stats:', { projectCount, activeTasksCount, teamMembersCount, progressAverage })
+        console.log('📊 Calculated Stats:', { projectCount, activeTasksCount, groupsCount, progressAverage })
 
         setStats([
             {
@@ -167,9 +162,9 @@ export default function PMDashboard() {
                 textColor: "text-cyan-600",
             },
             {
-                title: "Thành viên nhóm",
-                value: String(teamMembersCount),
-                change: "+5%",
+                title: "Tổng nhóm",
+                value: String(groupsCount),
+                change: "",
                 icon: Users,
                 color: "from-[#006BB8] to-[#0084CF]",
                 bgColor: "bg-indigo-50",
@@ -336,8 +331,16 @@ export default function PMDashboard() {
 
             setUrgentTasks(urgent)
             
+            let groupsList: any[] = []
+            try {
+                const groupsRes = await getGroups()
+                groupsList = groupsRes.groups || groupsRes || []
+            } catch (err) {
+                console.warn('Failed to load groups for manager dashboard', err)
+            }
+
             // Update stats cards with real data
-            updateStatsFromData(projectsList, allTasks)
+            updateStatsFromData(projectsList, allTasks, groupsList)
 
         } catch (error) {
             console.error('Load projects and tasks error:', error)

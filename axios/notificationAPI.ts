@@ -5,7 +5,7 @@ export interface Notification {
     id: string
     title: string
     content: string
-    type: 'system' | 'project' | 'task' | 'announcement'
+    type: 'system' | 'project' | 'task' | 'announcement' | 'deadline_reminder'
     priority: 'low' | 'medium' | 'high' | 'urgent'
     status: 'draft' | 'published'
     targetAudience: string

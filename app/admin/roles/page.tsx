@@ -102,7 +102,7 @@ export default function RolesPage() {
                     </button>
                     <button
                         onClick={() => setOpenPermModal(true)}
-                        className="flex-1 sm:flex-none px-3 md:px-4 py-2.5 md:py-3 bg-gray-100 text-gray-700 rounded-lg md:rounded-xl border border-gray-200 hover:bg-gray-200 text-sm md:text-base font-medium transition-all"
+                        className="flex-1 sm:flex-none px-3 md:px-4 py-2.5 md:py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg md:rounded-xl border border-gray-200 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600 text-sm md:text-base font-medium transition-all"
                     >
                         Thêm quyền
                     </button>

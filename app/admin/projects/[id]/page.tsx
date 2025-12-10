@@ -1,6 +1,6 @@
 "use client"
 import type React from "react"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import {
@@ -233,6 +233,17 @@ export default function ProjectDetailPage() {
     const [taskTotalPages, setTaskTotalPages] = useState(1);
     const [taskTotalItems, setTaskTotalItems] = useState(0);
     const [taskItemsPerPage] = useState(10);
+
+    const isProjectCompleted = useMemo(() => {
+        const rawStatus = (project?.status ?? project?.trangThai ?? project?.trangthai ?? "").toString().trim().toLowerCase();
+        if (!rawStatus) return false;
+        const normalized = rawStatus
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/đ/g, "d")
+            .replace(/[\s-]+/g, "_");
+        return normalized === "da_hoan_thanh" || normalized === "hoan_thanh" || normalized === "completed";
+    }, [project?.status, project?.trangThai, project?.trangthai]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const f = e.target.files?.[0] || null;
@@ -769,6 +780,10 @@ export default function ProjectDetailPage() {
 
     const handleAddTask = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isProjectCompleted) {
+            showWarning('Dự án đã hoàn thành, không thể tạo công việc mới.');
+            return;
+        }
         // Kiểm tra ngày bắt đầu và kết thúc của task phải nằm trong khoảng ngày của dự án
         const projectStart = project?.ngaybatdau ? new Date(project.ngaybatdau) : null;
         const projectEnd = project?.ngayketthuc ? new Date(project.ngayketthuc) : null;
@@ -963,36 +978,34 @@ export default function ProjectDetailPage() {
                 <span>Quay lại danh sách dự án</span>
             </Link>
 
-            <div className="bg-card border border-border rounded-lg md:rounded-2xl p-3 md:p-6 lg:p-8 shadow-sm">
-                <div className="flex flex-col gap-3 md:gap-4 mb-3 md:mb-6">
-                    <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1 md:mb-2">
-                            <span className="text-[10px] md:text-sm font-mono text-muted-foreground bg-secondary px-2 py-0.5 md:py-1 rounded">
+            <div className="bg-card border border-border rounded-2xl p-8 shadow-sm">
+                <div className="flex items-center justify-between mb-6">
+                    <div>
+                        <div className="flex items-center gap-3 mb-3">
+                            <span className="text-sm font-mono text-muted-foreground bg-secondary px-3 py-1 rounded-lg">
                                 {id}
                             </span>
                         </div>
-                        <h1 className="text-base md:text-2xl lg:text-3xl font-bold text-foreground mb-1 md:mb-2">{project?.tenduan}</h1>
-                        <p className="text-xs md:text-sm text-muted-foreground mb-1 md:mb-2 line-clamp-2">{project?.mota}</p>
-                        <p className="text-xs md:text-sm text-muted-foreground flex items-center gap-1 md:gap-2">
-                            <Users size={12} className="md:w-4 md:h-4" />
-                            Quản lý: <span className="font-semibold text-foreground truncate">
+                        <h1 className="text-4xl font-bold text-foreground mb-2">{project?.tenduan}</h1>
+                        <p className="text-muted-foreground mb-3">{project?.mota}</p>
+                        <p className="text-muted-foreground flex items-center gap-2">
+                            <Users size={16} />
+                            Quản lý: <span className="font-semibold text-foreground">
                                 {project?.nguoiDamNhan?.hoten || "Chưa phân công"}
                             </span>
                         </p>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm text-muted-foreground">
-                            <Calendar size={12} className="md:w-4 md:h-4 flex-shrink-0" />
-                            <span className="truncate">
-                                {formatDate(project?.ngaybatdau)} - {formatDate(project?.ngayketthuc)}
-                            </span>
+                        <div className="text-muted-foreground flex items-center gap-2">
+                            <Calendar size={16} />
+                            <span>{formatDate(project?.ngaybatdau)} - {formatDate(project?.ngayketthuc)}</span>
                         </div>
-                        <div className="flex flex-col sm:flex-row gap-2">
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <div className="flex flex-wrap gap-2">
                             <button
                                 onClick={() => setIsEditModalOpen(true)}
-                                className="w-full sm:w-auto px-2 md:px-3 py-1.5 md:py-2 text-xs md:text-sm bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors font-medium"
+                                className="px-4 py-2 bg-yellow-500 text-white rounded-lg"
                             >
-                                Sửa
+                                Sửa dự án
                             </button>
                             <button
                                 onClick={async () => {
@@ -1002,14 +1015,13 @@ export default function ProjectDetailPage() {
                                         router.push("/admin/projects");
                                     }
                                 }}
-                                className="w-full sm:w-auto px-2 md:px-3 py-1.5 md:py-2 text-xs md:text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium"
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg"
                             >
-                                Xoá
+                                Xoá dự án
                             </button>
                         </div>
                     </div>
                 </div>
-
             </div>
 
             <div className="bg-card border border-border rounded-lg md:rounded-2xl shadow-lg overflow-hidden">
@@ -1070,14 +1082,20 @@ export default function ProjectDetailPage() {
                     </button>
                 </div>
 
-                <div className="p-3 sm:p-6 bg-gradient-to-br from-white to-gray-50">
+                <div className="p-3 sm:p-6 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900">
                     {activeTab === "tasks" && (
                         <div className="space-y-3 md:space-y-4">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 md:gap-4 mb-3 md:mb-4">
                                 <h2 className="text-lg md:text-2xl font-bold text-foreground">Danh sách công việc</h2>
                                 <button
-                                    onClick={() => setIsAddTaskModalOpen(true)}
-                                    className="w-full sm:w-auto px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg md:rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all flex items-center justify-center gap-2"
+                                    onClick={() => {
+                                        if (isProjectCompleted) {
+                                            showWarning('Dự án đã hoàn thành, không thể tạo thêm công việc.');
+                                            return;
+                                        }
+                                        setIsAddTaskModalOpen(true);
+                                    }}
+                                    className={`w-full sm:w-auto px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg md:rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${isProjectCompleted ? 'opacity-60 cursor-not-allowed hover:shadow-none' : 'hover:shadow-lg hover:shadow-blue-500/30'}`}
                                 >
                                     <Plus size={16} className="md:w-5 md:h-5" />
                                     <span>Thêm công việc</span>
@@ -1317,7 +1335,7 @@ export default function ProjectDetailPage() {
                                                             </Modal>
                                                             <button
                                                                 onClick={() => setExpandedWorklogTaskId(expandedWorklogTaskId === task.id ? null : task.id)}
-                                                                className="w-full px-3 py-2 bg-slate-100 text-slate-700 rounded-lg text-xs font-medium hover:bg-slate-200 transition-all duration-200 flex items-center justify-center gap-1 border border-slate-200"
+                                                                className="w-full px-3 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition-all duration-200 flex items-center justify-center gap-1 border border-slate-200 dark:border-slate-600"
                                                             >
                                                                 Nhật ký
                                                             </button>
@@ -1325,7 +1343,7 @@ export default function ProjectDetailPage() {
                                                     </td>
                                                 </tr>,
                                                 expandedWorklogTaskId === task.id && (
-                                                    <tr key={`${task.id}-worklog`} className="bg-slate-50 border-b border-border">
+                                                    <tr key={`${task.id}-worklog`} className="bg-slate-50 dark:bg-slate-800/50 border-b border-border">
                                                         <td colSpan={8} className="p-0">
                                                             <div className="space-y-4 p-4">
                                                                 <WorklogTask taskId={task.id} taskStatus={task.trangThai} />
@@ -1440,8 +1458,8 @@ export default function ProjectDetailPage() {
 
                             {projectGroups.length === 0 ? (
                                 <div className="text-center py-8 md:py-12 bg-secondary/30 rounded-lg md:rounded-xl border border-border">
-                                    <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 md:mb-4">
-                                        <UsersRound className="w-6 h-6 md:w-8 md:h-8 text-gray-400" />
+                                    <div className="w-12 h-12 md:w-16 md:h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-3 md:mb-4">
+                                        <UsersRound className="w-6 h-6 md:w-8 md:h-8 text-gray-400 dark:text-gray-500" />
                                     </div>
                                     <h3 className="text-base md:text-lg font-semibold text-foreground mb-2">Chưa có nhóm làm việc</h3>
                                     <p className="text-xs md:text-sm text-muted-foreground mb-4">Thêm nhóm có sẵn hoặc tạo nhóm mới để bắt đầu</p>
@@ -1494,7 +1512,7 @@ export default function ProjectDetailPage() {
                                                     ) : project?.status === 'da_hoan_thanh' ? (
                                                         <button
                                                             onClick={() => handleRemoveGroupFromProject(group.id)}
-                                                            className="w-full sm:w-auto px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm bg-green-100 text-green-700 rounded-lg md:rounded-xl font-semibold hover:bg-green-200 transition-all flex items-center justify-center gap-1 md:gap-2"
+                                                            className="w-full sm:w-auto px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg md:rounded-xl font-semibold hover:bg-green-200 dark:hover:bg-green-900/50 transition-all flex items-center justify-center gap-1 md:gap-2"
                                                         >
                                                             <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 md:w-4 md:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1502,7 +1520,7 @@ export default function ProjectDetailPage() {
                                                             <span className="hidden sm:inline">Xóa</span>
                                                         </button>
                                                     ) : (
-                                                        <div className="w-full sm:w-auto px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm bg-gray-100 text-gray-500 rounded-lg md:rounded-xl font-medium flex items-center justify-center gap-1 md:gap-2">
+                                                        <div className="w-full sm:w-auto px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded-lg md:rounded-xl font-medium flex items-center justify-center gap-1 md:gap-2">
                                                             <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 md:w-4 md:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                                             </svg>
@@ -1571,7 +1589,7 @@ export default function ProjectDetailPage() {
                                             </div>
                                             <div className="flex flex-col sm:flex-row gap-2 md:gap-3 w-full sm:w-auto">
                                                 <button onClick={() => handleOpenDocument(doc)} className="flex-1 sm:flex-none px-2 md:px-3 py-1 md:py-1.5 text-xs md:text-sm bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-all">Xem / Mở</button>
-                                                <button onClick={() => handleForceDownload(doc)} className="flex-1 sm:flex-none px-2 md:px-3 py-1 md:py-1.5 text-xs md:text-sm bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-all">Tải xuống</button>
+                                                <button onClick={() => handleForceDownload(doc)} className="flex-1 sm:flex-none px-2 md:px-3 py-1 md:py-1.5 text-xs md:text-sm bg-slate-700 dark:bg-slate-600 text-white rounded-lg hover:bg-slate-800 dark:hover:bg-slate-500 transition-all">Tải xuống</button>
                                                 <button onClick={async () => {
                                                     const confirmed = await showConfirm('Xóa tài liệu này?');
                                                     if (!confirmed) return;
@@ -1581,7 +1599,7 @@ export default function ProjectDetailPage() {
                                                     } catch (err) {
                                                         showError('Có lỗi khi xóa tài liệu');
                                                     }
-                                                }} className="flex-1 sm:flex-none px-2 md:px-3 py-1 md:py-1.5 text-xs md:text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-all">Xóa</button>
+                                                }} className="flex-1 sm:flex-none px-2 md:px-3 py-1 md:py-1.5 text-xs md:text-sm bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-all">Xóa</button>
                                             </div>
                                         </div>
                                     ))}
@@ -1591,12 +1609,12 @@ export default function ProjectDetailPage() {
                     )}
                 </div>
                 {activeTab === "kanban" && (
-                    <div className="p-3 md:p-4 md:p-6 bg-gradient-to-br from-white to-gray-50 overflow-x-auto -mx-4 md:-mx-6">
+                    <div className="p-3 md:p-4 md:p-6 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 overflow-x-auto -mx-4 md:-mx-6">
                         <KanbanBoard projectId={Array.isArray(id) ? id[0] : id} />
                     </div>
                 )}
                 {activeTab === "reports" && project && (
-                    <div className="p-3 md:p-4 md:p-6 bg-gradient-to-br from-white to-gray-50 overflow-x-auto -mx-4 md:-mx-6">
+                    <div className="p-3 md:p-4 md:p-6 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 overflow-x-auto -mx-4 md:-mx-6">
                         <ProjectReportsAdvanced duanId={Number(id)} duanName={project.tenduan} userRole="admin" />
                     </div>
                 )}
