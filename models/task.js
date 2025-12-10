@@ -1,5 +1,5 @@
 'use strict';
-const { Model } = require('sequelize');
+const { Model, Op } = require('sequelize');
 
 module.exports = (sequelize, DataTypes) => {
   class Task extends Model {
@@ -173,6 +173,46 @@ module.exports = (sequelize, DataTypes) => {
       as: 'subtasks'
     });
   };
+
+  const recalcProjectStatus = async (task, options) => {
+    if (!task || !task.duanId) return;
+
+    const TaskModel = task.constructor;
+    const { DuAn } = TaskModel.sequelize.models;
+    if (!DuAn) return;
+
+    const transaction = options?.transaction;
+
+    const project = await DuAn.findByPk(task.duanId, { transaction });
+    if (!project) return;
+
+    const totalTasks = await TaskModel.count({
+      where: { duanId: task.duanId },
+      transaction
+    });
+
+    if (totalTasks === 0) return;
+
+    const incompleteCount = await TaskModel.count({
+      where: {
+        duanId: task.duanId,
+        trangThai: { [Op.notIn]: ['Hoàn thành'] }
+      },
+      transaction
+    });
+
+    if (incompleteCount === 0) {
+      if (!['da_hoan_thanh', 'da_dong'].includes(project.status)) {
+        await project.update({ status: 'da_hoan_thanh' }, { transaction });
+      }
+    } else if (project.status === 'da_hoan_thanh') {
+      await project.update({ status: 'dang_chay' }, { transaction });
+    }
+  };
+
+  Task.addHook('afterCreate', recalcProjectStatus);
+  Task.addHook('afterUpdate', recalcProjectStatus);
+  Task.addHook('afterDestroy', recalcProjectStatus);
 
   return Task;
 };
