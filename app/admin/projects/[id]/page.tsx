@@ -1,6 +1,6 @@
 "use client"
 import type React from "react"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import {
@@ -233,6 +233,17 @@ export default function ProjectDetailPage() {
     const [taskTotalPages, setTaskTotalPages] = useState(1);
     const [taskTotalItems, setTaskTotalItems] = useState(0);
     const [taskItemsPerPage] = useState(10);
+
+    const isProjectCompleted = useMemo(() => {
+        const rawStatus = (project?.status ?? project?.trangThai ?? project?.trangthai ?? "").toString().trim().toLowerCase();
+        if (!rawStatus) return false;
+        const normalized = rawStatus
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/đ/g, "d")
+            .replace(/[\s-]+/g, "_");
+        return normalized === "da_hoan_thanh" || normalized === "hoan_thanh" || normalized === "completed";
+    }, [project?.status, project?.trangThai, project?.trangthai]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const f = e.target.files?.[0] || null;
@@ -769,6 +780,10 @@ export default function ProjectDetailPage() {
 
     const handleAddTask = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isProjectCompleted) {
+            showWarning('Dự án đã hoàn thành, không thể tạo công việc mới.');
+            return;
+        }
         // Kiểm tra ngày bắt đầu và kết thúc của task phải nằm trong khoảng ngày của dự án
         const projectStart = project?.ngaybatdau ? new Date(project.ngaybatdau) : null;
         const projectEnd = project?.ngayketthuc ? new Date(project.ngayketthuc) : null;
@@ -963,36 +978,34 @@ export default function ProjectDetailPage() {
                 <span>Quay lại danh sách dự án</span>
             </Link>
 
-            <div className="bg-card border border-border rounded-lg md:rounded-2xl p-3 md:p-6 lg:p-8 shadow-sm">
-                <div className="flex flex-col gap-3 md:gap-4 mb-3 md:mb-6">
-                    <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1 md:mb-2">
-                            <span className="text-[10px] md:text-sm font-mono text-muted-foreground bg-secondary px-2 py-0.5 md:py-1 rounded">
+            <div className="bg-card border border-border rounded-2xl p-8 shadow-sm">
+                <div className="flex items-center justify-between mb-6">
+                    <div>
+                        <div className="flex items-center gap-3 mb-3">
+                            <span className="text-sm font-mono text-muted-foreground bg-secondary px-3 py-1 rounded-lg">
                                 {id}
                             </span>
                         </div>
-                        <h1 className="text-base md:text-2xl lg:text-3xl font-bold text-foreground mb-1 md:mb-2">{project?.tenduan}</h1>
-                        <p className="text-xs md:text-sm text-muted-foreground mb-1 md:mb-2 line-clamp-2">{project?.mota}</p>
-                        <p className="text-xs md:text-sm text-muted-foreground flex items-center gap-1 md:gap-2">
-                            <Users size={12} className="md:w-4 md:h-4" />
-                            Quản lý: <span className="font-semibold text-foreground truncate">
+                        <h1 className="text-4xl font-bold text-foreground mb-2">{project?.tenduan}</h1>
+                        <p className="text-muted-foreground mb-3">{project?.mota}</p>
+                        <p className="text-muted-foreground flex items-center gap-2">
+                            <Users size={16} />
+                            Quản lý: <span className="font-semibold text-foreground">
                                 {project?.nguoiDamNhan?.hoten || "Chưa phân công"}
                             </span>
                         </p>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                        <div className="flex items-center gap-1 md:gap-2 text-xs md:text-sm text-muted-foreground">
-                            <Calendar size={12} className="md:w-4 md:h-4 flex-shrink-0" />
-                            <span className="truncate">
-                                {formatDate(project?.ngaybatdau)} - {formatDate(project?.ngayketthuc)}
-                            </span>
+                        <div className="text-muted-foreground flex items-center gap-2">
+                            <Calendar size={16} />
+                            <span>{formatDate(project?.ngaybatdau)} - {formatDate(project?.ngayketthuc)}</span>
                         </div>
-                        <div className="flex flex-col sm:flex-row gap-2">
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <div className="flex flex-wrap gap-2">
                             <button
                                 onClick={() => setIsEditModalOpen(true)}
-                                className="w-full sm:w-auto px-2 md:px-3 py-1.5 md:py-2 text-xs md:text-sm bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors font-medium"
+                                className="px-4 py-2 bg-yellow-500 text-white rounded-lg"
                             >
-                                Sửa
+                                Sửa dự án
                             </button>
                             <button
                                 onClick={async () => {
@@ -1002,14 +1015,13 @@ export default function ProjectDetailPage() {
                                         router.push("/admin/projects");
                                     }
                                 }}
-                                className="w-full sm:w-auto px-2 md:px-3 py-1.5 md:py-2 text-xs md:text-sm bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium"
+                                className="px-4 py-2 bg-red-600 text-white rounded-lg"
                             >
-                                Xoá
+                                Xoá dự án
                             </button>
                         </div>
                     </div>
                 </div>
-
             </div>
 
             <div className="bg-card border border-border rounded-lg md:rounded-2xl shadow-lg overflow-hidden">
@@ -1076,8 +1088,14 @@ export default function ProjectDetailPage() {
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 md:gap-4 mb-3 md:mb-4">
                                 <h2 className="text-lg md:text-2xl font-bold text-foreground">Danh sách công việc</h2>
                                 <button
-                                    onClick={() => setIsAddTaskModalOpen(true)}
-                                    className="w-full sm:w-auto px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg md:rounded-xl font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all flex items-center justify-center gap-2"
+                                    onClick={() => {
+                                        if (isProjectCompleted) {
+                                            showWarning('Dự án đã hoàn thành, không thể tạo thêm công việc.');
+                                            return;
+                                        }
+                                        setIsAddTaskModalOpen(true);
+                                    }}
+                                    className={`w-full sm:w-auto px-3 md:px-4 py-2 md:py-3 text-xs md:text-sm bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg md:rounded-xl font-semibold transition-all flex items-center justify-center gap-2 ${isProjectCompleted ? 'opacity-60 cursor-not-allowed hover:shadow-none' : 'hover:shadow-lg hover:shadow-blue-500/30'}`}
                                 >
                                     <Plus size={16} className="md:w-5 md:h-5" />
                                     <span>Thêm công việc</span>

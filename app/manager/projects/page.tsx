@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import type React from "react"
 
 import Link from "next/link"
-import { FolderKanban, ArrowRight, Clock, Plus, User } from "lucide-react"
+import { FolderKanban, ArrowRight, Clock, Plus, User, Search, Filter } from "lucide-react"
 import Modal from "@/components/admin/Modal"
 import { createProject, fetchProjectsByManager, fetchUsers } from "@/axios/api"
 
@@ -34,6 +34,9 @@ export default function PMProjectsPage() {
     const [loading, setLoading] = useState(true)
     const [submitting, setSubmitting] = useState(false)
     const [isClient, setIsClient] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("")
+    const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest")
+    const [statusFilter, setStatusFilter] = useState<string>("all")
 
     useEffect(() => {
         setIsClient(true);
@@ -93,6 +96,23 @@ export default function PMProjectsPage() {
         }
     }
 
+    // Filter and sort projects
+    const filteredAndSortedProjects = projects
+        .filter(project => {
+            const matchesSearch = project.tenduan?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                project.mota?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                project.nguoiDamNhan?.hoten?.toLowerCase().includes(searchQuery.toLowerCase())
+            
+            const matchesStatus = statusFilter === "all" || project.status === statusFilter
+            
+            return matchesSearch && matchesStatus
+        })
+        .sort((a, b) => {
+            const dateA = new Date(a.ngaybatdau || a.createdAt || 0).getTime()
+            const dateB = new Date(b.ngaybatdau || b.createdAt || 0).getTime()
+            return sortOrder === "newest" ? dateB - dateA : dateA - dateB
+        })
+
     return (
         <div className="space-y-6">
             {/* Header */}
@@ -107,6 +127,52 @@ export default function PMProjectsPage() {
                     <p className="text-muted-foreground">Theo dõi tiến độ và quản lý các dự án của bạn</p>
                 </div>
                 
+            </div>
+
+            {/* Search and Filter Section */}
+            <div className="bg-card border border-border rounded-2xl p-4 shadow-sm">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Search */}
+                    <div className="relative md:col-span-1">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                        <input
+                            type="text"
+                            placeholder="Tìm kiếm dự án..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                        />
+                    </div>
+
+                    {/* Status Filter */}
+                    <div className="relative">
+                        <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4 pointer-events-none" />
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all appearance-none cursor-pointer"
+                        >
+                            <option value="all">Tất cả trạng thái</option>
+                            <option value="chua_bat_dau">Chưa bắt đầu</option>
+                            <option value="dang_chay">Đang chạy</option>
+                            <option value="da_hoan_thanh">Đã hoàn thành</option>
+                            <option value="da_dong">Đã đóng</option>
+                        </select>
+                    </div>
+
+                    {/* Sort Order */}
+                    <div className="relative">
+                        <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4 pointer-events-none" />
+                        <select
+                            value={sortOrder}
+                            onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest")}
+                            className="w-full pl-10 pr-4 py-2 bg-background border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all appearance-none cursor-pointer"
+                        >
+                            <option value="newest">Mới nhất</option>
+                            <option value="oldest">Cũ nhất</option>
+                        </select>
+                    </div>
+                </div>
             </div>
 
             {/* Projects Grid */}
@@ -132,9 +198,13 @@ export default function PMProjectsPage() {
                 </div>
             ) : projects.length === 0 ? (
                 <div className="p-6 bg-card border border-border rounded-2xl">Chưa có dự án được phân công cho bạn.</div>
+            ) : filteredAndSortedProjects.length === 0 ? (
+                <div className="p-6 bg-card border border-border rounded-2xl text-center">
+                    <p className="text-muted-foreground">Không tìm thấy dự án nào phù hợp với bộ lọc.</p>
+                </div>
             ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {projects.map((project: any) => (
+                    {filteredAndSortedProjects.map((project: any) => (
                         <Link key={project.id} href={`/manager/projects/${project.id}`}>
                             <div className="group bg-card border border-border rounded-2xl p-6 hover:shadow-lg transition-all duration-300 hover:-translate-y-1 cursor-pointer shadow-sm">
                                 <div className="flex items-start justify-between mb-4">

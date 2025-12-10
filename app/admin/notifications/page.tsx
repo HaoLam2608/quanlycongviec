@@ -619,8 +619,8 @@ export default function AdminNotificationsPage() {
 
             {/* View Modal */}
             {viewingNotification && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-3 md:p-4">
-                    <div className="bg-white rounded-lg md:rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="fixed inset-0 bg-slate-900/0 flex items-center justify-center z-50 p-3 md:p-4 transition-opacity">
+                    <div className="bg-white rounded-lg md:rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
                         <div className="p-3 md:p-6 border-b border-gray-200 sticky top-0 bg-white">
                             <div className="flex items-center justify-between">
                                 <h2 className="text-lg md:text-xl font-bold text-gray-900">Chi tiết thông báo</h2>

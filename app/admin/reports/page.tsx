@@ -16,7 +16,7 @@ import {
 } from "recharts"
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
-import html2canvas from 'html2canvas'
+import autoTable from 'jspdf-autotable'
 import { showError, showSuccess } from '@/lib/notifications'
 
 // Loading Skeleton Component
@@ -60,6 +60,39 @@ const EmptyState = ({ message }: { message: string }) => (
         <p className="text-sm text-muted-foreground max-w-sm">{message}</p>
     </div>
 )
+
+const pdfFontCache: { regular?: string; bold?: string } = {}
+
+const fetchFontAsBase64 = async (url: string) => {
+    const response = await fetch(url)
+    if (!response.ok) {
+        throw new Error(`Không thể tải font từ ${url}`)
+    }
+
+    const buffer = await response.arrayBuffer()
+    const bytes = new Uint8Array(buffer)
+    const chunkSize = 0x8000
+    let binary = ''
+
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length))
+        binary += String.fromCharCode(...chunk)
+    }
+
+    return btoa(binary)
+}
+
+const ensurePdfFonts = async () => {
+    if (!pdfFontCache.regular) {
+        pdfFontCache.regular = await fetchFontAsBase64('/fonts/DejaVuSans.ttf')
+    }
+
+    if (!pdfFontCache.bold) {
+        pdfFontCache.bold = await fetchFontAsBase64('/fonts/DejaVuSans-Bold.ttf')
+    }
+
+    return pdfFontCache as { regular: string; bold: string }
+}
 
 export default function ReportsPage() {
     const [loading, setLoading] = useState(false)
@@ -778,236 +811,198 @@ export default function ReportsPage() {
         if (!printRef.current) return
         setExportingPdf(true)
 
-        try {
-            // Helper to convert Vietnamese to ASCII for PDF compatibility
-            const toSafeText = (text: string): string => {
-                if (!text) return ''
-                return text
-                    .replace(/[àáạảãâầấậẩẫăằắặẳẵ]/g, 'a')
-                    .replace(/[ÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴ]/g, 'A')
-                    .replace(/[èéẹẻẽêềếệểễ]/g, 'e')
-                    .replace(/[ÈÉẸẺẼÊỀẾỆỂỄ]/g, 'E')
-                    .replace(/[ìíịỉĩ]/g, 'i')
-                    .replace(/[ÌÍỊỈĨ]/g, 'I')
-                    .replace(/[òóọỏõôồốộổỗơờớợởỡ]/g, 'o')
-                    .replace(/[ÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠ]/g, 'O')
-                    .replace(/[ùúụủũưừứựửữ]/g, 'u')
-                    .replace(/[ÙÚỤỦŨƯỪỨỰỬỮ]/g, 'U')
-                    .replace(/[ỳýỵỷỹ]/g, 'y')
-                    .replace(/[ỲÝỴỶỸ]/g, 'Y')
-                    .replace(/[đ]/g, 'd')
-                    .replace(/[Đ]/g, 'D')
-                    .replace(/[^\w\s.-]/g, '')
-                    .trim()
+        const formatNumber = (value: number | string) => {
+            if (value === null || value === undefined) return '0'
+            if (typeof value === 'number') {
+                return Number.isFinite(value) ? value.toLocaleString('vi-VN') : '0'
             }
+            return String(value)
+        }
 
-            // Create PDF
+        const formatPercent = (value: number, total: number) => {
+            if (!total || !Number.isFinite(total) || total === 0) return '0%'
+            return `${((value / total) * 100).toFixed(1)}%`
+        }
+
+        try {
             const pdf = new jsPDF('p', 'mm', 'a4')
+            const { regular, bold } = await ensurePdfFonts()
+
+            pdf.addFileToVFS('DejaVuSans.ttf', regular)
+            pdf.addFont('DejaVuSans.ttf', 'DejaVuSans', 'normal')
+            pdf.addFileToVFS('DejaVuSans-Bold.ttf', bold)
+            pdf.addFont('DejaVuSans-Bold.ttf', 'DejaVuSans', 'bold')
+
             const pageWidth = pdf.internal.pageSize.getWidth()
             const pageHeight = pdf.internal.pageSize.getHeight()
             const margin = 15
-            let yPos = margin
+            let cursorY = margin
 
-            // Helper to add new page if needed
-            const checkPageBreak = (requiredSpace: number) => {
-                if (yPos + requiredSpace > pageHeight - margin) {
+            const ensureSpace = (spaceNeeded: number) => {
+                if (cursorY + spaceNeeded > pageHeight - margin) {
                     pdf.addPage()
-                    yPos = margin
-                    return true
+                    cursorY = margin
                 }
-                return false
             }
 
-            // HEADER
-            pdf.setFillColor(40, 86, 255)
-            pdf.rect(margin, yPos, pageWidth - 2 * margin, 25, 'F')
-
-            pdf.setFontSize(20)
-            pdf.setTextColor(255, 255, 255)
-            pdf.text('BAO CAO TONG QUAN DU AN', margin + 5, yPos + 10)
-
-            pdf.setFontSize(9)
-            const currentDate = new Date()
-            const dateStr = `Ngay xuat: ${currentDate.toLocaleDateString('vi-VN')}`
-            const timeStr = `${currentDate.toLocaleTimeString('vi-VN')}`
-            pdf.text(dateStr, margin + 5, yPos + 18)
-            pdf.text(timeStr, pageWidth - margin - pdf.getTextWidth(timeStr) - 5, yPos + 18)
-
-            yPos += 35
-
-            // SUMMARY BOX
-            checkPageBreak(40)
-            pdf.setFillColor(248, 249, 250)
-            pdf.setDrawColor(220, 220, 220)
-            pdf.roundedRect(margin, yPos, pageWidth - 2 * margin, 35, 2, 2, 'FD')
-
-            pdf.setFontSize(12)
-            pdf.setTextColor(30, 30, 30)
-            pdf.text('TONG QUAN HE THONG', margin + 5, yPos + 8)
-
-            pdf.setFontSize(9)
-            pdf.setTextColor(70, 70, 70)
-            const col1 = margin + 5
-            const col2 = margin + (pageWidth - 2 * margin) / 2
-
-            pdf.text(`Du an: ${stats.totalProjects} (${stats.completedProjects} hoan thanh)`, col1, yPos + 16)
-            pdf.text(`Nhan vien: ${stats.activeUsers} (${stats.totalHoursLogged}h)`, col2, yPos + 16)
-            pdf.text(`Tasks: ${taskCounts.total} (${taskCounts.completed} hoan thanh)`, col1, yPos + 22)
-            pdf.text(`Ty le: ${stats.completionRate}%`, col2, yPos + 22)
-            pdf.text(`Qua han: ${stats.overdueTasks}`, col1, yPos + 28)
-            pdf.text(`Tai lieu: ${stats.totalDocuments} | Nhom: ${stats.totalGroups}`, col2, yPos + 28)
-
-            yPos += 45
-
-            // PROJECT TABLE
-            checkPageBreak(30)
-            pdf.setFontSize(14)
-            pdf.setTextColor(30, 30, 30)
-            pdf.text('CHI TIET DU AN', margin, yPos)
-            yPos += 8
-
-            // Table header
-            const rowHeight = 7
-            const colWidths = [12, 55, 35, 20, 20, 28]
-            const colX = [margin]
-            for (let i = 1; i < colWidths.length; i++) {
-                colX[i] = colX[i - 1] + colWidths[i - 1]
-            }
-
-            pdf.setFillColor(40, 86, 255)
-            pdf.rect(margin, yPos, pageWidth - 2 * margin, rowHeight, 'F')
-
-            pdf.setFontSize(9)
-            pdf.setTextColor(255, 255, 255)
-            pdf.text('STT', colX[0] + 2, yPos + 5)
-            pdf.text('TEN DU AN', colX[1] + 2, yPos + 5)
-            pdf.text('QUAN LY', colX[2] + 2, yPos + 5)
-            pdf.text('TIEN DO', colX[3] + 2, yPos + 5)
-            pdf.text('TASKS', colX[4] + 2, yPos + 5)
-            pdf.text('TRANG THAI', colX[5] + 2, yPos + 5)
-            yPos += rowHeight
-
-            // Table rows
-            pdf.setFontSize(8)
-            pdf.setTextColor(50, 50, 50)
-
-            const statusMap: { [key: string]: string } = {
-                'da_hoan_thanh': 'Hoan thanh',
-                'dang_chay': 'Dang chay',
-                'chua_bat_dau': 'Chua BD',
-                'da_dong': 'Da dong'
-            }
-
-            tableData.slice(0, 30).forEach((row, index) => {
-                if (checkPageBreak(rowHeight + 5)) {
-                    // Draw header again on new page
-                    pdf.setFillColor(40, 86, 255)
-                    pdf.rect(margin, yPos, pageWidth - 2 * margin, rowHeight, 'F')
-                    pdf.setFontSize(9)
-                    pdf.setTextColor(255, 255, 255)
-                    pdf.text('STT', colX[0] + 2, yPos + 5)
-                    pdf.text('TEN DU AN', colX[1] + 2, yPos + 5)
-                    pdf.text('QUAN LY', colX[2] + 2, yPos + 5)
-                    pdf.text('TIEN DO', colX[3] + 2, yPos + 5)
-                    pdf.text('TASKS', colX[4] + 2, yPos + 5)
-                    pdf.text('TRANG THAI', colX[5] + 2, yPos + 5)
-                    yPos += rowHeight
-                    pdf.setFontSize(8)
-                    pdf.setTextColor(50, 50, 50)
-                }
-
-                // Alternating background
-                if (index % 2 === 0) {
-                    pdf.setFillColor(250, 250, 250)
-                    pdf.rect(margin, yPos, pageWidth - 2 * margin, rowHeight, 'F')
-                }
-
-                const projectName = toSafeText(row.project).substring(0, 28)
-                const managerName = toSafeText(row.manager).substring(0, 16)
-                const status = statusMap[row.status] || toSafeText(row.status).substring(0, 12)
-
-                pdf.setTextColor(50, 50, 50)
-                pdf.text((index + 1).toString(), colX[0] + 2, yPos + 5)
-                pdf.text(projectName, colX[1] + 2, yPos + 5)
-                pdf.text(managerName, colX[2] + 2, yPos + 5)
-
-                // Color-coded progress
-                const progressColor = row.progress >= 80 ? [34, 197, 94] :
-                    row.progress >= 50 ? [59, 130, 246] :
-                        row.progress >= 30 ? [251, 191, 36] : [239, 68, 68]
-                pdf.setTextColor(progressColor[0], progressColor[1], progressColor[2])
-                pdf.text(`${row.progress}%`, colX[3] + 2, yPos + 5)
-
-                pdf.setTextColor(50, 50, 50)
-                pdf.text(`${row.completed}/${row.tasks}`, colX[4] + 2, yPos + 5)
-                pdf.text(status, colX[5] + 2, yPos + 5)
-
-                yPos += rowHeight
-            })
-
-            // TOP PERFORMERS
-            if (topPerformers.length > 0) {
-                yPos += 10
-                checkPageBreak(40)
-
+            const addSection = (title: string, head: string[], rows: (string | number)[][]) => {
+                if (!rows.length) return
+                ensureSpace(18)
+                pdf.setFont('DejaVuSans', 'bold')
                 pdf.setFontSize(12)
                 pdf.setTextColor(30, 30, 30)
-                pdf.text('TOP NHAN VIEN XUAT SAC', margin, yPos + 2)
-                yPos += 10
+                pdf.text(title, margin, cursorY)
+                cursorY += 6
 
-                // Top performers header
-                pdf.setFillColor(255, 243, 205)
-                pdf.rect(margin, yPos, pageWidth - 2 * margin, rowHeight, 'F')
-
-                pdf.setFontSize(9)
-                pdf.setTextColor(40, 40, 40)
-                pdf.text('HANG', margin + 5, yPos + 5)
-                pdf.text('TEN NHAN VIEN', margin + 25, yPos + 5)
-                pdf.text('TASKS', margin + 100, yPos + 5)
-                pdf.text('DANH GIA', margin + 130, yPos + 5)
-                yPos += rowHeight
-
-                pdf.setFontSize(8)
-                pdf.setTextColor(60, 60, 60)
-
-                topPerformers.slice(0, 10).forEach((performer, index) => {
-                    checkPageBreak(6)
-                    const cleanName = toSafeText(performer.name).substring(0, 28)
-                    const rating = index === 0 ? 'Xuat sac nhat' : index < 3 ? 'Xuat sac' : 'Tot'
-
-                    pdf.setTextColor(60, 60, 60)
-                    pdf.text(`${index + 1}`, margin + 5, yPos + 4)
-                    pdf.text(cleanName, margin + 25, yPos + 4)
-                    pdf.text(performer.tasks.toString(), margin + 100, yPos + 4)
-                    pdf.text(rating, margin + 130, yPos + 4)
-                    yPos += 5
+                pdf.setFont('DejaVuSans', 'normal')
+                autoTable(pdf, {
+                    startY: cursorY,
+                    head: [head],
+                    body: rows,
+                    styles: {
+                        font: 'DejaVuSans',
+                        fontSize: 9,
+                        cellPadding: 3
+                    },
+                    headStyles: {
+                        fillColor: [40, 86, 255],
+                        textColor: [255, 255, 255],
+                        font: 'DejaVuSans',
+                        fontStyle: 'bold'
+                    },
+                    alternateRowStyles: {
+                        fillColor: [248, 249, 252]
+                    },
+                    margin: { left: margin, right: margin }
                 })
+
+                cursorY = (pdf as any).lastAutoTable.finalY + 8
             }
 
-            // FOOTER on all pages
+            // Header
+            pdf.setFillColor(40, 86, 255)
+            pdf.roundedRect(margin, cursorY, pageWidth - 2 * margin, 22, 3, 3, 'F')
+
+            pdf.setFont('DejaVuSans', 'bold')
+            pdf.setFontSize(16)
+            pdf.setTextColor(255, 255, 255)
+            pdf.text('BÁO CÁO TỔNG QUAN HỆ THỐNG', margin + 6, cursorY + 9)
+
+            pdf.setFont('DejaVuSans', 'normal')
+            pdf.setFontSize(9)
+            const currentDate = new Date()
+            const dateLabel = `Ngày xuất: ${currentDate.toLocaleDateString('vi-VN')}`
+            const timeLabel = `Thời gian: ${currentDate.toLocaleTimeString('vi-VN')}`
+            pdf.text(dateLabel, margin + 6, cursorY + 16)
+            pdf.text(timeLabel, pageWidth - margin - pdf.getTextWidth(timeLabel) - 6, cursorY + 16)
+
+            cursorY += 30
+            pdf.setTextColor(30, 30, 30)
+
+            const projectRows = [
+                ['Tổng số dự án', formatNumber(stats.totalProjects), 'Tất cả dự án trong hệ thống'],
+                ['Dự án hoàn thành', formatNumber(stats.completedProjects), formatPercent(stats.completedProjects, stats.totalProjects)],
+                ['Dự án đang thực hiện', formatNumber(stats.ongoingProjects), formatPercent(stats.ongoingProjects, stats.totalProjects)],
+                ['Dự án chưa bắt đầu', formatNumber(stats.pendingProjects), formatPercent(stats.pendingProjects, stats.totalProjects)],
+                ['Dự án rủi ro', formatNumber(stats.riskProjects), 'Tiến độ < 50% và sắp đến hạn']
+            ]
+
+            const taskRows = [
+                ['Tổng công việc', formatNumber(taskCounts.total), 'Tất cả tasks thuộc dự án lọc'],
+                ['Hoàn thành', formatNumber(taskCounts.completed), formatPercent(taskCounts.completed, taskCounts.total)],
+                ['Đang thực hiện', formatNumber(taskCounts.ongoing), formatPercent(taskCounts.ongoing, taskCounts.total)],
+                ['Chưa bắt đầu', formatNumber(taskCounts.pending), formatPercent(taskCounts.pending, taskCounts.total)],
+                ['Quá hạn', formatNumber(stats.overdueTasks), formatPercent(stats.overdueTasks, taskCounts.total)]
+            ]
+
+            const subtaskRows = [
+                ['Tổng công việc phụ', formatNumber(subtaskCounts.total), 'Bao gồm tất cả subtasks'],
+                ['Hoàn thành', formatNumber(subtaskCounts.completed), formatPercent(subtaskCounts.completed, subtaskCounts.total || 0)],
+                ['Đang thực hiện', formatNumber(subtaskCounts.ongoing), formatPercent(subtaskCounts.ongoing, subtaskCounts.total || 0)],
+                ['Chưa bắt đầu', formatNumber(subtaskCounts.pending), formatPercent(subtaskCounts.pending, subtaskCounts.total || 0)]
+            ]
+
+            const workforceRows = [
+                ['Nhân viên hoạt động', formatNumber(stats.activeUsers), 'Đã tham gia dự án'],
+                ['Tổng giờ làm việc', `${formatNumber(stats.totalHoursLogged)} giờ`, 'Ghi nhận từ worklog'],
+                ['Trung bình giờ/người', `${formatNumber(stats.avgHoursPerUser)} giờ`, 'Phân bổ theo nhân sự'],
+                ['Tài liệu', formatNumber(stats.totalDocuments), `TB: ${formatNumber(stats.documentsPerProject)} tài liệu/dự án`],
+                ['Nhóm làm việc', formatNumber(stats.totalGroups), `${formatPercent(stats.activeGroups, stats.totalGroups)} nhóm hoạt động`]
+            ]
+
+            addSection('Thống kê dự án', ['Chỉ số', 'Giá trị', 'Ghi chú'], projectRows)
+            addSection('Thống kê công việc', ['Chỉ số', 'Giá trị', 'Ghi chú'], taskRows)
+            addSection('Thống kê công việc phụ', ['Chỉ số', 'Giá trị', 'Ghi chú'], subtaskRows)
+            addSection('Nhân sự & Tài nguyên', ['Chỉ số', 'Giá trị', 'Ghi chú'], workforceRows)
+
+            const projectTableRows = tableData.map((row, index) => [
+                index + 1,
+                row.project,
+                row.manager || 'N/A',
+                `${row.progress}%`,
+                `${row.completed}/${row.tasks}`,
+                row.deadline,
+                getStatusLabel(row.status)
+            ])
+
+            addSection(
+                'Chi tiết dự án',
+                ['STT', 'Tên dự án', 'Quản lý', 'Tiến độ', 'Tasks', 'Hạn chót', 'Trạng thái'],
+                projectTableRows
+            )
+
+            if (topPerformers.length > 0) {
+                const performerRows = topPerformers.map((performer: any, index: number) => [
+                    index + 1,
+                    performer.name,
+                    performer.tasks,
+                    index === 0 ? 'Xuất sắc nhất' : index < 3 ? 'Xuất sắc' : 'Tốt'
+                ])
+
+                addSection(
+                    'Top nhân viên hoàn thành công việc',
+                    ['Hạng', 'Nhân viên', 'Tasks hoàn thành', 'Đánh giá'],
+                    performerRows
+                )
+            }
+
+            if (chartData.worklogHours && chartData.worklogHours.length > 0) {
+                const worklogRows = chartData.worklogHours.map((item: any, index: number) => [
+                    index + 1,
+                    item.name,
+                    `${formatNumber(item.hours)} giờ`
+                ])
+
+                addSection(
+                    'Top 10 giờ làm việc theo nhân sự',
+                    ['STT', 'Nhân sự', 'Giờ làm việc'],
+                    worklogRows
+                )
+            }
+
             const pageCount = (pdf as any).internal.getNumberOfPages()
             for (let i = 1; i <= pageCount; i++) {
                 pdf.setPage(i)
                 pdf.setFillColor(248, 249, 250)
                 pdf.rect(0, pageHeight - 12, pageWidth, 12, 'F')
 
+                pdf.setFont('DejaVuSans', 'normal')
                 pdf.setFontSize(8)
                 pdf.setTextColor(120, 120, 120)
-                pdf.text('He thong quan ly cong viec', margin, pageHeight - 6)
+                pdf.text('Hệ thống quản lý công việc', margin, pageHeight - 6)
 
                 const pageText = `Trang ${i}/${pageCount}`
                 pdf.text(pageText, pageWidth - margin - pdf.getTextWidth(pageText), pageHeight - 6)
             }
 
-            // Save PDF
             const date = new Date().toISOString().split('T')[0]
             const time = new Date().toTimeString().slice(0, 5).replace(':', '')
             pdf.save(`Bao_cao_tong_quan_${date}_${time}.pdf`)
 
-            showSuccess("Xuat file PDF thanh cong")
+            showSuccess('Xuất file PDF thành công')
         } catch (error) {
-            console.error("Export PDF error:", error)
-            showError("Có lỗi khi xuất file PDF")
+            console.error('Export PDF error:', error)
+            showError('Có lỗi khi xuất file PDF')
         } finally {
             setExportingPdf(false)
         }
