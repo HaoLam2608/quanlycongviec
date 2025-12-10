@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://taskhadflow-api.nibies.space", // URL backend của bạn
+  baseURL: "http://localhost:5000", // URL backend của bạn
   headers: {
     "Content-Type": "application/json",
   },

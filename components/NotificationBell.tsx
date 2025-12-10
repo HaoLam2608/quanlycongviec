@@ -19,6 +19,8 @@ const getNotificationIcon = (type: string) => {
             return <Circle className="w-4 h-4 text-green-500" />
         case 'task':
             return <CheckCircle2 className="w-4 h-4 text-orange-500" />
+        case 'deadline_reminder':
+            return <AlertCircle className="w-4 h-4 text-red-500" />
         case 'announcement':
             return <Bell className="w-4 h-4 text-purple-500" />
         default:
@@ -34,6 +36,8 @@ const getTypeColor = (type: string) => {
             return 'border-l-green-500 bg-green-50'
         case 'task':
             return 'border-l-orange-500 bg-orange-50'
+        case 'deadline_reminder':
+            return 'border-l-red-500 bg-red-50'
         case 'announcement':
             return 'border-l-purple-500 bg-purple-50'
         default:
@@ -49,6 +53,8 @@ const getTypeLabel = (type: string) => {
             return 'Dự án'
         case 'task':
             return 'Nhiệm vụ'
+        case 'deadline_reminder':
+            return 'Nhắc deadline'
         case 'announcement':
             return 'Thông báo'
         default:
