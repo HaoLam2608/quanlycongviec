@@ -84,7 +84,7 @@ export default function TeamLeadProjectsPage() {
         try {
             const res = await api.get('/groups/my-projects')
             const data = res.data
-            
+
             setProjects(data.projects || [])
             setGroups(data.groups || [])
         } catch (error: any) {
@@ -101,19 +101,19 @@ export default function TeamLeadProjectsPage() {
         setDetailLoading(true)
         setSelectedProject(projectItem)
         setShowDetailModal(true)
-        
+
         try {
             // Load group detail with members
             const groupRes = await api.get(`/groups/${projectItem.Group.id}`)
             const groupData = groupRes.data.group
-            
+
             // Load tasks for this project
             const tasksRes = await api.get('/tasks/my-tasks')
             const allTasks = tasksRes.data.tasks || []
             const projectTasks = allTasks.filter((t: any) => t.duanId === projectItem.project.id)
-            
+
             const completedTasks = projectTasks.filter((t: any) => t.trangthai === 'Hoàn thành').length
-            
+
             setProjectDetail({
                 project: projectItem.project,
                 group: {
@@ -237,49 +237,43 @@ export default function TeamLeadProjectsPage() {
                     <div className="flex gap-1 p-1">
                         <button
                             onClick={() => setActiveTab('active')}
-                            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-                                activeTab === 'active'
+                            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${activeTab === 'active'
                                     ? 'bg-blue-500 text-white shadow-md'
                                     : 'text-gray-600 hover:bg-gray-50'
-                            }`}
+                                }`}
                         >
                             <Clock className="w-4 h-4" />
                             Đang tham gia
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                activeTab === 'active' ? 'bg-white text-blue-500' : 'bg-gray-200 text-gray-700'
-                            }`}>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${activeTab === 'active' ? 'bg-white text-blue-500' : 'bg-gray-200 text-gray-700'
+                                }`}>
                                 {activeProjects.length}
                             </span>
                         </button>
                         <button
                             onClick={() => setActiveTab('paused')}
-                            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-                                activeTab === 'paused'
+                            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${activeTab === 'paused'
                                     ? 'bg-yellow-500 text-white shadow-md'
                                     : 'text-gray-600 hover:bg-gray-50'
-                            }`}
+                                }`}
                         >
                             <AlertCircle className="w-4 h-4" />
                             Đang tạm dừng
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                activeTab === 'paused' ? 'bg-white text-yellow-500' : 'bg-gray-200 text-gray-700'
-                            }`}>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${activeTab === 'paused' ? 'bg-white text-yellow-500' : 'bg-gray-200 text-gray-700'
+                                }`}>
                                 {pausedProjects.length}
                             </span>
                         </button>
                         <button
                             onClick={() => setActiveTab('completed')}
-                            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-                                activeTab === 'completed'
+                            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${activeTab === 'completed'
                                     ? 'bg-blue-500 text-white shadow-md'
                                     : 'text-gray-600 hover:bg-gray-50'
-                            }`}
+                                }`}
                         >
                             <CheckCircle2 className="w-4 h-4" />
                             Đã hoàn thành
-                            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                                activeTab === 'completed' ? 'bg-white text-blue-500' : 'bg-gray-200 text-gray-700'
-                            }`}>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${activeTab === 'completed' ? 'bg-white text-blue-500' : 'bg-gray-200 text-gray-700'
+                                }`}>
                                 {completedProjects.length}
                             </span>
                         </button>
@@ -307,15 +301,13 @@ export default function TeamLeadProjectsPage() {
                                     onClick={() => loadProjectDetail(projectItem)}
                                 >
                                     {/* Header with status */}
-                                    <div className={`p-4 ${
-                                        projectItem.status === 'active' 
-                                            ? 'bg-gradient-to-r from-blue-50 to-blue-100' 
+                                    <div className={`p-4 ${projectItem.status === 'active'
+                                            ? 'bg-gradient-to-r from-blue-50 to-blue-100'
                                             : 'bg-gradient-to-r from-gray-50 to-gray-100'
-                                    }`}>
+                                        }`}>
                                         <div className="flex items-start justify-between mb-2">
-                                            <Briefcase className={`w-8 h-8 ${
-                                                projectItem.status === 'active' ? 'text-blue-600' : 'text-gray-500'
-                                            }`} />
+                                            <Briefcase className={`w-8 h-8 ${projectItem.status === 'active' ? 'text-blue-600' : 'text-gray-500'
+                                                }`} />
                                             {getStatusBadge(projectItem.project.status)}
                                         </div>
                                         <h3 className="font-bold text-lg text-gray-900 line-clamp-2">
@@ -337,11 +329,10 @@ export default function TeamLeadProjectsPage() {
                                         <div className="flex items-center gap-2 text-sm">
                                             <Users className="w-4 h-4 text-blue-500 flex-shrink-0" />
                                             <span className="text-gray-700 font-medium">{projectItem.Group.name}</span>
-                                            <span className={`px-2 py-0.5 rounded-full text-xs ${
-                                                projectItem.Group.status === 'active' 
-                                                    ? 'bg-green-100 text-green-700' 
+                                            <span className={`px-2 py-0.5 rounded-full text-xs ${projectItem.Group.status === 'active'
+                                                    ? 'bg-green-100 text-green-700'
                                                     : 'bg-gray-100 text-gray-600'
-                                            }`}>
+                                                }`}>
                                                 {projectItem.Group.status === 'active' ? 'Đang hoạt động' : 'Đã đóng'}
                                             </span>
                                         </div>
@@ -366,18 +357,16 @@ export default function TeamLeadProjectsPage() {
                                         </div>
 
                                         {/* Participation Status */}
-                                        <div className={`mt-4 pt-3 border-t ${
-                                            projectItem.status === 'active' ? 'border-blue-100' : 'border-gray-200'
-                                        }`}>
+                                        <div className={`mt-4 pt-3 border-t ${projectItem.status === 'active' ? 'border-blue-100' : 'border-gray-200'
+                                            }`}>
                                             <div className="flex items-center justify-between">
                                                 <span className="text-xs text-gray-500">Trạng thái tham gia:</span>
-                                                <span className={`px-2 py-1 rounded-md text-xs font-semibold flex items-center gap-1 ${
-                                                    projectItem.project.status === 'da_dong' 
+                                                <span className={`px-2 py-1 rounded-md text-xs font-semibold flex items-center gap-1 ${projectItem.project.status === 'da_dong'
                                                         ? 'bg-yellow-100 text-yellow-700'
-                                                        : projectItem.status === 'active' 
-                                                        ? 'bg-green-100 text-green-700' 
-                                                        : 'bg-gray-100 text-gray-600'
-                                                }`}>
+                                                        : projectItem.status === 'active'
+                                                            ? 'bg-green-100 text-green-700'
+                                                            : 'bg-gray-100 text-gray-600'
+                                                    }`}>
                                                     <CheckCircle2 className="w-3 h-3" />
                                                     {projectItem.project.status === 'da_dong' ? 'Đang tạm dừng' : projectItem.status === 'active' ? 'Đang tham gia' : 'Đã hoàn thành'}
                                                 </span>
@@ -447,7 +436,7 @@ export default function TeamLeadProjectsPage() {
                                             <Building2 className="w-5 h-5 text-blue-500" />
                                             Thông tin dự án
                                         </h3>
-                                        
+
                                         <div className="grid grid-cols-2 gap-4">
                                             <div>
                                                 <label className="text-sm text-gray-500 font-medium">Trạng thái dự án</label>
@@ -456,13 +445,12 @@ export default function TeamLeadProjectsPage() {
                                             <div>
                                                 <label className="text-sm text-gray-500 font-medium">Trạng thái tham gia</label>
                                                 <div className="mt-1">
-                                                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                                        selectedProject.project.status === 'da_dong'
+                                                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${selectedProject.project.status === 'da_dong'
                                                             ? 'bg-yellow-100 text-yellow-700'
-                                                            : projectDetail.participationStatus === 'active' 
-                                                            ? 'bg-green-100 text-green-700' 
-                                                            : 'bg-gray-100 text-gray-600'
-                                                    }`}>
+                                                            : projectDetail.participationStatus === 'active'
+                                                                ? 'bg-green-100 text-green-700'
+                                                                : 'bg-gray-100 text-gray-600'
+                                                        }`}>
                                                         {selectedProject.project.status === 'da_dong' ? 'Đang tạm dừng' : projectDetail.participationStatus === 'active' ? 'Đang tham gia' : 'Đã hoàn thành'}
                                                     </span>
                                                 </div>
@@ -515,11 +503,10 @@ export default function TeamLeadProjectsPage() {
                                         <h3 className="font-bold text-lg text-gray-900 flex items-center gap-2">
                                             <Users className="w-5 h-5 text-purple-500" />
                                             Nhóm tham gia: {projectDetail.group.name}
-                                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ml-2 ${
-                                                projectDetail.group.status === 'active' 
-                                                    ? 'bg-green-100 text-green-700' 
+                                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ml-2 ${projectDetail.group.status === 'active'
+                                                    ? 'bg-green-100 text-green-700'
                                                     : 'bg-gray-100 text-gray-600'
-                                            }`}>
+                                                }`}>
                                                 {projectDetail.group.status === 'active' ? 'Hoạt động' : 'Đã đóng'}
                                             </span>
                                         </h3>
@@ -566,10 +553,9 @@ export default function TeamLeadProjectsPage() {
                                                 {projectDetail.tasks.map((task) => (
                                                     <div key={task.id} className="bg-white p-3 rounded-lg border border-gray-200 flex items-center justify-between">
                                                         <div className="flex items-center gap-3">
-                                                            <div className={`w-2 h-2 rounded-full ${
-                                                                task.trangthai === 'Hoàn thành' ? 'bg-green-500' :
-                                                                task.trangthai === 'Đang chạy' ? 'bg-blue-500' : 'bg-gray-400'
-                                                            }`}></div>
+                                                            <div className={`w-2 h-2 rounded-full ${task.trangthai === 'Hoàn thành' ? 'bg-green-500' :
+                                                                    task.trangthai === 'Đang chạy' ? 'bg-blue-500' : 'bg-gray-400'
+                                                                }`}></div>
                                                             <div>
                                                                 <div className="font-medium text-gray-900">{task.tentask}</div>
                                                                 <div className="text-xs text-gray-500 mt-1">
@@ -577,11 +563,10 @@ export default function TeamLeadProjectsPage() {
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        <span className={`px-2 py-1 rounded-md text-xs font-semibold ${
-                                                            task.doUuTien === 'Cao' ? 'bg-red-100 text-red-700' :
-                                                            task.doUuTien === 'Trung bình' ? 'bg-yellow-100 text-yellow-700' :
-                                                            'bg-gray-100 text-gray-600'
-                                                        }`}>
+                                                        <span className={`px-2 py-1 rounded-md text-xs font-semibold ${task.doUuTien === 'Cao' ? 'bg-red-100 text-red-700' :
+                                                                task.doUuTien === 'Trung bình' ? 'bg-yellow-100 text-yellow-700' :
+                                                                    'bg-gray-100 text-gray-600'
+                                                            }`}>
                                                             {task.doUuTien}
                                                         </span>
                                                     </div>
@@ -603,7 +588,7 @@ export default function TeamLeadProjectsPage() {
                                                 </span>
                                             </div>
                                             <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                                                <div 
+                                                <div
                                                     className="bg-gradient-to-r from-blue-500 to-purple-600 h-full rounded-full transition-all duration-500"
                                                     style={{ width: `${(projectDetail.stats.completedTasks / projectDetail.stats.totalTasks) * 100}%` }}
                                                 ></div>
