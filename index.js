@@ -60,6 +60,8 @@ app.use('/roles', require('./routes/roleRoutes'));
 app.use('/groups', require('./routes/groupRoutes'));
 // settings routes
 app.use('/settings', require('./routes/settingsRoutes'));
+// backup routes
+app.use('/backup', require('./routes/backupRoutes'));
 // mount document routes with upload middleware for /upload
 app.use('/documents', (req, res, next) => { req.upload = upload; next(); }, documentRoutes);
 // member routes
@@ -104,4 +106,14 @@ httpServer.listen(PORT, '0.0.0.0', () => {
     // Start deadline notification scheduler
     const { startDeadlineScheduler } = require('./services/deadlineNotificationScheduler');
     startDeadlineScheduler();
+
+    // Start configurable deadline reminder service
+    const deadlineReminderService = require('./services/deadlineReminderService');
+    deadlineReminderService.start();
+    console.log(`⏰ Deadline reminder service started`);
+
+    // Start database backup service
+    const backupService = require('./services/backupService');
+    backupService.start();
+    console.log(`💾 Database backup service started`);
 });

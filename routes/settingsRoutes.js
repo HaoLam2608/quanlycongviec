@@ -11,4 +11,9 @@ router.put('/', authenticateToken, checkPermission('settings', 'update'), settin
 // Test notification (email or system)
 router.post('/notify-test', authenticateToken, checkPermission('settings', 'update'), settingsController.sendTestNotification);
 
+// Deadline reminder settings
+router.get('/deadline-reminder', authenticateToken, checkPermission('settings', 'read'), settingsController.getDeadlineSettings);
+router.put('/deadline-reminder', authenticateToken, checkPermission('settings', 'update'), settingsController.updateDeadlineSettings);
+router.post('/deadline-reminder/run-now', authenticateToken, checkPermission('settings', 'update'), settingsController.runDeadlineCheck);
+
 module.exports = router;

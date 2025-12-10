@@ -59,12 +59,12 @@ module.exports = (sequelize, DataTypes) => {
             }
         },
         type: {
-            type: DataTypes.ENUM('system', 'project', 'task', 'announcement'),
+            type: DataTypes.ENUM('system', 'project', 'task', 'announcement', 'deadline_reminder'),
             allowNull: false,
             defaultValue: 'announcement',
             validate: {
                 isIn: {
-                    args: [['system', 'project', 'task', 'announcement']],
+                    args: [['system', 'project', 'task', 'announcement', 'deadline_reminder']],
                     msg: 'Loại thông báo không hợp lệ'
                 }
             }

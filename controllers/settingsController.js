@@ -1,6 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 const emailService = require('../services/emailService');
+const deadlineReminderService = require('../services/deadlineReminderService');
 
 const SETTINGS_FILE = path.join(__dirname, '..', 'config', 'systemSettings.json');
 
@@ -74,5 +75,51 @@ exports.sendTestNotification = async (req, res) => {
     } catch (err) {
         console.error('Error in sendTestNotification:', err);
         res.status(500).json({ message: 'Lỗi khi gửi thử thông báo', error: err.message });
+    }
+};
+
+// Get deadline reminder settings and status
+exports.getDeadlineSettings = async (req, res) => {
+    try {
+        const settings = deadlineReminderService.getSettings();
+        const status = deadlineReminderService.getStatus();
+        res.json({ settings, status });
+    } catch (err) {
+        console.error('Error getting deadline settings:', err);
+        res.status(500).json({ message: 'Lỗi khi lấy cài đặt nhắc deadline', error: err.message });
+    }
+};
+
+// Update deadline reminder settings
+exports.updateDeadlineSettings = async (req, res) => {
+    try {
+        const { enabled, reminderTime, reminderDays, notifyAssignee, notifyManager } = req.body;
+        
+        const newSettings = {};
+        if (typeof enabled !== 'undefined') newSettings.enabled = enabled;
+        if (reminderTime) newSettings.reminderTime = reminderTime;
+        if (reminderDays) newSettings.reminderDays = reminderDays;
+        if (typeof notifyAssignee !== 'undefined') newSettings.notifyAssignee = notifyAssignee;
+        if (typeof notifyManager !== 'undefined') newSettings.notifyManager = notifyManager;
+
+        const updated = deadlineReminderService.updateSettings(newSettings);
+        res.json({ message: 'Cập nhật cài đặt nhắc deadline thành công', settings: updated });
+    } catch (err) {
+        console.error('Error updating deadline settings:', err);
+        res.status(500).json({ message: 'Lỗi khi cập nhật cài đặt nhắc deadline', error: err.message });
+    }
+};
+
+// Manually trigger deadline reminder check
+exports.runDeadlineCheck = async (req, res) => {
+    try {
+        const result = await deadlineReminderService.runNow();
+        res.json({ 
+            message: 'Đã chạy kiểm tra deadline thành công', 
+            notificationsSent: result 
+        });
+    } catch (err) {
+        console.error('Error running deadline check:', err);
+        res.status(500).json({ message: 'Lỗi khi chạy kiểm tra deadline', error: err.message });
     }
 };

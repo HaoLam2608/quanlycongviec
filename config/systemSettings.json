@@ -8,6 +8,29 @@
   "thongBaoEmail": true,
   "thongBaoHeThong": true,
   "cheDoBaoMat": "Cao",
+  "deadlineReminder": {
+    "enabled": true,
+    "reminderTime": "16:26",
+    "reminderDays": [
+      1,
+      3,
+      7
+    ],
+    "notifyAssignee": true,
+    "notifyManager": true
+  },
+  "backup": {
+    "enabled": true,
+    "schedule": "0 2 * * *",
+    "retentionDays": 7,
+    "database": {
+      "host": "localhost",
+      "port": 3306,
+      "user": "root",
+      "password": "",
+      "name": "qlcv"
+    }
+  },
   "settings": {
     "tenCongTy": "HUIT - Trường Đại học Công thương TP.HCM",
     "email": "haolma@huit.edu.vn",
