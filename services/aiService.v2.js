@@ -37,6 +37,165 @@ class AIServiceV2 {
 
         // Conversation memory (user ID → last context)
         this.conversationMemory = new Map();
+        
+        // Embedding cache (text → embedding vector)
+        this.embeddingCache = new Map();
+        this.EMBEDDING_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+    }
+
+    // ============================================
+    // EMBEDDING & SEMANTIC SEARCH
+    // ============================================
+
+    /**
+     * Generate embedding vector for given text
+     * @param {string} text - Text to embed
+     * @returns {Promise<number[]>} - Embedding vector
+     */
+    async generateEmbedding(text) {
+        if (!this.embeddingModel) {
+            console.warn('⚠️ Embedding model not available');
+            return null;
+        }
+
+        // Check cache first
+        const cached = this.embeddingCache.get(text);
+        if (cached && Date.now() - cached.timestamp < this.EMBEDDING_CACHE_TTL) {
+            console.log('📦 Using cached embedding');
+            return cached.vector;
+        }
+
+        try {
+            const result = await this.embeddingModel.embedContent(text);
+            const vector = result.embedding.values;
+            
+            // Cache the result
+            this.embeddingCache.set(text, {
+                vector,
+                timestamp: Date.now()
+            });
+
+            // Limit cache size (LRU-style)
+            if (this.embeddingCache.size > 100) {
+                const firstKey = this.embeddingCache.keys().next().value;
+                this.embeddingCache.delete(firstKey);
+            }
+
+            console.log(`✅ Generated embedding (${vector.length} dimensions)`);
+            return vector;
+        } catch (error) {
+            console.error('❌ Embedding generation error:', error.message);
+            return null;
+        }
+    }
+
+    /**
+     * Calculate cosine similarity between two vectors
+     * @param {number[]} vecA 
+     * @param {number[]} vecB 
+     * @returns {number} - Similarity score (0-1)
+     */
+    cosineSimilarity(vecA, vecB) {
+        if (!vecA || !vecB || vecA.length !== vecB.length) return 0;
+
+        let dotProduct = 0;
+        let normA = 0;
+        let normB = 0;
+
+        for (let i = 0; i < vecA.length; i++) {
+            dotProduct += vecA[i] * vecB[i];
+            normA += vecA[i] * vecA[i];
+            normB += vecB[i] * vecB[i];
+        }
+
+        if (normA === 0 || normB === 0) return 0;
+        return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+    }
+
+    /**
+     * Semantic search for tasks based on query
+     * @param {string} query - Search query
+     * @param {Array} tasks - Array of tasks to search
+     * @param {number} topK - Number of top results to return
+     * @returns {Promise<Array>} - Array of {task, score} objects
+     */
+    async semanticSearchTasks(query, tasks, topK = 5) {
+        if (!this.embeddingModel || !tasks || tasks.length === 0) {
+            return [];
+        }
+
+        console.log(`🔍 Semantic search for: "${query}" in ${tasks.length} tasks`);
+
+        try {
+            // Generate query embedding
+            const queryEmbedding = await this.generateEmbedding(query);
+            if (!queryEmbedding) return [];
+
+            // Calculate similarity for each task
+            const results = [];
+            for (const task of tasks) {
+                // Create searchable text from task
+                const taskText = `${task.tentask || ''} ${task.mota || ''}`.trim();
+                if (!taskText) continue;
+
+                const taskEmbedding = await this.generateEmbedding(taskText);
+                if (!taskEmbedding) continue;
+
+                const similarity = this.cosineSimilarity(queryEmbedding, taskEmbedding);
+                results.push({ task, score: similarity });
+            }
+
+            // Sort by similarity score (descending) and return top K
+            results.sort((a, b) => b.score - a.score);
+            const topResults = results.slice(0, topK);
+
+            console.log(`✅ Found ${topResults.length} similar tasks (scores: ${topResults.map(r => r.score.toFixed(3)).join(', ')})`);
+            return topResults;
+        } catch (error) {
+            console.error('❌ Semantic search error:', error.message);
+            return [];
+        }
+    }
+
+    /**
+     * Semantic search for projects based on query
+     * @param {string} query - Search query
+     * @param {Array} projects - Array of projects to search
+     * @param {number} topK - Number of top results to return
+     * @returns {Promise<Array>} - Array of {project, score} objects
+     */
+    async semanticSearchProjects(query, projects, topK = 5) {
+        if (!this.embeddingModel || !projects || projects.length === 0) {
+            return [];
+        }
+
+        console.log(`🔍 Semantic search for: "${query}" in ${projects.length} projects`);
+
+        try {
+            const queryEmbedding = await this.generateEmbedding(query);
+            if (!queryEmbedding) return [];
+
+            const results = [];
+            for (const project of projects) {
+                const projectText = `${project.tenduan || ''} ${project.mota || ''}`.trim();
+                if (!projectText) continue;
+
+                const projectEmbedding = await this.generateEmbedding(projectText);
+                if (!projectEmbedding) continue;
+
+                const similarity = this.cosineSimilarity(queryEmbedding, projectEmbedding);
+                results.push({ project, score: similarity });
+            }
+
+            results.sort((a, b) => b.score - a.score);
+            const topResults = results.slice(0, topK);
+
+            console.log(`✅ Found ${topResults.length} similar projects (scores: ${topResults.map(r => r.score.toFixed(3)).join(', ')})`);
+            return topResults;
+        } catch (error) {
+            console.error('❌ Semantic search error:', error.message);
+            return [];
+        }
     }
 
     // ============================================
@@ -94,6 +253,27 @@ class AIServiceV2 {
                 subtasks: context.subtasks?.length || 0,
                 groups: context.groups?.length || 0
             });
+
+            // Step 3.5: Apply semantic search if needed
+            if (intent.useSemanticSearch && this.embeddingModel) {
+                console.log('🔍 Applying semantic search...');
+                
+                if (context.tasks && context.tasks.length > 0) {
+                    const similarTasks = await this.semanticSearchTasks(question, context.tasks, 10);
+                    if (similarTasks.length > 0) {
+                        context.semanticTasks = similarTasks;
+                        console.log(`✅ Found ${similarTasks.length} semantically similar tasks`);
+                    }
+                }
+
+                if (context.projects && context.projects.length > 0) {
+                    const similarProjects = await this.semanticSearchProjects(question, context.projects, 10);
+                    if (similarProjects.length > 0) {
+                        context.semanticProjects = similarProjects;
+                        console.log(`✅ Found ${similarProjects.length} semantically similar projects`);
+                    }
+                }
+            }
 
             // Step 4: Generate AI response
             const response = await this.generateIntelligentResponse(question, context, intent, conversationContext);
@@ -164,8 +344,10 @@ class AIServiceV2 {
             }
         } else if (/danh sách|list|liệt kê|cho tôi xem/i.test(question)) {
             intent.action = 'list';
-        } else if (/tìm|search|find/i.test(question)) {
+        } else if (/tìm|search|find|tương tự|giống như|similar|like/i.test(question)) {
             intent.action = 'search';
+            // Enable semantic search for fuzzy/similarity queries
+            intent.useSemanticSearch = true;
         }
 
         // Detect entities
@@ -483,6 +665,34 @@ class AIServiceV2 {
             prompt += this.formatTasksCompact(context.tasks, intent);
         }
 
+        // Add semantic search results if available
+        if (context.semanticTasks && context.semanticTasks.length > 0) {
+            prompt += `\n🎯 CÔNG VIỆC LIÊN QUAN NHẤT (Semantic Search):\n`;
+            context.semanticTasks.forEach((item, i) => {
+                const t = item.task;
+                const score = (item.score * 100).toFixed(1);
+                const deadline = t.ngayKetThuc ? new Date(t.ngayKetThuc).toLocaleDateString('vi-VN') : 'N/A';
+                const assignee = t.nguoiDuocGiao ? t.nguoiDuocGiao.hoten : 'Chưa phân';
+                prompt += `${i + 1}. ${t.tentask} (độ tương đồng: ${score}%)\n`;
+                prompt += `   - Trạng thái: ${t.trangThai} | Hạn: ${deadline} | Người: ${assignee}\n`;
+                if (t.mota) prompt += `   - Mô tả: ${t.mota.substring(0, 100)}${t.mota.length > 100 ? '...' : ''}\n`;
+            });
+            prompt += `\n`;
+        }
+
+        if (context.semanticProjects && context.semanticProjects.length > 0) {
+            prompt += `\n🎯 DỰ ÁN LIÊN QUAN NHẤT (Semantic Search):\n`;
+            context.semanticProjects.forEach((item, i) => {
+                const p = item.project;
+                const score = (item.score * 100).toFixed(1);
+                const pic = p.nguoiDamNhan ? p.nguoiDamNhan.hoten : 'Chưa có';
+                prompt += `${i + 1}. ${p.tenduan} (độ tương đồng: ${score}%)\n`;
+                prompt += `   - PIC: ${pic} | ${p.status}\n`;
+                if (p.mota) prompt += `   - Mô tả: ${p.mota.substring(0, 100)}${p.mota.length > 100 ? '...' : ''}\n`;
+            });
+            prompt += `\n`;
+        }
+
         if (context.users && context.users.length > 0) {
             prompt += this.formatUsersCompact(context.users);
         }
@@ -504,7 +714,8 @@ class AIServiceV2 {
         prompt += `9. Nếu câu hỏi nhắc "vai trò", "teamlead", "leader" hoặc "nhóm của tôi" → mô tả rõ chức vụ hiện tại và các nhóm người dùng đang dẫn dắt/thuộc về.\n`;
         prompt += `10. Đánh dấu những nhóm mà người dùng là leader bằng cụm từ "Bạn phụ trách" trong câu trả lời khi có dữ liệu.\n`;
         prompt += `11. Nếu câu hỏi nhắc "thành viên"/"members" hoặc "nhóm đó" → liệt kê tên từng thành viên trong nhóm liên quan, ưu tiên nhóm mà người dùng đang phụ trách.\n`;
-        prompt += `12. QUAN TRỌNG: Nếu câu hỏi là "Còn cái nào nữa không", "Còn gì khác", "More" → liệt kê NHỮNG DỰ ÁN/TASK KHÁC ngoài những cái đã nhắc trong ngữ cảnh trước.\n\n`;
+        prompt += `12. QUAN TRỌNG: Nếu câu hỏi là "Còn cái nào nữa không", "Còn gì khác", "More" → liệt kê NHỮNG DỰ ÁN/TASK KHÁC ngoài những cái đã nhắc trong ngữ cảnh trước.\n`;
+        prompt += `13. Nếu có kết quả Semantic Search (🎯) → ƯU TIÊN trả lời dựa trên kết quả này vì độ liên quan cao nhất với câu hỏi.\n\n`;
 
         prompt += `CÂU HỎI: ${question}\n\nTRẢ LỜI:`;
 
@@ -592,6 +803,16 @@ class AIServiceV2 {
     generateSmartFallback(question, context, intent) {
         let answer = '';
 
+        // Handle semantic search results first
+        if (context.semanticTasks || context.semanticProjects) {
+            answer = this.handleSemanticSearchResults(context, question);
+            if (answer) return {
+                answer: answer,
+                sources: this.extractSources(context),
+                confidence: 'high'
+            };
+        }
+
         // Handle counting questions
         if (intent.action === 'count') {
             answer = this.handleCountingQuestion(context, question);
@@ -621,6 +842,54 @@ class AIServiceV2 {
             sources: this.extractSources(context),
             confidence: 'medium'
         };
+    }
+
+    handleSemanticSearchResults(context, question) {
+        let answer = `🔍 **KẾT QUẢ TÌM KIẾM CHO: "${question}"**\n\n`;
+        let hasResults = false;
+
+        if (context.semanticTasks && context.semanticTasks.length > 0) {
+            hasResults = true;
+            answer += `📋 **Công việc liên quan (${context.semanticTasks.length}):**\n\n`;
+            context.semanticTasks.forEach((item, i) => {
+                const t = item.task;
+                const score = (item.score * 100).toFixed(1);
+                const deadline = t.ngayKetThuc ? new Date(t.ngayKetThuc).toLocaleDateString('vi-VN') : 'N/A';
+                const assignee = t.nguoiDuocGiao ? t.nguoiDuocGiao.hoten : 'Chưa phân';
+                
+                answer += `${i + 1}. **${t.tentask}** (độ liên quan: ${score}%)\n`;
+                answer += `   - 📌 Trạng thái: ${t.trangThai}\n`;
+                answer += `   - ⏰ Deadline: ${deadline}\n`;
+                answer += `   - 👤 Người thực hiện: ${assignee}\n`;
+                if (t.mota) {
+                    answer += `   - 📝 ${t.mota.substring(0, 150)}${t.mota.length > 150 ? '...' : ''}\n`;
+                }
+                answer += '\n';
+            });
+        }
+
+        if (context.semanticProjects && context.semanticProjects.length > 0) {
+            hasResults = true;
+            answer += `📁 **Dự án liên quan (${context.semanticProjects.length}):**\n\n`;
+            context.semanticProjects.forEach((item, i) => {
+                const p = item.project;
+                const score = (item.score * 100).toFixed(1);
+                const pic = p.nguoiDamNhan ? p.nguoiDamNhan.hoten : 'Chưa có';
+                const start = p.ngaybatdau ? new Date(p.ngaybatdau).toLocaleDateString('vi-VN') : 'N/A';
+                const end = p.ngayketthuc ? new Date(p.ngayketthuc).toLocaleDateString('vi-VN') : 'N/A';
+                
+                answer += `${i + 1}. **${p.tenduan}** (độ liên quan: ${score}%)\n`;
+                answer += `   - 📌 Trạng thái: ${p.status}\n`;
+                answer += `   - 📅 ${start} → ${end}\n`;
+                answer += `   - 👨‍💼 PIC: ${pic}\n`;
+                if (p.mota) {
+                    answer += `   - 📝 ${p.mota.substring(0, 150)}${p.mota.length > 150 ? '...' : ''}\n`;
+                }
+                answer += '\n';
+            });
+        }
+
+        return hasResults ? answer : null;
     }
 
     handleCountingQuestion(context, question) {
