@@ -335,17 +335,18 @@ exports.updateSubtask = async (req, res) => {
         });
 
         // Kiểm tra quyền cập nhật:
-        // 1. Người thực hiện subtask (nguoiThucHienId)
-        // 2. Người giao task cha (nguoiGiaoId)
-        // 3. Người được giao task cha (nguoiDuocGiaoId)
-        // 4. Manager của dự án chứa task này
-        // 5. Admin (đã được kiểm tra ở middleware)
+        // 1. Admin (có quyền toàn bộ)
+        // 2. Người thực hiện subtask (nguoiThucHienId)
+        // 3. Người giao task cha (nguoiGiaoId)
+        // 4. Người được giao task cha (nguoiDuocGiaoId)
+        // 5. Manager của dự án chứa task này
+        const isAdmin = req.user.role?.name === 'admin';
         const isSubtaskAssignee = subtask.nguoiThucHienId === req.user.id;
         const isTaskCreator = subtask.task?.nguoiGiaoId === req.user.id;
         const isTaskAssignee = subtask.task?.nguoiDuocGiaoId === req.user.id;
         const isProjectManager = subtask.task?.duan && subtask.task.duan.userId === req.user.id;
 
-        const canUpdate = isSubtaskAssignee || isTaskCreator || isTaskAssignee || isProjectManager;
+        const canUpdate = isAdmin || isSubtaskAssignee || isTaskCreator || isTaskAssignee || isProjectManager;
 
         if (!canUpdate) {
             console.log('❌ [updateSubtask] Permission denied');
@@ -753,33 +754,3 @@ exports.getGroupSubtasks = async (req, res) => {
         res.status(500).json({ error: 'Lỗi khi lấy danh sách subtasks của nhóm', message: error.message });
     }
 };
-
-// Helper function để cập nhật progress của task
-async function updateTaskProgress(taskId) {
-    try {
-        const subtasks = await Subtask.findAll({ where: { taskId } });
-
-        if (subtasks.length === 0) {
-            await Task.update({ progress: 0 }, { where: { id: taskId } });
-            return;
-        }
-
-        const completedCount = subtasks.filter(st => st.trangThai === 'Hoàn thành').length;
-        const progress = Math.round((completedCount / subtasks.length) * 100);
-
-        // Tự động cập nhật trạng thái task dựa vào progress
-        let status = 'Chưa bắt đầu';
-        if (progress === 100) {
-            status = 'Hoàn thành';
-        } else if (progress > 0) {
-            status = 'Đang chạy';
-        }
-
-        await Task.update({
-            progress,
-            trangThai: status
-        }, { where: { id: taskId } });
-    } catch (error) {
-        console.error('Update task progress error:', error);
-    }
-}
