@@ -44,12 +44,12 @@ class EmailService {
                         </p>
                         
                         <div style="text-align: center; margin: 30px 0;">
-                            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}" 
+                            <a href="${'https://taskhadflow.nibies.space'}" 
                                style="background-color: #28a745; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
                                 ✅ Chấp nhận công việc
                             </a>
                             <span style="margin: 0 10px;">hoặc</span>
-                            <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}" 
+                            <a href="${'https://taskhadflow.nibies.space'}" 
                                style="background-color: #dc3545; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
                                 ❌ Từ chối công việc
                             </a>
