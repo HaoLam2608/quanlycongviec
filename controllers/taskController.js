@@ -1,5 +1,6 @@
 const { Task, Subtask, User, DuAn, Assignment } = require('../models');
 const { Op } = require('sequelize');
+const emailService = require('../services/emailService');
 
 // Lấy tasks theo Kanban view (nhóm theo trạng thái)
 exports.getKanbanTasks = async (req, res) => {
@@ -311,6 +312,28 @@ exports.createTask = async (req, res) => {
             });
 
             console.log(`✅ Created assignment for task ${newTask.id} to user ${nguoiDuocGiaoId}`);
+
+            // Gửi email thông báo
+            try {
+                const assignee = await User.findByPk(nguoiDuocGiaoId, {
+                    attributes: ['hoten', 'manv', 'email']
+                });
+
+                if (assignee && assignee.email) {
+                    await emailService.sendAssignmentNotification(
+                        assignee.email,
+                        assignee.hoten || assignee.manv,
+                        tentask,
+                        req.user.hoten || req.user.manv
+                    );
+                    console.log(`📧 Assignment email sent to: ${assignee.email}`);
+                } else {
+                    console.log('📧 Assignee email not found, skipping email notification');
+                }
+            } catch (emailError) {
+                console.error('📧 Error sending assignment email:', emailError);
+                // Không fail request nếu email lỗi
+            }
         }
 
         // Lấy thông tin đầy đủ của task vừa tạo
