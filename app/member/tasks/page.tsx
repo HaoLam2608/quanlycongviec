@@ -670,7 +670,6 @@ export default function MyTasksPage() {
                                                             <>
                                                                 <div className="flex items-center gap-2">
                                                                     <span className="text-gray-500">📋 Công việc chính:</span>
-                                                                    <span className="text-gray-500">📋 Công việc chính:</span>
                                                                     <span className="font-medium">{ai.item.task.tentask}</span>
                                                                 </div>
                                                                 {ai.item.task.duan && (
@@ -681,7 +680,6 @@ export default function MyTasksPage() {
                                                                 )}
                                                                 {ai.item.task.nguoiGiao && (
                                                                     <div className="flex items-center gap-2">
-                                                                        <span className="text-gray-500">👤 Người giao:</span>
                                                                         <span className="text-gray-500">👤 Người giao:</span>
                                                                         <span>{ai.item.task.nguoiGiao.hoten} ({ai.item.task.nguoiGiao.manv})</span>
                                                                     </div>
